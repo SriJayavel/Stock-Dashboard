@@ -41,15 +41,50 @@ def load_companies_catalog() -> pd.DataFrame:
 @st.cache_data(ttl=1800, show_spinner=False)
 def search_global_assets(query: str) -> list[dict]:
     """
-    Search the entire world market using Yahoo Finance global search and local catalog.
+    Search the entire world market using Yahoo Finance global search, priority macro index, and local catalog.
     """
     if not query or len(query.strip()) < 1:
         return []
 
     results = []
     cleaned_query = query.strip()
+    q_lower = cleaned_query.lower()
 
-    # 1. Check local catalog first
+    # 1. Instant priority macro & benchmark assets
+    popular_universe = [
+        {"symbol": "^NSEI", "name": "NIFTY 50", "type": "Index • NSE", "exchange": "NSE", "keys": ["nifty", "nifty 50", "nifty50"]},
+        {"symbol": "^BSESN", "name": "BSE SENSEX", "type": "Index • BSE", "exchange": "BSE", "keys": ["sensex", "bsesn", "bse"]},
+        {"symbol": "^NSEBANK", "name": "BANK NIFTY", "type": "Index • NSE", "exchange": "NSE", "keys": ["bank nifty", "banknifty"]},
+        {"symbol": "^GSPC", "name": "S&P 500", "type": "Index • US", "exchange": "S&P", "keys": ["sp500", "s&p", "s&p 500", "spx"]},
+        {"symbol": "^IXIC", "name": "NASDAQ Composite", "type": "Index • US", "exchange": "NASDAQ", "keys": ["nasdaq", "ndx", "ixic"]},
+        {"symbol": "BTC-USD", "name": "Bitcoin USD", "type": "Crypto • Global", "exchange": "Crypto", "keys": ["btc", "bitcoin", "btc-usd"]},
+        {"symbol": "ETH-USD", "name": "Ethereum USD", "type": "Crypto • Global", "exchange": "Crypto", "keys": ["eth", "ethereum", "eth-usd"]},
+        {"symbol": "SOL-USD", "name": "Solana USD", "type": "Crypto • Global", "exchange": "Crypto", "keys": ["sol", "solana"]},
+        {"symbol": "GC=F", "name": "Gold Futures", "type": "Commodity • COMEX", "exchange": "COMEX", "keys": ["gold", "gc=f", "xau"]},
+        {"symbol": "SI=F", "name": "Silver Futures", "type": "Commodity • COMEX", "exchange": "COMEX", "keys": ["silver", "si=f", "xag"]},
+        {"symbol": "CL=F", "name": "Crude Oil WTI", "type": "Commodity • NYMEX", "exchange": "NYMEX", "keys": ["oil", "crude", "crude oil", "wti"]},
+        {"symbol": "NVDA", "name": "NVIDIA Corporation", "type": "Stock • NASDAQ", "exchange": "NASDAQ", "keys": ["nvda", "nvidia"]},
+        {"symbol": "AAPL", "name": "Apple Inc.", "type": "Stock • NASDAQ", "exchange": "NASDAQ", "keys": ["aapl", "apple"]},
+        {"symbol": "MSFT", "name": "Microsoft Corporation", "type": "Stock • NASDAQ", "exchange": "NASDAQ", "keys": ["msft", "microsoft"]},
+        {"symbol": "GOOGL", "name": "Alphabet Inc. (Google)", "type": "Stock • NASDAQ", "exchange": "NASDAQ", "keys": ["googl", "google", "alphabet"]},
+        {"symbol": "AMZN", "name": "Amazon.com Inc.", "type": "Stock • NASDAQ", "exchange": "NASDAQ", "keys": ["amzn", "amazon"]},
+        {"symbol": "META", "name": "Meta Platforms Inc.", "type": "Stock • NASDAQ", "exchange": "NASDAQ", "keys": ["meta", "facebook"]},
+        {"symbol": "TSLA", "name": "Tesla Inc.", "type": "Stock • NASDAQ", "exchange": "NASDAQ", "keys": ["tsla", "tesla"]},
+        {"symbol": "RELIANCE.NS", "name": "Reliance Industries Limited", "type": "Stock • NSE", "exchange": "NSE", "keys": ["reliance", "ril"]},
+        {"symbol": "TCS.NS", "name": "Tata Consultancy Services", "type": "Stock • NSE", "exchange": "NSE", "keys": ["tcs", "tata consultancy"]},
+        {"symbol": "HDFCBANK.NS", "name": "HDFC Bank Limited", "type": "Stock • NSE", "exchange": "NSE", "keys": ["hdfc", "hdfc bank"]},
+        {"symbol": "INFY.NS", "name": "Infosys Limited", "type": "Stock • NSE", "exchange": "NSE", "keys": ["infy", "infosys"]},
+    ]
+    for item in popular_universe:
+        if q_lower in item["symbol"].lower() or any(q_lower in k for k in item["keys"]):
+            results.append({
+                "symbol": item["symbol"],
+                "name": item["name"],
+                "type": item["type"],
+                "exchange": item["exchange"],
+            })
+
+    # 2. Check local catalog
     catalog = load_companies_catalog()
     if not catalog.empty and "NAME OF COMPANY" in catalog.columns:
         local_matches = catalog[
@@ -57,14 +92,16 @@ def search_global_assets(query: str) -> list[dict]:
             | catalog["NAME OF COMPANY"].str.contains(cleaned_query, case=False, na=False)
         ].head(5)
         for _, row in local_matches.iterrows():
-            results.append({
-                "symbol": f"{row['SYMBOL']}.NS",
-                "name": row["NAME OF COMPANY"],
-                "type": "Stock (NSE)",
-                "exchange": "NSE",
-            })
+            sym = f"{row['SYMBOL']}.NS"
+            if not any(r["symbol"] == sym for r in results):
+                results.append({
+                    "symbol": sym,
+                    "name": row["NAME OF COMPANY"],
+                    "type": "Stock (NSE)",
+                    "exchange": "NSE",
+                })
 
-    # 2. Query Yahoo Global Asset Directory
+    # 3. Query Yahoo Global Asset Directory
     try:
         search_obj = yf.Search(cleaned_query, max_results=8)
         for q in getattr(search_obj, "quotes", []):
@@ -201,6 +238,27 @@ def get_global_market_indices() -> list[dict]:
     return results
 
 
+def safe_fast_get(fast_obj, key: str, default=None):
+    """Safely extract value from yfinance FastInfo object without throwing TypeError."""
+    if fast_obj is None:
+        return default
+    try:
+        if hasattr(fast_obj, "get"):
+            v = fast_obj.get(key)
+            if v is not None:
+                return v
+    except Exception:
+        pass
+    try:
+        if hasattr(fast_obj, key):
+            v = getattr(fast_obj, key)
+            if v is not None:
+                return v
+    except Exception:
+        pass
+    return default
+
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_company_overview(symbol: str) -> dict:
     """
@@ -215,26 +273,37 @@ def get_company_overview(symbol: str) -> dict:
     except Exception:
         info = {}
 
-    fast = getattr(ticker, "fast_info", {})
+    fast = getattr(ticker, "fast_info", None)
 
     # Extract price info safely
     regular_price = (
         info.get("currentPrice")
         or info.get("regularMarketPrice")
-        or (fast.get("lastPrice") if hasattr(fast, "get") else None)
+        or safe_fast_get(fast, "lastPrice")
+        or safe_fast_get(fast, "last_price")
         or info.get("previousClose")
-        or 0.0
     )
+    if not regular_price:
+        try:
+            h = ticker.history(period="5d")
+            if not h.empty and "Close" in h.columns:
+                regular_price = float(h["Close"].dropna().iloc[-1])
+        except Exception:
+            pass
+    if not regular_price:
+        regular_price = 0.0
+
     prev_close = (
         info.get("regularMarketPreviousClose")
         or info.get("previousClose")
-        or (fast.get("previousClose") if hasattr(fast, "get") else None)
+        or safe_fast_get(fast, "previousClose")
+        or safe_fast_get(fast, "previous_close")
         or regular_price
     )
     price_change = regular_price - prev_close if regular_price and prev_close else 0.0
     price_change_pct = (price_change / prev_close * 100) if prev_close else 0.0
 
-    currency = info.get("currency") or (fast.get("currency") if hasattr(fast, "get") else None) or "USD"
+    currency = info.get("currency") or safe_fast_get(fast, "currency") or "USD"
     currency_symbol = (
         "₹" if currency == "INR"
         else ("$" if currency == "USD"
@@ -245,7 +314,7 @@ def get_company_overview(symbol: str) -> dict:
     )
 
     # Format market cap
-    raw_mcap = info.get("marketCap") or (fast.get("marketCap") if hasattr(fast, "get") else None)
+    raw_mcap = info.get("marketCap") or safe_fast_get(fast, "marketCap") or safe_fast_get(fast, "market_cap")
     mcap_display = "—"
     if raw_mcap and raw_mcap > 0:
         if currency == "INR":
@@ -322,8 +391,8 @@ def get_company_overview(symbol: str) -> dict:
         "dividend_yield": (info.get("dividendYield") * 100) if info.get("dividendYield") else None,
 
         # 52-Week Range
-        "high_52w": info.get("fiftyTwoWeekHigh") or (fast.get("yearHigh") if hasattr(fast, "get") else None),
-        "low_52w": info.get("fiftyTwoWeekLow") or (fast.get("yearLow") if hasattr(fast, "get") else None),
+        "high_52w": info.get("fiftyTwoWeekHigh") or safe_fast_get(fast, "yearHigh") or safe_fast_get(fast, "year_high"),
+        "low_52w": info.get("fiftyTwoWeekLow") or safe_fast_get(fast, "yearLow") or safe_fast_get(fast, "year_low"),
 
         # Profitability & Returns
         "roe": (info.get("returnOnEquity") * 100) if info.get("returnOnEquity") else None,
