@@ -6,6 +6,7 @@ Covers: Indian Equities, US Wall Street, Global Indices, Crypto, Commodities, an
 
 import sys
 import os
+import textwrap
 from pathlib import Path
 
 # Ensure project root is in sys.path for Streamlit Cloud containers
@@ -39,8 +40,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+def render_html(html_str: str):
+    """Render HTML safely without indentation causing markdown code-block triggers."""
+    st.markdown(textwrap.dedent(html_str).strip(), unsafe_allow_html=True)
+
+
 # 2. Modern Dark Terminal CSS
-st.markdown(
+render_html(
     """
     <style>
     /* Global Background and Typography */
@@ -144,8 +150,7 @@ st.markdown(
         color: #64748b;
     }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 # 3. Session State
@@ -158,20 +163,19 @@ if "watchlist" not in st.session_state:
 # 4. Top Live Market Ticker Tape (TradingView-Style)
 global_indices = get_global_market_indices()
 if global_indices:
-    tape_html = "<div class='ticker-tape-container'>"
+    tape_items = []
     for item in global_indices:
         chg = item["change_pct"]
         color = "#10b981" if chg >= 0 else "#ef4444"
         sign = "+" if chg >= 0 else ""
-        tape_html += f"""
-        <div class='ticker-pill'>
-            <span class='ticker-name'>{item['name']}</span>
-            <span class='ticker-val'>{item['price']:,.2f}</span>
-            <span style='color:{color}; font-weight:600;'>{sign}{chg:.2f}%</span>
-        </div>
-        """
-    tape_html += "</div>"
-    st.markdown(tape_html, unsafe_allow_html=True)
+        tape_items.append(
+            f"<div class='ticker-pill'>"
+            f"<span class='ticker-name'>{item['name']}</span>"
+            f"<span class='ticker-val'>{item['price']:,.2f}</span>"
+            f"<span style='color:{color}; font-weight:600;'>{sign}{chg:.2f}%</span>"
+            f"</div>"
+        )
+    st.markdown(f"<div class='ticker-tape-container'>{''.join(tape_items)}</div>", unsafe_allow_html=True)
 
 
 # 5. Header & Global Search Bar
@@ -203,7 +207,6 @@ with col_search:
                 st.session_state["selected_symbol"] = chosen_symbol
                 st.rerun()
         else:
-            # Direct match fallback
             if st.button(f"Analyze '{search_query.upper()}' directly", use_container_width=False):
                 st.session_state["selected_symbol"] = resolve_symbol(search_query)
                 st.rerun()
@@ -247,7 +250,7 @@ with col_title:
     change_color = "#10b981" if change >= 0 else "#ef4444"
     sign = "+" if change >= 0 else ""
 
-    st.markdown(
+    render_html(
         f"""
         <div style="display:flex; align-items:baseline; gap:12px; margin-top:8px;">
             <h2 style="margin:0; font-weight:800; color:#f8fafc;">{overview.get('name')}</h2>
@@ -258,8 +261,7 @@ with col_title:
             <span style="font-size:32px; font-weight:800; color:#ffffff;">{curr_sym_char}{curr_price:,.2f}</span>
             <span style="font-size:18px; font-weight:600; color:{change_color};">{sign}{change:,.2f} ({sign}{change_pct:.2f}%)</span>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 with col_actions:
@@ -276,7 +278,7 @@ with col_actions:
 
 
 # KPI Summary Cards
-st.markdown(
+render_html(
     f"""
     <div class="kpi-container">
         <div class="kpi-card">
@@ -312,8 +314,7 @@ st.markdown(
             <div class="kpi-sub">Balance Sheet Health</div>
         </div>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
@@ -397,7 +398,7 @@ with tab_tech:
             for i, obs in enumerate(observations):
                 target_col = obs_col1 if i % 2 == 0 else obs_col2
                 with target_col:
-                    st.markdown(
+                    render_html(
                         f"""
                         <div class="obs-card" style="border-left-color: {obs['color']};">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -407,8 +408,7 @@ with tab_tech:
                             <div style="font-size:13px; color:#cbd5e1; margin-top:6px;">{obs['detail']}</div>
                             <div style="font-size:11px; color:#64748b; margin-top:4px;">Reference: {obs['value']}</div>
                         </div>
-                        """,
-                        unsafe_allow_html=True,
+                        """
                     )
 
         # Key Moving Average Levels
@@ -552,7 +552,7 @@ with tab_news:
     articles = get_stock_news(current_sym)
     if articles:
         for item in articles:
-            st.markdown(
+            render_html(
                 f"""
                 <div style="background:#141824; border:1px solid #1e293b; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
@@ -562,8 +562,7 @@ with tab_news:
                     <div style="font-size:15px; font-weight:600; color:#f8fafc; margin-bottom:6px;">{item['title']}</div>
                     <a href="{item['link']}" target="_blank" style="color:#00e5ff; text-decoration:none; font-size:13px; font-weight:500;">Read Full Coverage ↗</a>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """
             )
     else:
         st.info(f"No recent news articles found for '{current_sym}'.")
@@ -604,13 +603,12 @@ with tab_watchlist:
 
 
 # 8. Disclaimer Footer
-st.markdown(
+render_html(
     """
     <div class="disclaimer-box">
         <strong>LEGAL & REGULATORY DISCLAIMER:</strong> This terminal is designed strictly for financial research, education, and quantitative analysis.
         <strong>Analyze everything. Trade nothing.</strong> It does not execute orders, handle brokerage transactions, or provide investment recommendations.
         Always consult a licensed financial professional before making investment decisions.
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
