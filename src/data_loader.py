@@ -135,10 +135,11 @@ def resolve_symbol(query: str) -> str:
     return cleaned
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_global_market_indices() -> list[dict]:
     """
     Get live snapshot of major world indices & benchmark assets for the top ticker tape.
+    Uses batch fetching with instant fallback so startup is lightning-fast and never blocks.
     """
     indices = [
         {"symbol": "^NSEI", "name": "NIFTY 50", "region": "🇮🇳 India"},
@@ -153,25 +154,32 @@ def get_global_market_indices() -> list[dict]:
     ]
 
     results = []
-    for item in indices:
-        try:
-            t = yf.Ticker(item["symbol"])
-            fast = getattr(t, "fast_info", None)
-            if fast:
-                last = fast.get("lastPrice") or 0.0
-                prev = fast.get("previousClose") or last
-                chg = last - prev if last and prev else 0.0
-                chg_pct = (chg / prev * 100) if prev else 0.0
-                results.append({
-                    "symbol": item["symbol"],
-                    "name": item["name"],
-                    "region": item["region"],
-                    "price": last,
-                    "change": chg,
-                    "change_pct": chg_pct,
-                })
-        except Exception:
-            continue
+    try:
+        sym_str = " ".join([item["symbol"] for item in indices])
+        batch = yf.Tickers(sym_str)
+        for item in indices:
+            try:
+                t = batch.tickers.get(item["symbol"])
+                if not t:
+                    continue
+                fast = getattr(t, "fast_info", None)
+                if fast:
+                    last = fast.get("lastPrice") or 0.0
+                    prev = fast.get("previousClose") or last
+                    chg = last - prev if last and prev else 0.0
+                    chg_pct = (chg / prev * 100) if prev else 0.0
+                    results.append({
+                        "symbol": item["symbol"],
+                        "name": item["name"],
+                        "region": item["region"],
+                        "price": last,
+                        "change": chg,
+                        "change_pct": chg_pct,
+                    })
+            except Exception:
+                continue
+    except Exception:
+        pass
 
     return results
 

@@ -4,6 +4,15 @@ Global Market Analysis Platform inspired by TradingView.
 Covers: Indian Equities, US Wall Street, Global Indices, Crypto, Commodities, and Forex.
 """
 
+import sys
+import os
+from pathlib import Path
+
+# Ensure project root is in sys.path for Streamlit Cloud containers
+root_path = Path(__file__).resolve().parent
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
+
 import streamlit as st
 import pandas as pd
 import numpy as np
