@@ -15,16 +15,18 @@ def get_tradingview_symbol(symbol: str) -> str:
     """Map global ticker to TradingView symbol syntax."""
     s = str(symbol).strip().upper()
     if s.endswith(".NS"):
-        return f"NSE:{s.replace('.NS', '')}"
+        clean = s.replace(".NS", "")
+        return f"BSE:{clean}"
     if s.endswith(".BO"):
-        return f"BSE:{s.replace('.BO', '')}"
-    if s == "^NSEI":
-        return "NSE:NIFTY"
-    if s == "^BSESN":
+        clean = s.replace(".BO", "")
+        return f"BSE:{clean}"
+    if s in {"^NSEI", "NIFTY"}:
         return "BSE:SENSEX"
-    if s == "^GSPC":
+    if s in {"^BSESN", "SENSEX"}:
+        return "BSE:SENSEX"
+    if s in {"^GSPC", "SP500"}:
         return "FOREXCOM:SPXUSD"
-    if s == "^IXIC":
+    if s in {"^IXIC", "NASDAQ"}:
         return "NASDAQ:NDX"
     if s == "BTC-USD":
         return "BINANCE:BTCUSDT"
@@ -47,34 +49,48 @@ def get_tradingview_widget_html(symbol: str) -> str:
     Includes full TradingView tools, multi-timeframes, technical indicators, and dark theme.
     """
     tv_symbol = get_tradingview_symbol(symbol)
+    container_id = f"tv_{symbol.replace('.', '_').replace('^', '').replace('-', '_')}_{abs(hash(symbol)) % 10000}"
     html_code = f"""
-    <div class="tradingview-widget-container" style="height:620px; width:100%;">
-      <div id="tradingview_advanced_chart" style="height:100%; width:100%;"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-      <script type="text/javascript">
-      new TradingView.widget({{
-        "autosize": true,
-        "symbol": "{tv_symbol}",
-        "interval": "D",
-        "timezone": "exchange",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "toolbar_bg": "#131722",
-        "enable_publishing": false,
-        "hide_top_toolbar": false,
-        "hide_legend": false,
-        "save_image": true,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "container_id": "tradingview_advanced_chart",
-        "studies": [
-          "MASimple@tv-basicstudies",
-          "RSI@tv-basicstudies"
-        ]
-      }});
-      </script>
-    </div>
+    <!DOCTYPE html>
+    <html style="height:100%; margin:0; padding:0; background:#131722;">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        * {{ margin:0; padding:0; box-sizing:border-box; }}
+        body {{ height:100%; background:#131722; overflow:hidden; }}
+        .tradingview-widget-container {{ height:100%; width:100%; }}
+      </style>
+    </head>
+    <body>
+      <div class="tradingview-widget-container">
+        <div id="{container_id}" style="height:100%; width:100%;"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+        <script type="text/javascript">
+        new TradingView.widget({{
+          "autosize": true,
+          "symbol": "{tv_symbol}",
+          "interval": "D",
+          "timezone": "exchange",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "toolbar_bg": "#131722",
+          "enable_publishing": false,
+          "hide_top_toolbar": false,
+          "hide_legend": false,
+          "save_image": true,
+          "hide_side_toolbar": false,
+          "allow_symbol_change": true,
+          "container_id": "{container_id}",
+          "studies": [
+            "MASimple@tv-basicstudies",
+            "RSI@tv-basicstudies"
+          ]
+        }});
+        </script>
+      </div>
+    </body>
+    </html>
     """
     return html_code
 

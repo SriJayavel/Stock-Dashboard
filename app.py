@@ -47,34 +47,42 @@ def render_html(html_str: str):
     st.markdown(textwrap.dedent(html_str).strip(), unsafe_allow_html=True)
 
 
-# 2. Sleek Pro Terminal CSS
+# 2. TradingView-Matched Sleek Pro Terminal CSS
 render_html(
     """
     <style>
-    /* Global Background and Typography */
+    /* Global TradingView Background and Typography */
     .stApp {
-        background-color: #090d16;
-        color: #e2e8f0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, -apple-system, sans-serif;
+        background-color: #131722 !important;
+        color: #d1d4dc !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif !important;
+    }
+    header[data-testid="stHeader"] {
+        background-color: #131722 !important;
+    }
+    div.block-container {
+        padding-top: 1.2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 98% !important;
     }
 
-    /* Top Ticker Tape (TradingView Style) */
+    /* Top Ticker Tape (TradingView Exact Style) */
     .ticker-tape-container {
         display: flex;
         overflow-x: auto;
-        gap: 10px;
+        gap: 8px;
         padding: 6px 0;
-        margin-bottom: 16px;
-        border-bottom: 1px solid #161f30;
+        margin-bottom: 14px;
+        border-bottom: 1px solid #2a2e39;
         white-space: nowrap;
-        min-height: 40px;
+        min-height: 38px;
         contain: layout style;
     }
     .ticker-pill {
-        background: #111726;
-        border: 1px solid #1c273c;
+        background: #1e222d;
+        border: 1px solid #2a2e39;
         border-radius: 4px;
-        padding: 4px 10px;
+        padding: 3px 10px;
         display: inline-flex;
         align-items: center;
         gap: 8px;
@@ -84,56 +92,57 @@ render_html(
     }
     .ticker-name {
         font-weight: 700;
-        color: #f1f5f9;
+        color: #ffffff;
         letter-spacing: 0.02em;
     }
     .ticker-val {
-        color: #94a3b8;
+        color: #d1d4dc;
     }
 
-    /* KPI Summary Cards */
+    /* KPI Summary Cards (TradingView Panel Style) */
     .kpi-container {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 20px;
-        min-height: 88px;
+        gap: 10px;
+        margin-bottom: 18px;
+        min-height: 84px;
         contain: layout;
     }
     .kpi-card {
-        background: #101624;
-        border: 1px solid #1b2538;
-        border-radius: 6px;
-        padding: 12px 16px;
-        flex: 1 1 170px;
-        min-height: 80px;
+        background: #1e222d;
+        border: 1px solid #2a2e39;
+        border-radius: 4px;
+        padding: 10px 14px;
+        flex: 1 1 160px;
+        min-height: 76px;
         box-sizing: border-box;
     }
     .kpi-label {
         font-size: 11px;
         font-weight: 600;
-        color: #64748b;
+        color: #787b86;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 4px;
     }
     .kpi-value {
-        font-size: 19px;
+        font-size: 18px;
         font-weight: 700;
-        color: #f8fafc;
+        color: #ffffff;
     }
     .kpi-sub {
         font-size: 11px;
         margin-top: 3px;
-        color: #64748b;
+        color: #787b86;
     }
 
-    /* Header Badges */
+    /* TradingView Badges */
     .terminal-badge {
-        background: #162032;
-        color: #38bdf8;
+        background: #2a2e39;
+        color: #2962ff;
+        border: 1px solid #363a45;
         padding: 2px 7px;
-        border-radius: 4px;
+        border-radius: 3px;
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -141,46 +150,144 @@ render_html(
 
     /* Observation Cards */
     .obs-card {
-        background: #101624;
-        border-left: 3px solid #38bdf8;
+        background: #1e222d;
+        border: 1px solid #2a2e39;
+        border-left: 3px solid #2962ff;
         border-radius: 4px;
         padding: 10px 14px;
         margin-bottom: 8px;
     }
 
-    /* Pro Segmented Control Tabs (Completely Hide Ugly Radio Circles) */
-    div[data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child {
+    /* Pro Segmented Control Tabs — 100% Elimination of Radio Circles */
+    div[data-testid="stRadio"] label > div:first-child,
+    div[data-testid="stRadio"] label div[data-testid="stRadioButton"],
+    div[data-testid="stRadio"] label div[data-baseweb="radio"] > div:first-child,
+    div[data-testid="stRadio"] label div[class*="st-"] > div:first-child,
+    div[data-testid="stRadio"] label input[type="radio"],
+    div[data-testid="stRadio"] label svg {
         display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+        position: absolute !important;
+        pointer-events: none !important;
     }
     div[data-testid="stRadio"] div[role="radiogroup"] {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        background: transparent;
-        border-bottom: 1px solid #1c273c;
-        padding-bottom: 8px;
-        margin-bottom: 16px;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 5px !important;
+        background: transparent !important;
+        border-bottom: 1px solid #2a2e39 !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 14px !important;
     }
-    div[data-testid="stRadio"] div[role="radiogroup"] > label {
-        background: #111726;
-        border: 1px solid #1c273c;
-        border-radius: 4px;
-        padding: 6px 14px;
-        color: #94a3b8;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.12s ease;
+    div[data-testid="stRadio"] div[role="radiogroup"] label {
+        background: #1e222d !important;
+        border: 1px solid #2a2e39 !important;
+        border-radius: 4px !important;
+        padding: 6px 14px !important;
+        color: #787b86 !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+        transition: all 0.12s ease !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        user-select: none !important;
+        margin: 0 !important;
     }
-    div[data-testid="stRadio"] div[role="radiogroup"] > label:hover {
-        color: #f8fafc;
-        border-color: #38bdf8;
-        background: #162032;
+    div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
+        background: #2a2e39 !important;
+        border-color: #363a45 !important;
+        color: #d1d4dc !important;
     }
-    div[data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) {
-        background: #1e293b !important;
-        border-color: #00e5ff !important;
-        color: #00e5ff !important;
+    div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked),
+    div[data-testid="stRadio"] div[role="radiogroup"] label[data-checked="true"] {
+        background: #2a2e39 !important;
+        border-color: #2962ff !important;
+        color: #2962ff !important;
+        box-shadow: inset 0 -2px 0 #2962ff !important;
+    }
+    div[data-testid="stRadio"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+        color: inherit !important;
+        font-size: 12px !important;
+        font-weight: inherit !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* TradingView Buttons */
+    div.stButton > button {
+        background-color: #1e222d !important;
+        border: 1px solid #2a2e39 !important;
+        border-radius: 4px !important;
+        color: #d1d4dc !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        padding: 5px 12px !important;
+        transition: all 0.12s ease !important;
+    }
+    div.stButton > button:hover {
+        background-color: #2a2e39 !important;
+        border-color: #363a45 !important;
+        color: #ffffff !important;
+    }
+    div.stButton > button:focus,
+    div.stButton > button:active {
+        border-color: #2962ff !important;
+        box-shadow: 0 0 0 1px #2962ff !important;
+    }
+
+    /* TradingView Search Input */
+    div[data-testid="stTextInput"] input {
+        background-color: #1e222d !important;
+        border: 1px solid #2a2e39 !important;
+        border-radius: 4px !important;
+        color: #ffffff !important;
+        font-size: 13px !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: #2962ff !important;
+        box-shadow: 0 0 0 1px #2962ff !important;
+    }
+    div[data-testid="stTextInput"] input::placeholder {
+        color: #787b86 !important;
+    }
+
+    /* Selectboxes */
+    div[data-testid="stSelectbox"] > div > div {
+        background-color: #1e222d !important;
+        border: 1px solid #2a2e39 !important;
+        border-radius: 4px !important;
+        color: #d1d4dc !important;
+    }
+
+    /* Sub-Tabs */
+    div[data-baseweb="tab-list"] {
+        background-color: transparent !important;
+        border-bottom: 1px solid #2a2e39 !important;
+        gap: 6px !important;
+    }
+    div[data-baseweb="tab"] {
+        background-color: transparent !important;
+        color: #787b86 !important;
+        border: none !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        padding: 6px 12px !important;
+    }
+    div[data-baseweb="tab"]:hover {
+        color: #d1d4dc !important;
+    }
+    div[data-baseweb="tab"][aria-selected="true"] {
+        color: #2962ff !important;
+        border-bottom: 2px solid #2962ff !important;
+        font-weight: 600 !important;
     }
 
     /* Plotly Chart Container */
@@ -189,14 +296,14 @@ render_html(
         contain: layout;
     }
 
-    /* Minimalist Footer */
+    /* Minimalist TradingView Footer */
     .terminal-footer {
-        margin-top: 40px;
+        margin-top: 36px;
         padding: 12px 18px;
-        border-top: 1px solid #161f30;
+        border-top: 1px solid #2a2e39;
         text-align: center;
         font-size: 11px;
-        color: #475569;
+        color: #787b86;
     }
     </style>
     """
@@ -215,7 +322,7 @@ if global_indices:
     tape_items = []
     for item in global_indices:
         chg = item["change_pct"]
-        color = "#00c076" if chg >= 0 else "#ff3b5c"
+        color = "#089981" if chg >= 0 else "#f23645"
         sign = "+" if chg >= 0 else ""
         tape_items.append(
             f"<div class='ticker-pill'>"
@@ -234,9 +341,9 @@ with col_brand:
     st.markdown(
         """
         <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:18px; font-weight:800; letter-spacing:0.04em; color:#f8fafc;">APEX <span style="color:#00e5ff;">TERMINAL</span></span>
+            <span style="font-size:18px; font-weight:800; letter-spacing:0.04em; color:#ffffff;">APEX <span style="color:#2962ff;">TERMINAL</span></span>
         </div>
-        <div style="font-size:11px; color:#64748b; margin-top:2px;">Institutional market research. Zero trade execution.</div>
+        <div style="font-size:11px; color:#787b86; margin-top:2px;">Institutional market research. Zero trade execution.</div>
         """,
         unsafe_allow_html=True,
     )
@@ -252,7 +359,7 @@ with col_search_box:
 if query and len(query.strip()) >= 1:
     matches = search_global_assets(query)
     if matches:
-        st.markdown("<div style='font-size:11px; color:#64748b; margin-top:4px;'>Matches:</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:11px; color:#787b86; margin-top:4px;'>Matches:</div>", unsafe_allow_html=True)
         res_cols = st.columns(min(len(matches), 5))
         for idx, m in enumerate(matches[:5]):
             btn_text = f"{m['symbol']} ({m['name'][:18]})"
@@ -295,15 +402,15 @@ with col_header:
     curr_sym_char = overview.get("currency_symbol", "$")
     change = overview.get("change", 0.0)
     change_pct = overview.get("change_pct", 0.0)
-    change_color = "#00c076" if change >= 0 else "#ff3b5c"
+    change_color = "#089981" if change >= 0 else "#f23645"
     sign = "+" if change >= 0 else ""
 
     render_html(
         f"""
         <div style="display:flex; align-items:baseline; gap:10px; margin-top:10px;">
-            <h2 style="margin:0; font-size:24px; font-weight:800; color:#f8fafc;">{overview.get('name')}</h2>
+            <h2 style="margin:0; font-size:24px; font-weight:800; color:#ffffff;">{overview.get('name')}</h2>
             <span class="terminal-badge">{overview.get('symbol')}</span>
-            <span style="font-size:12px; color:#64748b;">{overview.get('sector')} • {overview.get('industry')}</span>
+            <span style="font-size:12px; color:#787b86;">{overview.get('sector')} • {overview.get('industry')}</span>
         </div>
         <div style="display:flex; align-items:baseline; gap:12px; margin-top:4px;">
             <span style="font-size:30px; font-weight:800; color:#ffffff;">{curr_sym_char}{curr_price:,.2f}</span>
@@ -434,7 +541,7 @@ if active_tab == "Chart":
     if chart_mode == "TradingView Real-Time":
         # Official TradingView Advanced Interactive Chart with full drawing tools, timeframes, and indicators
         tv_html = get_tradingview_widget_html(current_sym)
-        components.html(tv_html, height=640)
+        components.html(tv_html, height=640, key=f"tv_chart_{current_sym}")
     else:
         # Custom TradingView-Styled Plotly Chart with right-side scale
         tool_col1, tool_col2, tool_col3 = st.columns([2, 1.5, 4.5])
@@ -661,13 +768,13 @@ elif active_tab == "News Feed":
         for item in articles:
             render_html(
                 f"""
-                <div style="background:#101624; border:1px solid #1b2538; border-radius:6px; padding:12px 16px; margin-bottom:10px;">
+                <div style="background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:12px 16px; margin-bottom:10px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span style="font-size:11px; font-weight:600; color:#38bdf8;">{item['publisher']}</span>
-                        <span style="font-size:11px; color:#64748b;">{item['time']}</span>
+                        <span style="font-size:11px; font-weight:600; color:#2962ff;">{item['publisher']}</span>
+                        <span style="font-size:11px; color:#787b86;">{item['time']}</span>
                     </div>
-                    <div style="font-size:14px; font-weight:600; color:#f8fafc; margin-bottom:4px;">{item['title']}</div>
-                    <a href="{item['link']}" target="_blank" style="color:#00e5ff; text-decoration:none; font-size:12px; font-weight:500;">Read Article ↗</a>
+                    <div style="font-size:14px; font-weight:600; color:#ffffff; margin-bottom:4px;">{item['title']}</div>
+                    <a href="{item['link']}" target="_blank" style="color:#2962ff; text-decoration:none; font-size:12px; font-weight:500;">Read Article ↗</a>
                 </div>
                 """
             )
