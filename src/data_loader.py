@@ -80,6 +80,30 @@ def get_searchable_asset_catalog() -> list[dict]:
         {"symbol": "JPM", "label": "JPM — JPMorgan Chase & Co. (NYSE)", "name": "JPMorgan"},
         {"symbol": "V", "label": "V — Visa Inc. (NYSE)", "name": "Visa"},
         {"symbol": "WMT", "label": "WMT — Walmart Inc. (NYSE)", "name": "Walmart"},
+        # Foreign European, Asian, & UK Indices
+        {"symbol": "^FTSE", "label": "^FTSE — FTSE 100 Index (London, UK)", "name": "FTSE 100"},
+        {"symbol": "^N225", "label": "^N225 — Nikkei 225 Index (Tokyo, Japan)", "name": "Nikkei 225"},
+        {"symbol": "^GDAXI", "label": "^GDAXI — DAX 40 Index (Frankfurt, Germany)", "name": "DAX 40"},
+        {"symbol": "^HSI", "label": "^HSI — Hang Seng Index (Hong Kong)", "name": "Hang Seng"},
+        {"symbol": "^FCHI", "label": "^FCHI — CAC 40 Index (Paris, France)", "name": "CAC 40"},
+        # Foreign Market Equities & ADRs
+        {"symbol": "NVO", "label": "NVO — Novo Nordisk A/S (Denmark)", "name": "Novo Nordisk"},
+        {"symbol": "BABA", "label": "BABA — Alibaba Group (China)", "name": "Alibaba"},
+        {"symbol": "TM", "label": "TM — Toyota Motor Corporation (Japan)", "name": "Toyota"},
+        {"symbol": "SAP", "label": "SAP — SAP SE (Germany)", "name": "SAP"},
+        {"symbol": "AZN", "label": "AZN — AstraZeneca PLC (UK)", "name": "AstraZeneca"},
+        {"symbol": "SHEL", "label": "SHEL — Shell plc (UK / Energy)", "name": "Shell"},
+        {"symbol": "SONY", "label": "SONY — Sony Group Corporation (Japan)", "name": "Sony"},
+        {"symbol": "SPY", "label": "SPY — SPDR S&P 500 ETF Trust (US)", "name": "SPDR S&P 500"},
+        {"symbol": "QQQ", "label": "QQQ — Invesco QQQ NASDAQ 100 (US)", "name": "Invesco QQQ"},
+        # Major Foreign Exchange (Forex) Pairs
+        {"symbol": "EURUSD=X", "label": "EURUSD=X — Euro to US Dollar (Forex)", "name": "EUR/USD"},
+        {"symbol": "USDINR=X", "label": "USDINR=X — US Dollar to Indian Rupee (Forex)", "name": "USD/INR"},
+        {"symbol": "GBPUSD=X", "label": "GBPUSD=X — British Pound to US Dollar (Forex)", "name": "GBP/USD"},
+        {"symbol": "USDJPY=X", "label": "USDJPY=X — US Dollar to Japanese Yen (Forex)", "name": "USD/JPY"},
+        # Additional Global Commodities
+        {"symbol": "NG=F", "label": "NG=F — Natural Gas Futures (Commodity)", "name": "Natural Gas"},
+        {"symbol": "HG=F", "label": "HG=F — Copper Futures (Commodity)", "name": "Copper"},
     ]
     for item in major_global:
         items.append(item)
@@ -397,6 +421,8 @@ def get_company_overview(symbol: str) -> dict:
         quote_type = "INDEX"
     elif "-USD" in symbol or "-INR" in symbol:
         quote_type = "CRYPTOCURRENCY"
+    elif "=X" in symbol:
+        quote_type = "CURRENCY"
     elif "=F" in symbol:
         quote_type = "COMMODITY"
 

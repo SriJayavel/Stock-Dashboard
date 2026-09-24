@@ -28,6 +28,24 @@ def get_tradingview_symbol(symbol: str) -> str:
         return "FOREXCOM:SPXUSD"
     if s in {"^IXIC", "NASDAQ"}:
         return "NASDAQ:NDX"
+    if s in {"^FTSE", "FTSE"}:
+        return "TVC:UKX"
+    if s in {"^N225", "N225", "NIKKEI"}:
+        return "TVC:NI225"
+    if s in {"^GDAXI", "DAX"}:
+        return "XETR:DAX"
+    if s in {"^HSI", "HSI"}:
+        return "HSI:HSI"
+    if s in {"^FCHI", "CAC40"}:
+        return "TVC:PX1"
+    if s == "EURUSD=X":
+        return "FX:EURUSD"
+    if s == "GBPUSD=X":
+        return "FX:GBPUSD"
+    if s == "USDJPY=X":
+        return "FX:USDJPY"
+    if s == "USDINR=X":
+        return "FX_IDC:USDINR"
     if s == "BTC-USD":
         return "BINANCE:BTCUSDT"
     if s == "ETH-USD":
@@ -36,10 +54,18 @@ def get_tradingview_symbol(symbol: str) -> str:
         return "BINANCE:SOLUSDT"
     if s == "GC=F":
         return "TVC:GOLD"
+    if s == "SI=F":
+        return "TVC:SILVER"
     if s == "CL=F":
         return "TVC:USOIL"
-    if s in {"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC", "QCOM", "AVGO", "ARM", "NFLX"}:
+    if s == "NG=F":
+        return "TVC:NATGAS"
+    if s == "HG=F":
+        return "TVC:COPPER"
+    if s in {"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC", "QCOM", "AVGO", "ARM", "NFLX", "ASML", "QQQ"}:
         return f"NASDAQ:{s}"
+    if s in {"TSM", "BABA", "TM", "SAP", "SONY", "NVO", "SHEL", "AZN", "BRK-B", "JPM", "V", "WMT", "PLTR", "SPY"}:
+        return f"NYSE:{s}"
     return s
 
 
