@@ -102,35 +102,58 @@ def resolve_symbol(query: str) -> str:
     if not query:
         return "TCS.NS"
 
-    cleaned = str(query).strip().upper()
+    cleaned = str(query).strip()
+    cleaned_upper = cleaned.upper()
 
     alias_map = {
         "NIFTY": "^NSEI",
         "NIFTY 50": "^NSEI",
+        "NIFTY50": "^NSEI",
+        "BANK NIFTY": "^NSEBANK",
+        "BANKNIFTY": "^NSEBANK",
         "SENSEX": "^BSESN",
         "S&P 500": "^GSPC",
+        "S&P500": "^GSPC",
         "SP500": "^GSPC",
         "NASDAQ": "^IXIC",
+        "DOW": "^DJI",
+        "DOW JONES": "^DJI",
         "BITCOIN": "BTC-USD",
         "BTC": "BTC-USD",
         "ETHEREUM": "ETH-USD",
         "ETH": "ETH-USD",
+        "SOLANA": "SOL-USD",
+        "SOL": "SOL-USD",
         "GOLD": "GC=F",
+        "SILVER": "SI=F",
         "CRUDE OIL": "CL=F",
+        "CRUDE": "CL=F",
         "OIL": "CL=F",
+        "NATURAL GAS": "NG=F",
+        "COPPER": "HG=F",
     }
-    if cleaned in alias_map:
-        return alias_map[cleaned]
+    if cleaned_upper in alias_map:
+        return alias_map[cleaned_upper]
 
-    if any(ch in cleaned for ch in [".", "^", "=", "-"]):
-        return cleaned
+    if any(ch in cleaned_upper for ch in [".", "^", "=", "-"]):
+        return cleaned_upper
 
+    # Check local catalog
     catalog = load_companies_catalog()
-    if not catalog.empty and "SYMBOL" in catalog.columns:
-        if cleaned in catalog["SYMBOL"].values:
-            return f"{cleaned}.NS"
+    if not catalog.empty:
+        if "SYMBOL" in catalog.columns and cleaned_upper in catalog["SYMBOL"].values:
+            return f"{cleaned_upper}.NS"
+        if "NAME OF COMPANY" in catalog.columns:
+            m = catalog[catalog["NAME OF COMPANY"].str.contains(f"^{cleaned}", case=False, na=False)]
+            if not m.empty:
+                return f"{m.iloc[0]['SYMBOL']}.NS"
 
-    return cleaned
+    # Query global directory for top match
+    matches = search_global_assets(cleaned)
+    if matches:
+        return matches[0]["symbol"]
+
+    return cleaned_upper
 
 
 @st.cache_data(ttl=300, show_spinner=False)

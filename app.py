@@ -337,7 +337,14 @@ if global_indices:
     render_html(f"<div class='ticker-tape-container'>{''.join(tape_items)}</div>")
 
 
-# 5. Clean Unified Search Header
+# 5. Institutional Command Search Bar
+def on_search_enter():
+    q = st.session_state.get("global_search_input", "").strip()
+    if q:
+        resolved = resolve_symbol(q)
+        st.session_state["selected_symbol"] = resolved
+        st.session_state["global_search_input"] = ""
+
 col_brand, col_search_box = st.columns([1, 2.5])
 
 with col_brand:
@@ -346,33 +353,52 @@ with col_brand:
         <div style="display:flex; align-items:center; gap:8px;">
             <span style="font-size:18px; font-weight:800; letter-spacing:0.04em; color:#ffffff;">APEX <span style="color:#2962ff;">TERMINAL</span></span>
         </div>
-        <div style="font-size:11px; color:#787b86; margin-top:2px;">Institutional market research. Zero trade execution.</div>
+        <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Institutional market research. Zero trade execution.</div>
         """,
         unsafe_allow_html=True,
     )
 
 with col_search_box:
-    query = st.text_input(
+    search_q = st.text_input(
         "Search",
-        placeholder="Search any stock, index, crypto, or commodity (e.g. TCS, Reliance, Nvidia, Apple, Bitcoin, Gold)...",
+        placeholder="⌕ Search symbol, company, crypto, or commodity (Press Enter to load)...",
+        key="global_search_input",
+        on_change=on_search_enter,
         label_visibility="collapsed",
     )
 
-# Quick Results Suggestions (Clickable Pills)
-if query and len(query.strip()) >= 1:
-    matches = search_global_assets(query)
+# Quick Results Matrix (TradingView-Style Symbol Finder)
+if search_q and len(search_q.strip()) >= 1:
+    matches = search_global_assets(search_q)
     if matches:
-        st.markdown("<div style='font-size:11px; color:#787b86; margin-top:4px;'>Matches:</div>", unsafe_allow_html=True)
-        res_cols = st.columns(min(len(matches), 5))
-        for idx, m in enumerate(matches[:5]):
-            btn_text = f"{m['symbol']} ({m['name'][:18]})"
-            if res_cols[idx].button(btn_text, key=f"match_{m['symbol']}_{idx}", use_container_width=True):
-                st.session_state["selected_symbol"] = m["symbol"]
-                st.rerun()
+        st.markdown(
+            """
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; margin-bottom:4px;">
+                <span style="font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em;">Matching Global Assets</span>
+                <span style="font-size:11px; color:#2962ff; font-weight:600;">Press Enter to load top match or select below</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        res_cols = st.columns(min(len(matches), 4))
+        for idx, m in enumerate(matches[:4]):
+            with res_cols[idx]:
+                card_html = f"""
+                <div style="background:#1e222d; border:1px solid #363c4e; border-radius:4px; padding:6px 10px; margin-bottom:4px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:700; color:#ffffff; font-size:13px;">{m['symbol']}</span>
+                        <span style="font-size:10px; color:#2962ff; background:#131722; padding:1px 5px; border-radius:3px;">{m['exchange']}</span>
+                    </div>
+                    <div style="font-size:11px; color:#9ca3af; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">{m['name']}</div>
+                </div>
+                """
+                render_html(card_html)
+                if st.button(f"Load {m['symbol']}", key=f"sel_{m['symbol']}_{idx}", use_container_width=True):
+                    st.session_state["selected_symbol"] = m["symbol"]
+                    st.session_state["global_search_input"] = ""
+                    st.rerun()
 
-
-# Quick Trending Assets Row (Clean Minimalist Chips)
-st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+# Trending Assets Row
 trending_chips = [
     ("TCS", "TCS.NS"),
     ("Reliance", "RELIANCE.NS"),
@@ -385,6 +411,7 @@ trending_chips = [
     ("Gold", "GC=F"),
 ]
 
+st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
 chip_cols = st.columns(len(trending_chips))
 for i, (label, sym) in enumerate(trending_chips):
     if chip_cols[i].button(label, key=f"chip_{sym}", use_container_width=True):
