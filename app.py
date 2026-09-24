@@ -28,6 +28,7 @@ from src.data_loader import (
     get_historical_ohlcv,
     get_financial_statements,
     get_stock_news,
+    get_global_market_news,
     get_peer_comparison,
     get_searchable_asset_catalog,
 )
@@ -673,6 +674,44 @@ if active_tab == "Chart":
     except Exception as e:
         st.info("Chart view is temporarily unavailable. Switch between TradingView Real-Time and Terminal Quantitative above.")
 
+    # Contextual Flash Intelligence strip placed directly beneath the chart
+    try:
+        quick_news = get_stock_news(current_sym)
+        if quick_news:
+            st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
+            with st.expander(f"⚡ Live Market Intelligence & Headlines ({current_sym})", expanded=True):
+                flash_cols = st.columns(min(len(quick_news[:3]), 3))
+                for idx, article in enumerate(quick_news[:3]):
+                    with flash_cols[idx]:
+                        t_thumb = article.get("thumbnail")
+                        thumb_html = (
+                            f"<div style='height:110px; width:100%; border-radius:4px; overflow:hidden; margin-bottom:8px; background:#131722;'>"
+                            f"<img src='{t_thumb}' style='width:100%; height:100%; object-fit:cover;' />"
+                            f"</div>"
+                            if t_thumb
+                            else ""
+                        )
+                        render_html(
+                            f"""
+                            <div style="background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:12px; height:100%; display:flex; flex-direction:column; justify-content:space-between;">
+                                <div>
+                                    {thumb_html}
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                        <span style="font-size:10px; font-weight:700; color:#2962ff; text-transform:uppercase;">{article['publisher']}</span>
+                                        <span style="font-size:10px; color:#787b86;">{article['time']}</span>
+                                    </div>
+                                    <div style="font-size:13px; font-weight:600; color:#ffffff; line-height:1.3; margin-bottom:6px;">{article['title']}</div>
+                                    {f"<div style='font-size:11px; color:#9ca3af; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;'>{article['summary']}</div>" if article.get('summary') else ""}
+                                </div>
+                                <div style="margin-top:8px; padding-top:6px; border-top:1px solid #262b3d;">
+                                    <a href="{article['link']}" target="_blank" style="color:#2962ff; text-decoration:none; font-size:11px; font-weight:600;">Read Story ↗</a>
+                                </div>
+                            </div>
+                            """
+                        )
+    except Exception:
+        pass
+
 
 # --- TAB 2: TECHNICAL OBSERVATIONS ---
 elif active_tab == "Technical Observations":
@@ -849,28 +888,87 @@ elif active_tab == "Market Screener":
 
 # --- TAB 6: NEWS FEED ---
 elif active_tab == "News Feed":
-    st.markdown(f"#### Market Headlines for {current_sym}")
+    st.markdown(
+        """
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div>
+                <span style="font-size:16px; font-weight:700; color:#ffffff;">Terminal Market Wire & Newsfeed</span>
+                <div style="font-size:12px; color:#9ca3af; margin-top:2px;">Real-time institutional newsfeed, earnings releases, and macro coverage.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    news_ctrl_col1, news_ctrl_col2 = st.columns([1.5, 2.5])
+    with news_ctrl_col1:
+        feed_source = st.radio(
+            "Feed Source",
+            [f"Active Asset ({current_sym})", "Global Macro Wire"],
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+    with news_ctrl_col2:
+        search_filter = st.text_input(
+            "Filter news",
+            placeholder="Filter news by keyword (e.g. revenue, AI, profit, Fed, target)...",
+            label_visibility="collapsed",
+        )
 
     try:
-        articles = get_stock_news(current_sym)
-        if articles:
-            for item in articles:
-                render_html(
-                    f"""
-                    <div style="background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:12px 16px; margin-bottom:10px;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                            <span style="font-size:11px; font-weight:600; color:#2962ff;">{item['publisher']}</span>
-                            <span style="font-size:11px; color:#787b86;">{item['time']}</span>
-                        </div>
-                        <div style="font-size:14px; font-weight:600; color:#ffffff; margin-bottom:4px;">{item['title']}</div>
-                        <a href="{item['link']}" target="_blank" style="color:#2962ff; text-decoration:none; font-size:12px; font-weight:500;">Read Article ↗</a>
-                    </div>
-                    """
-                )
+        if "Global Macro" in feed_source:
+            raw_articles = get_global_market_news()
         else:
-            st.info(f"No recent articles found for '{current_sym}'.")
+            raw_articles = get_stock_news(current_sym)
+
+        if search_filter.strip():
+            kw = search_filter.strip().lower()
+            articles = [
+                a for a in raw_articles
+                if kw in a.get("title", "").lower() or kw in a.get("summary", "").lower() or kw in a.get("publisher", "").lower()
+            ]
+        else:
+            articles = raw_articles
+
+        if articles:
+            # 2-column responsive grid layout
+            col_left, col_right = st.columns(2)
+            for idx, item in enumerate(articles):
+                target_col = col_left if idx % 2 == 0 else col_right
+                with target_col:
+                    t_thumb = item.get("thumbnail")
+                    thumb_img = (
+                        f"<div style='height:140px; width:100%; border-radius:4px; overflow:hidden; margin-bottom:10px; background:#131722;'>"
+                        f"<img src='{t_thumb}' style='width:100%; height:100%; object-fit:cover;' />"
+                        f"</div>"
+                        if t_thumb
+                        else ""
+                    )
+                    render_html(
+                        f"""
+                        <div style="background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:14px 16px; margin-bottom:12px; min-height:160px; display:flex; flex-direction:column; justify-content:space-between; transition:border-color 0.15s ease;">
+                            <div>
+                                {thumb_img}
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span style="font-size:11px; font-weight:700; color:#2962ff; text-transform:uppercase; letter-spacing:0.04em;">{item['publisher']}</span>
+                                    <span style="font-size:11px; color:#787b86; font-weight:500;">{item['time']}</span>
+                                </div>
+                                <div style="font-size:14px; font-weight:600; color:#ffffff; line-height:1.4; margin-bottom:8px;">{item['title']}</div>
+                                {f"<div style='font-size:12px; color:#9ca3af; line-height:1.5; margin-bottom:10px;'>{item['summary']}</div>" if item.get('summary') else ""}
+                            </div>
+                            <div style="padding-top:6px; border-top:1px solid #262b3d; display:flex; justify-content:flex-end;">
+                                <a href="{item['link']}" target="_blank" style="color:#2962ff; text-decoration:none; font-size:12px; font-weight:600;">Read Full Story ↗</a>
+                            </div>
+                        </div>
+                        """
+                    )
+        else:
+            if search_filter.strip():
+                st.info(f"No news articles matching '{search_filter}'.")
+            else:
+                st.info(f"No recent articles found for '{current_sym}'.")
     except Exception:
-        st.info("News feed is temporarily unavailable.")
+        st.info("News feed is temporarily synchronizing. Please try again shortly.")
 
 
 # --- TAB 7: WATCHLIST ---

@@ -559,39 +559,123 @@ def get_financial_statements(symbol: str) -> dict:
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_stock_news(symbol: str) -> list[dict]:
-    """Extract latest news articles worldwide via yfinance."""
+    """
+    Extract latest news articles worldwide via yfinance with robust nested content parsing,
+    high-res thumbnails, summaries, publisher badges, relative timestamps, and benchmark fallbacks.
+    """
     session = get_yfinance_session()
-    ticker = yf.Ticker(symbol, session=session)
+
+    def parse_item(item: dict) -> dict:
+        if not isinstance(item, dict):
+            return None
+        c = item.get("content") if isinstance(item.get("content"), dict) else {}
+        title = c.get("title") or item.get("title") or item.get("headline")
+        if not title:
+            return None
+        summary = c.get("summary") or item.get("summary") or ""
+        link = (
+            (c.get("clickThroughUrl") or {}).get("url")
+            or (c.get("canonicalUrl") or {}).get("url")
+            or item.get("link")
+            or item.get("url")
+            or "#"
+        )
+        pub = (
+            (c.get("provider") or {}).get("displayName")
+            or item.get("publisher")
+            or item.get("source")
+            or "Market Wire"
+        )
+        thumb = None
+        t_obj = c.get("thumbnail") or item.get("thumbnail")
+        if isinstance(t_obj, dict):
+            thumb = t_obj.get("originalUrl")
+            if not thumb and t_obj.get("resolutions"):
+                thumb = t_obj["resolutions"][0].get("url")
+        pub_val = c.get("pubDate") or c.get("displayTime") or item.get("providerPublishTime")
+        time_str = "Recently"
+        if pub_val:
+            try:
+                if isinstance(pub_val, (int, float)):
+                    dt = datetime.datetime.fromtimestamp(pub_val, tz=datetime.timezone.utc)
+                elif isinstance(pub_val, str):
+                    clean_iso = pub_val.replace("Z", "+00:00")
+                    dt = datetime.datetime.fromisoformat(clean_iso)
+                else:
+                    dt = None
+                if dt:
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    secs = int((now - dt).total_seconds())
+                    if secs < 0:
+                        time_str = "Just now"
+                    elif secs < 3600:
+                        mins = max(1, secs // 60)
+                        time_str = f"{mins}m ago"
+                    elif secs < 86400:
+                        hours = secs // 3600
+                        time_str = f"{hours}h ago"
+                    elif secs < 604800:
+                        days = secs // 86400
+                        time_str = f"{days}d ago"
+                    else:
+                        time_str = dt.strftime("%b %d, %Y")
+            except Exception:
+                pass
+        return {
+            "title": title,
+            "summary": summary,
+            "publisher": pub,
+            "link": link,
+            "time": time_str,
+            "thumbnail": thumb,
+        }
+
     articles = []
+    # 1. Primary symbol fetch
     try:
+        ticker = yf.Ticker(symbol, session=session)
         raw_news = ticker.news or []
         for item in raw_news:
-            title = item.get("title") or item.get("headline")
-            if not title:
-                continue
-
-            link = item.get("link") or item.get("url") or "#"
-            publisher = item.get("publisher") or item.get("source") or "Market News"
-            pub_time = item.get("providerPublishTime")
-
-            time_str = "Recently"
-            if pub_time:
-                try:
-                    dt = datetime.datetime.fromtimestamp(pub_time)
-                    time_str = dt.strftime("%b %d, %Y - %H:%M")
-                except Exception:
-                    pass
-
-            articles.append({
-                "title": title,
-                "publisher": publisher,
-                "link": link,
-                "time": time_str
-            })
+            p = parse_item(item)
+            if p:
+                articles.append(p)
     except Exception:
         pass
 
-    return articles[:10]
+    # 2. Fallback to base symbol if extension returns empty
+    if not articles and "." in symbol:
+        base_sym = symbol.split(".")[0]
+        try:
+            ticker = yf.Ticker(base_sym, session=session)
+            raw_news = ticker.news or []
+            for item in raw_news:
+                p = parse_item(item)
+                if p:
+                    articles.append(p)
+        except Exception:
+            pass
+
+    # 3. Fallback to macro benchmark wire if still empty
+    if not articles:
+        fallback_sym = "^NSEI" if (".NS" in symbol or symbol.startswith("^NSE")) else "^GSPC"
+        try:
+            ticker = yf.Ticker(fallback_sym, session=session)
+            raw_news = ticker.news or []
+            for item in raw_news:
+                p = parse_item(item)
+                if p:
+                    articles.append(p)
+        except Exception:
+            pass
+
+    return articles[:15]
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def get_global_market_news() -> list[dict]:
+    """Fetch broad market news wire from benchmark index."""
+    return get_stock_news("^GSPC")
+
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
