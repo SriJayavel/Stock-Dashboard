@@ -1,32 +1,42 @@
 # 📈 Apex Financial Terminal
 
-> **Analyze everything. Trade nothing.**  
-> A high-performance, web-based market research terminal for Indian (NSE/BSE) and global equities.
+> **Institutional market research. Zero trade execution.**  
+> A high-performance, web-based market research terminal for Global & Indian equities, cryptocurrencies, and commodities.
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://stock-dashboard-kgdogayx7utzmpad9fpwhx.streamlit.app/)
 
 Built with **Python**, **Streamlit**, **Plotly**, and **yfinance**. Free to deploy, zero account required, and completely ad-free.
 
 ---
 
+## 🌐 Live Terminal
+
+Access the live cloud terminal instantly in your browser:  
+🔗 **[https://stock-dashboard-kgdogayx7utzmpad9fpwhx.streamlit.app/](https://stock-dashboard-kgdogayx7utzmpad9fpwhx.streamlit.app/)**
+
+---
+
 ## 🌟 Key Features
 
-- **⚡ Instant Access & Zero Friction:** No login, no signup, and no subscription paywalls.
-- **🔍 Intelligent Search & Coverage:** Instant lookup across 1,800+ NSE companies plus US global equities (AAPL, NVDA, TSLA, etc.).
-- **📈 Interactive Financial Charts:**
-  - Candlestick & Line views with volume overlay.
-  - Moving Averages (EMA 20, 50, 200).
-  - Bollinger Bands (20, 2.0).
-  - RSI (14) with overbought/oversold bands.
-  - MACD (12, 26, 9) with histogram.
-- **🔬 Objective Technical Observations:** Automated non-advisory analysis of momentum, crossovers, and volatility envelopes.
+- **⚡ Instant Access & Zero Friction:** No login, no signup, no API keys, and no subscription paywalls.
+- **🚆 Continuous Live Ticker Train Marquee:** Hardware-accelerated 60fps ticker tape displaying major global indices, crypto, and commodities with edge gradient masks and hover-to-pause inspection.
+- **🔍 2,400+ Asset Universal Search:** Instant suggested dropdown menu across Indian equities (NSE/BSE), US mega-caps, AI & semiconductor giants, precious metals, crude oil, and cryptocurrencies.
+- **📈 Dual-Engine Interactive Charting:**
+  - **TradingView Real-Time Embed:** Official TradingView engine with complete multi-timeframe controls, drawing tools, and advanced indicators.
+  - **Terminal Quantitative Engine:** Custom Plotly dark theme chart with right-side price scale, EMA 20/50/200, Bollinger Bands (20, 2.0), RSI (14), MACD (12, 26, 9), and volume overlays.
+- **⚡ Contextual Flash Intelligence:** Top 3 breaking news stories displayed directly beneath the active chart with media thumbnails, relative timestamps, and summaries so you never lose context of price action catalysts.
+- **📰 Institutional Terminal Newsroom (Tab 6):**
+  - **Source Toggle:** Seamlessly switch between *Active Asset Headlines* and *Global Macro Wire*.
+  - **Live Keyword Filter:** Instant search across articles by keyword (e.g., *AI*, *earnings*, *dividend*, *Fed*, *revenue*).
+  - **Rich 2-Column Cards:** HD thumbnails, publisher tags (`Bloomberg`, `Reuters`, `Yahoo Finance`, `CNBC`), relative times (`25m ago`, `3h ago`), and direct external links.
 - **🏢 Deep Fundamental Research:**
-  - Valuation Multiples: Trailing & Forward P/E, P/B, EV/EBITDA, PEG, Dividend Yield.
-  - Profitability & Returns: ROE, ROA, Operating Margin, Net Profit Margin.
-  - Financial Health: Debt-to-Equity, Current Ratio, Quick Ratio, Free Cash Flow.
-  - Full Financial Statements: Income Statement, Balance Sheet, and Cash Flow (Annual & Quarterly) with 4-year trend charts.
-- **⚖️ Peer Comparison:** Side-by-side benchmarking of key valuation and return metrics against sector rivals.
-- **🔍 Indian Benchmark Screener:** Filter major market leaders by sector and valuation multiples.
-- **📰 Live Catalysts & News Feed:** Real-time headlines and source attribution without paywalled API keys.
-- **⭐ Session Watchlist:** Track stocks with live prices without needing a backend database.
+  - **Valuation Multiples:** Trailing & Forward P/E, P/B, EV/EBITDA, PEG, and Dividend Yield.
+  - **Profitability & Returns:** ROE, ROA, Operating Margin, Net Profit Margin.
+  - **Balance Sheet Health:** Debt-to-Equity, Current Ratio, Quick Ratio, and Free Cash Flow.
+  - **Financial Statements:** Complete Income Statement, Balance Sheet, and Cash Flows (Annual & Quarterly) with 4-year trend charts.
+- **⚖️ Peer Comparison:** Side-by-side benchmarking of key valuation and return metrics against sector rivals worldwide.
+- **🌐 Multi-Market Universe Screener:** Instant snapshot scanner for US Mega-Caps, Indian Leaders, Semiconductors, Crypto, and Commodities.
+- **⭐ Session Watchlist:** Track favorite symbols with live prices, percentage changes, and 52-week spans directly in session state.
 
 ---
 
@@ -35,13 +45,13 @@ Built with **Python**, **Streamlit**, **Plotly**, and **yfinance**. Free to depl
 ```text
 Stock-Dashboard/
 ├── .streamlit/
-│   └── config.toml          # Custom dark terminal theme
+│   └── config.toml          # Custom dark terminal theme configuration
 ├── src/
-│   ├── data_loader.py       # Caching pipeline for quotes, financials, and company profiles
-│   ├── indicators.py        # Mathematical technical indicators (RSI, MACD, EMA, Bollinger)
-│   ├── charts.py            # Dark-themed Plotly charts with multi-pane subplots
-│   └── screener.py          # Benchmark stock screening module
-├── app.py                   # Main terminal interface & KPI banner
+│   ├── data_loader.py       # Resilient yfinance pipeline, catalog caching, news parser & fallbacks
+│   ├── indicators.py        # Mathematical indicators (RSI, MACD, EMA, Bollinger Bands)
+│   ├── charts.py            # TradingView embed & right-side scale Plotly charts
+│   └── screener.py          # Fast multi-threaded batch market screener
+├── app.py                   # Main terminal interface, marquee ribbon & tabs
 ├── companies.csv            # 1,800+ NSE companies catalog
 ├── requirements.txt         # Production dependencies
 └── README.md
@@ -66,18 +76,6 @@ Stock-Dashboard/
    ```bash
    streamlit run app.py
    ```
-
----
-
-## 🌐 Free Cloud Deployment (Streamlit Community Cloud)
-
-Share this terminal with friends on mobile and desktop for **100% free**:
-
-1. Go to [share.streamlit.io](https://share.streamlit.io) and log in with your GitHub account.
-2. Click **"New app"**.
-3. Select your repository: `SriJayavel/Stock-Dashboard`.
-4. Main file path: `app.py`.
-5. Click **"Deploy!"** — Your terminal will go live with a shareable URL (e.g., `https://stock-dashboard.streamlit.app`).
 
 ---
 
