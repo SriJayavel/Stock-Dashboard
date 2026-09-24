@@ -29,6 +29,7 @@ from src.data_loader import (
     get_financial_statements,
     get_stock_news,
     get_peer_comparison,
+    get_searchable_asset_catalog,
 )
 from src.indicators import apply_all_indicators, generate_technical_observations
 from src.charts import create_terminal_chart, create_financials_trend_chart, get_tradingview_widget_html
@@ -337,15 +338,10 @@ if global_indices:
     render_html(f"<div class='ticker-tape-container'>{''.join(tape_items)}</div>")
 
 
-# 5. Institutional Command Search Bar
-def on_search_enter():
-    q = st.session_state.get("global_search_input", "").strip()
-    if q:
-        resolved = resolve_symbol(q)
-        st.session_state["selected_symbol"] = resolved
-        st.session_state["global_search_input"] = ""
+# 5. Suggested Dropdown Search & Command Palette
+catalog_assets = get_searchable_asset_catalog()
 
-col_brand, col_search_box = st.columns([1, 2.5])
+col_brand, col_search_box, col_custom = st.columns([1.1, 2.5, 0.9])
 
 with col_brand:
     st.markdown(
@@ -359,44 +355,37 @@ with col_brand:
     )
 
 with col_search_box:
-    search_q = st.text_input(
-        "Search",
-        placeholder="⌕ Search symbol, company, crypto, or commodity (Press Enter to load)...",
-        key="global_search_input",
-        on_change=on_search_enter,
+    asset_options = [item["symbol"] for item in catalog_assets]
+    asset_labels = {item["symbol"]: item["label"] for item in catalog_assets}
+
+    current_selected = st.session_state.get("selected_symbol", "TCS.NS")
+    curr_index = asset_options.index(current_selected) if current_selected in asset_options else None
+
+    def on_dropdown_select():
+        chosen = st.session_state.get("global_asset_dropdown")
+        if chosen:
+            st.session_state["selected_symbol"] = chosen
+
+    st.selectbox(
+        "Search Market",
+        options=asset_options,
+        index=curr_index,
+        format_func=lambda s: asset_labels.get(s, s),
+        key="global_asset_dropdown",
+        on_change=on_dropdown_select,
+        placeholder="Type words to search 2,400+ stocks, crypto, commodities (e.g. TCS, Apple, NVDA, Bitcoin)...",
         label_visibility="collapsed",
     )
 
-# Quick Results Matrix (TradingView-Style Symbol Finder)
-if search_q and len(search_q.strip()) >= 1:
-    matches = search_global_assets(search_q)
-    if matches:
-        st.markdown(
-            """
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; margin-bottom:4px;">
-                <span style="font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em;">Matching Global Assets</span>
-                <span style="font-size:11px; color:#2962ff; font-weight:600;">Press Enter to load top match or select below</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        res_cols = st.columns(min(len(matches), 4))
-        for idx, m in enumerate(matches[:4]):
-            with res_cols[idx]:
-                card_html = f"""
-                <div style="background:#1e222d; border:1px solid #363c4e; border-radius:4px; padding:6px 10px; margin-bottom:4px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:700; color:#ffffff; font-size:13px;">{m['symbol']}</span>
-                        <span style="font-size:10px; color:#2962ff; background:#131722; padding:1px 5px; border-radius:3px;">{m['exchange']}</span>
-                    </div>
-                    <div style="font-size:11px; color:#9ca3af; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">{m['name']}</div>
-                </div>
-                """
-                render_html(card_html)
-                if st.button(f"Load {m['symbol']}", key=f"sel_{m['symbol']}_{idx}", use_container_width=True):
-                    st.session_state["selected_symbol"] = m["symbol"]
-                    st.session_state["global_search_input"] = ""
-                    st.rerun()
+with col_custom:
+    with st.popover("⌨ Any Ticker", use_container_width=True):
+        st.markdown("<div style='font-size:12px; font-weight:700; color:#ffffff;'>Search Any Global Asset</div>", unsafe_allow_html=True)
+        st.caption("Enter any custom global ticker or query:")
+        custom_input = st.text_input("Custom Ticker", placeholder="e.g. PLTR, SONY, BMW.DE...", label_visibility="collapsed")
+        if st.button("Load Symbol", use_container_width=True):
+            if custom_input.strip():
+                st.session_state["selected_symbol"] = resolve_symbol(custom_input.strip())
+                st.rerun()
 
 # Trending Assets Row
 trending_chips = [
@@ -419,10 +408,30 @@ for i, (label, sym) in enumerate(trending_chips):
         st.rerun()
 
 
-# 6. Fetch Target Asset Data
-current_sym = st.session_state["selected_symbol"]
-with st.spinner(f"Fetching {current_sym}..."):
-    overview = get_company_overview(current_sym)
+# 6. Fetch Target Asset Data with Comprehensive Error Handling
+current_sym = st.session_state.get("selected_symbol", "TCS.NS")
+overview = {}
+try:
+    with st.spinner(f"Fetching {current_sym}..."):
+        overview = get_company_overview(current_sym)
+except Exception as e:
+    overview = {
+        "symbol": current_sym,
+        "name": current_sym,
+        "current_price": 0.0,
+        "prev_close": 0.0,
+        "change": 0.0,
+        "change_pct": 0.0,
+        "currency": "USD",
+        "currency_symbol": "$",
+        "quote_type": "EQUITY",
+        "market_cap_str": "—",
+        "low_52w": 0.0,
+        "high_52w": 0.0,
+        "sector": "Global Asset",
+        "industry": "Market Security",
+    }
+    st.warning(f"Upstream real-time feed for '{current_sym}' is experiencing delay. Displaying offline snapshot.")
 
 # Asset Title & Price Header (Compact Ribbon)
 col_header, col_actions = st.columns([5, 1])
@@ -571,64 +580,67 @@ with engine_col:
 
 # --- TAB 1: CHART ---
 if active_tab == "Chart":
-    if chart_mode == "TradingView Real-Time":
-        # Official TradingView Advanced Interactive Chart with full drawing tools, timeframes, and indicators
-        tv_html = get_tradingview_widget_html(current_sym)
-        components.html(tv_html, height=640)
-    else:
-        # Custom TradingView-Styled Plotly Chart with right-side scale
-        tool_col1, tool_col2, tool_col3 = st.columns([2, 1.5, 4.5])
-
-        with tool_col1:
-            timeframe = st.selectbox(
-                "Timeframe",
-                options=["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"],
-                index=3,
-                format_func=lambda x: {
-                    "1mo": "1 Month",
-                    "3mo": "3 Months",
-                    "6mo": "6 Months",
-                    "1y": "1 Year",
-                    "2y": "2 Years",
-                    "5y": "5 Years",
-                    "max": "All (Max)",
-                }.get(x, x),
-                label_visibility="collapsed",
-            )
-
-        with tool_col2:
-            chart_type = st.radio("Style", ["Candlestick", "Line"], horizontal=True, label_visibility="collapsed")
-
-        with tool_col3:
-            ov_col1, ov_col2, ov_col3, ov_col4, ov_col5 = st.columns(5)
-            show_ema = ov_col1.checkbox("EMA 20/50/200", value=True)
-            show_bb = ov_col2.checkbox("Bollinger", value=False)
-            show_rsi = ov_col3.checkbox("RSI", value=False)
-            show_macd = ov_col4.checkbox("MACD", value=False)
-            show_vol = ov_col5.checkbox("Volume", value=True)
-
-        hist_df = get_historical_ohlcv(current_sym, period=timeframe, interval="1d")
-
-        if not hist_df.empty:
-            hist_df = apply_all_indicators(hist_df)
-            fig = create_terminal_chart(
-                hist_df,
-                symbol=current_sym,
-                company_name=overview.get("name", current_sym),
-                chart_type=chart_type,
-                show_ema=show_ema,
-                show_bb=show_bb,
-                show_volume=show_vol,
-                show_rsi=show_rsi,
-                show_macd=show_macd,
-            )
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-                config={"displayModeBar": "hover", "scrollZoom": True, "responsive": True},
-            )
+    try:
+        if chart_mode == "TradingView Real-Time":
+            # Official TradingView Advanced Interactive Chart with full drawing tools, timeframes, and indicators
+            tv_html = get_tradingview_widget_html(current_sym)
+            components.html(tv_html, height=640)
         else:
-            st.info(f"No chart data available for '{current_sym}'.")
+            # Custom TradingView-Styled Plotly Chart with right-side scale
+            tool_col1, tool_col2, tool_col3 = st.columns([2, 1.5, 4.5])
+
+            with tool_col1:
+                timeframe = st.selectbox(
+                    "Timeframe",
+                    options=["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"],
+                    index=3,
+                    format_func=lambda x: {
+                        "1mo": "1 Month",
+                        "3mo": "3 Months",
+                        "6mo": "6 Months",
+                        "1y": "1 Year",
+                        "2y": "2 Years",
+                        "5y": "5 Years",
+                        "max": "All (Max)",
+                    }.get(x, x),
+                    label_visibility="collapsed",
+                )
+
+            with tool_col2:
+                chart_type = st.radio("Style", ["Candlestick", "Line"], horizontal=True, label_visibility="collapsed")
+
+            with tool_col3:
+                ov_col1, ov_col2, ov_col3, ov_col4, ov_col5 = st.columns(5)
+                show_ema = ov_col1.checkbox("EMA 20/50/200", value=True)
+                show_bb = ov_col2.checkbox("Bollinger", value=False)
+                show_rsi = ov_col3.checkbox("RSI", value=False)
+                show_macd = ov_col4.checkbox("MACD", value=False)
+                show_vol = ov_col5.checkbox("Volume", value=True)
+
+            hist_df = get_historical_ohlcv(current_sym, period=timeframe, interval="1d")
+
+            if not hist_df.empty:
+                hist_df = apply_all_indicators(hist_df)
+                fig = create_terminal_chart(
+                    hist_df,
+                    symbol=current_sym,
+                    company_name=overview.get("name", current_sym),
+                    chart_type=chart_type,
+                    show_ema=show_ema,
+                    show_bb=show_bb,
+                    show_volume=show_vol,
+                    show_rsi=show_rsi,
+                    show_macd=show_macd,
+                )
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    config={"displayModeBar": "hover", "scrollZoom": True, "responsive": True},
+                )
+            else:
+                st.info(f"No chart data available for '{current_sym}'.")
+    except Exception as e:
+        st.info("Chart view is temporarily unavailable. Switch between TradingView Real-Time and Terminal Quantitative above.")
 
 
 # --- TAB 2: TECHNICAL OBSERVATIONS ---
@@ -636,124 +648,130 @@ elif active_tab == "Technical Observations":
     st.markdown("#### Objective Technical Observations")
     st.caption("Quantitative observations on momentum, moving averages, and volatility. Strictly non-advisory.")
 
-    hist_df = get_historical_ohlcv(current_sym, period="1y", interval="1d")
+    try:
+        hist_df = get_historical_ohlcv(current_sym, period="1y", interval="1d")
 
-    if not hist_df.empty and len(hist_df) >= 20:
-        hist_df = apply_all_indicators(hist_df)
-        observations = generate_technical_observations(hist_df)
+        if not hist_df.empty and len(hist_df) >= 20:
+            hist_df = apply_all_indicators(hist_df)
+            observations = generate_technical_observations(hist_df)
 
-        if observations:
-            obs_col1, obs_col2 = st.columns(2)
-            for i, obs in enumerate(observations):
-                target_col = obs_col1 if i % 2 == 0 else obs_col2
-                with target_col:
-                    render_html(
-                        f"""
-                        <div class="obs-card" style="border-left-color: {obs['color']};">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-weight:700; color:#f8fafc; font-size:13px;">{obs['indicator']} — {obs['type']}</span>
-                                <span style="font-size:11px; font-weight:600; color:{obs['color']};">{obs['status']}</span>
+            if observations:
+                obs_col1, obs_col2 = st.columns(2)
+                for i, obs in enumerate(observations):
+                    target_col = obs_col1 if i % 2 == 0 else obs_col2
+                    with target_col:
+                        render_html(
+                            f"""
+                            <div class="obs-card" style="border-left-color: {obs['color']};">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-weight:700; color:#f8fafc; font-size:13px;">{obs['indicator']} — {obs['type']}</span>
+                                    <span style="font-size:11px; font-weight:600; color:{obs['color']};">{obs['status']}</span>
+                                </div>
+                                <div style="font-size:12px; color:#94a3b8; margin-top:4px;">{obs['detail']}</div>
                             </div>
-                            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">{obs['detail']}</div>
-                        </div>
-                        """
-                    )
+                            """
+                        )
 
-        # Key Moving Average Levels
-        st.markdown("#### Moving Average Distances")
-        latest = hist_df.iloc[-1]
-        levels = [
-            {"Reference": "Current Close", "Price": f"{curr_sym_char}{latest['Close']:,.2f}", "Distance": "0.0%"},
-            {"Reference": "EMA 20", "Price": f"{curr_sym_char}{latest.get('EMA_20', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('EMA_20', latest['Close'])) / latest.get('EMA_20', 1) * 100):+.2f}%"},
-            {"Reference": "EMA 50", "Price": f"{curr_sym_char}{latest.get('EMA_50', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('EMA_50', latest['Close'])) / latest.get('EMA_50', 1) * 100):+.2f}%"},
-            {"Reference": "EMA 200", "Price": f"{curr_sym_char}{latest.get('EMA_200', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('EMA_200', latest['Close'])) / latest.get('EMA_200', 1) * 100):+.2f}%"},
-            {"Reference": "Bollinger Upper (20,2)", "Price": f"{curr_sym_char}{latest.get('BB_Upper', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('BB_Upper', latest['Close'])) / latest.get('BB_Upper', 1) * 100):+.2f}%"},
-            {"Reference": "Bollinger Lower (20,2)", "Price": f"{curr_sym_char}{latest.get('BB_Lower', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('BB_Lower', latest['Close'])) / latest.get('BB_Lower', 1) * 100):+.2f}%"},
-        ]
-        st.dataframe(pd.DataFrame(levels), use_container_width=True, hide_index=True)
-    else:
-        st.info("Insufficient data to calculate technical indicators.")
+            # Key Moving Average Levels
+            st.markdown("#### Moving Average Distances")
+            latest = hist_df.iloc[-1]
+            levels = [
+                {"Reference": "Current Close", "Price": f"{curr_sym_char}{latest['Close']:,.2f}", "Distance": "0.0%"},
+                {"Reference": "EMA 20", "Price": f"{curr_sym_char}{latest.get('EMA_20', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('EMA_20', latest['Close'])) / latest.get('EMA_20', 1) * 100):+.2f}%"},
+                {"Reference": "EMA 50", "Price": f"{curr_sym_char}{latest.get('EMA_50', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('EMA_50', latest['Close'])) / latest.get('EMA_50', 1) * 100):+.2f}%"},
+                {"Reference": "EMA 200", "Price": f"{curr_sym_char}{latest.get('EMA_200', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('EMA_200', latest['Close'])) / latest.get('EMA_200', 1) * 100):+.2f}%"},
+                {"Reference": "Bollinger Upper (20,2)", "Price": f"{curr_sym_char}{latest.get('BB_Upper', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('BB_Upper', latest['Close'])) / latest.get('BB_Upper', 1) * 100):+.2f}%"},
+                {"Reference": "Bollinger Lower (20,2)", "Price": f"{curr_sym_char}{latest.get('BB_Lower', 0):,.2f}", "Distance": f"{((latest['Close'] - latest.get('BB_Lower', latest['Close'])) / latest.get('BB_Lower', 1) * 100):+.2f}%"},
+            ]
+            st.dataframe(pd.DataFrame(levels), use_container_width=True, hide_index=True)
+        else:
+            st.info("Insufficient data to calculate technical indicators.")
+    except Exception:
+        st.info("Technical indicator calculation is temporarily unavailable.")
 
 
 # --- TAB 3: FUNDAMENTALS & STATEMENTS ---
 elif active_tab == "Fundamentals & Statements":
     st.markdown("#### Fundamental Valuation & Statements")
 
-    f_col1, f_col2, f_col3 = st.columns(3)
+    try:
+        f_col1, f_col2, f_col3 = st.columns(3)
 
-    with f_col1:
-        st.markdown("##### Valuation Multiples")
-        st.write(f"**Trailing P/E:** {overview.get('pe_trailing', '—')}")
-        st.write(f"**Forward P/E:** {overview.get('pe_forward', '—')}")
-        st.write(f"**Price to Book (P/B):** {overview.get('pb_ratio', '—')}")
-        st.write(f"**EV / EBITDA:** {overview.get('ev_ebitda', '—')}")
-        st.write(f"**PEG Ratio:** {overview.get('peg_ratio', '—')}")
-        st.write(f"**Dividend Yield:** {overview.get('dividend_yield', 0):.2f}%" if overview.get('dividend_yield') else "**Dividend Yield:** —")
+        with f_col1:
+            st.markdown("##### Valuation Multiples")
+            st.write(f"**Trailing P/E:** {overview.get('pe_trailing', '—')}")
+            st.write(f"**Forward P/E:** {overview.get('pe_forward', '—')}")
+            st.write(f"**Price to Book (P/B):** {overview.get('pb_ratio', '—')}")
+            st.write(f"**EV / EBITDA:** {overview.get('ev_ebitda', '—')}")
+            st.write(f"**PEG Ratio:** {overview.get('peg_ratio', '—')}")
+            st.write(f"**Dividend Yield:** {overview.get('dividend_yield', 0):.2f}%" if overview.get('dividend_yield') else "**Dividend Yield:** —")
 
-    with f_col2:
-        st.markdown("##### Profitability & Returns")
-        st.write(f"**Return on Equity (ROE):** {overview.get('roe', 0):.2f}%" if overview.get('roe') else "**ROE:** —")
-        st.write(f"**Return on Assets (ROA):** {overview.get('roa', 0):.2f}%" if overview.get('roa') else "**ROA:** —")
-        st.write(f"**Operating Margin:** {overview.get('operating_margin', 0):.2f}%" if overview.get('operating_margin') else "**Operating Margin:** —")
-        st.write(f"**Net Profit Margin:** {overview.get('profit_margin', 0):.2f}%" if overview.get('profit_margin') else "**Profit Margin:** —")
+        with f_col2:
+            st.markdown("##### Profitability & Returns")
+            st.write(f"**Return on Equity (ROE):** {overview.get('roe', 0):.2f}%" if overview.get('roe') else "**ROE:** —")
+            st.write(f"**Return on Assets (ROA):** {overview.get('roa', 0):.2f}%" if overview.get('roa') else "**ROA:** —")
+            st.write(f"**Operating Margin:** {overview.get('operating_margin', 0):.2f}%" if overview.get('operating_margin') else "**Operating Margin:** —")
+            st.write(f"**Net Profit Margin:** {overview.get('profit_margin', 0):.2f}%" if overview.get('profit_margin') else "**Profit Margin:** —")
 
-    with f_col3:
-        st.markdown("##### Balance Sheet & Liquidity")
-        st.write(f"**Debt to Equity:** {overview.get('debt_to_equity', '—')}")
-        st.write(f"**Current Ratio:** {overview.get('current_ratio', '—')}")
-        st.write(f"**Quick Ratio:** {overview.get('quick_ratio', '—')}")
-        if overview.get("free_cash_flow"):
-            fcf = overview["free_cash_flow"]
-            fcf_str = f"₹{fcf/1e7:,.1f} Cr" if overview["currency"] == "INR" else f"${fcf/1e6:,.1f}M"
-            st.write(f"**Free Cash Flow (TTM):** {fcf_str}")
+        with f_col3:
+            st.markdown("##### Balance Sheet & Liquidity")
+            st.write(f"**Debt to Equity:** {overview.get('debt_to_equity', '—')}")
+            st.write(f"**Current Ratio:** {overview.get('current_ratio', '—')}")
+            st.write(f"**Quick Ratio:** {overview.get('quick_ratio', '—')}")
+            if overview.get("free_cash_flow"):
+                fcf = overview["free_cash_flow"]
+                fcf_str = f"₹{fcf/1e7:,.1f} Cr" if overview.get("currency") == "INR" else f"${fcf/1e6:,.1f}M"
+                st.write(f"**Free Cash Flow (TTM):** {fcf_str}")
 
-    st.markdown("---")
+        st.markdown("---")
 
-    # Financial Statements Section
-    st.markdown("##### Financial Statements")
-    statements = get_financial_statements(current_sym)
+        # Financial Statements Section
+        st.markdown("##### Financial Statements")
+        statements = get_financial_statements(current_sym)
 
-    freq_toggle = st.radio("Frequency", ["Annual", "Quarterly"], horizontal=True, label_visibility="collapsed")
-    is_qtr = freq_toggle == "Quarterly"
+        freq_toggle = st.radio("Frequency", ["Annual", "Quarterly"], horizontal=True, label_visibility="collapsed")
+        is_qtr = freq_toggle == "Quarterly"
 
-    stmt_tab1, stmt_tab2, stmt_tab3, stmt_tab4 = st.tabs([
-        "Revenue Trend",
-        "Income Statement",
-        "Balance Sheet",
-        "Cash Flow",
-    ])
+        stmt_tab1, stmt_tab2, stmt_tab3, stmt_tab4 = st.tabs([
+            "Revenue Trend",
+            "Income Statement",
+            "Balance Sheet",
+            "Cash Flow",
+        ])
 
-    with stmt_tab1:
-        inc_data = statements["income_statement_qtr"] if is_qtr else statements["income_statement"]
-        trend_fig = create_financials_trend_chart(inc_data)
-        st.plotly_chart(trend_fig, use_container_width=True)
+        with stmt_tab1:
+            inc_data = statements["income_statement_qtr"] if is_qtr else statements["income_statement"]
+            trend_fig = create_financials_trend_chart(inc_data)
+            st.plotly_chart(trend_fig, use_container_width=True)
 
-    with stmt_tab2:
-        inc = statements["income_statement_qtr"] if is_qtr else statements["income_statement"]
-        if inc is not None and not inc.empty:
-            st.dataframe(inc, use_container_width=True)
-        else:
-            st.info("Income statement not published or unavailable.")
+        with stmt_tab2:
+            inc = statements["income_statement_qtr"] if is_qtr else statements["income_statement"]
+            if inc is not None and not inc.empty:
+                st.dataframe(inc, use_container_width=True)
+            else:
+                st.info("Income statement not published or unavailable.")
 
-    with stmt_tab3:
-        bal = statements["balance_sheet_qtr"] if is_qtr else statements["balance_sheet"]
-        if bal is not None and not bal.empty:
-            st.dataframe(bal, use_container_width=True)
-        else:
-            st.info("Balance sheet not published or unavailable.")
+        with stmt_tab3:
+            bal = statements["balance_sheet_qtr"] if is_qtr else statements["balance_sheet"]
+            if bal is not None and not bal.empty:
+                st.dataframe(bal, use_container_width=True)
+            else:
+                st.info("Balance sheet not published or unavailable.")
 
-    with stmt_tab4:
-        cf = statements["cash_flow_qtr"] if is_qtr else statements["cash_flow"]
-        if cf is not None and not cf.empty:
-            st.dataframe(cf, use_container_width=True)
-        else:
-            st.info("Cash flow statement not published or unavailable.")
+        with stmt_tab4:
+            cf = statements["cash_flow_qtr"] if is_qtr else statements["cash_flow"]
+            if cf is not None and not cf.empty:
+                st.dataframe(cf, use_container_width=True)
+            else:
+                st.info("Cash flow statement not published or unavailable.")
 
-    st.markdown("---")
-    st.markdown("##### Company Overview")
-    st.write(overview.get("summary", "No description available."))
-    if overview.get("website"):
-        st.markdown(f"**Website:** [{overview['website']}]({overview['website']})")
+        st.markdown("---")
+        st.markdown("##### Company Overview")
+        st.write(overview.get("summary", "No description available."))
+        if overview.get("website"):
+            st.markdown(f"**Website:** [{overview['website']}]({overview['website']})")
+    except Exception:
+        st.info("Financial statements and accounting data are not applicable or published for this instrument.")
 
 
 # --- TAB 4: PEER COMPARISON ---
@@ -761,11 +779,14 @@ elif active_tab == "Peer Comparison":
     st.markdown("#### Peer Benchmarking")
     st.caption(f"Comparing {overview.get('name', current_sym)} against industry rivals.")
 
-    peer_df = get_peer_comparison(current_sym)
-    if not peer_df.empty:
-        st.dataframe(peer_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("No peer metrics available.")
+    try:
+        peer_df = get_peer_comparison(current_sym)
+        if not peer_df.empty:
+            st.dataframe(peer_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No peer metrics available.")
+    except Exception:
+        st.info("Peer benchmarks unavailable for this asset class.")
 
 
 # --- TAB 5: MARKET SCREENER ---
@@ -785,34 +806,40 @@ elif active_tab == "Market Screener":
         label_visibility="collapsed",
     )
 
-    universe_df = get_market_universe_snapshot(category)
-    if not universe_df.empty:
-        st.dataframe(universe_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("Fetching market universe...")
+    try:
+        universe_df = get_market_universe_snapshot(category)
+        if not universe_df.empty:
+            st.dataframe(universe_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("Fetching market universe...")
+    except Exception:
+        st.info("Market screener is synchronizing. Please try again shortly.")
 
 
 # --- TAB 6: NEWS FEED ---
 elif active_tab == "News Feed":
     st.markdown(f"#### Market Headlines for {current_sym}")
 
-    articles = get_stock_news(current_sym)
-    if articles:
-        for item in articles:
-            render_html(
-                f"""
-                <div style="background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:12px 16px; margin-bottom:10px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span style="font-size:11px; font-weight:600; color:#2962ff;">{item['publisher']}</span>
-                        <span style="font-size:11px; color:#787b86;">{item['time']}</span>
+    try:
+        articles = get_stock_news(current_sym)
+        if articles:
+            for item in articles:
+                render_html(
+                    f"""
+                    <div style="background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:12px 16px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                            <span style="font-size:11px; font-weight:600; color:#2962ff;">{item['publisher']}</span>
+                            <span style="font-size:11px; color:#787b86;">{item['time']}</span>
+                        </div>
+                        <div style="font-size:14px; font-weight:600; color:#ffffff; margin-bottom:4px;">{item['title']}</div>
+                        <a href="{item['link']}" target="_blank" style="color:#2962ff; text-decoration:none; font-size:12px; font-weight:500;">Read Article ↗</a>
                     </div>
-                    <div style="font-size:14px; font-weight:600; color:#ffffff; margin-bottom:4px;">{item['title']}</div>
-                    <a href="{item['link']}" target="_blank" style="color:#2962ff; text-decoration:none; font-size:12px; font-weight:500;">Read Article ↗</a>
-                </div>
-                """
-            )
-    else:
-        st.info(f"No recent articles found for '{current_sym}'.")
+                    """
+                )
+        else:
+            st.info(f"No recent articles found for '{current_sym}'.")
+    except Exception:
+        st.info("News feed is temporarily unavailable.")
 
 
 # --- TAB 7: WATCHLIST ---
@@ -823,17 +850,28 @@ elif active_tab == "Watchlist":
     if st.session_state["watchlist"]:
         wl_data = []
         for sym in st.session_state["watchlist"]:
-            ov = get_company_overview(sym)
-            c_char = ov.get("currency_symbol", "$")
-            wl_data.append({
-                "Symbol": sym,
-                "Name": ov.get("name", sym),
-                "Price": f"{c_char}{ov.get('current_price', 0):,.2f}",
-                "Change %": f"{ov.get('change_pct', 0):+.2f}%",
-                "Market Cap": ov.get("market_cap_str", "—"),
-                "P/E": f"{ov.get('pe_trailing'):.1f}x" if ov.get("pe_trailing") else "—",
-                "52W Span": f"{c_char}{ov.get('low_52w', 0):,.1f} - {ov.get('high_52w', 0):,.1f}",
-            })
+            try:
+                ov = get_company_overview(sym)
+                c_char = ov.get("currency_symbol", "$")
+                wl_data.append({
+                    "Symbol": sym,
+                    "Name": ov.get("name", sym),
+                    "Price": f"{c_char}{ov.get('current_price', 0):,.2f}",
+                    "Change %": f"{ov.get('change_pct', 0):+.2f}%",
+                    "Market Cap": ov.get("market_cap_str", "—"),
+                    "P/E": f"{ov.get('pe_trailing'):.1f}x" if ov.get("pe_trailing") else "—",
+                    "52W Span": f"{c_char}{ov.get('low_52w', 0):,.1f} - {ov.get('high_52w', 0):,.1f}",
+                })
+            except Exception:
+                wl_data.append({
+                    "Symbol": sym,
+                    "Name": sym,
+                    "Price": "—",
+                    "Change %": "—",
+                    "Market Cap": "—",
+                    "P/E": "—",
+                    "52W Span": "—",
+                })
 
         st.dataframe(pd.DataFrame(wl_data), use_container_width=True, hide_index=True)
 

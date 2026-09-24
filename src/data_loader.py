@@ -38,6 +38,71 @@ def load_companies_catalog() -> pd.DataFrame:
     return pd.DataFrame(columns=["SYMBOL", "NAME OF COMPANY", "DISPLAY"])
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def get_searchable_asset_catalog() -> list[dict]:
+    """
+    Build a comprehensive catalog of 2,400+ assets for the instant suggested dropdown menu.
+    """
+    items = []
+    seen = set()
+
+    # 1. Global Benchmark Assets (Crypto, Commodities, US Tech, Indices)
+    major_global = [
+        {"symbol": "^NSEI", "label": "^NSEI — NIFTY 50 Index (India)", "name": "NIFTY 50"},
+        {"symbol": "^BSESN", "label": "^BSESN — BSE SENSEX Index (India)", "name": "BSE SENSEX"},
+        {"symbol": "^NSEBANK", "label": "^NSEBANK — Bank Nifty Index (India)", "name": "BANK NIFTY"},
+        {"symbol": "^GSPC", "label": "^GSPC — S&P 500 Index (US)", "name": "S&P 500"},
+        {"symbol": "^IXIC", "label": "^IXIC — NASDAQ Composite Index (US)", "name": "NASDAQ"},
+        {"symbol": "^DJI", "label": "^DJI — Dow Jones Industrial Average (US)", "name": "Dow Jones"},
+        {"symbol": "BTC-USD", "label": "BTC-USD — Bitcoin (Crypto)", "name": "Bitcoin"},
+        {"symbol": "ETH-USD", "label": "ETH-USD — Ethereum (Crypto)", "name": "Ethereum"},
+        {"symbol": "SOL-USD", "label": "SOL-USD — Solana (Crypto)", "name": "Solana"},
+        {"symbol": "BNB-USD", "label": "BNB-USD — Binance Coin (Crypto)", "name": "Binance Coin"},
+        {"symbol": "XRP-USD", "label": "XRP-USD — Ripple (Crypto)", "name": "XRP"},
+        {"symbol": "GC=F", "label": "GC=F — Gold Futures (Commodity)", "name": "Gold"},
+        {"symbol": "SI=F", "label": "SI=F — Silver Futures (Commodity)", "name": "Silver"},
+        {"symbol": "CL=F", "label": "CL=F — Crude Oil WTI (Commodity)", "name": "Crude Oil"},
+        {"symbol": "NVDA", "label": "NVDA — NVIDIA Corporation (NASDAQ)", "name": "Nvidia"},
+        {"symbol": "AAPL", "label": "AAPL — Apple Inc. (NASDAQ)", "name": "Apple"},
+        {"symbol": "MSFT", "label": "MSFT — Microsoft Corporation (NASDAQ)", "name": "Microsoft"},
+        {"symbol": "GOOGL", "label": "GOOGL — Alphabet Inc. (Google) (NASDAQ)", "name": "Google"},
+        {"symbol": "AMZN", "label": "AMZN — Amazon.com Inc. (NASDAQ)", "name": "Amazon"},
+        {"symbol": "META", "label": "META — Meta Platforms Inc. (NASDAQ)", "name": "Meta"},
+        {"symbol": "TSLA", "label": "TSLA — Tesla Inc. (NASDAQ)", "name": "Tesla"},
+        {"symbol": "AMD", "label": "AMD — Advanced Micro Devices (NASDAQ)", "name": "AMD"},
+        {"symbol": "INTC", "label": "INTC — Intel Corporation (NASDAQ)", "name": "Intel"},
+        {"symbol": "NFLX", "label": "NFLX — Netflix Inc. (NASDAQ)", "name": "Netflix"},
+        {"symbol": "PLTR", "label": "PLTR — Palantir Technologies (NYSE)", "name": "Palantir"},
+        {"symbol": "TSM", "label": "TSM — Taiwan Semiconductor (NYSE)", "name": "TSMC"},
+        {"symbol": "ASML", "label": "ASML — ASML Holding (NASDAQ)", "name": "ASML"},
+        {"symbol": "ARM", "label": "ARM — ARM Holdings (NASDAQ)", "name": "ARM"},
+        {"symbol": "AVGO", "label": "AVGO — Broadcom Inc. (NASDAQ)", "name": "Broadcom"},
+        {"symbol": "BRK-B", "label": "BRK-B — Berkshire Hathaway (NYSE)", "name": "Berkshire"},
+        {"symbol": "JPM", "label": "JPM — JPMorgan Chase & Co. (NYSE)", "name": "JPMorgan"},
+        {"symbol": "V", "label": "V — Visa Inc. (NYSE)", "name": "Visa"},
+        {"symbol": "WMT", "label": "WMT — Walmart Inc. (NYSE)", "name": "Walmart"},
+    ]
+    for item in major_global:
+        items.append(item)
+        seen.add(item["symbol"])
+
+    # 2. Local Indian Equities Catalog (~2,367 companies)
+    catalog = load_companies_catalog()
+    if not catalog.empty and "SYMBOL" in catalog.columns and "NAME OF COMPANY" in catalog.columns:
+        for _, row in catalog.iterrows():
+            sym = f"{row['SYMBOL']}.NS"
+            if sym not in seen:
+                name = row["NAME OF COMPANY"]
+                items.append({
+                    "symbol": sym,
+                    "label": f"{sym} — {name} (NSE)",
+                    "name": name,
+                })
+                seen.add(sym)
+
+    return items
+
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def search_global_assets(query: str) -> list[dict]:
     """
