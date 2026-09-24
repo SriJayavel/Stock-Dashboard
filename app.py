@@ -17,11 +17,13 @@ if str(root_path) not in sys.path:
 
 import streamlit as st
 import streamlit.components.v1 as components
+import pandas as pd
 
 from src.data_loader import (
     get_global_market_indices,
     get_company_overview,
     get_historical_ohlcv,
+    get_performance_returns,
     get_financial_statements,
     get_stock_news,
     get_global_market_news,
@@ -574,6 +576,33 @@ else:
         """
     )
 
+# Performance Return Velocity Matrix (1W, 1M, 3M, 6M, 1Y, YTD)
+try:
+    perf_data = get_performance_returns(current_sym)
+    if perf_data:
+        perf_chips = []
+        for horizon, ret in perf_data.items():
+            if ret is not None:
+                color = "#089981" if ret >= 0 else "#f23645"
+                sign = "+" if ret >= 0 else ""
+                perf_chips.append(
+                    f"<div style='background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px; font-size:11px;'>"
+                    f"<span style='color:#787b86; font-weight:600;'>{horizon}</span>"
+                    f"<span style='color:{color}; font-weight:700;'>{sign}{ret:.2f}%</span>"
+                    f"</div>"
+                )
+        if perf_chips:
+            render_html(
+                f"""
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+                    <span style="font-size:10px; font-weight:700; color:#787b86; text-transform:uppercase; letter-spacing:0.04em;">Returns Horizon:</span>
+                    {''.join(perf_chips)}
+                </div>
+                """
+            )
+except Exception:
+    pass
+
 
 # 7. Unified Navigation & Chart Engine Row (Side-by-Side!)
 tab_col, engine_col = st.columns([4.2, 1.8])
@@ -615,7 +644,7 @@ if active_tab == "Chart":
             components.html(tv_html, height=640)
         else:
             # Custom TradingView-Styled Plotly Chart with right-side scale
-            tool_col1, tool_col2, tool_col3 = st.columns([2, 1.5, 4.5])
+            tool_col1, tool_col2, tool_col3, tool_col4 = st.columns([1.8, 1.4, 4.0, 1.4])
 
             with tool_col1:
                 timeframe = st.selectbox(
@@ -646,6 +675,17 @@ if active_tab == "Chart":
                 show_vol = ov_col5.checkbox("Volume", value=True)
 
             hist_df = get_historical_ohlcv(current_sym, period=timeframe, interval="1d")
+
+            with tool_col4:
+                if not hist_df.empty:
+                    csv_bytes = hist_df.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        label="📥 Export CSV",
+                        data=csv_bytes,
+                        file_name=f"{current_sym}_ohlcv_{timeframe}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
 
             if not hist_df.empty:
                 hist_df = apply_all_indicators(hist_df)
@@ -761,6 +801,46 @@ elif active_tab == "Fundamentals & Statements":
     st.markdown("#### Fundamental Valuation & Statements")
 
     try:
+        # Analyst Consensus & Target Valuation Visualizer
+        mean_target = overview.get("target_mean_price")
+        high_target = overview.get("target_high_price") or mean_target
+        low_target = overview.get("target_low_price") or (mean_target * 0.8 if mean_target else None)
+        rec = overview.get("recommendation_key", "")
+        analysts = overview.get("analyst_count")
+
+        if mean_target and curr_price:
+            upside_pct = ((mean_target - curr_price) / curr_price * 100)
+            up_color = "#089981" if upside_pct >= 0 else "#f23645"
+            up_sign = "+" if upside_pct >= 0 else ""
+            rec_display = rec if rec else "CONSENSUS"
+            rec_color = "#089981" if "BUY" in rec_display else ("#f23645" if "SELL" in rec_display else "#2962ff")
+            count_str = f"Based on {analysts} analyst ratings" if analysts else "Wall Street / Dalal Street consensus"
+
+            render_html(
+                f"""
+                <div style="background:#1e222d; border:1px solid #2a2e39; border-radius:4px; padding:14px 16px; margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <span style="font-size:14px; font-weight:700; color:#ffffff;">Analyst Consensus & Target Valuation</span>
+                            <div style="font-size:11px; color:#9ca3af;">{count_str}</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="background:rgba(41,98,255,0.15); color:{rec_color}; font-weight:800; font-size:11px; padding:3px 9px; border-radius:4px; border:1px solid {rec_color};">{rec_display}</span>
+                            <span style="font-size:15px; font-weight:800; color:#ffffff;">Target: {curr_sym_char}{mean_target:,.2f}</span>
+                            <span style="font-size:13px; font-weight:700; color:{up_color};">({up_sign}{upside_pct:.1f}% upside)</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#787b86; margin-bottom:4px;">
+                        <span>Target Low: {curr_sym_char}{low_target:,.2f}</span>
+                        <span style="color:#ffffff; font-weight:600;">Current: {curr_sym_char}{curr_price:,.2f}</span>
+                        <span>Target High: {curr_sym_char}{high_target:,.2f}</span>
+                    </div>
+                    <div style="background:#131722; height:6px; border-radius:3px; position:relative; overflow:hidden;">
+                        <div style="background:linear-gradient(90deg, #2962ff, #089981); height:100%; width:100%; border-radius:3px;"></div>
+                    </div>
+                </div>
+                """
+            )
         f_col1, f_col2, f_col3 = st.columns(3)
 
         with f_col1:

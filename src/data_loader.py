@@ -472,6 +472,11 @@ def get_company_overview(symbol: str) -> dict:
 
         # Target & Volume
         "target_mean_price": info.get("targetMeanPrice"),
+        "target_high_price": info.get("targetHighPrice"),
+        "target_low_price": info.get("targetLowPrice"),
+        "target_median_price": info.get("targetMedianPrice"),
+        "recommendation_key": (info.get("recommendationKey") or "").replace("_", " ").upper(),
+        "analyst_count": info.get("numberOfAnalystOpinions"),
         "volume": info.get("regularMarketVolume") or info.get("volume"),
         "avg_volume": info.get("averageVolume"),
     }
@@ -522,6 +527,42 @@ def get_historical_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") 
         st.warning(f"Notice: Historical data for {symbol} could not be loaded: {str(e)}")
 
     return pd.DataFrame()
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_performance_returns(symbol: str) -> dict:
+    """Calculate multi-horizon performance returns (1W, 1M, 3M, 6M, 1Y, YTD)."""
+    try:
+        session = get_yfinance_session()
+        ticker = yf.Ticker(symbol, session=session)
+        h = ticker.history(period="2y", interval="1d")
+        if h.empty and not symbol.endswith(".NS") and not any(c in symbol for c in ["^", "=", "-"]):
+            alt_ticker = yf.Ticker(f"{symbol}.NS", session=session)
+            h = alt_ticker.history(period="2y", interval="1d")
+
+        if not h.empty and "Close" in h.columns:
+            c = h["Close"].dropna()
+            if len(c) >= 2:
+                last = float(c.iloc[-1])
+                r_1w = ((last - c.iloc[-6]) / c.iloc[-6] * 100) if len(c) > 5 else None
+                r_1m = ((last - c.iloc[-22]) / c.iloc[-22] * 100) if len(c) > 21 else None
+                r_3m = ((last - c.iloc[-64]) / c.iloc[-64] * 100) if len(c) > 63 else None
+                r_6m = ((last - c.iloc[-127]) / c.iloc[-127] * 100) if len(c) > 126 else None
+                r_1y = ((last - c.iloc[-253]) / c.iloc[-253] * 100) if len(c) > 252 else None
+                cur_year = datetime.datetime.now().year
+                ytd_series = c[c.index.year == cur_year]
+                r_ytd = ((last - ytd_series.iloc[0]) / ytd_series.iloc[0] * 100) if not ytd_series.empty else None
+                return {
+                    "1W": r_1w,
+                    "1M": r_1m,
+                    "3M": r_3m,
+                    "6M": r_6m,
+                    "1Y": r_1y,
+                    "YTD": r_ytd,
+                }
+    except Exception:
+        pass
+    return {}
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
