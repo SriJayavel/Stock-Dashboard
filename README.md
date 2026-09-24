@@ -1,74 +1,86 @@
-### Stock Insight Dashboard
+# 📈 Apex Financial Terminal
 
-A Streamlit-based dashboard that allows users to search Indian stocks, analyze market data, visualize trends, and gain simple investment insights.
+> **Analyze everything. Trade nothing.**  
+> A high-performance, web-based market research terminal for Indian (NSE/BSE) and global equities.
 
-## Tech Stack
-- Python
-- Pandas
-- Streamlit
-- Plotly
-- yfinance
-- Git
-- Features
-- Stock Search
-- Multi-Stock Comparison
-- Historical Stock Charts
-- Investment Return Calculator
-- Company Information Dashboard
-- Error Handling
+Built with **Python**, **Streamlit**, **Plotly**, and **yfinance**. Free to deploy, zero account required, and completely ad-free.
 
-## Features
-- Stock Search
-- Historical Stock Charts
-- Multi Stock Comparison 
-- Investment Return Calculator  
-- Company Information  
-- Error Handling
+---
 
-## Screenshots
-![Metrics](Screenshots/Mainpage.png)
-![Metrics](Screenshots/StockHistory.png)
-![Metrics](Screenshots/matrix_keys.png)
-![Metrics](Screenshots/Multi-compare-stock.png)
-![Metrics](Screenshots/overview-comp.png)
+## 🌟 Key Features
 
-## Installation
-- Clone the repository
+- **⚡ Instant Access & Zero Friction:** No login, no signup, and no subscription paywalls.
+- **🔍 Intelligent Search & Coverage:** Instant lookup across 1,800+ NSE companies plus US global equities (AAPL, NVDA, TSLA, etc.).
+- **📈 Interactive Financial Charts:**
+  - Candlestick & Line views with volume overlay.
+  - Moving Averages (EMA 20, 50, 200).
+  - Bollinger Bands (20, 2.0).
+  - RSI (14) with overbought/oversold bands.
+  - MACD (12, 26, 9) with histogram.
+- **🔬 Objective Technical Observations:** Automated non-advisory analysis of momentum, crossovers, and volatility envelopes.
+- **🏢 Deep Fundamental Research:**
+  - Valuation Multiples: Trailing & Forward P/E, P/B, EV/EBITDA, PEG, Dividend Yield.
+  - Profitability & Returns: ROE, ROA, Operating Margin, Net Profit Margin.
+  - Financial Health: Debt-to-Equity, Current Ratio, Quick Ratio, Free Cash Flow.
+  - Full Financial Statements: Income Statement, Balance Sheet, and Cash Flow (Annual & Quarterly) with 4-year trend charts.
+- **⚖️ Peer Comparison:** Side-by-side benchmarking of key valuation and return metrics against sector rivals.
+- **🔍 Indian Benchmark Screener:** Filter major market leaders by sector and valuation multiples.
+- **📰 Live Catalysts & News Feed:** Real-time headlines and source attribution without paywalled API keys.
+- **⭐ Session Watchlist:** Track stocks with live prices without needing a backend database.
 
-- git clone https://github.com/your-username/Stock-Insight-dashboard.git
+---
 
-- cd Stock-Insight-dashboard
+## 📂 Project Architecture
 
-- Install dependencies
-
-- pip install -r requirements.txt
-
-- Run the application
-
-- streamlit run app.py
-
-## 📂 Project Structure
 ```text
-Stock-Insight-dashboard/
-│
-├── app.py
-├── companies.csv
-├── requirements.txt
-├── README.md
-└── Screenshots/
-    ├── Mainpage.png
-    ├── StockHistory.png
-    ├── matrix_keys.png
-    ├── Multi-compare-stock.png
-    └── overview-comp.png
+Stock-Dashboard/
+├── .streamlit/
+│   └── config.toml          # Custom dark terminal theme
+├── src/
+│   ├── data_loader.py       # Caching pipeline for quotes, financials, and company profiles
+│   ├── indicators.py        # Mathematical technical indicators (RSI, MACD, EMA, Bollinger)
+│   ├── charts.py            # Dark-themed Plotly charts with multi-pane subplots
+│   └── screener.py          # Benchmark stock screening module
+├── app.py                   # Main terminal interface & KPI banner
+├── companies.csv            # 1,800+ NSE companies catalog
+├── requirements.txt         # Production dependencies
+└── README.md
 ```
 
-Version 1 complete
+---
 
-## Project Status
+## 🚀 Local Installation & Quick Start
 
-✅ Version 1 Completed
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/SriJayavel/Stock-Dashboard.git
+   cd Stock-Dashboard
+   ```
 
-This project was built to practice data visualization, financial data analysis, and dashboard development using Streamlit.
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Future improvements may be added in later versions.
+3. **Run the terminal:**
+   ```bash
+   streamlit run app.py
+   ```
+
+---
+
+## 🌐 Free Cloud Deployment (Streamlit Community Cloud)
+
+Share this terminal with friends on mobile and desktop for **100% free**:
+
+1. Go to [share.streamlit.io](https://share.streamlit.io) and log in with your GitHub account.
+2. Click **"New app"**.
+3. Select your repository: `SriJayavel/Stock-Dashboard`.
+4. Main file path: `app.py`.
+5. Click **"Deploy!"** — Your terminal will go live with a shareable URL (e.g., `https://stock-dashboard.streamlit.app`).
+
+---
+
+## ⚖️ Non-Negotiable Product Rule & Disclaimer
+
+**LEGAL & REGULATORY DISCLAIMER:** This platform is designed strictly for financial research, education, and quantitative analysis. **Analyze everything. Trade nothing.** It does not execute orders, handle brokerage transactions, or provide individual investment recommendations. Always consult a SEBI / FINRA registered financial advisor before making actual capital allocation decisions.
