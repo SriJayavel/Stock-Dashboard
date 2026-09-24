@@ -1,7 +1,7 @@
 """
 High-performance Plotly interactive financial charts.
-Configured with a sleek dark terminal theme, multi-pane subplots (Price, Volume, RSI, MACD),
-and smooth crosshairs.
+Configured with professional dark terminal styling, clean indicator subplots,
+and gap-free moving average rendering.
 """
 
 import plotly.graph_objects as go
@@ -21,21 +21,25 @@ def create_terminal_chart(
     show_rsi: bool = False,
     show_macd: bool = False,
 ) -> go.Figure:
-    """
-    Build a multi-panel financial chart with Plotly.
-    Panels dynamically configure based on enabled indicators.
-    """
+    """Build a multi-panel financial chart with Plotly."""
     if df.empty or "Close" not in df.columns:
         fig = go.Figure()
         fig.add_annotation(
             text="No historical price data available.",
             showarrow=False,
-            font=dict(size=16, color="#94a3b8"),
+            font=dict(size=14, color="#64748b"),
         )
-        fig.update_layout(template="plotly_dark", height=400)
+        fig.update_layout(template="plotly_dark", height=400, paper_bgcolor="#0d1117", plot_bgcolor="#0d1117")
         return fig
 
-    # Determine rows and row heights
+    # Filter to requested display window if padding cutoff exists
+    if "_cutoff" in df.columns and not df["_cutoff"].isna().all():
+        cutoff_val = df["_cutoff"].iloc[0]
+        visible_df = df[df["Date"] >= cutoff_val].copy()
+        if len(visible_df) >= 5:
+            df = visible_df
+
+    # Configure subplots
     rows = 1
     row_heights = [0.65]
 
@@ -53,7 +57,6 @@ def create_terminal_chart(
         rows += 1
         row_heights.append(0.20)
 
-    # Normalize row heights
     total_h = sum(row_heights)
     row_heights = [h / total_h for h in row_heights]
 
@@ -77,10 +80,10 @@ def create_terminal_chart(
                 low=df["Low"],
                 close=df["Close"],
                 name="Price",
-                increasing_line_color="#10b981",  # Vibrant Emerald
-                decreasing_line_color="#ef4444",  # Vibrant Red
-                increasing_fillcolor="#10b981",
-                decreasing_fillcolor="#ef4444",
+                increasing_line_color="#00c076",
+                decreasing_line_color="#ff3b5c",
+                increasing_fillcolor="#00c076",
+                decreasing_fillcolor="#ff3b5c",
             ),
             row=current_row,
             col=1,
@@ -91,24 +94,24 @@ def create_terminal_chart(
                 x=df["Date"],
                 y=df["Close"],
                 mode="lines",
-                name="Close Price",
-                line=dict(color="#00e5ff", width=2),  # Vibrant Cyan
+                name="Close",
+                line=dict(color="#00e5ff", width=2),
                 fill="tozeroy",
-                fillcolor="rgba(0, 229, 255, 0.05)",
+                fillcolor="rgba(0, 229, 255, 0.04)",
             ),
             row=current_row,
             col=1,
         )
 
-    # Bollinger Bands Overlays
+    # Bollinger Bands
     if show_bb and "BB_Upper" in df.columns:
         fig.add_trace(
             go.Scatter(
                 x=df["Date"],
                 y=df["BB_Upper"],
                 mode="lines",
-                line=dict(color="rgba(148, 163, 184, 0.4)", width=1),
-                name="Upper BB (20,2)",
+                line=dict(color="rgba(148, 163, 184, 0.35)", width=1),
+                name="BB Upper",
             ),
             row=current_row,
             col=1,
@@ -118,10 +121,10 @@ def create_terminal_chart(
                 x=df["Date"],
                 y=df["BB_Lower"],
                 mode="lines",
-                line=dict(color="rgba(148, 163, 184, 0.4)", width=1),
+                line=dict(color="rgba(148, 163, 184, 0.35)", width=1),
                 fill="tonexty",
-                fillcolor="rgba(148, 163, 184, 0.08)",
-                name="Lower BB (20,2)",
+                fillcolor="rgba(148, 163, 184, 0.05)",
+                name="BB Lower",
             ),
             row=current_row,
             col=1,
@@ -131,14 +134,14 @@ def create_terminal_chart(
                 x=df["Date"],
                 y=df["BB_Middle"],
                 mode="lines",
-                line=dict(color="#fbbf24", width=1, dash="dot"),
-                name="BB Middle (SMA 20)",
+                line=dict(color="#f59e0b", width=1, dash="dot"),
+                name="BB Mid (20)",
             ),
             row=current_row,
             col=1,
         )
 
-    # EMA Overlays
+    # EMAs
     if show_ema:
         if "EMA_20" in df.columns:
             fig.add_trace(
@@ -158,7 +161,7 @@ def create_terminal_chart(
                     x=df["Date"],
                     y=df["EMA_50"],
                     mode="lines",
-                    line=dict(color="#f59e0b", width=1.4),
+                    line=dict(color="#fbbf24", width=1.4),
                     name="EMA 50",
                 ),
                 row=current_row,
@@ -170,7 +173,7 @@ def create_terminal_chart(
                     x=df["Date"],
                     y=df["EMA_200"],
                     mode="lines",
-                    line=dict(color="#ec4899", width=1.6),
+                    line=dict(color="#c084fc", width=1.6),
                     name="EMA 200",
                 ),
                 row=current_row,
@@ -181,7 +184,7 @@ def create_terminal_chart(
     if has_volume:
         current_row += 1
         vol_colors = [
-            "#10b981" if c >= o else "#ef4444"
+            "#00c076" if c >= o else "#ff3b5c"
             for c, o in zip(df["Close"], df["Open"] if "Open" in df.columns else df["Close"])
         ]
         fig.add_trace(
@@ -190,7 +193,7 @@ def create_terminal_chart(
                 y=df["Volume"],
                 name="Volume",
                 marker_color=vol_colors,
-                opacity=0.7,
+                opacity=0.6,
             ),
             row=current_row,
             col=1,
@@ -205,27 +208,26 @@ def create_terminal_chart(
                 y=df["RSI"],
                 mode="lines",
                 name="RSI (14)",
-                line=dict(color="#a855f7", width=1.8),
+                line=dict(color="#a855f7", width=1.6),
             ),
             row=current_row,
             col=1,
         )
-        # Overbought / Oversold threshold lines
         fig.add_hline(y=70, line=dict(color="#ef4444", width=1, dash="dash"), row=current_row, col=1)
         fig.add_hline(y=30, line=dict(color="#10b981", width=1, dash="dash"), row=current_row, col=1)
         fig.add_hrect(
-            y0=30, y1=70, fillcolor="rgba(168, 85, 247, 0.05)", line_width=0, row=current_row, col=1
+            y0=30, y1=70, fillcolor="rgba(168, 85, 247, 0.04)", line_width=0, row=current_row, col=1
         )
 
     # 4. MACD Panel
     if has_macd:
         current_row += 1
-        hist_colors = ["#10b981" if val >= 0 else "#ef4444" for val in df["MACD_Hist"]]
+        hist_colors = ["#00c076" if val >= 0 else "#ff3b5c" for val in df["MACD_Hist"]]
         fig.add_trace(
             go.Bar(
                 x=df["Date"],
                 y=df["MACD_Hist"],
-                name="MACD Hist",
+                name="Hist",
                 marker_color=hist_colors,
                 opacity=0.6,
             ),
@@ -238,7 +240,7 @@ def create_terminal_chart(
                 y=df["MACD"],
                 mode="lines",
                 name="MACD",
-                line=dict(color="#00e5ff", width=1.5),
+                line=dict(color="#00e5ff", width=1.4),
             ),
             row=current_row,
             col=1,
@@ -249,28 +251,27 @@ def create_terminal_chart(
                 y=df["MACD_Signal"],
                 mode="lines",
                 name="Signal",
-                line=dict(color="#fb923c", width=1.3),
+                line=dict(color="#fb923c", width=1.2),
             ),
             row=current_row,
             col=1,
         )
-        fig.add_hline(y=0, line=dict(color="#475569", width=1), row=current_row, col=1)
+        fig.add_hline(y=0, line=dict(color="#334155", width=1), row=current_row, col=1)
 
-    # Layout styling
-    chart_height = 520 + (120 if has_rsi else 0) + (120 if has_macd else 0)
+    chart_height = 500 + (110 if has_rsi else 0) + (110 if has_macd else 0)
 
     fig.update_layout(
         template="plotly_dark",
-        paper_bgcolor="#0b0e14",
-        plot_bgcolor="#0b0e14",
+        paper_bgcolor="#0d1117",
+        plot_bgcolor="#0d1117",
         height=chart_height,
-        margin=dict(l=40, r=40, t=30, b=20),
+        margin=dict(l=45, r=45, t=25, b=20),
         xaxis_rangeslider_visible=False,
         hovermode="x unified",
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.02,
+            y=1.01,
             xanchor="right",
             x=1,
             font=dict(size=11, color="#94a3b8"),
@@ -280,37 +281,34 @@ def create_terminal_chart(
     fig.update_xaxes(
         showgrid=True,
         gridwidth=1,
-        gridcolor="#1e293b",
+        gridcolor="#171f2e",
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        spikecolor="#64748b",
+        spikecolor="#475569",
     )
     fig.update_yaxes(
         showgrid=True,
         gridwidth=1,
-        gridcolor="#1e293b",
+        gridcolor="#171f2e",
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        spikecolor="#64748b",
+        spikecolor="#475569",
     )
 
     return fig
 
 
 def create_financials_trend_chart(income_df: pd.DataFrame) -> go.Figure:
-    """
-    Create a 4-year trend chart of Total Revenue and Net Income.
-    """
+    """Create trend chart of Total Revenue vs Net Income."""
     if income_df is None or income_df.empty:
         fig = go.Figure()
         fig.add_annotation(text="Financial statements not available for trend visualization.", showarrow=False)
-        fig.update_layout(template="plotly_dark", height=300)
+        fig.update_layout(template="plotly_dark", height=280, paper_bgcolor="#0d1117", plot_bgcolor="#0d1117")
         return fig
 
     try:
-        # yfinance columns are dates (e.g., 2024-03-31)
         years = [str(col)[:10] for col in income_df.columns[::-1]]
 
         rev_row = None
@@ -327,41 +325,26 @@ def create_financials_trend_chart(income_df: pd.DataFrame) -> go.Figure:
 
         fig = go.Figure()
         if rev_row is not None:
-            # Convert to Crores
             rev_cr = [v / 1e7 if v and not np.isnan(v) else 0 for v in rev_row]
-            fig.add_trace(
-                go.Bar(
-                    x=years,
-                    y=rev_cr,
-                    name="Revenue (₹ Cr)",
-                    marker_color="#00e5ff",
-                )
-            )
+            fig.add_trace(go.Bar(x=years, y=rev_cr, name="Revenue", marker_color="#00e5ff"))
 
         if net_row is not None:
             net_cr = [v / 1e7 if v and not np.isnan(v) else 0 for v in net_row]
-            fig.add_trace(
-                go.Bar(
-                    x=years,
-                    y=net_cr,
-                    name="Net Income (₹ Cr)",
-                    marker_color="#10b981",
-                )
-            )
+            fig.add_trace(go.Bar(x=years, y=net_cr, name="Net Income", marker_color="#00c076"))
 
         fig.update_layout(
             template="plotly_dark",
             barmode="group",
-            paper_bgcolor="#111620",
-            plot_bgcolor="#111620",
-            height=320,
-            margin=dict(l=40, r=40, t=30, b=30),
+            paper_bgcolor="#0d1117",
+            plot_bgcolor="#0d1117",
+            height=300,
+            margin=dict(l=40, r=40, t=25, b=25),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-            xaxis=dict(gridcolor="#1e293b"),
-            yaxis=dict(gridcolor="#1e293b"),
+            xaxis=dict(gridcolor="#171f2e"),
+            yaxis=dict(gridcolor="#171f2e"),
         )
         return fig
     except Exception:
         fig = go.Figure()
-        fig.update_layout(template="plotly_dark", height=300)
+        fig.update_layout(template="plotly_dark", height=280, paper_bgcolor="#0d1117", plot_bgcolor="#0d1117")
         return fig
