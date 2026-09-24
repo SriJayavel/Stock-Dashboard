@@ -465,3 +465,264 @@ def create_financials_trend_chart(income_df: pd.DataFrame) -> go.Figure:
         fig = go.Figure()
         fig.update_layout(template="plotly_dark", height=280, paper_bgcolor="#131722", plot_bgcolor="#131722")
         return fig
+
+
+def create_hero_index_area_chart(
+    df: pd.DataFrame,
+    change_pct: float = 0.0,
+    theme: str = "dark",
+    height: int = 340,
+) -> go.Figure:
+    """
+    Build a TradingView-styled Hero Index Area Chart with smooth gradient fill.
+    Matches the large Nifty 50 / S&P 500 hero overview widget.
+    """
+    is_dark = theme == "dark"
+    bg = "#131722" if is_dark else "#ffffff"
+    grid = "#1e222d" if is_dark else "#f0f3fa"
+    txt = "#787b86" if is_dark else "#64748b"
+
+    line_col = "#089981" if change_pct >= 0 else "#f23645"
+    fill_col = "rgba(8, 153, 129, 0.12)" if change_pct >= 0 else "rgba(242, 54, 69, 0.12)"
+
+    fig = go.Figure()
+
+    if df.empty or "Close" not in df.columns:
+        fig.add_annotation(text="Index chart data unavailable", showarrow=False, font=dict(color=txt, size=12))
+        fig.update_layout(template="plotly_dark" if is_dark else "plotly_white", paper_bgcolor=bg, plot_bgcolor=bg, height=height)
+        return fig
+
+    # If datetime index or column
+    x_vals = df["Date"] if "Date" in df.columns else df.index
+
+    fig.add_trace(
+        go.Scatter(
+            x=x_vals,
+            y=df["Close"],
+            mode="lines",
+            line=dict(color=line_col, width=2.4),
+            fill="tozeroy",
+            fillcolor=fill_col,
+            hoverinfo="x+y",
+            hovertemplate="<b>%{y:,.2f}</b><br>%{x}<extra></extra>",
+            name="Index Price",
+        )
+    )
+
+    fig.update_layout(
+        template="plotly_dark" if is_dark else "plotly_white",
+        paper_bgcolor=bg,
+        plot_bgcolor=bg,
+        height=height,
+        margin=dict(l=10, r=55, t=10, b=25),
+        showlegend=False,
+        hovermode="x",
+        xaxis=dict(
+            showgrid=True,
+            gridcolor=grid,
+            gridwidth=1,
+            tickfont=dict(size=10, color=txt),
+            zeroline=False,
+        ),
+        yaxis=dict(
+            side="right",
+            showgrid=True,
+            gridcolor=grid,
+            gridwidth=1,
+            tickfont=dict(size=10, color=txt),
+            zeroline=False,
+            autorange=True,
+        ),
+    )
+    return fig
+
+
+def create_sparkline_area_chart(
+    dates,
+    values,
+    change_pct: float = 0.0,
+    color: str = None,
+    theme: str = "dark",
+    height: int = 90,
+) -> go.Figure:
+    """
+    Compact sparkline area chart for multi-asset overview cards
+    (Crypto market cap, USD/INR, 10Y Yield).
+    """
+    is_dark = theme == "dark"
+    bg = "#1e222d" if is_dark else "#ffffff"
+
+    if color:
+        stroke = color
+        fill = f"rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.12)" if color.startswith("#") and len(color) == 7 else "rgba(41, 98, 255, 0.12)"
+    elif change_pct >= 0:
+        stroke = "#089981"
+        fill = "rgba(8, 153, 129, 0.12)"
+    else:
+        stroke = "#f23645"
+        fill = "rgba(242, 54, 69, 0.12)"
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=dates,
+            y=values,
+            mode="lines",
+            line=dict(color=stroke, width=2.0),
+            fill="tozeroy",
+            fillcolor=fill,
+            hoverinfo="y",
+            hovertemplate="<b>%{y:,.2f}</b><extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_dark" if is_dark else "plotly_white",
+        paper_bgcolor=bg,
+        plot_bgcolor=bg,
+        height=height,
+        margin=dict(l=0, r=0, t=2, b=2),
+        xaxis=dict(visible=False, showgrid=False),
+        yaxis=dict(visible=False, showgrid=False),
+        hovermode="x",
+    )
+    return fig
+
+
+def create_macro_inflation_chart(
+    months: list[str],
+    values: list[float],
+    theme: str = "dark",
+    height: int = 120,
+) -> go.Figure:
+    """
+    Bar chart showing historical annual inflation rates by month.
+    Matches TradingView's India Annual Inflation Rate widget.
+    """
+    is_dark = theme == "dark"
+    bg = "#1e222d" if is_dark else "#ffffff"
+    bar_col = "#2962ff"
+    txt_col = "#787b86" if is_dark else "#64748b"
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=months,
+            y=values,
+            marker_color=bar_col,
+            marker_line_width=0,
+            text=[f"{v:.1f}%" for v in values],
+            textposition="outside",
+            textfont=dict(size=9, color=txt_col),
+            hoverinfo="x+y",
+            hovertemplate="<b>%{x}</b>: %{y:.2f}%<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_dark" if is_dark else "plotly_white",
+        paper_bgcolor=bg,
+        plot_bgcolor=bg,
+        height=height,
+        margin=dict(l=5, r=5, t=18, b=22),
+        xaxis=dict(
+            showgrid=False,
+            tickfont=dict(size=9, color=txt_col),
+            tickangle=0,
+        ),
+        yaxis=dict(
+            visible=False,
+            showgrid=False,
+        ),
+    )
+    return fig
+
+
+def create_trade_idea_preview_chart(
+    symbol: str,
+    idea_title: str,
+    setup_type: str = "demand_zone",
+    theme: str = "dark",
+    height: int = 210,
+) -> go.Figure:
+    """
+    Render a clean technical analysis setup preview chart for Community Trade Ideas.
+    Shows price action with annotated support/resistance, demand boxes, and targets.
+    """
+    is_dark = theme == "dark"
+    bg = "#1e222d" if is_dark else "#ffffff"
+    txt_col = "#787b86" if is_dark else "#64748b"
+    grid_col = "#2a2e39" if is_dark else "#f0f3fa"
+
+    # Generate synthetic realistic price wave for the setup demonstration
+    np.random.seed(abs(hash(symbol + idea_title)) % 10000)
+    periods = 35
+    dates = pd.date_range("2026-08-10", periods=periods, freq="D")
+    
+    base_price = 240.0 if "SHALBY" in symbol.upper() else 120.0 if "MUKAN" in symbol.upper() else 23000.0 if "NIFTY" in symbol.upper() else 82000.0 if "BTC" in symbol.upper() else 1500.0
+    
+    # Create price pattern with a pullback into demand or breakout
+    trend = np.linspace(-15, 25, periods)
+    noise = np.random.normal(0, 3, periods)
+    if "DEMAND" in idea_title.upper():
+        # Dip into demand level and bounce
+        dip = np.zeros(periods)
+        dip[18:26] = -12
+        dip[26:] = np.linspace(-10, 15, periods - 26)
+        y_vals = base_price + trend * 0.4 + dip + noise
+    else:
+        # Consolidation and breakout
+        y_vals = base_price + np.cumsum(np.random.normal(0.4, 2, periods))
+
+    fig = go.Figure()
+
+    # Main candlestick / line
+    fig.add_trace(
+        go.Scatter(
+            x=dates,
+            y=y_vals,
+            mode="lines",
+            line=dict(color="#2962ff", width=2.2),
+            fill="tozeroy",
+            fillcolor="rgba(41, 98, 255, 0.05)",
+            name="Price",
+            hoverinfo="x+y",
+        )
+    )
+
+    # Annotation lines for support / resistance / targets
+    min_y = float(np.min(y_vals))
+    max_y = float(np.max(y_vals))
+    demand_level = min_y + (max_y - min_y) * 0.22
+    target_level = max_y + (max_y - min_y) * 0.15
+
+    # Demand zone / Support line
+    fig.add_hline(
+        y=demand_level,
+        line_dash="dash",
+        line_color="#089981",
+        annotation_text="Demand / Support",
+        annotation_position="bottom right",
+        annotation_font=dict(size=9, color="#089981"),
+    )
+
+    # Target line
+    fig.add_hline(
+        y=target_level,
+        line_dash="dot",
+        line_color="#2962ff",
+        annotation_text="Target Level",
+        annotation_position="top right",
+        annotation_font=dict(size=9, color="#2962ff"),
+    )
+
+    fig.update_layout(
+        template="plotly_dark" if is_dark else "plotly_white",
+        paper_bgcolor=bg,
+        plot_bgcolor=bg,
+        height=height,
+        margin=dict(l=10, r=45, t=15, b=20),
+        showlegend=False,
+        xaxis=dict(showgrid=True, gridcolor=grid_col, tickfont=dict(size=9, color=txt_col)),
+        yaxis=dict(side="right", showgrid=True, gridcolor=grid_col, tickfont=dict(size=9, color=txt_col), autorange=True),
+    )
+    return fig
+
