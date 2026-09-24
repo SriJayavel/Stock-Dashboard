@@ -69,29 +69,56 @@ render_html(
         max-width: 99% !important;
     }
 
-    /* Top Ticker Tape (TradingView Exact Style) */
-    .ticker-tape-container {
-        display: flex;
-        overflow-x: auto;
-        gap: 6px;
+    /* Top Ticker Tape (Continuous Train Marquee Animation) */
+    .ticker-tape-wrap {
+        width: 100%;
+        overflow: hidden;
+        position: relative;
         padding: 4px 0 8px 0;
         margin-bottom: 8px;
         border-bottom: 1px solid #2a2e39;
-        white-space: nowrap;
-        min-height: 32px;
-        contain: layout style;
+        display: flex;
+        mask-image: linear-gradient(90deg, transparent 0%, #000 24px, #000 calc(100% - 24px), transparent 100%);
+        -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 24px, #000 calc(100% - 24px), transparent 100%);
+    }
+    .ticker-tape-track {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: max-content;
+        animation: ticker-train 34s linear infinite;
+        will-change: transform;
+    }
+    .ticker-tape-track:hover {
+        animation-play-state: paused;
+        cursor: default;
+    }
+    @keyframes ticker-train {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+        100% {
+            transform: translate3d(-50%, 0, 0);
+        }
     }
     .ticker-pill {
+        flex-shrink: 0;
         background: #1e222d;
         border: 1px solid #363c4e;
         border-radius: 4px;
-        padding: 2px 9px;
+        padding: 2px 10px;
         display: inline-flex;
         align-items: center;
         gap: 8px;
         font-size: 11px;
         height: 24px;
         box-sizing: border-box;
+        transition: background 0.15s ease, border-color 0.15s ease;
+        user-select: none;
+    }
+    .ticker-pill:hover {
+        background: #242938;
+        border-color: #4b5563;
     }
     .ticker-name {
         font-weight: 700;
@@ -101,6 +128,14 @@ render_html(
     .ticker-val {
         color: #e2e8f0;
         font-weight: 600;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .ticker-tape-track {
+            animation: none;
+        }
+        .ticker-tape-wrap {
+            overflow-x: auto;
+        }
     }
 
     /* KPI Summary Cards (Compact TradingView Stat Tiles) */
@@ -335,7 +370,13 @@ if global_indices:
             f"<span style='color:{color}; font-weight:600;'>{sign}{chg:.2f}%</span>"
             f"</div>"
         )
-    render_html(f"<div class='ticker-tape-container'>{''.join(tape_items)}</div>")
+    # Duplicate items for continuous seamless infinite marquee loop (train track)
+    track_content = "".join(tape_items * 2)
+    render_html(
+        f"<div class='ticker-tape-wrap' title='Live Market Ticker — Hover to Pause'>"
+        f"<div class='ticker-tape-track'>{track_content}</div>"
+        f"</div>"
+    )
 
 
 # 5. Suggested Dropdown Search & Command Palette
