@@ -2,6 +2,7 @@
 Apex Financial Terminal — Analyze everything. Trade nothing.
 Global Market Analysis Platform inspired by TradingView.
 Covers: Indian Equities, US Wall Street, Global Indices, Crypto, Commodities, and Forex.
+Optimized for high-speed rendering, low latency, and zero layout shift.
 """
 
 import sys
@@ -45,7 +46,7 @@ def render_html(html_str: str):
     st.markdown(textwrap.dedent(html_str).strip(), unsafe_allow_html=True)
 
 
-# 2. Modern Dark Terminal CSS
+# 2. Modern Dark Terminal CSS with Layout Stability
 render_html(
     """
     <style>
@@ -56,7 +57,7 @@ render_html(
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     
-    /* Top Ticker Tape (TradingView Style) */
+    /* Top Ticker Tape (TradingView Style) with Fixed Height & Containment */
     .ticker-tape-container {
         display: flex;
         overflow-x: auto;
@@ -65,6 +66,8 @@ render_html(
         margin-bottom: 16px;
         border-bottom: 1px solid #1e293b;
         white-space: nowrap;
+        min-height: 44px;
+        contain: layout style;
     }
     .ticker-pill {
         background: #141824;
@@ -75,6 +78,8 @@ render_html(
         align-items: center;
         gap: 8px;
         font-size: 12px;
+        height: 28px;
+        box-sizing: border-box;
     }
     .ticker-name {
         font-weight: 700;
@@ -84,12 +89,14 @@ render_html(
         color: #cbd5e1;
     }
     
-    /* Sleek KPI Metric Cards */
+    /* Sleek KPI Metric Cards with Fixed Dimensions */
     .kpi-container {
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
         margin-bottom: 20px;
+        min-height: 94px;
+        contain: layout;
     }
     .kpi-card {
         background: #141824;
@@ -97,6 +104,8 @@ render_html(
         border-radius: 8px;
         padding: 14px 18px;
         flex: 1 1 180px;
+        min-height: 86px;
+        box-sizing: border-box;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     }
     .kpi-label {
@@ -136,6 +145,24 @@ render_html(
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.05em;
+    }
+
+    /* Plotly Chart Container Reservation (Prevents CLS) */
+    .stPlotlyChart {
+        min-height: 520px;
+        contain: layout;
+    }
+
+    /* Modern Lazy-Loading Tab Switcher */
+    div[data-testid="stRadio"] > div[role="radiogroup"] {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        background: #10141d;
+        padding: 6px;
+        border-radius: 8px;
+        border: 1px solid #1e293b;
+        margin-bottom: 16px;
     }
 
     /* Disclaimer Footer */
@@ -318,20 +345,25 @@ render_html(
 )
 
 
-# 7. Main Terminal Research Tabs
-tab_chart, tab_tech, tab_funds, tab_peers, tab_screener, tab_news, tab_watchlist = st.tabs([
-    "📈 Interactive Chart",
-    "🔬 Technical Observations",
-    "🏢 Fundamentals & Financials",
-    "⚖️ Peer Comparison",
-    "🔍 Global Screener",
-    "📰 News & Catalysts",
-    "⭐ Watchlist",
-])
+# 7. Lazy-Loaded Research Navigation Bar (Prevents Multi-Tab Execution Overhead)
+active_tab = st.radio(
+    "Navigation Tabs",
+    [
+        "📈 Interactive Chart",
+        "🔬 Technical Observations",
+        "🏢 Fundamentals & Financials",
+        "⚖️ Peer Comparison",
+        "🔍 Global Screener",
+        "📰 News & Catalysts",
+        "⭐ Watchlist",
+    ],
+    horizontal=True,
+    label_visibility="collapsed",
+)
 
 
 # --- TAB 1: INTERACTIVE CHART ---
-with tab_chart:
+if active_tab == "📈 Interactive Chart":
     ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns([2, 1.5, 3.5, 2])
 
     with ctrl_col1:
@@ -380,17 +412,24 @@ with tab_chart:
             show_rsi=show_rsi,
             show_macd=show_macd,
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": True, "scrollZoom": True})
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+            config={"displayModeBar": "hover", "scrollZoom": True, "responsive": True},
+        )
     else:
         st.info(f"No historical chart data available for '{current_sym}'. Try another timeframe or asset.")
 
 
 # --- TAB 2: TECHNICAL OBSERVATIONS ---
-with tab_tech:
+elif active_tab == "🔬 Technical Observations":
     st.markdown("### 🔬 Objective Technical Observations")
     st.caption("Quantitative observations on trend, momentum, and volatility. Strictly non-advisory.")
 
+    hist_df = get_historical_ohlcv(current_sym, period="1y", interval="1d")
+
     if not hist_df.empty and len(hist_df) >= 20:
+        hist_df = apply_all_indicators(hist_df)
         observations = generate_technical_observations(hist_df)
 
         if observations:
@@ -428,7 +467,7 @@ with tab_tech:
 
 
 # --- TAB 3: FUNDAMENTALS & FINANCIAL STATEMENTS ---
-with tab_funds:
+elif active_tab == "🏢 Fundamentals & Financials":
     st.markdown("### 🏢 Fundamental Analysis & Financial Statements")
 
     f_col1, f_col2, f_col3 = st.columns(3)
@@ -510,7 +549,7 @@ with tab_funds:
 
 
 # --- TAB 4: PEER COMPARISON ---
-with tab_peers:
+elif active_tab == "⚖️ Peer Comparison":
     st.markdown("### ⚖️ Global Peer Comparison")
     st.caption(f"Benchmarking {overview.get('name', current_sym)} against industry peers.")
 
@@ -522,7 +561,7 @@ with tab_peers:
 
 
 # --- TAB 5: GLOBAL SCREENER ---
-with tab_screener:
+elif active_tab == "🔍 Global Screener":
     st.markdown("### 🔍 Global Market Screener")
     st.caption("Screen leaders across Indian Equities, US Wall Street, Semiconductor Titans, Crypto, and Commodities.")
 
@@ -545,7 +584,7 @@ with tab_screener:
 
 
 # --- TAB 6: NEWS & CATALYSTS ---
-with tab_news:
+elif active_tab == "📰 News & Catalysts":
     st.markdown("### 📰 Global Market News Feed")
     st.caption(f"Real-time news and catalysts for {current_sym}.")
 
@@ -569,7 +608,7 @@ with tab_news:
 
 
 # --- TAB 7: WATCHLIST ---
-with tab_watchlist:
+elif active_tab == "⭐ Watchlist":
     st.markdown("### ⭐ My Global Watchlist")
     st.caption("Locally saved session tracking. Zero login or account registration required.")
 
