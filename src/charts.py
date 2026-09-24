@@ -69,21 +69,23 @@ def get_tradingview_symbol(symbol: str) -> str:
     return s
 
 
-def get_tradingview_widget_html(symbol: str) -> str:
+def get_tradingview_widget_html(symbol: str, theme: str = "dark") -> str:
     """
     Generate official TradingView Advanced Real-Time Chart HTML embed.
-    Includes full TradingView tools, multi-timeframes, technical indicators, and dark theme.
+    Includes full TradingView tools, multi-timeframes, technical indicators, and dark/light theme.
     """
     tv_symbol = get_tradingview_symbol(symbol)
+    tv_theme = "light" if theme == "light" else "dark"
+    bg_color = "#ffffff" if tv_theme == "light" else "#131722"
     container_id = f"tv_{symbol.replace('.', '_').replace('^', '').replace('-', '_')}_{abs(hash(symbol)) % 10000}"
     html_code = f"""
     <!DOCTYPE html>
-    <html style="height:100%; margin:0; padding:0; background:#131722;">
+    <html style="height:100%; margin:0; padding:0; background:{bg_color};">
     <head>
       <meta charset="utf-8">
       <style>
         * {{ margin:0; padding:0; box-sizing:border-box; }}
-        body {{ height:100%; background:#131722; overflow:hidden; }}
+        body {{ height:100%; background:{bg_color}; overflow:hidden; }}
         .tradingview-widget-container {{ height:100%; width:100%; }}
       </style>
     </head>
@@ -97,7 +99,7 @@ def get_tradingview_widget_html(symbol: str) -> str:
           "symbol": "{tv_symbol}",
           "interval": "D",
           "timezone": "exchange",
-          "theme": "dark",
+          "theme": "{tv_theme}",
           "style": "1",
           "locale": "en",
           "toolbar_bg": "#131722",
@@ -131,10 +133,11 @@ def create_terminal_chart(
     show_volume: bool = True,
     show_rsi: bool = False,
     show_macd: bool = False,
+    theme: str = "dark",
 ) -> go.Figure:
     """
     Build a TradingView-styled Plotly chart with right-hand price scale,
-    TradingView exact dark palette (#131722 / #1e222d), and crisp candle geometry.
+    TradingView exact dark/light palette, and crisp candle geometry.
     """
     if df.empty or "Close" not in df.columns:
         fig = go.Figure()
@@ -374,11 +377,17 @@ def create_terminal_chart(
 
     chart_height = 520 + (110 if has_rsi else 0) + (110 if has_macd else 0)
 
+    is_dark = theme == "dark"
+    bg = "#131722" if is_dark else "#ffffff"
+    grid = "#1e222d" if is_dark else "#f0f3fa"
+    spike = "#363c4e" if is_dark else "#d1d4dc"
+    txt_col = "#787b86" if is_dark else "#64748b"
+
     # TradingView Exact Chart Layout: Right-Side Y-Axis, Clean Margins
     fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#131722",
-        plot_bgcolor="#131722",
+        template="plotly_dark" if is_dark else "plotly_white",
+        paper_bgcolor=bg,
+        plot_bgcolor=bg,
         height=chart_height,
         margin=dict(l=15, r=60, t=25, b=20),
         xaxis_rangeslider_visible=False,
@@ -389,7 +398,7 @@ def create_terminal_chart(
             y=1.01,
             xanchor="left",
             x=0,
-            font=dict(size=11, color="#787b86"),
+            font=dict(size=11, color=txt_col),
         ),
     )
 
@@ -397,21 +406,21 @@ def create_terminal_chart(
     fig.update_xaxes(
         showgrid=True,
         gridwidth=1,
-        gridcolor="#1e222d",
+        gridcolor=grid,
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        spikecolor="#363c4e",
+        spikecolor=spike,
     )
     fig.update_yaxes(
         side="right",
         showgrid=True,
         gridwidth=1,
-        gridcolor="#1e222d",
+        gridcolor=grid,
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        spikecolor="#363c4e",
+        spikecolor=spike,
     )
 
     return fig

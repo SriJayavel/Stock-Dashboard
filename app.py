@@ -89,6 +89,9 @@ input_border = "#363c4e" if is_dark else "#d1d4dc"
 
 # 3. TradingView-Matched Sleek Pro Terminal CSS
 root_theme_css = f"""
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
     :root {{
         --bg-app: {bg_app};
@@ -102,6 +105,17 @@ root_theme_css = f"""
         --badge-bg: {badge_bg};
         --input-bg: {input_bg};
         --input-border: {input_border};
+        --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+        --tv-blue: #2962ff;
+        --tv-blue-hover: #1e53e5;
+        --tv-blue-glow: rgba(41, 98, 255, 0.22);
+        --bull-green: #089981;
+        --bull-green-glow: rgba(8, 153, 129, 0.16);
+        --bear-red: #f23645;
+        --bear-red-glow: rgba(242, 54, 69, 0.16);
+        --card-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.25);
+        --card-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.5);
     }}
     </style>
 """
@@ -110,19 +124,39 @@ render_html(root_theme_css)
 base_terminal_css = """
     <style>
     /* Global TradingView Background and Typography */
-    .stApp {
+    html, body, [class*="css"], .stApp {
         background-color: var(--bg-app) !important;
         color: var(--text-color) !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif !important;
+        font-family: var(--font-sans) !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        letter-spacing: -0.01em;
     }
-    /* Hide default fixed Streamlit header to give full screen to terminal */
+
+    /* Custom Sleek Scrollbars */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: var(--bg-app);
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #4b5563;
+    }
+
+    /* Hide default fixed Streamlit header */
     header[data-testid="stHeader"] {
         display: none !important;
         height: 0 !important;
     }
     div.block-container {
         padding-top: 0.4rem !important;
-        padding-bottom: 1.5rem !important;
+        padding-bottom: 2rem !important;
         max-width: 99% !important;
     }
 
@@ -131,61 +165,91 @@ base_terminal_css = """
         width: 100%;
         overflow: hidden;
         position: relative;
-        padding: 4px 0 8px 0;
-        margin-bottom: 8px;
-        border-bottom: 1px solid #2a2e39;
+        padding: 5px 0 6px 0;
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
         display: flex;
-        mask-image: linear-gradient(90deg, transparent 0%, #000 24px, #000 calc(100% - 24px), transparent 100%);
-        -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 24px, #000 calc(100% - 24px), transparent 100%);
+        align-items: center;
+        mask-image: linear-gradient(90deg, transparent 0%, #000 32px, #000 calc(100% - 32px), transparent 100%);
+        -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 32px, #000 calc(100% - 32px), transparent 100%);
     }
     .ticker-tape-track {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         width: max-content;
-        animation: ticker-train 34s linear infinite;
+        animation: ticker-train 36s linear infinite;
         will-change: transform;
     }
     .ticker-tape-track:hover {
         animation-play-state: paused;
-        cursor: default;
+        cursor: pointer;
     }
     @keyframes ticker-train {
-        0% {
-            transform: translate3d(0, 0, 0);
-        }
-        100% {
-            transform: translate3d(-50%, 0, 0);
-        }
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(-50%, 0, 0); }
     }
+
+    .ticker-live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(8, 153, 129, 0.12);
+        border: 1px solid rgba(8, 153, 129, 0.3);
+        color: #089981;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        padding: 4px 8px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        margin-right: 8px;
+    }
+    .live-pulse-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #089981;
+        box-shadow: 0 0 8px #089981;
+        animation: live-pulse 1.8s infinite ease-in-out;
+    }
+    @keyframes live-pulse {
+        0% { transform: scale(0.9); opacity: 0.7; }
+        50% { transform: scale(1.3); opacity: 1; }
+        100% { transform: scale(0.9); opacity: 0.7; }
+    }
+
     .ticker-pill {
         flex-shrink: 0;
-        background: #1e222d;
-        border: 1px solid #363c4e;
-        border-radius: 4px;
-        padding: 2px 10px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 3px 10px;
         display: inline-flex;
         align-items: center;
         gap: 8px;
         font-size: 11px;
-        height: 24px;
+        height: 26px;
         box-sizing: border-box;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        transition: all 0.15s ease;
         user-select: none;
     }
     .ticker-pill:hover {
-        background: #242938;
-        border-color: #4b5563;
+        background: var(--hover-bg);
+        border-color: var(--tv-blue);
+        transform: translateY(-1px);
     }
     .ticker-name {
         font-weight: 700;
-        color: #ffffff;
+        color: var(--text-bright);
         letter-spacing: 0.02em;
     }
     .ticker-val {
-        color: #e2e8f0;
+        font-family: var(--font-mono);
+        color: var(--text-bright);
         font-weight: 600;
     }
+
     @media (prefers-reduced-motion: reduce) {
         .ticker-tape-track {
             animation: none;
@@ -200,57 +264,71 @@ base_terminal_css = """
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         contain: layout;
     }
     .kpi-card {
-        background: #1e222d;
-        border: 1px solid #363c4e;
-        border-radius: 4px;
-        padding: 6px 12px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 8px 12px;
         flex: 1 1 140px;
-        min-height: 52px;
+        min-height: 56px;
         box-sizing: border-box;
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .kpi-card:hover {
+        border-color: var(--tv-blue);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
     }
     .kpi-label {
         font-size: 10px;
         font-weight: 700;
-        color: #9ca3af;
+        color: var(--muted-color);
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        margin-bottom: 2px;
+        margin-bottom: 3px;
     }
     .kpi-value {
+        font-family: var(--font-mono);
         font-size: 16px;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--text-bright);
+        letter-spacing: -0.02em;
     }
     .kpi-sub {
         font-size: 10px;
-        margin-top: 1px;
-        color: #9ca3af;
+        margin-top: 2px;
+        color: var(--muted-color);
     }
 
     /* TradingView Badges */
     .terminal-badge {
-        background: #2a2e39;
-        color: #2962ff;
-        border: 1px solid #363c4e;
-        padding: 2px 8px;
-        border-radius: 3px;
+        background: var(--badge-bg);
+        color: var(--tv-blue);
+        border: 1px solid var(--border-color);
+        padding: 2px 7px;
+        border-radius: 4px;
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.04em;
+        font-family: var(--font-mono);
     }
 
     /* Observation Cards */
     .obs-card {
-        background: #1e222d;
-        border: 1px solid #363c4e;
-        border-left: 3px solid #2962ff;
-        border-radius: 4px;
-        padding: 10px 14px;
-        margin-bottom: 8px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-left: 3px solid var(--tv-blue);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .obs-card:hover {
+        border-color: var(--tv-blue);
+        transform: translateY(-1px);
     }
 
     /* Pro Segmented Control Tabs — 100% Elimination of Radio Circles */
@@ -274,22 +352,24 @@ base_terminal_css = """
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
-        gap: 5px !important;
-        background: transparent !important;
-        border-bottom: 1px solid #2a2e39 !important;
-        padding-bottom: 8px !important;
-        margin-bottom: 14px !important;
+        gap: 6px !important;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        padding: 5px !important;
+        margin-bottom: 16px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label {
-        background: #1e222d !important;
-        border: 1px solid #363c4e !important;
-        border-radius: 4px !important;
-        padding: 5px 12px !important;
-        color: #d1d4dc !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        border-radius: 6px !important;
+        padding: 6px 14px !important;
+        color: var(--muted-color) !important;
         font-size: 12px !important;
         font-weight: 600 !important;
         cursor: pointer !important;
-        transition: all 0.12s ease !important;
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -297,16 +377,15 @@ base_terminal_css = """
         margin: 0 !important;
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
-        background: #2a2e39 !important;
-        border-color: #2962ff !important;
-        color: #ffffff !important;
+        background: var(--hover-bg) !important;
+        color: var(--text-bright) !important;
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked),
     div[data-testid="stRadio"] div[role="radiogroup"] label[data-checked="true"] {
-        background: #2a2e39 !important;
+        background: #2962ff !important;
         border-color: #2962ff !important;
         color: #ffffff !important;
-        box-shadow: inset 0 -2px 0 #2962ff !important;
+        box-shadow: 0 2px 10px rgba(41, 98, 255, 0.4) !important;
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
         color: inherit !important;
@@ -318,72 +397,88 @@ base_terminal_css = """
 
     /* TradingView Buttons */
     div.stButton > button {
-        background-color: #1e222d !important;
-        border: 1px solid #363c4e !important;
-        border-radius: 4px !important;
-        color: #ffffff !important;
+        background-color: var(--card-bg) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 6px !important;
+        color: var(--text-bright) !important;
         font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 4px 10px !important;
-        transition: all 0.12s ease !important;
+        padding: 5px 12px !important;
+        transition: all 0.15s ease !important;
     }
     div.stButton > button:hover {
-        background-color: #2a2e39 !important;
-        border-color: #2962ff !important;
+        background-color: var(--hover-bg) !important;
+        border-color: var(--tv-blue) !important;
         color: #ffffff !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 10px rgba(41, 98, 255, 0.25) !important;
     }
     div.stButton > button:focus,
     div.stButton > button:active {
-        border-color: #2962ff !important;
-        box-shadow: 0 0 0 1px #2962ff !important;
+        border-color: var(--tv-blue) !important;
+        box-shadow: 0 0 0 2px var(--tv-blue-glow) !important;
     }
 
-    /* TradingView Search Input */
+    /* Quick Trending Chips Styling */
+    div[data-testid="stHorizontalBlock"] button[key^="chip_"] {
+        border-radius: 999px !important;
+        font-family: var(--font-mono) !important;
+        font-size: 11px !important;
+        padding: 3px 10px !important;
+    }
+
+    /* Inputs & Selectboxes */
     div[data-testid="stTextInput"] input {
-        background-color: #1e222d !important;
-        border: 1px solid #363c4e !important;
-        border-radius: 4px !important;
-        color: #ffffff !important;
+        background-color: var(--input-bg) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 6px !important;
+        color: var(--text-bright) !important;
         font-size: 13px !important;
         font-weight: 500 !important;
     }
     div[data-testid="stTextInput"] input:focus {
-        border-color: #2962ff !important;
-        box-shadow: 0 0 0 1px #2962ff !important;
+        border-color: var(--tv-blue) !important;
+        box-shadow: 0 0 0 2px var(--tv-blue-glow) !important;
     }
-    div[data-testid="stTextInput"] input::placeholder {
-        color: #9ca3af !important;
-    }
-
-    /* Selectboxes */
     div[data-testid="stSelectbox"] > div > div {
-        background-color: #1e222d !important;
-        border: 1px solid #363c4e !important;
-        border-radius: 4px !important;
-        color: #ffffff !important;
+        background-color: var(--input-bg) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 6px !important;
+        color: var(--text-bright) !important;
+    }
+    div[data-testid="stSelectbox"] > div > div:focus-within {
+        border-color: var(--tv-blue) !important;
+        box-shadow: 0 0 0 2px var(--tv-blue-glow) !important;
     }
 
     /* Sub-Tabs */
     div[data-baseweb="tab-list"] {
         background-color: transparent !important;
-        border-bottom: 1px solid #2a2e39 !important;
+        border-bottom: 1px solid var(--border-color) !important;
         gap: 6px !important;
     }
     div[data-baseweb="tab"] {
         background-color: transparent !important;
-        color: #787b86 !important;
+        color: var(--muted-color) !important;
         border: none !important;
         font-size: 12px !important;
         font-weight: 500 !important;
-        padding: 6px 12px !important;
+        padding: 6px 14px !important;
     }
     div[data-baseweb="tab"]:hover {
-        color: #d1d4dc !important;
+        color: var(--text-bright) !important;
     }
     div[data-baseweb="tab"][aria-selected="true"] {
-        color: #2962ff !important;
-        border-bottom: 2px solid #2962ff !important;
+        color: var(--tv-blue) !important;
+        border-bottom: 2px solid var(--tv-blue) !important;
         font-weight: 600 !important;
+    }
+
+    /* Dataframe Styling */
+    div[data-testid="stDataFrame"] {
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        overflow: hidden;
     }
 
     /* Plotly Chart Container */
@@ -392,34 +487,24 @@ base_terminal_css = """
         contain: layout;
     }
 
-    /* Section Headers with TradingView style */
-    .tv-section-header {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 20px;
-        font-weight: 800;
-        color: var(--text-bright);
-        letter-spacing: -0.01em;
-    }
-
     /* Community Trends Cards */
     .tv-trend-card {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        padding: 12px 14px;
-        min-height: 104px;
+        padding: 14px 16px;
+        min-height: 110px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        margin-bottom: 4px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        margin-bottom: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     }
     .tv-trend-card:hover {
         transform: translateY(-2px);
-        border-color: #2962ff;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: var(--tv-blue);
+        box-shadow: 0 8px 24px rgba(41, 98, 255, 0.16);
     }
 
     /* Top Story Cards */
@@ -432,26 +517,14 @@ base_terminal_css = """
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        transition: transform 0.12s ease, border-color 0.12s ease;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
     .tv-story-card:hover {
-        border-color: #2962ff;
-        transform: translateY(-1px);
-    }
-    .tv-story-meta {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 11px;
-        color: var(--muted-color);
-        margin-bottom: 6px;
-    }
-    .tv-story-headline {
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--text-bright);
-        line-height: 1.45;
+        border-color: var(--tv-blue);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     }
 
     /* Multi-Asset Hub Cards */
@@ -459,17 +532,19 @@ base_terminal_css = """
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        padding: 16px;
+        padding: 16px 18px;
         margin-bottom: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     }
 
     /* Hero Card */
     .tv-hero-card {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 16px 18px;
-        margin-bottom: 6px;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
     }
 
     /* IPO & Idea Cards */
@@ -477,9 +552,17 @@ base_terminal_css = """
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        padding: 14px 16px;
-        min-height: 115px;
+        padding: 16px 18px;
+        min-height: 120px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        transition: transform 0.15s ease, border-color 0.15s ease;
     }
+    .tv-ipo-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--tv-blue);
+        box-shadow: 0 6px 20px rgba(41, 98, 255, 0.15);
+    }
+
     .tv-idea-card {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
@@ -487,16 +570,18 @@ base_terminal_css = """
         border-bottom: none;
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     }
 
     /* Minimalist TradingView Footer */
     .terminal-footer {
-        margin-top: 36px;
-        padding: 12px 18px;
+        margin-top: 40px;
+        padding: 16px 20px;
         border-top: 1px solid var(--border-color);
         text-align: center;
         font-size: 11px;
         color: var(--muted-color);
+        letter-spacing: 0.02em;
     }
     </style>
 """
@@ -515,30 +600,47 @@ if global_indices:
             f"<div class='ticker-pill'>"
             f"<span class='ticker-name'>{item['name']}</span>"
             f"<span class='ticker-val'>{item['price']:,.2f}</span>"
-            f"<span style='color:{color}; font-weight:600;'>{sign}{chg:.2f}%</span>"
+            f"<span style='color:{color}; font-weight:700; font-family:var(--font-mono);'>{sign}{chg:.2f}%</span>"
             f"</div>"
         )
     # Duplicate items for continuous seamless infinite marquee loop (train track)
     track_content = "".join(tape_items * 2)
     render_html(
-        f"<div class='ticker-tape-wrap' title='Live Market Ticker — Hover to Pause'>"
-        f"<div class='ticker-tape-track'>{track_content}</div>"
-        f"</div>"
+        f"""
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div class="ticker-live-badge">
+                <span class="live-pulse-dot"></span>
+                <span>MARKETS</span>
+            </div>
+            <div class='ticker-tape-wrap' title='Live Market Ticker — Hover to Pause'>
+                <div class='ticker-tape-track'>{track_content}</div>
+            </div>
+        </div>
+        """
     )
 
 
 # 5. Suggested Dropdown Search & Command Palette
 catalog_assets = get_searchable_asset_catalog()
 
-col_brand, col_search_box, col_theme = st.columns([1.1, 2.7, 0.45])
+col_brand, col_search_box, col_theme = st.columns([1.3, 2.6, 0.45])
 
 with col_brand:
     st.markdown(
         """
-        <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:18px; font-weight:800; letter-spacing:0.04em; color:var(--text-bright);">APEX <span style="color:#2962ff;">TERMINAL</span></span>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:34px; height:34px; border-radius:8px; background:linear-gradient(135deg, #2962ff 0%, #1e53e5 100%); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(41,98,255,0.4); color:#ffffff; font-weight:900; font-size:16px;">
+                ▲
+            </div>
+            <div>
+                <div style="font-size:18px; font-weight:800; letter-spacing:0.04em; color:var(--text-bright); line-height:1.1;">
+                    APEX <span style="color:#2962ff;">TERMINAL</span>
+                </div>
+                <div style="font-size:10px; color:var(--muted-color); font-weight:500; letter-spacing:0.02em; margin-top:2px;">
+                    Institutional Market Research & Quantitative Analytics
+                </div>
+            </div>
         </div>
-        <div style="font-size:11px; color:var(--muted-color); margin-top:2px;">Institutional market research. Zero trade execution.</div>
         """,
         unsafe_allow_html=True,
     )
@@ -1266,7 +1368,7 @@ elif "Chart" in active_tab:
     try:
         if chart_mode == "TradingView Real-Time":
             # Official TradingView Advanced Interactive Chart with full drawing tools, timeframes, and indicators
-            tv_html = get_tradingview_widget_html(current_sym)
+            tv_html = get_tradingview_widget_html(current_sym, theme=theme_mode)
             components.html(tv_html, height=640)
         else:
             # Custom TradingView-Styled Plotly Chart with right-side scale
@@ -1325,6 +1427,7 @@ elif "Chart" in active_tab:
                     show_volume=show_vol,
                     show_rsi=show_rsi,
                     show_macd=show_macd,
+                    theme=theme_mode,
                 )
                 st.plotly_chart(
                     fig,
