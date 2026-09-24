@@ -17,12 +17,8 @@ if str(root_path) not in sys.path:
 
 import streamlit as st
 import streamlit.components.v1 as components
-import pandas as pd
-import numpy as np
 
 from src.data_loader import (
-    search_global_assets,
-    resolve_symbol,
     get_global_market_indices,
     get_company_overview,
     get_historical_ohlcv,

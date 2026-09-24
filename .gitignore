@@ -25,3 +25,9 @@ dist/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Logs and runtime files
+*.log
+.streamlit/secrets.toml
+.pytest_cache/
+.coverage
