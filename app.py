@@ -382,7 +382,7 @@ if global_indices:
 # 5. Suggested Dropdown Search & Command Palette
 catalog_assets = get_searchable_asset_catalog()
 
-col_brand, col_search_box, col_custom = st.columns([1.1, 2.5, 0.9])
+col_brand, col_search_box = st.columns([1.1, 3.2])
 
 with col_brand:
     st.markdown(
@@ -417,16 +417,6 @@ with col_search_box:
         placeholder="Type words to search 2,400+ stocks, crypto, commodities (e.g. TCS, Apple, NVDA, Bitcoin)...",
         label_visibility="collapsed",
     )
-
-with col_custom:
-    with st.popover("⌨ Any Ticker", use_container_width=True):
-        st.markdown("<div style='font-size:12px; font-weight:700; color:#ffffff;'>Search Any Global Asset</div>", unsafe_allow_html=True)
-        st.caption("Enter any custom global ticker or query:")
-        custom_input = st.text_input("Custom Ticker", placeholder="e.g. PLTR, SONY, BMW.DE...", label_visibility="collapsed")
-        if st.button("Load Symbol", use_container_width=True):
-            if custom_input.strip():
-                st.session_state["selected_symbol"] = resolve_symbol(custom_input.strip())
-                st.rerun()
 
 # Trending Assets Row
 trending_chips = [
