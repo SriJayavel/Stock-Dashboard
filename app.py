@@ -57,37 +57,39 @@ render_html(
         color: #d1d4dc !important;
         font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif !important;
     }
+    /* Hide default fixed Streamlit header to give full screen to terminal */
     header[data-testid="stHeader"] {
-        background-color: #131722 !important;
+        display: none !important;
+        height: 0 !important;
     }
     div.block-container {
-        padding-top: 1.2rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 98% !important;
+        padding-top: 0.4rem !important;
+        padding-bottom: 1.5rem !important;
+        max-width: 99% !important;
     }
 
     /* Top Ticker Tape (TradingView Exact Style) */
     .ticker-tape-container {
         display: flex;
         overflow-x: auto;
-        gap: 8px;
-        padding: 6px 0;
-        margin-bottom: 14px;
+        gap: 6px;
+        padding: 4px 0 8px 0;
+        margin-bottom: 8px;
         border-bottom: 1px solid #2a2e39;
         white-space: nowrap;
-        min-height: 38px;
+        min-height: 32px;
         contain: layout style;
     }
     .ticker-pill {
         background: #1e222d;
-        border: 1px solid #2a2e39;
+        border: 1px solid #363c4e;
         border-radius: 4px;
-        padding: 3px 10px;
+        padding: 2px 9px;
         display: inline-flex;
         align-items: center;
         gap: 8px;
         font-size: 11px;
-        height: 26px;
+        height: 24px;
         box-sizing: border-box;
     }
     .ticker-name {
@@ -96,62 +98,62 @@ render_html(
         letter-spacing: 0.02em;
     }
     .ticker-val {
-        color: #d1d4dc;
+        color: #e2e8f0;
+        font-weight: 600;
     }
 
-    /* KPI Summary Cards (TradingView Panel Style) */
+    /* KPI Summary Cards (Compact TradingView Stat Tiles) */
     .kpi-container {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 18px;
-        min-height: 84px;
+        gap: 8px;
+        margin-bottom: 10px;
         contain: layout;
     }
     .kpi-card {
         background: #1e222d;
-        border: 1px solid #2a2e39;
+        border: 1px solid #363c4e;
         border-radius: 4px;
-        padding: 10px 14px;
-        flex: 1 1 160px;
-        min-height: 76px;
+        padding: 6px 12px;
+        flex: 1 1 140px;
+        min-height: 52px;
         box-sizing: border-box;
     }
     .kpi-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: #787b86;
+        font-size: 10px;
+        font-weight: 700;
+        color: #9ca3af;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }
     .kpi-value {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 700;
         color: #ffffff;
     }
     .kpi-sub {
-        font-size: 11px;
-        margin-top: 3px;
-        color: #787b86;
+        font-size: 10px;
+        margin-top: 1px;
+        color: #9ca3af;
     }
 
     /* TradingView Badges */
     .terminal-badge {
         background: #2a2e39;
         color: #2962ff;
-        border: 1px solid #363a45;
-        padding: 2px 7px;
+        border: 1px solid #363c4e;
+        padding: 2px 8px;
         border-radius: 3px;
         font-size: 11px;
-        font-weight: 600;
+        font-weight: 700;
         letter-spacing: 0.04em;
     }
 
     /* Observation Cards */
     .obs-card {
         background: #1e222d;
-        border: 1px solid #2a2e39;
+        border: 1px solid #363c4e;
         border-left: 3px solid #2962ff;
         border-radius: 4px;
         padding: 10px 14px;
@@ -187,12 +189,12 @@ render_html(
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label {
         background: #1e222d !important;
-        border: 1px solid #2a2e39 !important;
+        border: 1px solid #363c4e !important;
         border-radius: 4px !important;
-        padding: 6px 14px !important;
-        color: #787b86 !important;
+        padding: 5px 12px !important;
+        color: #d1d4dc !important;
         font-size: 12px !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
         cursor: pointer !important;
         transition: all 0.12s ease !important;
         display: inline-flex !important;
@@ -203,14 +205,14 @@ render_html(
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
         background: #2a2e39 !important;
-        border-color: #363a45 !important;
-        color: #d1d4dc !important;
+        border-color: #2962ff !important;
+        color: #ffffff !important;
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked),
     div[data-testid="stRadio"] div[role="radiogroup"] label[data-checked="true"] {
         background: #2a2e39 !important;
         border-color: #2962ff !important;
-        color: #2962ff !important;
+        color: #ffffff !important;
         box-shadow: inset 0 -2px 0 #2962ff !important;
     }
     div[data-testid="stRadio"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
@@ -224,17 +226,17 @@ render_html(
     /* TradingView Buttons */
     div.stButton > button {
         background-color: #1e222d !important;
-        border: 1px solid #2a2e39 !important;
+        border: 1px solid #363c4e !important;
         border-radius: 4px !important;
-        color: #d1d4dc !important;
+        color: #ffffff !important;
         font-size: 12px !important;
-        font-weight: 500 !important;
-        padding: 5px 12px !important;
+        font-weight: 600 !important;
+        padding: 4px 10px !important;
         transition: all 0.12s ease !important;
     }
     div.stButton > button:hover {
         background-color: #2a2e39 !important;
-        border-color: #363a45 !important;
+        border-color: #2962ff !important;
         color: #ffffff !important;
     }
     div.stButton > button:focus,
@@ -246,25 +248,26 @@ render_html(
     /* TradingView Search Input */
     div[data-testid="stTextInput"] input {
         background-color: #1e222d !important;
-        border: 1px solid #2a2e39 !important;
+        border: 1px solid #363c4e !important;
         border-radius: 4px !important;
         color: #ffffff !important;
         font-size: 13px !important;
+        font-weight: 500 !important;
     }
     div[data-testid="stTextInput"] input:focus {
         border-color: #2962ff !important;
         box-shadow: 0 0 0 1px #2962ff !important;
     }
     div[data-testid="stTextInput"] input::placeholder {
-        color: #787b86 !important;
+        color: #9ca3af !important;
     }
 
     /* Selectboxes */
     div[data-testid="stSelectbox"] > div > div {
         background-color: #1e222d !important;
-        border: 1px solid #2a2e39 !important;
+        border: 1px solid #363c4e !important;
         border-radius: 4px !important;
-        color: #d1d4dc !important;
+        color: #ffffff !important;
     }
 
     /* Sub-Tabs */
@@ -394,8 +397,8 @@ current_sym = st.session_state["selected_symbol"]
 with st.spinner(f"Fetching {current_sym}..."):
     overview = get_company_overview(current_sym)
 
-# Asset Title & Price Header
-col_header, col_actions = st.columns([3, 1])
+# Asset Title & Price Header (Compact Ribbon)
+col_header, col_actions = st.columns([5, 1])
 
 with col_header:
     curr_price = overview.get("current_price", 0.0)
@@ -407,21 +410,19 @@ with col_header:
 
     render_html(
         f"""
-        <div style="display:flex; align-items:baseline; gap:10px; margin-top:10px;">
-            <h2 style="margin:0; font-size:24px; font-weight:800; color:#ffffff;">{overview.get('name')}</h2>
+        <div style="display:flex; align-items:baseline; gap:12px; margin-top:2px; margin-bottom:4px; flex-wrap:wrap;">
+            <span style="font-size:20px; font-weight:800; color:#ffffff;">{overview.get('name')}</span>
             <span class="terminal-badge">{overview.get('symbol')}</span>
-            <span style="font-size:12px; color:#787b86;">{overview.get('sector')} • {overview.get('industry')}</span>
-        </div>
-        <div style="display:flex; align-items:baseline; gap:12px; margin-top:4px;">
-            <span style="font-size:30px; font-weight:800; color:#ffffff;">{curr_sym_char}{curr_price:,.2f}</span>
-            <span style="font-size:16px; font-weight:600; color:{change_color};">{sign}{change:,.2f} ({sign}{change_pct:.2f}%)</span>
+            <span style="font-size:24px; font-weight:800; color:#ffffff;">{curr_sym_char}{curr_price:,.2f}</span>
+            <span style="font-size:15px; font-weight:700; color:{change_color};">{sign}{change:,.2f} ({sign}{change_pct:.2f}%)</span>
+            <span style="font-size:12px; color:#9ca3af;">{overview.get('sector')} • {overview.get('industry')}</span>
         </div>
         """
     )
 
 with col_actions:
     is_in_watchlist = current_sym in st.session_state["watchlist"]
-    btn_label = "In Watchlist" if is_in_watchlist else "+ Add to Watchlist"
+    btn_label = "★ In Watchlist" if is_in_watchlist else "+ Watchlist"
     if st.button(btn_label, use_container_width=True):
         if is_in_watchlist:
             st.session_state["watchlist"].remove(current_sym)
@@ -430,7 +431,7 @@ with col_actions:
         st.rerun()
 
 
-# Context-Aware KPI Summary Cards (No misleading N/A walls for Crypto / Commodities)
+# Context-Aware KPI Summary Cards (Compact 52px Tiles)
 q_type = overview.get("quote_type", "EQUITY")
 
 if q_type == "EQUITY":
@@ -450,11 +451,11 @@ if q_type == "EQUITY":
             <div class="kpi-card">
                 <div class="kpi-label">Price to Book</div>
                 <div class="kpi-value">{f"{overview.get('pb_ratio'):.2f}x" if overview.get('pb_ratio') else '—'}</div>
-                <div class="kpi-sub">Book Value Multiple</div>
+                <div class="kpi-sub">Book Multiple</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">52-Week Range</div>
-                <div class="kpi-value" style="font-size:14px; margin-top:3px;">
+                <div class="kpi-value" style="font-size:13px; margin-top:2px;">
                     {curr_sym_char}{overview.get('low_52w', 0):,.1f} — {curr_sym_char}{overview.get('high_52w', 0):,.1f}
                 </div>
                 <div class="kpi-sub">Annual Bounds</div>
@@ -480,7 +481,7 @@ else:
         <div class="kpi-container">
             <div class="kpi-card">
                 <div class="kpi-label">Asset Classification</div>
-                <div class="kpi-value" style="font-size:16px;">{q_type.title()}</div>
+                <div class="kpi-value" style="font-size:15px;">{q_type.title()}</div>
                 <div class="kpi-sub">{overview.get('industry', 'Global Asset')}</div>
             </div>
             <div class="kpi-card">
@@ -490,7 +491,7 @@ else:
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">52-Week Range</div>
-                <div class="kpi-value" style="font-size:14px; margin-top:3px;">
+                <div class="kpi-value" style="font-size:13px; margin-top:2px;">
                     {curr_sym_char}{overview.get('low_52w', 0):,.1f} — {curr_sym_char}{overview.get('high_52w', 0):,.1f}
                 </div>
                 <div class="kpi-sub">Annual Bounds</div>
@@ -502,7 +503,7 @@ else:
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Trading Volume</div>
-                <div class="kpi-value" style="font-size:15px; margin-top:3px;">{vol_str}</div>
+                <div class="kpi-value" style="font-size:14px; margin-top:2px;">{vol_str}</div>
                 <div class="kpi-sub">Market Activity</div>
             </div>
         </div>
@@ -510,34 +511,39 @@ else:
     )
 
 
-# 7. Native Segmented Pill Navigation (No Radio Circles!)
-active_tab = st.radio(
-    "Navigation Tabs",
-    [
-        "Chart",
-        "Technical Observations",
-        "Fundamentals & Statements",
-        "Peer Comparison",
-        "Market Screener",
-        "News Feed",
-        "Watchlist",
-    ],
-    horizontal=True,
-    label_visibility="collapsed",
-)
+# 7. Unified Navigation & Chart Engine Row (Side-by-Side!)
+tab_col, engine_col = st.columns([4.2, 1.8])
 
+with tab_col:
+    active_tab = st.radio(
+        "Navigation Tabs",
+        [
+            "Chart",
+            "Technical Observations",
+            "Fundamentals & Statements",
+            "Peer Comparison",
+            "Market Screener",
+            "News Feed",
+            "Watchlist",
+        ],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
 
-# --- TAB 1: CHART ---
-if active_tab == "Chart":
-    mode_col1, mode_col2 = st.columns([2.5, 5])
-    with mode_col1:
+with engine_col:
+    if active_tab == "Chart":
         chart_mode = st.radio(
             "Engine",
             ["TradingView Real-Time", "Terminal Quantitative"],
             horizontal=True,
             label_visibility="collapsed",
         )
+    else:
+        chart_mode = None
 
+
+# --- TAB 1: CHART ---
+if active_tab == "Chart":
     if chart_mode == "TradingView Real-Time":
         # Official TradingView Advanced Interactive Chart with full drawing tools, timeframes, and indicators
         tv_html = get_tradingview_widget_html(current_sym)
