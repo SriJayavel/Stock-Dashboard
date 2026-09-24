@@ -541,7 +541,7 @@ if active_tab == "Chart":
     if chart_mode == "TradingView Real-Time":
         # Official TradingView Advanced Interactive Chart with full drawing tools, timeframes, and indicators
         tv_html = get_tradingview_widget_html(current_sym)
-        components.html(tv_html, height=640, key=f"tv_chart_{current_sym}")
+        components.html(tv_html, height=640)
     else:
         # Custom TradingView-Styled Plotly Chart with right-side scale
         tool_col1, tool_col2, tool_col3 = st.columns([2, 1.5, 4.5])
