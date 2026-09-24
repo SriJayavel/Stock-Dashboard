@@ -16,6 +16,7 @@ if str(root_path) not in sys.path:
     sys.path.insert(0, str(root_path))
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 
@@ -30,7 +31,7 @@ from src.data_loader import (
     get_peer_comparison,
 )
 from src.indicators import apply_all_indicators, generate_technical_observations
-from src.charts import create_terminal_chart, create_financials_trend_chart
+from src.charts import create_terminal_chart, create_financials_trend_chart, get_tradingview_widget_html
 from src.screener import get_market_universe_snapshot
 
 # 1. Page Configuration
@@ -421,59 +422,73 @@ active_tab = st.radio(
 
 # --- TAB 1: CHART ---
 if active_tab == "Chart":
-    # Sleek Horizontal Controls Toolbar
-    tool_col1, tool_col2, tool_col3 = st.columns([2.5, 1.5, 4])
-
-    with tool_col1:
-        timeframe = st.selectbox(
-            "Timeframe",
-            options=["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"],
-            index=3,
-            format_func=lambda x: {
-                "1mo": "1 Month",
-                "3mo": "3 Months",
-                "6mo": "6 Months",
-                "1y": "1 Year",
-                "2y": "2 Years",
-                "5y": "5 Years",
-                "max": "All (Max)",
-            }.get(x, x),
+    mode_col1, mode_col2 = st.columns([2.5, 5])
+    with mode_col1:
+        chart_mode = st.radio(
+            "Engine",
+            ["TradingView Real-Time", "Terminal Quantitative"],
+            horizontal=True,
             label_visibility="collapsed",
         )
 
-    with tool_col2:
-        chart_type = st.radio("Style", ["Candlestick", "Line"], horizontal=True, label_visibility="collapsed")
-
-    with tool_col3:
-        ov_col1, ov_col2, ov_col3, ov_col4, ov_col5 = st.columns(5)
-        show_ema = ov_col1.checkbox("EMA 20/50/200", value=True)
-        show_bb = ov_col2.checkbox("Bollinger", value=False)
-        show_rsi = ov_col3.checkbox("RSI", value=False)
-        show_macd = ov_col4.checkbox("MACD", value=False)
-        show_vol = ov_col5.checkbox("Volume", value=True)
-
-    hist_df = get_historical_ohlcv(current_sym, period=timeframe, interval="1d")
-
-    if not hist_df.empty:
-        hist_df = apply_all_indicators(hist_df)
-        fig = create_terminal_chart(
-            hist_df,
-            symbol=current_sym,
-            company_name=overview.get("name", current_sym),
-            chart_type=chart_type,
-            show_ema=show_ema,
-            show_bb=show_bb,
-            show_volume=show_vol,
-            show_rsi=show_rsi,
-            show_macd=show_macd,
-        )
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-            config={"displayModeBar": "hover", "scrollZoom": True, "responsive": True},
-        )
+    if chart_mode == "TradingView Real-Time":
+        # Official TradingView Advanced Interactive Chart with full drawing tools, timeframes, and indicators
+        tv_html = get_tradingview_widget_html(current_sym)
+        components.html(tv_html, height=640)
     else:
-        st.info(f"No chart data available for '{current_sym}'.")
+        # Custom TradingView-Styled Plotly Chart with right-side scale
+        tool_col1, tool_col2, tool_col3 = st.columns([2, 1.5, 4.5])
+
+        with tool_col1:
+            timeframe = st.selectbox(
+                "Timeframe",
+                options=["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"],
+                index=3,
+                format_func=lambda x: {
+                    "1mo": "1 Month",
+                    "3mo": "3 Months",
+                    "6mo": "6 Months",
+                    "1y": "1 Year",
+                    "2y": "2 Years",
+                    "5y": "5 Years",
+                    "max": "All (Max)",
+                }.get(x, x),
+                label_visibility="collapsed",
+            )
+
+        with tool_col2:
+            chart_type = st.radio("Style", ["Candlestick", "Line"], horizontal=True, label_visibility="collapsed")
+
+        with tool_col3:
+            ov_col1, ov_col2, ov_col3, ov_col4, ov_col5 = st.columns(5)
+            show_ema = ov_col1.checkbox("EMA 20/50/200", value=True)
+            show_bb = ov_col2.checkbox("Bollinger", value=False)
+            show_rsi = ov_col3.checkbox("RSI", value=False)
+            show_macd = ov_col4.checkbox("MACD", value=False)
+            show_vol = ov_col5.checkbox("Volume", value=True)
+
+        hist_df = get_historical_ohlcv(current_sym, period=timeframe, interval="1d")
+
+        if not hist_df.empty:
+            hist_df = apply_all_indicators(hist_df)
+            fig = create_terminal_chart(
+                hist_df,
+                symbol=current_sym,
+                company_name=overview.get("name", current_sym),
+                chart_type=chart_type,
+                show_ema=show_ema,
+                show_bb=show_bb,
+                show_volume=show_vol,
+                show_rsi=show_rsi,
+                show_macd=show_macd,
+            )
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                config={"displayModeBar": "hover", "scrollZoom": True, "responsive": True},
+            )
+        else:
+            st.info(f"No chart data available for '{current_sym}'.")
 
 
 # --- TAB 2: TECHNICAL OBSERVATIONS ---

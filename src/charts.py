@@ -1,13 +1,82 @@
 """
-High-performance Plotly interactive financial charts.
-Configured with professional dark terminal styling, clean indicator subplots,
-and gap-free moving average rendering.
+TradingView-Caliber Interactive Charting Suite.
+Provides:
+1. Native TradingView Advanced Real-Time Chart embed (interactive drawing tools, indicators, live scale).
+2. Pro-grade dark Plotly Chart styled to match TradingView pixel-for-pixel (right-hand price scale, TV colors).
 """
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
+
+
+def get_tradingview_symbol(symbol: str) -> str:
+    """Map global ticker to TradingView symbol syntax."""
+    s = str(symbol).strip().upper()
+    if s.endswith(".NS"):
+        return f"NSE:{s.replace('.NS', '')}"
+    if s.endswith(".BO"):
+        return f"BSE:{s.replace('.BO', '')}"
+    if s == "^NSEI":
+        return "NSE:NIFTY"
+    if s == "^BSESN":
+        return "BSE:SENSEX"
+    if s == "^GSPC":
+        return "FOREXCOM:SPXUSD"
+    if s == "^IXIC":
+        return "NASDAQ:NDX"
+    if s == "BTC-USD":
+        return "BINANCE:BTCUSDT"
+    if s == "ETH-USD":
+        return "BINANCE:ETHUSDT"
+    if s == "SOL-USD":
+        return "BINANCE:SOLUSDT"
+    if s == "GC=F":
+        return "TVC:GOLD"
+    if s == "CL=F":
+        return "TVC:USOIL"
+    if s in {"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC", "QCOM", "AVGO", "ARM", "NFLX"}:
+        return f"NASDAQ:{s}"
+    return s
+
+
+def get_tradingview_widget_html(symbol: str) -> str:
+    """
+    Generate official TradingView Advanced Real-Time Chart HTML embed.
+    Includes full TradingView tools, multi-timeframes, technical indicators, and dark theme.
+    """
+    tv_symbol = get_tradingview_symbol(symbol)
+    html_code = f"""
+    <div class="tradingview-widget-container" style="height:620px; width:100%;">
+      <div id="tradingview_advanced_chart" style="height:100%; width:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget({{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "D",
+        "timezone": "exchange",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#131722",
+        "enable_publishing": false,
+        "hide_top_toolbar": false,
+        "hide_legend": false,
+        "save_image": true,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_advanced_chart",
+        "studies": [
+          "MASimple@tv-basicstudies",
+          "RSI@tv-basicstudies"
+        ]
+      }});
+      </script>
+    </div>
+    """
+    return html_code
 
 
 def create_terminal_chart(
@@ -21,7 +90,10 @@ def create_terminal_chart(
     show_rsi: bool = False,
     show_macd: bool = False,
 ) -> go.Figure:
-    """Build a multi-panel financial chart with Plotly."""
+    """
+    Build a TradingView-styled Plotly chart with right-hand price scale,
+    TradingView exact dark palette (#131722 / #1e222d), and crisp candle geometry.
+    """
     if df.empty or "Close" not in df.columns:
         fig = go.Figure()
         fig.add_annotation(
@@ -29,10 +101,10 @@ def create_terminal_chart(
             showarrow=False,
             font=dict(size=14, color="#64748b"),
         )
-        fig.update_layout(template="plotly_dark", height=400, paper_bgcolor="#0d1117", plot_bgcolor="#0d1117")
+        fig.update_layout(template="plotly_dark", height=420, paper_bgcolor="#131722", plot_bgcolor="#131722")
         return fig
 
-    # Filter to requested display window if padding cutoff exists
+    # Filter to requested window if padding cutoff exists
     if "_cutoff" in df.columns and not df["_cutoff"].isna().all():
         cutoff_val = df["_cutoff"].iloc[0]
         visible_df = df[df["Date"] >= cutoff_val].copy()
@@ -41,7 +113,7 @@ def create_terminal_chart(
 
     # Configure subplots
     rows = 1
-    row_heights = [0.65]
+    row_heights = [0.68]
 
     has_volume = show_volume and "Volume" in df.columns and df["Volume"].sum() > 0
     has_rsi = show_rsi and "RSI" in df.columns
@@ -49,13 +121,13 @@ def create_terminal_chart(
 
     if has_volume:
         rows += 1
-        row_heights.append(0.15)
+        row_heights.append(0.14)
     if has_rsi:
         rows += 1
-        row_heights.append(0.20)
+        row_heights.append(0.18)
     if has_macd:
         rows += 1
-        row_heights.append(0.20)
+        row_heights.append(0.18)
 
     total_h = sum(row_heights)
     row_heights = [h / total_h for h in row_heights]
@@ -64,13 +136,13 @@ def create_terminal_chart(
         rows=rows,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.03,
+        vertical_spacing=0.02,
         row_heights=row_heights,
     )
 
     current_row = 1
 
-    # 1. Main Price Panel
+    # 1. Main Price Panel (TradingView Exact Palette: #089981 Green / #f23645 Red)
     if chart_type == "Candlestick" and "Open" in df.columns:
         fig.add_trace(
             go.Candlestick(
@@ -79,11 +151,11 @@ def create_terminal_chart(
                 high=df["High"],
                 low=df["Low"],
                 close=df["Close"],
-                name="Price",
-                increasing_line_color="#00c076",
-                decreasing_line_color="#ff3b5c",
-                increasing_fillcolor="#00c076",
-                decreasing_fillcolor="#ff3b5c",
+                name="OHLC",
+                increasing_line_color="#089981",
+                decreasing_line_color="#f23645",
+                increasing_fillcolor="#089981",
+                decreasing_fillcolor="#f23645",
             ),
             row=current_row,
             col=1,
@@ -94,10 +166,10 @@ def create_terminal_chart(
                 x=df["Date"],
                 y=df["Close"],
                 mode="lines",
-                name="Close",
-                line=dict(color="#00e5ff", width=2),
+                name="Price",
+                line=dict(color="#2962ff", width=2),  # TradingView Royal Blue
                 fill="tozeroy",
-                fillcolor="rgba(0, 229, 255, 0.04)",
+                fillcolor="rgba(41, 98, 255, 0.05)",
             ),
             row=current_row,
             col=1,
@@ -110,7 +182,7 @@ def create_terminal_chart(
                 x=df["Date"],
                 y=df["BB_Upper"],
                 mode="lines",
-                line=dict(color="rgba(148, 163, 184, 0.35)", width=1),
+                line=dict(color="rgba(148, 163, 184, 0.3)", width=1),
                 name="BB Upper",
             ),
             row=current_row,
@@ -121,9 +193,9 @@ def create_terminal_chart(
                 x=df["Date"],
                 y=df["BB_Lower"],
                 mode="lines",
-                line=dict(color="rgba(148, 163, 184, 0.35)", width=1),
+                line=dict(color="rgba(148, 163, 184, 0.3)", width=1),
                 fill="tonexty",
-                fillcolor="rgba(148, 163, 184, 0.05)",
+                fillcolor="rgba(148, 163, 184, 0.04)",
                 name="BB Lower",
             ),
             row=current_row,
@@ -141,7 +213,7 @@ def create_terminal_chart(
             col=1,
         )
 
-    # EMAs
+    # EMAs (TradingView Standard Colors: Blue 20, Orange 50, Purple 200)
     if show_ema:
         if "EMA_20" in df.columns:
             fig.add_trace(
@@ -149,7 +221,7 @@ def create_terminal_chart(
                     x=df["Date"],
                     y=df["EMA_20"],
                     mode="lines",
-                    line=dict(color="#38bdf8", width=1.3),
+                    line=dict(color="#2962ff", width=1.3),
                     name="EMA 20",
                 ),
                 row=current_row,
@@ -161,7 +233,7 @@ def create_terminal_chart(
                     x=df["Date"],
                     y=df["EMA_50"],
                     mode="lines",
-                    line=dict(color="#fbbf24", width=1.4),
+                    line=dict(color="#ff9800", width=1.4),
                     name="EMA 50",
                 ),
                 row=current_row,
@@ -173,7 +245,7 @@ def create_terminal_chart(
                     x=df["Date"],
                     y=df["EMA_200"],
                     mode="lines",
-                    line=dict(color="#c084fc", width=1.6),
+                    line=dict(color="#9c27b0", width=1.6),
                     name="EMA 200",
                 ),
                 row=current_row,
@@ -184,14 +256,14 @@ def create_terminal_chart(
     if has_volume:
         current_row += 1
         vol_colors = [
-            "#00c076" if c >= o else "#ff3b5c"
+            "#089981" if c >= o else "#f23645"
             for c, o in zip(df["Close"], df["Open"] if "Open" in df.columns else df["Close"])
         ]
         fig.add_trace(
             go.Bar(
                 x=df["Date"],
                 y=df["Volume"],
-                name="Volume",
+                name="Vol",
                 marker_color=vol_colors,
                 opacity=0.6,
             ),
@@ -208,21 +280,21 @@ def create_terminal_chart(
                 y=df["RSI"],
                 mode="lines",
                 name="RSI (14)",
-                line=dict(color="#a855f7", width=1.6),
+                line=dict(color="#7e57c2", width=1.6),
             ),
             row=current_row,
             col=1,
         )
-        fig.add_hline(y=70, line=dict(color="#ef4444", width=1, dash="dash"), row=current_row, col=1)
-        fig.add_hline(y=30, line=dict(color="#10b981", width=1, dash="dash"), row=current_row, col=1)
+        fig.add_hline(y=70, line=dict(color="#f23645", width=1, dash="dash"), row=current_row, col=1)
+        fig.add_hline(y=30, line=dict(color="#089981", width=1, dash="dash"), row=current_row, col=1)
         fig.add_hrect(
-            y0=30, y1=70, fillcolor="rgba(168, 85, 247, 0.04)", line_width=0, row=current_row, col=1
+            y0=30, y1=70, fillcolor="rgba(126, 87, 194, 0.05)", line_width=0, row=current_row, col=1
         )
 
     # 4. MACD Panel
     if has_macd:
         current_row += 1
-        hist_colors = ["#00c076" if val >= 0 else "#ff3b5c" for val in df["MACD_Hist"]]
+        hist_colors = ["#089981" if val >= 0 else "#f23645" for val in df["MACD_Hist"]]
         fig.add_trace(
             go.Bar(
                 x=df["Date"],
@@ -240,7 +312,7 @@ def create_terminal_chart(
                 y=df["MACD"],
                 mode="lines",
                 name="MACD",
-                line=dict(color="#00e5ff", width=1.4),
+                line=dict(color="#2962ff", width=1.4),
             ),
             row=current_row,
             col=1,
@@ -251,50 +323,53 @@ def create_terminal_chart(
                 y=df["MACD_Signal"],
                 mode="lines",
                 name="Signal",
-                line=dict(color="#fb923c", width=1.2),
+                line=dict(color="#ff9800", width=1.2),
             ),
             row=current_row,
             col=1,
         )
-        fig.add_hline(y=0, line=dict(color="#334155", width=1), row=current_row, col=1)
+        fig.add_hline(y=0, line=dict(color="#2a2e39", width=1), row=current_row, col=1)
 
-    chart_height = 500 + (110 if has_rsi else 0) + (110 if has_macd else 0)
+    chart_height = 520 + (110 if has_rsi else 0) + (110 if has_macd else 0)
 
+    # TradingView Exact Chart Layout: Right-Side Y-Axis, Clean Margins
     fig.update_layout(
         template="plotly_dark",
-        paper_bgcolor="#0d1117",
-        plot_bgcolor="#0d1117",
+        paper_bgcolor="#131722",
+        plot_bgcolor="#131722",
         height=chart_height,
-        margin=dict(l=45, r=45, t=25, b=20),
+        margin=dict(l=15, r=60, t=25, b=20),
         xaxis_rangeslider_visible=False,
         hovermode="x unified",
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.01,
-            xanchor="right",
-            x=1,
-            font=dict(size=11, color="#94a3b8"),
+            xanchor="left",
+            x=0,
+            font=dict(size=11, color="#787b86"),
         ),
     )
 
+    # Right-side Y-axes just like TradingView!
     fig.update_xaxes(
         showgrid=True,
         gridwidth=1,
-        gridcolor="#171f2e",
+        gridcolor="#1e222d",
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        spikecolor="#475569",
+        spikecolor="#363c4e",
     )
     fig.update_yaxes(
+        side="right",
         showgrid=True,
         gridwidth=1,
-        gridcolor="#171f2e",
+        gridcolor="#1e222d",
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        spikecolor="#475569",
+        spikecolor="#363c4e",
     )
 
     return fig
@@ -305,7 +380,7 @@ def create_financials_trend_chart(income_df: pd.DataFrame) -> go.Figure:
     if income_df is None or income_df.empty:
         fig = go.Figure()
         fig.add_annotation(text="Financial statements not available for trend visualization.", showarrow=False)
-        fig.update_layout(template="plotly_dark", height=280, paper_bgcolor="#0d1117", plot_bgcolor="#0d1117")
+        fig.update_layout(template="plotly_dark", height=280, paper_bgcolor="#131722", plot_bgcolor="#131722")
         return fig
 
     try:
@@ -326,25 +401,25 @@ def create_financials_trend_chart(income_df: pd.DataFrame) -> go.Figure:
         fig = go.Figure()
         if rev_row is not None:
             rev_cr = [v / 1e7 if v and not np.isnan(v) else 0 for v in rev_row]
-            fig.add_trace(go.Bar(x=years, y=rev_cr, name="Revenue", marker_color="#00e5ff"))
+            fig.add_trace(go.Bar(x=years, y=rev_cr, name="Revenue", marker_color="#2962ff"))
 
         if net_row is not None:
             net_cr = [v / 1e7 if v and not np.isnan(v) else 0 for v in net_row]
-            fig.add_trace(go.Bar(x=years, y=net_cr, name="Net Income", marker_color="#00c076"))
+            fig.add_trace(go.Bar(x=years, y=net_cr, name="Net Income", marker_color="#089981"))
 
         fig.update_layout(
             template="plotly_dark",
             barmode="group",
-            paper_bgcolor="#0d1117",
-            plot_bgcolor="#0d1117",
+            paper_bgcolor="#131722",
+            plot_bgcolor="#131722",
             height=300,
-            margin=dict(l=40, r=40, t=25, b=25),
+            margin=dict(l=20, r=40, t=25, b=25),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-            xaxis=dict(gridcolor="#171f2e"),
-            yaxis=dict(gridcolor="#171f2e"),
+            xaxis=dict(gridcolor="#1e222d"),
+            yaxis=dict(side="right", gridcolor="#1e222d"),
         )
         return fig
     except Exception:
         fig = go.Figure()
-        fig.update_layout(template="plotly_dark", height=280, paper_bgcolor="#0d1117", plot_bgcolor="#0d1117")
+        fig.update_layout(template="plotly_dark", height=280, paper_bgcolor="#131722", plot_bgcolor="#131722")
         return fig
