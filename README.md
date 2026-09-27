@@ -1,84 +1,112 @@
-# 📈 Apex Financial Terminal
+# 📈 Apex Financial Terminal v2.0
 
-> **Institutional market research. Zero trade execution.**  
-> A high-performance, web-based market research terminal for Global & Indian equities, cryptocurrencies, and commodities.
-
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://stock-dashboard-kgdogayx7utzmpad9fpwhx.streamlit.app/)
-
-Built with **Python**, **Streamlit**, **Plotly**, and **yfinance**. Free to deploy, zero account required, and completely ad-free.
+> **High-Performance Financial Research Terminal • Decoupled Cloud Architecture**  
+> Built with **FastAPI**, **Vite (Vanilla JS)**, **TradingView Lightweight Charts**, and a **Two-Tier Resilient Cache**.
 
 ---
 
-## 🌐 Live Terminal
+## 🏗️ Architecture Overview
 
-Access the live cloud terminal instantly in your browser:  
-🔗 **[https://stock-dashboard-kgdogayx7utzmpad9fpwhx.streamlit.app/](https://stock-dashboard-kgdogayx7utzmpad9fpwhx.streamlit.app/)**
-
----
-
-## 🌟 Key Features
-
-- **⚡ Instant Access & Zero Friction:** No login, no signup, no API keys, and no subscription paywalls.
-- **🚆 Continuous Live Ticker Train Marquee:** Hardware-accelerated 60fps ticker tape displaying major global indices, crypto, and commodities with edge gradient masks and hover-to-pause inspection.
-- **🔍 2,400+ Asset Universal Search:** Instant suggested dropdown menu across Indian equities (NSE/BSE), US mega-caps, AI & semiconductor giants, precious metals, crude oil, and cryptocurrencies.
-- **📈 Dual-Engine Interactive Charting:**
-  - **TradingView Real-Time Embed:** Official TradingView engine with complete multi-timeframe controls, drawing tools, and advanced indicators.
-  - **Terminal Quantitative Engine:** Custom Plotly dark theme chart with right-side price scale, EMA 20/50/200, Bollinger Bands (20, 2.0), RSI (14), MACD (12, 26, 9), and volume overlays.
-- **⚡ Contextual Flash Intelligence:** Top 3 breaking news stories displayed directly beneath the active chart with media thumbnails, relative timestamps, and summaries so you never lose context of price action catalysts.
-- **📰 Institutional Terminal Newsroom (Tab 6):**
-  - **Source Toggle:** Seamlessly switch between *Active Asset Headlines* and *Global Macro Wire*.
-  - **Live Keyword Filter:** Instant search across articles by keyword (e.g., *AI*, *earnings*, *dividend*, *Fed*, *revenue*).
-  - **Rich 2-Column Cards:** HD thumbnails, publisher tags (`Bloomberg`, `Reuters`, `Yahoo Finance`, `CNBC`), relative times (`25m ago`, `3h ago`), and direct external links.
-- **🏢 Deep Fundamental Research:**
-  - **Valuation Multiples:** Trailing & Forward P/E, P/B, EV/EBITDA, PEG, and Dividend Yield.
-  - **Profitability & Returns:** ROE, ROA, Operating Margin, Net Profit Margin.
-  - **Balance Sheet Health:** Debt-to-Equity, Current Ratio, Quick Ratio, and Free Cash Flow.
-  - **Financial Statements:** Complete Income Statement, Balance Sheet, and Cash Flows (Annual & Quarterly) with 4-year trend charts.
-- **⚖️ Peer Comparison:** Side-by-side benchmarking of key valuation and return metrics against sector rivals worldwide.
-- **🌐 Multi-Market Universe Screener:** Instant snapshot scanner for US Mega-Caps, Indian Leaders, Semiconductors, Crypto, and Commodities.
-- **⭐ Session Watchlist:** Track favorite symbols with live prices, percentage changes, and 52-week spans directly in session state.
-
----
-
-## 📂 Project Architecture
+The system is decoupled into an asynchronous backend service and a low-latency client frontend:
 
 ```text
 Stock-Dashboard/
-├── .streamlit/
-│   └── config.toml          # Custom dark terminal theme configuration
-├── src/
-│   ├── data_loader.py       # Resilient yfinance pipeline, catalog caching, news parser & fallbacks
-│   ├── indicators.py        # Mathematical indicators (RSI, MACD, EMA, Bollinger Bands)
-│   ├── charts.py            # TradingView embed & right-side scale Plotly charts
-│   └── screener.py          # Fast multi-threaded batch market screener
-├── app.py                   # Main terminal interface, marquee ribbon & tabs
-├── companies.csv            # 1,800+ NSE companies catalog
-├── requirements.txt         # Production dependencies
+├── backend/                        # FastAPI High-Frequency API
+│   ├── services/
+│   │   ├── cache_manager.py       # Hybrid L1 (TTLCache) + L2 (Upstash Redis)
+│   │   ├── data_pipeline.py       # Ticker resolution, cache contracts & TV chart formatting
+│   │   ├── indicators.py          # Pure mathematical indicator engine (RSI, MACD, BB, EMAs)
+│   │   └── nse_fetcher.py         # Session-aware direct NSE India client with cookie handshake
+│   ├── config.py                  # Pydantic Settings & environment variables
+│   ├── main.py                    # API routes, CORS & protected /internal/refresh-cache
+│   └── requirements.txt           # Backend dependencies
+├── frontend/                       # Vite + Vanilla JS Client
+│   ├── src/
+│   │   ├── api.js                 # Resilient API client with cold-start detection
+│   │   ├── chart.js               # TradingView Lightweight Charts engine
+│   │   ├── watchlist.js           # Multi-tab sync & validated localStorage manager
+│   │   ├── styles/terminal.css    # Ultra-modern dark aesthetic, glassmorphism & badges
+│   │   └── main.js                # State management, ticker tape, and UI orchestration
+│   ├── index.html                 # Semantic responsive terminal interface
+│   ├── package.json
+│   └── vite.config.js             # Development proxy to backend
+├── .github/workflows/
+│   └── warm-cache.yml             # Scheduled GitHub Actions cron for keep-alive & cache warmup
+├── Dockerfile                     # Multi-cloud container definition (Render / Cloud Run)
+├── companies.csv                  # 2,369 NSE companies metadata catalog
+├── requirements.txt               # Root pointer to backend/requirements.txt
 └── README.md
 ```
 
 ---
 
-## 🚀 Local Installation & Quick Start
+## 🌟 Key Engineering Highlights
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/SriJayavel/Stock-Dashboard.git
-   cd Stock-Dashboard
-   ```
+1. **Anti-Rate-Limiting Pipeline**:
+   - **Zero Inline Bursts**: User queries never trigger unthrottled requests to upstream financial APIs.
+   - **Cache-Only Batch Contract (`POST /api/stocks/batch`)**: User watchlists (up to 50 assets) query L1/L2 cache exclusively. Any misses immediately return `status: "pending"` in 0ms without blocking.
+   - **Direct NSE Session Handshake**: Custom browser cookie handshake visits NSE India before fetching quotes, falling back gracefully to yfinance.
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. **Render / Cloud Run Free-Tier Keep-Alive**:
+   - Free container instances spin down after 15 minutes of inactivity.
+   - Protected endpoint `POST /internal/refresh-cache` (gated by `X-Internal-Secret`) is pinged every 12 minutes by a free **GitHub Actions scheduled workflow** (`.github/workflows/warm-cache.yml`), keeping the container warm and pre-populating the cache.
 
-3. **Run the terminal:**
-   ```bash
-   streamlit run app.py
-   ```
+3. **TradingView Lightweight Charts (`lightweight-charts`)**:
+   - 60fps hardware-accelerated charting replacing slow iframe widgets.
+   - Candlesticks, volume histogram, EMA 50 & EMA 200 overlays, and Bollinger Bands.
+   - Real-time crosshair legend showing Date, O, H, L, C, and % Change.
+
+4. **Zero-Account Persistent Watchlist**:
+   - Saved locally in the user's browser (`localStorage`).
+   - Cross-tab synchronization via `window.addEventListener('storage', ...)`.
+   - Rapid-clicking race condition defense via monotonic request tokens.
+   - Strict format validation (regex check, max 50 symbols cap).
+   - 1-Click JSON backup export and import.
 
 ---
 
-## ⚖️ Non-Negotiable Product Rule & Disclaimer
+## 🚀 Running Locally
 
-**LEGAL & REGULATORY DISCLAIMER:** This platform is designed strictly for financial research, education, and quantitative analysis. **Analyze everything. Trade nothing.** It does not execute orders, handle brokerage transactions, or provide individual investment recommendations. Always consult a SEBI / FINRA registered financial advisor before making actual capital allocation decisions.
+### 1. Start Backend (FastAPI)
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch FastAPI development server
+uvicorn backend.main:app --reload --port 8080
+```
+API Documentation will be available at: `http://localhost:8080/docs`
+
+### 2. Start Frontend (Vite)
+In a separate terminal:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open your browser at: `http://localhost:5173`
+
+---
+
+## 🐳 Docker Deployment (Google Cloud Run / Render)
+
+Build and run the production container:
+```bash
+# Build the Docker image
+docker build -t apex-financial-terminal .
+
+# Run container locally
+docker run -p 8080:8000 apex-financial-terminal
+```
+
+---
+
+## 📦 Legacy Streamlit Prototype
+The original prototype is permanently preserved via Git:
+- **Git Branch**: `legacy-streamlit`
+- **Git Tag**: `v1.0.0-streamlit`
+- To run or inspect the legacy prototype:
+  ```bash
+  git checkout legacy-streamlit
+  streamlit run app.py
+  ```

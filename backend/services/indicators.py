@@ -1,6 +1,6 @@
 """
-Mathematical calculations for technical indicators.
-Pure functions that operate on pandas DataFrames without side-effects.
+Pure mathematical calculations for technical indicators (RSI, MACD, Bollinger Bands, Moving Averages).
+Functions operate on pandas DataFrames and dictionaries without side-effects.
 """
 
 import pandas as pd
@@ -105,11 +105,11 @@ def generate_technical_observations(df: pd.DataFrame) -> list[dict]:
     observations = []
     latest = df.iloc[-1]
     prev = df.iloc[-2] if len(df) > 1 else latest
-    current_price = latest["Close"]
+    current_price = latest.get("Close", 0.0)
 
     # 1. RSI Observation
     if not np.isnan(latest.get("RSI", np.nan)):
-        rsi_val = latest["RSI"]
+        rsi_val = float(latest["RSI"])
         if rsi_val >= 70:
             observations.append({
                 "type": "Momentum",
@@ -135,15 +135,15 @@ def generate_technical_observations(df: pd.DataFrame) -> list[dict]:
                 "value": f"{rsi_val:.1f}",
                 "status": "Neutral Range",
                 "detail": "RSI is within the standard 30–70 consolidation range.",
-                "color": "#64748b"
+                "color": "#94a3b8"
             })
 
     # 2. MACD Observation
     if not np.isnan(latest.get("MACD", np.nan)) and not np.isnan(latest.get("MACD_Signal", np.nan)):
-        macd_val = latest["MACD"]
-        sig_val = latest["MACD_Signal"]
-        prev_macd = prev.get("MACD", macd_val)
-        prev_sig = prev.get("MACD_Signal", sig_val)
+        macd_val = float(latest["MACD"])
+        sig_val = float(latest["MACD_Signal"])
+        prev_macd = float(prev.get("MACD", macd_val))
+        prev_sig = float(prev.get("MACD_Signal", sig_val))
 
         if macd_val > sig_val and prev_macd <= prev_sig:
             observations.append({
@@ -176,8 +176,8 @@ def generate_technical_observations(df: pd.DataFrame) -> list[dict]:
 
     # 3. Moving Average Trend (50 vs 200 EMA)
     if "EMA_50" in df.columns and "EMA_200" in df.columns and not np.isnan(latest["EMA_200"]):
-        ema50 = latest["EMA_50"]
-        ema200 = latest["EMA_200"]
+        ema50 = float(latest["EMA_50"])
+        ema200 = float(latest["EMA_200"])
         if ema50 > ema200:
             observations.append({
                 "type": "Major Trend",
@@ -199,8 +199,8 @@ def generate_technical_observations(df: pd.DataFrame) -> list[dict]:
 
     # 4. Bollinger Bands Observation
     if "BB_Upper" in df.columns and not np.isnan(latest["BB_Upper"]):
-        bb_up = latest["BB_Upper"]
-        bb_low = latest["BB_Lower"]
+        bb_up = float(latest["BB_Upper"])
+        bb_low = float(latest["BB_Lower"])
         if current_price >= bb_up:
             observations.append({
                 "type": "Volatility",
@@ -226,7 +226,7 @@ def generate_technical_observations(df: pd.DataFrame) -> list[dict]:
                 "value": f"Range: {bb_low:.1f} - {bb_up:.1f}",
                 "status": "Within Normal Bands",
                 "detail": "Price is consolidating within standard volatility envelopes.",
-                "color": "#64748b"
+                "color": "#94a3b8"
             })
 
     return observations

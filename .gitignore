@@ -31,3 +31,7 @@ Thumbs.db
 .streamlit/secrets.toml
 .pytest_cache/
 .coverage
+node_modules/
+frontend/dist/
+frontend/node_modules/
+scratch/
