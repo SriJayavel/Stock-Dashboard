@@ -1,5 +1,5 @@
 /**
- * Apex Financial Terminal - Frontend Controller
+ * Mara - Frontend Controller
  * Reactive orchestration of Lightweight Charts, valuation matrices,
  * multi-asset macro categories, persistent watchlist, and resilient API handling.
  */
@@ -12,10 +12,20 @@ import { ResearchNotebook } from './notebook.js';
 import { ResearchReportGenerator } from './report_generator.js';
 import { screenerBuilder, SCREENER_METRICS } from './screener_builder.js';
 import { Backtester } from './backtester.js';
+import {
+  INDICATOR_REGISTRY,
+  getAllIndicators,
+  getIndicatorsByGroup,
+  getIndicatorDefinition,
+  hasValidVolume,
+} from './indicators.js';
+import { router } from './router.js';
+import { auth, getAccountStorageKey } from './auth.js';
 
 let chartInstance = null;
-let currentSymbol = 'TCS.NS';
+let currentSymbol = null;
 let currentTimeframe = '1y';
+let currentActiveTab = 'chart';
 let currentMacroCategory = 'Indices';
 let marketDataCache = null;
 let currentResearchData = null;
@@ -44,24 +54,182 @@ api.onStatusChange = (status) => {
   }
 };
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize the terminal only after Supabase confirms the account session.
+let appStarted = false;
+async function startApp() {
+  if (appStarted) return;
+  appStarted = true;
+  alertsManager.activateAccount();
   const chartContainer = document.getElementById('tv-chart-container');
   const legendBox = document.getElementById('chart-legend-box');
 
   if (chartContainer) {
-    chartInstance = new TerminalChart(chartContainer, legendBox);
+    chartInstance = new TerminalChart(chartContainer, legendBox, (activeList) => {
+      updateIndicatorsBadge(activeList);
+      if (isIndicatorPickerOpen()) {
+        renderIndicatorList();
+      }
+    });
+    window.apexChartInstance = chartInstance;
+    window.apexPatchLatestBar = (data) => chartInstance?.patchLatestBar(data);
+    window.apexWatchlist = watchlist;
+    updateIndicatorsBadge(chartInstance.getActiveIndicatorsList());
   }
 
   setupEventListeners();
+  setupTopNavViewControls();
   setupTradingViewChromeControls();
+  syncChartControlsToPreferences();
+  setupIndicatorControls();
   setupWatchlistControls();
 
   await loadMarketOverview();
-  await loadStock(currentSymbol, currentTimeframe);
   await loadScreener('indian_leaders');
   await refreshWatchlistUI();
+
+  // Router Subscription: deep links & browser back/forward history handling
+  router.subscribe(async (route) => {
+    if (route.type === 'symbol') {
+      setTopLevelView('terminal');
+      const targetSym = route.symbol;
+      const targetTab = route.tab || 'chart';
+      if (!currentSymbol || targetSym !== currentSymbol) {
+        await loadStock(targetSym, currentTimeframe);
+      }
+      activateWorkspaceTab(targetTab);
+      const termEl = document.querySelector('.terminal-card');
+      if (termEl && targetTab === 'chart') {
+        termEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else if (route.type === 'screener') {
+      setTopLevelView('screener');
+      if (route.universe) {
+        const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${route.universe}"]`);
+        if (tabBtn) {
+          document.querySelectorAll('.screener-tab-btn').forEach((t) => t.classList.remove('active'));
+          tabBtn.classList.add('active');
+        }
+        await loadScreener(route.universe);
+      }
+      const screenerEl = document.querySelector('.screener-card');
+      if (screenerEl) {
+        screenerEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else if (route.type === 'sectors') {
+      setTopLevelView('sectors');
+      activateWorkspaceTab('sectors');
+      const sectorsEl = document.getElementById('panel-sectors') || document.querySelector('.terminal-card');
+      if (sectorsEl) {
+        sectorsEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  });
+
+  window.apexRouter = router;
+  router.init({ symbol: 'TCS.NS', tab: 'chart' });
+
+  startQuotePatchWorker();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  auth.onAuthenticated = startApp;
+  if (await auth.initialize()) await startApp();
 });
+
+// Top-Level Views Switcher
+function setupTopNavViewControls() {
+  const topBtns = document.querySelectorAll('#top-nav-views .top-nav-btn[data-top-view]');
+  topBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const view = btn.getAttribute('data-top-view');
+      if (view === 'terminal') {
+        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentActiveTab || 'chart'));
+      } else if (view === 'screener') {
+        router.navigate('/screener');
+      } else if (view === 'sectors') {
+        router.navigate('/sectors');
+      }
+    });
+  });
+}
+
+export function setTopLevelView(viewName) {
+  document.querySelectorAll('#top-nav-views .top-nav-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-top-view') === viewName);
+  });
+}
+
+export function syncChartControlsToPreferences() {
+  if (!chartInstance) return;
+
+  // 1. Sync Interval buttons (D, W, M)
+  const int = chartInstance.activeInterval || 'D';
+  document.querySelectorAll('#interval-group .interval-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-interval') === int);
+  });
+
+  // 2. Sync Range buttons (1M .. All)
+  const range = chartInstance.activeRange || '1Y';
+  document.querySelectorAll('#range-group .range-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-range') === range);
+  });
+
+  // 3. Sync Chart Type Rail Button
+  const chartType = chartInstance.chartType || 'candles';
+  const railChartType = document.getElementById('tv-rail-chart-type');
+  if (railChartType) {
+    railChartType.setAttribute('data-type', chartType);
+    railChartType.title = `Chart Type: ${chartType.charAt(0).toUpperCase() + chartType.slice(1)}`;
+  }
+
+  // 4. Sync Scale buttons (log / pct)
+  const scale = chartInstance.scaleMode || 'normal';
+  const logBtn = document.getElementById('tv-scale-log-btn');
+  const pctBtn = document.getElementById('tv-scale-pct-btn');
+  if (logBtn) logBtn.classList.toggle('active', scale === 'log');
+  if (pctBtn) pctBtn.classList.toggle('active', scale === 'pct');
+}
+
+// Workspace Navigation Tabs Controller
+export function activateWorkspaceTab(targetTab) {
+  const wsTabs = document.querySelectorAll('#workspace-nav-bar .ws-tab-btn[data-tab]');
+  const targetBtn = document.querySelector(`#workspace-nav-bar .ws-tab-btn[data-tab="${targetTab}"]`);
+  if (!targetBtn) return;
+
+  currentActiveTab = targetTab;
+  wsTabs.forEach((b) => b.classList.remove('active'));
+  targetBtn.classList.add('active');
+
+  document.querySelectorAll('.research-view-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === `panel-${targetTab}`);
+  });
+
+  if (targetTab === 'chart' && chartInstance) {
+    window.dispatchEvent(new Event('resize'));
+  }
+  if (targetTab === 'report') {
+    renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
+  }
+  if (targetTab === 'sectors') {
+    loadAndRenderSectorsAndMarketMap();
+  }
+  if (targetTab === 'correlation') {
+    loadAndRenderCorrelation(activeCorrelationPeriod);
+    if (currentSymbol) loadAndRenderMacroExplorer(currentSymbol);
+  }
+  if (targetTab === 'whatchanged' && currentV4Data) {
+    renderWhatChanged(currentV4Data.what_changed_30d);
+  }
+  if (targetTab === 'anomalies' && currentV4Data) {
+    renderAnomalies(currentV4Data.anomalies);
+  }
+  if (targetTab === 'notebook') {
+    loadNotebookForCurrentSymbol();
+  }
+  if (targetTab === 'lab') {
+    updateScenarioCalculation();
+  }
+}
 
 // Setup DOM Event Listeners
 function setupEventListeners() {
@@ -69,46 +237,18 @@ function setupEventListeners() {
   const brandBtn = document.getElementById('brand-home-btn');
   if (brandBtn) {
     brandBtn.addEventListener('click', () => {
-      loadStock('^NSEI', '1y');
+      router.navigate(router.formatSymbolRoute('^NSEI', 'chart'));
     });
   }
 
   // Workspace Navigation Tabs
-  const wsTabs = document.querySelectorAll('.ws-tab-btn');
+  const wsTabs = document.querySelectorAll('#workspace-nav-bar .ws-tab-btn[data-tab]');
   wsTabs.forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      wsTabs.forEach((b) => b.classList.remove('active'));
       const targetBtn = e.currentTarget;
-      targetBtn.classList.add('active');
       const targetTab = targetBtn.getAttribute('data-tab');
-      document.querySelectorAll('.research-view-panel').forEach((panel) => {
-        panel.classList.toggle('active', panel.id === `panel-${targetTab}`);
-      });
-      if (targetTab === 'chart' && chartInstance) {
-        window.dispatchEvent(new Event('resize'));
-      }
-      if (targetTab === 'report') {
-        renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
-      }
-      if (targetTab === 'sectors') {
-        loadAndRenderSectorsAndMarketMap();
-      }
-      if (targetTab === 'correlation') {
-        loadAndRenderCorrelation(activeCorrelationPeriod);
-        loadAndRenderMacroExplorer(currentSymbol);
-      }
-      if (targetTab === 'whatchanged' && currentV4Data) {
-        renderWhatChanged(currentV4Data.what_changed_30d);
-      }
-      if (targetTab === 'anomalies' && currentV4Data) {
-        renderAnomalies(currentV4Data.anomalies);
-      }
-      if (targetTab === 'notebook') {
-        loadNotebookForCurrentSymbol();
-      }
-      if (targetTab === 'lab') {
-        updateScenarioCalculation();
-      }
+      if (!targetTab) return;
+      router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', targetTab));
     });
   });
 
@@ -119,31 +259,37 @@ function setupEventListeners() {
       screenerTabs.forEach((t) => t.classList.remove('active'));
       e.target.classList.add('active');
       const universe = e.target.getAttribute('data-universe');
+      router.navigate(router.formatScreenerRoute(universe));
       loadScreener(universe);
     });
   });
 
-  // Timeframe Buttons
-  const tfButtons = document.querySelectorAll('.tf-btn');
-  tfButtons.forEach((btn) => {
+  // Interval Buttons (Client-Side OHLCV Resampling: D / W / M)
+  const intervalButtons = document.querySelectorAll('#interval-group .interval-btn');
+  intervalButtons.forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      tfButtons.forEach((b) => b.classList.remove('active'));
-      e.target.classList.add('active');
-      currentTimeframe = e.target.getAttribute('data-tf');
-      const tvLegInterval = document.getElementById('tv-leg-interval');
-      if (tvLegInterval) tvLegInterval.textContent = currentTimeframe.toUpperCase();
-      loadStockChart(currentSymbol, currentTimeframe);
+      const targetBtn = e.currentTarget || e.target;
+      const interval = targetBtn.getAttribute('data-interval');
+      if (!interval) return;
+      intervalButtons.forEach((b) => b.classList.remove('active'));
+      targetBtn.classList.add('active');
+      if (chartInstance) {
+        chartInstance.applyInterval(interval);
+      }
     });
   });
 
-  // Indicator Toggle Buttons
-  const indButtons = document.querySelectorAll('.ind-btn');
-  indButtons.forEach((btn) => {
+  // Range Buttons (Client-Side setVisibleRange Zoom: 1M 3M 6M YTD 1Y 5Y All)
+  const rangeButtons = document.querySelectorAll('#range-group .range-btn');
+  rangeButtons.forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      const indName = e.target.getAttribute('data-ind');
-      const isActive = e.target.classList.toggle('active');
+      const targetBtn = e.currentTarget || e.target;
+      const range = targetBtn.getAttribute('data-range');
+      if (!range) return;
+      rangeButtons.forEach((b) => b.classList.remove('active'));
+      targetBtn.classList.add('active');
       if (chartInstance) {
-        chartInstance.toggleIndicator(indName, isActive);
+        chartInstance.setVisibleRangeByName(range);
       }
     });
   });
@@ -184,6 +330,15 @@ function setupEventListeners() {
       }, 200);
     });
 
+    // Click on kbd shortcut hint also focuses search
+    const kbdHint = document.getElementById('search-kbd-hint');
+    if (kbdHint) {
+      kbdHint.addEventListener('click', () => {
+        searchInput.focus();
+        searchInput.select();
+      });
+    }
+
     // Close search dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
@@ -192,15 +347,6 @@ function setupEventListeners() {
     });
   }
 
-  // Chart Event Markers Toggle
-  const toggleEventsBtn = document.getElementById('toggle-events-marker-btn');
-  if (toggleEventsBtn) {
-    toggleEventsBtn.addEventListener('click', () => {
-      showChartEvents = !showChartEvents;
-      toggleEventsBtn.classList.toggle('active', showChartEvents);
-      updateChartEventMarkers();
-    });
-  }
 
   // Correlation Timeframe Switchers
   document.querySelectorAll('.corr-tf-btn').forEach((btn) => {
@@ -220,14 +366,555 @@ function setupEventListeners() {
   setupBacktesterControls();
   setupReportControls();
 
-  // Global ⌘K / Ctrl+K Shortcut to Search
+  // Global Keyboard Shortcuts (⌘K, /, Escape, Number keys)
   window.addEventListener('keydown', (e) => {
+    const isEditingText =
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
+      Boolean(document.activeElement?.isContentEditable);
+
+    // 1. ⌘K / Ctrl+K: Global search focus
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       const searchInput = document.getElementById('global-search-input');
       if (searchInput) {
         searchInput.focus();
         searchInput.select();
+      }
+      return;
+    }
+
+    // 2. '/' key: Focus search (only if not already editing an input/textarea)
+    if (e.key === '/' && !isEditingText) {
+      e.preventDefault();
+      const searchInput = document.getElementById('global-search-input');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+      return;
+    }
+
+    // 3. 'Escape' key: Dismiss modals, drawers, search, and fullscreen
+    if (e.key === 'Escape') {
+      // 3a. Search dropdown & input blur
+      const searchInput = document.getElementById('global-search-input');
+      const searchDropdown = document.getElementById('search-dropdown');
+      if (searchDropdown?.classList.contains('open')) {
+        searchDropdown.classList.remove('open');
+      }
+      if (document.activeElement === searchInput) {
+        searchInput.blur();
+      }
+
+      // 3b. Indicator Settings Modal
+      const indSettingsModal = document.getElementById('tv-indicator-settings-modal');
+      if (indSettingsModal?.classList.contains('open')) {
+        closeIndicatorSettings();
+        return;
+      }
+
+      // 3c. Indicator Picker Modal
+      if (isIndicatorPickerOpen()) {
+        closeIndicatorPicker();
+        return;
+      }
+
+      // 3d. Watchlist / Alerts Drawer
+      const drawer = document.getElementById('watchlist-drawer');
+      if (drawer?.classList.contains('open')) {
+        if (typeof window.apexCloseWatchlistDrawer === 'function') {
+          window.apexCloseWatchlistDrawer();
+        } else {
+          drawer.classList.remove('open');
+          document.getElementById('watchlist-backdrop')?.classList.remove('open');
+        }
+        return;
+      }
+
+      // 3e. Fullscreen mode
+      const chartPanel = document.getElementById('panel-chart');
+      if (chartPanel?.classList.contains('chart-fullscreen-mode')) {
+        const fsBtn = document.getElementById('tv-fullscreen-btn');
+        fsBtn?.click();
+        return;
+      }
+    }
+
+    // 4. Quick tab switching: 1..9 (when not editing text)
+    if (!isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const tabMap = {
+        '1': 'chart',
+        '2': 'overview',
+        '3': 'fundamentals',
+        '4': 'valuation',
+        '5': 'peers',
+        '6': 'correlation',
+        '7': 'sectors',
+        '8': 'news',
+        '9': 'notebook',
+      };
+      if (tabMap[e.key]) {
+        e.preventDefault();
+        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', tabMap[e.key]));
+      }
+    }
+  });
+
+  // Offline / Network Error Resilience Handler
+  const retryBanner = document.getElementById('apex-retry-banner');
+  const retryBtn = document.getElementById('apex-retry-btn');
+  const retryMsg = document.getElementById('apex-retry-msg');
+
+  window.addEventListener('offline', () => {
+    if (retryBanner) {
+      if (retryMsg) retryMsg.textContent = 'Browser is offline. Live market feeds paused.';
+      retryBanner.classList.add('active');
+    }
+  });
+
+  window.addEventListener('online', () => {
+    if (retryBanner) retryBanner.classList.remove('active');
+    showToast('Network restored. Reconnected to live feed.', 'success');
+    if (currentSymbol) loadStock(currentSymbol, currentTimeframe);
+  });
+
+  if (retryBtn) {
+    retryBtn.addEventListener('click', async () => {
+      retryBtn.textContent = 'Reconnecting...';
+      try {
+        await api.getMarketOverview();
+        if (retryBanner) retryBanner.classList.remove('active');
+        showToast('Reconnected to server successfully.', 'success');
+        if (currentSymbol) await loadStock(currentSymbol, currentTimeframe);
+      } catch (err) {
+        showToast('Reconnect failed. Check server status.', 'error');
+      } finally {
+        retryBtn.textContent = 'Reconnect';
+      }
+    });
+  }
+}
+
+// ============================================================================
+// Technical Indicator Picker & Parameter Settings Engine
+// ============================================================================
+
+let currentIndicatorCategory = 'all';
+let currentIndicatorSearch = '';
+
+function getFavoritesList() {
+  try {
+    const raw = localStorage.getItem(getAccountStorageKey('apex_indicator_favs'));
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.warn('Error reading apex_indicator_favs:', e);
+  }
+  return ['rsi', 'macd', 'ema', 'bollinger'];
+}
+
+function saveFavoritesList(favs) {
+  try {
+    localStorage.setItem(getAccountStorageKey('apex_indicator_favs'), JSON.stringify(favs));
+  } catch (e) {
+    console.warn('Error saving apex_indicator_favs:', e);
+  }
+}
+
+function toggleFavorite(id) {
+  const favs = getFavoritesList();
+  const idx = favs.indexOf(id);
+  if (idx >= 0) {
+    favs.splice(idx, 1);
+  } else {
+    favs.push(id);
+  }
+  saveFavoritesList(favs);
+  renderIndicatorList();
+  updateFavoritesCount();
+}
+
+function updateFavoritesCount() {
+  const favCountEl = document.getElementById('tv-fav-count');
+  if (favCountEl) {
+    favCountEl.textContent = getFavoritesList().length;
+  }
+}
+
+function updateIndicatorsBadge(activeList = null) {
+  const list = activeList || (chartInstance ? chartInstance.getActiveIndicatorsList() : []);
+  const countBadge = document.getElementById('tv-ind-count');
+  if (countBadge) {
+    countBadge.textContent = list.length;
+  }
+  const activeTabCount = document.getElementById('tv-active-tab-count');
+  if (activeTabCount) {
+    activeTabCount.textContent = list.length;
+  }
+}
+
+function isIndicatorPickerOpen() {
+  const modal = document.getElementById('tv-indicator-picker-modal');
+  return modal && modal.classList.contains('open');
+}
+
+function openIndicatorPicker() {
+  const modal = document.getElementById('tv-indicator-picker-modal');
+  const backdrop = document.getElementById('tv-indicator-picker-backdrop');
+  if (modal) modal.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
+  updateFavoritesCount();
+  updateIndicatorsBadge();
+  renderIndicatorList();
+  const input = document.getElementById('tv-ind-search-input');
+  if (input) {
+    input.value = currentIndicatorSearch;
+    setTimeout(() => input.focus(), 50);
+  }
+}
+
+function closeIndicatorPicker() {
+  const modal = document.getElementById('tv-indicator-picker-modal');
+  const backdrop = document.getElementById('tv-indicator-picker-backdrop');
+  if (modal) modal.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
+function renderIndicatorList() {
+  const listContainer = document.getElementById('tv-indicator-list');
+  if (!listContainer) return;
+
+  const activeInstances = chartInstance ? chartInstance.getActiveIndicatorsList() : [];
+  const activeDefIds = new Set(activeInstances.map((i) => i.id));
+  const favs = new Set(getFavoritesList());
+  const instrumentHasVolume = hasValidVolume(currentCandles);
+
+  // If "Active" tab is selected: show active indicator instances with visibility, settings, remove
+  if (currentIndicatorCategory === 'active') {
+    if (activeInstances.length === 0) {
+      listContainer.innerHTML = `
+        <div style="padding: 32px 16px; text-align: center; color: var(--text-dim); font-size: 13px;">
+          No active indicators on chart. Browse the tabs above to add overlays or oscillators.
+        </div>
+      `;
+      return;
+    }
+
+    listContainer.innerHTML = activeInstances
+      .map((inst) => {
+        const paramStr = Object.values(inst.params).join(', ');
+        return `
+          <div class="tv-ind-card" data-instance-id="${inst.instanceId}">
+            <div class="tv-ind-card-left">
+              <span class="tv-ind-swatch" style="width: 10px; height: 10px; border-radius: 2px; background: ${inst.color}; display: inline-block;"></span>
+              <div class="tv-ind-info">
+                <div class="tv-ind-name-row">
+                  <span class="tv-ind-name">${inst.name}</span>
+                  <span class="tv-ind-short">(${inst.short} ${paramStr})</span>
+                  <span class="tv-ind-group-tag">${inst.pane === 'overlay' ? 'Overlay' : 'Sub-Pane'}</span>
+                  ${inst.unavailable ? `<span class="tv-ind-warning-tag">${inst.unavailableReason}</span>` : ''}
+                </div>
+                <div class="tv-ind-formula">${inst.def.formula}</div>
+              </div>
+            </div>
+            <div class="tv-ind-card-right">
+              <button class="pane-btn act-ind-eye-btn" data-inst="${inst.instanceId}" title="Toggle Visibility" style="font-size: 13px;">
+                ${inst.visible ? '👁' : 'Ø'}
+              </button>
+              <button class="pane-btn act-ind-gear-btn" data-inst="${inst.instanceId}" title="Parameters" style="font-size: 13px;">
+                ⚙
+              </button>
+              <button class="pane-btn pane-btn-close act-ind-remove-btn" data-inst="${inst.instanceId}" title="Remove Indicator" style="font-size: 13px;">
+                ✕
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    // Wire active indicator row action buttons
+    listContainer.querySelectorAll('.act-ind-eye-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const instId = btn.getAttribute('data-inst');
+        if (chartInstance) chartInstance.toggleIndicatorVisibility(instId);
+        renderIndicatorList();
+      });
+    });
+    listContainer.querySelectorAll('.act-ind-gear-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const instId = btn.getAttribute('data-inst');
+        openIndicatorSettings(instId);
+      });
+    });
+    listContainer.querySelectorAll('.act-ind-remove-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const instId = btn.getAttribute('data-inst');
+        if (chartInstance) chartInstance.removeIndicator(instId);
+        renderIndicatorList();
+      });
+    });
+    return;
+  }
+
+  // Filter indicators by category
+  let indicators = getAllIndicators();
+  if (currentIndicatorCategory === 'favorites') {
+    indicators = indicators.filter((ind) => favs.has(ind.id));
+  } else if (currentIndicatorCategory !== 'all') {
+    indicators = indicators.filter((ind) => ind.group === currentIndicatorCategory);
+  }
+
+  // Filter by search query
+  if (currentIndicatorSearch.trim()) {
+    const q = currentIndicatorSearch.trim().toLowerCase();
+    indicators = indicators.filter(
+      (ind) =>
+        ind.name.toLowerCase().includes(q) ||
+        ind.short.toLowerCase().includes(q) ||
+        ind.id.toLowerCase().includes(q) ||
+        (ind.formula && ind.formula.toLowerCase().includes(q))
+    );
+  }
+
+  if (indicators.length === 0) {
+    listContainer.innerHTML = `
+      <div style="padding: 32px 16px; text-align: center; color: var(--text-dim); font-size: 13px;">
+        No matching indicators found. Try clearing your search or picking another category.
+      </div>
+    `;
+    return;
+  }
+
+  listContainer.innerHTML = indicators
+    .map((ind) => {
+      const isFav = favs.has(ind.id);
+      const isActive = activeDefIds.has(ind.id);
+      const volumeMissing = ind.needsVolume && !instrumentHasVolume;
+      const paramStr = Object.entries(ind.params).map(([k, v]) => `${k}: ${v}`).join(', ');
+
+      return `
+        <div class="tv-ind-card" data-ind-id="${ind.id}">
+          <div class="tv-ind-card-left">
+            <button class="tv-ind-fav-btn ${isFav ? 'favorited' : ''}" data-fav-id="${ind.id}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+              ${isFav ? '★' : '☆'}
+            </button>
+            <div class="tv-ind-info">
+              <div class="tv-ind-name-row">
+                <span class="tv-ind-name">${ind.name}</span>
+                <span class="tv-ind-short">(${ind.short})</span>
+                <span class="tv-ind-group-tag">${ind.group}</span>
+                ${volumeMissing ? `<span class="tv-ind-warning-tag" title="This instrument does not report trading volume">Volume unavailable</span>` : ''}
+              </div>
+              <div class="tv-ind-formula" title="${ind.formula}">${ind.formula} · <span style="color: var(--text-muted);">${paramStr}</span></div>
+            </div>
+          </div>
+          <div class="tv-ind-card-right">
+            <button class="tv-ind-action-btn ${isActive ? 'active' : ''}" data-add-id="${ind.id}" title="${isActive ? 'Remove indicator from chart' : 'Add indicator to chart'}">
+              ${isActive ? '✓ Added' : '+ Add'}
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  // Wire favorite buttons
+  listContainer.querySelectorAll('.tv-ind-fav-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-fav-id');
+      toggleFavorite(id);
+    });
+  });
+
+  // Wire Add/Toggle buttons: strictly disallow duplicates; toggle removal if already added
+  listContainer.querySelectorAll('.tv-ind-action-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const indId = btn.getAttribute('data-add-id');
+      if (!chartInstance) return;
+
+      const existing = chartInstance.getInstanceByDefId(indId);
+      if (existing) {
+        chartInstance.removeIndicator(existing.instanceId);
+        showToast(`Removed ${existing.name} from chart`, 'info');
+      } else {
+        const added = chartInstance.addIndicator(indId);
+        if (added) {
+          const indDef = indicators.find((item) => item.id === indId);
+          showToast(`Added ${indDef?.name || indId} to chart`, 'success');
+        }
+      }
+      renderIndicatorList();
+    });
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Indicator Settings (Parameters) Dialog
+// ----------------------------------------------------------------------------
+
+let currentSettingsInstanceId = null;
+
+function openIndicatorSettings(instanceId) {
+  if (!chartInstance) return;
+  const inst = chartInstance.activeIndicators.get(instanceId);
+  if (!inst) return;
+
+  currentSettingsInstanceId = instanceId;
+  const modal = document.getElementById('tv-indicator-settings-modal');
+  const backdrop = document.getElementById('tv-indicator-settings-backdrop');
+  const titleEl = document.getElementById('tv-ind-settings-title');
+  const bodyEl = document.getElementById('tv-ind-settings-body');
+
+  if (titleEl) titleEl.textContent = `${inst.name} Parameters`;
+
+  if (bodyEl) {
+    const paramDefs = inst.def.paramDefs || [];
+    bodyEl.innerHTML = `
+      <div class="tv-ind-settings-grid">
+        ${paramDefs
+          .map((p) => {
+            const currentVal = inst.params[p.key] ?? p.default;
+            return `
+              <div class="tv-ind-settings-row">
+                <label for="param-input-${p.key}">${p.name}</label>
+                <input
+                  type="number"
+                  id="param-input-${p.key}"
+                  data-key="${p.key}"
+                  value="${currentVal}"
+                  min="${p.min ?? 1}"
+                  max="${p.max ?? 500}"
+                  step="${p.step ?? 1}"
+                />
+              </div>
+            `;
+          })
+          .join('')}
+      </div>
+      <div class="tv-ind-settings-formula">
+        <div style="font-weight: 600; margin-bottom: 4px; color: var(--text);">Auditable Formula:</div>
+        <div>${inst.def.formula}</div>
+      </div>
+    `;
+  }
+
+  if (modal) modal.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
+}
+
+function closeIndicatorSettings() {
+  const modal = document.getElementById('tv-indicator-settings-modal');
+  const backdrop = document.getElementById('tv-indicator-settings-backdrop');
+  if (modal) modal.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+  currentSettingsInstanceId = null;
+}
+
+window.apexOpenIndicatorSettings = openIndicatorSettings;
+
+function setupIndicatorControls() {
+  const indBtn = document.getElementById('tv-indicators-menu-btn');
+  const railIndBtn = document.getElementById('tv-rail-indicators');
+  const pickerCloseBtn = document.getElementById('close-indicator-picker-btn');
+  const pickerBackdrop = document.getElementById('tv-indicator-picker-backdrop');
+  const searchInput = document.getElementById('tv-ind-search-input');
+  const clearSearchBtn = document.getElementById('tv-ind-clear-search');
+  const categoryTabs = document.querySelectorAll('#tv-ind-category-tabs .tv-ind-tab');
+
+  if (indBtn) indBtn.addEventListener('click', openIndicatorPicker);
+  if (railIndBtn) railIndBtn.addEventListener('click', openIndicatorPicker);
+  if (pickerCloseBtn) pickerCloseBtn.addEventListener('click', closeIndicatorPicker);
+  if (pickerBackdrop) pickerBackdrop.addEventListener('click', closeIndicatorPicker);
+
+  // Search input
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      currentIndicatorSearch = e.target.value;
+      if (clearSearchBtn) {
+        clearSearchBtn.style.display = currentIndicatorSearch ? 'inline-block' : 'none';
+      }
+      renderIndicatorList();
+    });
+  }
+
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener('click', () => {
+      currentIndicatorSearch = '';
+      if (searchInput) searchInput.value = '';
+      clearSearchBtn.style.display = 'none';
+      renderIndicatorList();
+      searchInput?.focus();
+    });
+  }
+
+  // Category tabs
+  categoryTabs.forEach((tab) => {
+    tab.addEventListener('click', (e) => {
+      categoryTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentIndicatorCategory = tab.getAttribute('data-category');
+      renderIndicatorList();
+    });
+  });
+
+  // Settings modal buttons
+  const settingsCloseBtn = document.getElementById('close-indicator-settings-btn');
+  const settingsBackdrop = document.getElementById('tv-indicator-settings-backdrop');
+  const settingsResetBtn = document.getElementById('tv-ind-settings-reset');
+  const settingsSaveBtn = document.getElementById('tv-ind-settings-save');
+
+  if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeIndicatorSettings);
+  if (settingsBackdrop) settingsBackdrop.addEventListener('click', closeIndicatorSettings);
+
+  if (settingsResetBtn) {
+    settingsResetBtn.addEventListener('click', () => {
+      if (!currentSettingsInstanceId || !chartInstance) return;
+      const inst = chartInstance.activeIndicators.get(currentSettingsInstanceId);
+      if (inst && inst.def.params) {
+        chartInstance.updateIndicatorParams(currentSettingsInstanceId, inst.def.params);
+        closeIndicatorSettings();
+        if (isIndicatorPickerOpen()) renderIndicatorList();
+      }
+    });
+  }
+
+  if (settingsSaveBtn) {
+    settingsSaveBtn.addEventListener('click', () => {
+      if (!currentSettingsInstanceId || !chartInstance) return;
+      const inputs = document.querySelectorAll('#tv-ind-settings-body input[data-key]');
+      const newParams = {};
+      inputs.forEach((inp) => {
+        const key = inp.getAttribute('data-key');
+        const val = parseFloat(inp.value);
+        if (!isNaN(val)) newParams[key] = val;
+      });
+      chartInstance.updateIndicatorParams(currentSettingsInstanceId, newParams);
+      closeIndicatorSettings();
+      if (isIndicatorPickerOpen()) renderIndicatorList();
+    });
+  }
+
+  // Corporate events marker toggle button
+  const eventsBtn = document.getElementById('tv-toggle-events-btn');
+  if (eventsBtn) {
+    eventsBtn.addEventListener('click', () => {
+      showChartEvents = !showChartEvents;
+      eventsBtn.classList.toggle('active', showChartEvents);
+      if (chartInstance && currentOverviewData?.corporate_events?.events) {
+        chartInstance.setEventMarkers(showChartEvents ? currentOverviewData.corporate_events.events : []);
+      }
+    });
+  }
+
+  // Close modals on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (document.getElementById('tv-indicator-settings-modal')?.classList.contains('open')) {
+        closeIndicatorSettings();
+      } else if (isIndicatorPickerOpen()) {
+        closeIndicatorPicker();
       }
     }
   });
@@ -245,51 +932,6 @@ function setupTradingViewChromeControls() {
     });
   }
 
-  // 2. Indicators Dropdown Menu
-  const indMenuBtn = document.getElementById('tv-indicators-menu-btn');
-  const indMenu = document.getElementById('tv-indicators-menu');
-  const railIndBtn = document.getElementById('tv-rail-indicators');
-
-  const toggleIndMenu = (e) => {
-    e.stopPropagation();
-    indMenu?.classList.toggle('open');
-  };
-
-  if (indMenuBtn) indMenuBtn.addEventListener('click', toggleIndMenu);
-  if (railIndBtn) railIndBtn.addEventListener('click', toggleIndMenu);
-
-  document.addEventListener('click', (e) => {
-    if (indMenu && !indMenu.contains(e.target) && e.target !== indMenuBtn && e.target !== railIndBtn) {
-      indMenu.classList.remove('open');
-    }
-  });
-
-  // Indicator dropdown items
-  const indItems = document.querySelectorAll('.tv-dropdown-item[data-ind]');
-  indItems.forEach((item) => {
-    item.addEventListener('click', (e) => {
-      const indName = item.getAttribute('data-ind');
-      const isActive = item.classList.toggle('active');
-      const checkIcon = item.querySelector('.tv-check-icon');
-      if (checkIcon) checkIcon.textContent = isActive ? '✓' : '';
-      if (chartInstance) {
-        chartInstance.toggleIndicator(indName, isActive);
-      }
-    });
-  });
-
-  // Corporate events item in indicator dropdown
-  const eventsItem = document.getElementById('tv-toggle-events-item');
-  if (eventsItem) {
-    eventsItem.addEventListener('click', () => {
-      const isActive = eventsItem.classList.toggle('active');
-      const checkIcon = eventsItem.querySelector('.tv-check-icon');
-      if (checkIcon) checkIcon.textContent = isActive ? '✓' : '';
-      if (chartInstance && currentOverviewData?.corporate_events?.events) {
-        chartInstance.setEventMarkers(isActive ? currentOverviewData.corporate_events.events : []);
-      }
-    });
-  }
 
   // 3. Fullscreen Toggle with Sidebar State Preservation & Explicit Canvas Resizing
   const fsBtn = document.getElementById('tv-fullscreen-btn');
@@ -399,15 +1041,38 @@ function setupTradingViewChromeControls() {
     });
   }
 
-  // 6. Left Rail: More options
-  const railMore = document.getElementById('tv-rail-more');
-  if (railMore) {
-    railMore.addEventListener('click', () => {
-      showToast(`Apex Financial Terminal · TradingView Lightweight Engine`, 'info');
+  // 6. Left Rail: Fit / Reset Content View
+  const railFit = document.getElementById('tv-rail-fit');
+  if (railFit) {
+    railFit.addEventListener('click', () => {
+      if (chartInstance) {
+        chartInstance.resetView();
+        showToast('Chart View Reset', 'info');
+      }
     });
   }
 
-  // 7. Bottom Status Bar: Scale Mode Toggles
+  // 7. Bottom Status Bar: Latest & Reset Actions
+  const latestBtn = document.getElementById('tv-latest-btn');
+  if (latestBtn) {
+    latestBtn.addEventListener('click', () => {
+      if (chartInstance) {
+        chartInstance.scrollToLatest();
+      }
+    });
+  }
+
+  const resetBtn = document.getElementById('tv-reset-view-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (chartInstance) {
+        chartInstance.resetView();
+        showToast('Chart View Reset', 'info');
+      }
+    });
+  }
+
+  // 8. Bottom Status Bar: Scale Mode Toggles
   const logBtn = document.getElementById('tv-scale-log-btn');
   const pctBtn = document.getElementById('tv-scale-pct-btn');
 
@@ -432,7 +1097,31 @@ function setupTradingViewChromeControls() {
   }
 }
 
-// Apex Terminal Lightweight Stackable Toast System
+// 60-Second Real-Time Last-Bar Quote Patching Worker
+let quotePatchInterval = null;
+
+function startQuotePatchWorker() {
+  if (quotePatchInterval) clearInterval(quotePatchInterval);
+  quotePatchInterval = setInterval(async () => {
+    if (!chartInstance || !currentSymbol) return;
+    if (document.hidden) return;
+    try {
+      const overview = await api.getStockOverview(currentSymbol);
+      if (overview && (overview.symbol === currentSymbol || !overview.symbol)) {
+        currentOverviewData = overview;
+        chartInstance.patchLatestBar(overview);
+        const provTime = document.getElementById('provenance-timestamp');
+        if (provTime) {
+          provTime.textContent = new Date().toLocaleTimeString();
+        }
+      }
+    } catch (e) {
+      console.warn('Quote patch poll skipped:', e);
+    }
+  }, 60000);
+}
+
+// Mara Lightweight Stackable Toast System
 export function showToast(message, type = 'info', duration = 3000) {
   const container = document.getElementById('apex-toast-container');
   if (!container) return;
@@ -473,20 +1162,42 @@ function setupWatchlistControls() {
     if (drawer) drawer.classList.add('open');
     if (backdrop && window.innerWidth < 1024) backdrop.classList.add('open');
     if (tvSidebarToggle) tvSidebarToggle.classList.add('active');
-    localStorage.setItem('apex_watchlist_drawer_open', 'true');
+    document.body.classList.add('watchlist-drawer-open');
+    localStorage.setItem(getAccountStorageKey('apex_watchlist_drawer_open'), 'true');
     refreshWatchlistUI();
+    if (chartInstance) {
+      setTimeout(() => chartInstance.resize(), 50);
+    }
   };
 
   const closeDrawer = () => {
     if (drawer) drawer.classList.remove('open');
     if (backdrop) backdrop.classList.remove('open');
     if (tvSidebarToggle) tvSidebarToggle.classList.remove('active');
-    localStorage.setItem('apex_watchlist_drawer_open', 'false');
+    document.body.classList.remove('watchlist-drawer-open');
+    localStorage.setItem(getAccountStorageKey('apex_watchlist_drawer_open'), 'false');
+    if (chartInstance) {
+      setTimeout(() => chartInstance.resize(), 50);
+    }
   };
+  window.apexCloseWatchlistDrawer = closeDrawer;
 
-  if (toggleBtn) toggleBtn.addEventListener('click', openDrawer);
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      openDrawer();
+      switchTab('watchlist');
+    });
+  }
   if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
   if (backdrop) backdrop.addEventListener('click', closeDrawer);
+
+  const navAlertsBtn = document.getElementById('alerts-modal-toggle');
+  if (navAlertsBtn) {
+    navAlertsBtn.addEventListener('click', () => {
+      openDrawer();
+      switchTab('alerts');
+    });
+  }
 
   // TradingView Right Sidebar Toggle Button from chart toolbar
   if (tvSidebarToggle) {
@@ -534,7 +1245,7 @@ function setupWatchlistControls() {
   }
 
   // Open by default on desktop (>= 1024px) unless explicitly closed by user
-  const savedState = localStorage.getItem('apex_watchlist_drawer_open');
+  const savedState = localStorage.getItem(getAccountStorageKey('apex_watchlist_drawer_open'));
   if (savedState === 'true' || (savedState === null && window.innerWidth >= 1024)) {
     openDrawer();
   }
@@ -611,8 +1322,11 @@ function updateStarBtn() {
   }
 }
 
+let watchlistRefreshSeq = 0;
+
 // Refresh and Render Watchlist Items (Strictly Cache-Only Contract)
 async function refreshWatchlistUI() {
+  const currentSeq = ++watchlistRefreshSeq;
   const symbols = watchlist.getSymbols();
   const navCount = document.getElementById('watchlist-nav-count');
   const drawerBadge = document.getElementById('watchlist-drawer-badge');
@@ -624,10 +1338,29 @@ async function refreshWatchlistUI() {
 
   if (symbols.length === 0) {
     listContainer.innerHTML = `
-      <div class="watchlist-empty-state">
-        <span class="watchlist-empty-text">Nothing here yet. Add a symbol to get started.</span>
+      <div class="watchlist-empty-state" style="padding: 24px 12px; text-align: center;">
+        <div style="font-size: 22px; color: var(--text-dim); margin-bottom: 6px;">☆</div>
+        <div class="watchlist-empty-text" style="font-weight: 500; color: var(--text); font-size: 13px;">Watchlist is empty</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 14px;">Star assets or pick a quick suggestion:</div>
+        <div class="watchlist-empty-suggestions" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+          <button class="wl-add-sugg-btn" data-add="TCS.NS" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ TCS</button>
+          <button class="wl-add-sugg-btn" data-add="RELIANCE.NS" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ RELIANCE</button>
+          <button class="wl-add-sugg-btn" data-add="INFY.NS" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ INFY</button>
+          <button class="wl-add-sugg-btn" data-add="NVDA" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ NVDA</button>
+        </div>
       </div>
     `;
+    listContainer.querySelectorAll('.wl-add-sugg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sym = btn.getAttribute('data-add');
+        if (sym) {
+          watchlist.addSymbol(sym);
+          showToast(`Added ${sym} to Watchlist`, 'success');
+          updateStarBtn();
+          refreshWatchlistUI();
+        }
+      });
+    });
     return;
   }
 
@@ -652,14 +1385,17 @@ async function refreshWatchlistUI() {
   // Call cache-only batch API endpoint
   try {
     const quotes = await api.getBatchStockOverview(symbols);
+    if (currentSeq !== watchlistRefreshSeq || watchlist.getSymbols().length === 0) return;
     renderWatchlistRows(quotes);
   } catch (err) {
+    if (currentSeq !== watchlistRefreshSeq || watchlist.getSymbols().length === 0) return;
     console.warn('Batch watchlist fetch failed, showing basic tickers:', err);
     renderWatchlistRows(symbols.map((sym) => ({ symbol: sym, status: 'pending' })));
   }
 }
 
 function renderWatchlistRows(quotes) {
+  if (watchlist.getSymbols().length === 0) return;
   const listContainer = document.getElementById('watchlist-items-list');
   if (!listContainer) return;
 
@@ -701,7 +1437,7 @@ function renderWatchlistRows(quotes) {
     row.addEventListener('click', (e) => {
       if (e.target.closest('.wl-item-del-btn')) return;
       const sym = row.getAttribute('data-symbol');
-      loadStock(sym, currentTimeframe);
+      router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
     });
   });
 
@@ -725,7 +1461,12 @@ function renderSearchDropdown(items) {
   if (!searchDropdown) return;
 
   if (items.length === 0) {
-    searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: #94a3b8;">No matching assets found.</div>';
+    searchDropdown.innerHTML = `
+      <div style="padding: 14px 16px; font-size: 12px; color: var(--text-dim); text-align: center;">
+        <div style="margin-bottom: 6px; color: var(--text);">No matching assets found</div>
+        <div style="font-size: 11px;">Try searching for <strong>TCS</strong>, <strong>RELIANCE</strong>, <strong>NVDA</strong>, or <strong>BTC</strong></div>
+      </div>
+    `;
     searchDropdown.classList.add('open');
     return;
   }
@@ -753,7 +1494,7 @@ function renderSearchDropdown(items) {
       searchDropdown.classList.remove('open');
       const searchInput = document.getElementById('global-search-input');
       if (searchInput) searchInput.value = '';
-      loadStock(sym, currentTimeframe);
+      router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
     });
   });
 }
@@ -971,7 +1712,7 @@ function renderMacroCards() {
   container.querySelectorAll('.macro-mini-card').forEach((card) => {
     card.addEventListener('click', () => {
       const sym = card.getAttribute('data-symbol');
-      loadStock(sym, currentTimeframe);
+      router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
     });
   });
 }
@@ -994,11 +1735,13 @@ async function loadStock(symbol, timeframe = '1y') {
   if (tvNameText) tvNameText.textContent = 'Loading...';
   const tvLegSym = document.getElementById('tv-leg-sym');
   if (tvLegSym) tvLegSym.textContent = symbol;
+  const activeInt = chartInstance?.activeInterval || 'D';
+  const intLabel = activeInt === 'W' ? '1W' : (activeInt === 'M' ? '1M' : '1D');
   const tvLegInterval = document.getElementById('tv-leg-interval');
-  if (tvLegInterval) tvLegInterval.textContent = timeframe.toUpperCase();
+  if (tvLegInterval) tvLegInterval.textContent = intLabel;
 
   if (chartInstance) {
-    chartInstance.resetCornerLegend(symbol, timeframe);
+    chartInstance.resetCornerLegend(symbol, intLabel);
   }
 
   try {
@@ -1009,7 +1752,7 @@ async function loadStock(symbol, timeframe = '1y') {
     renderStockOverview(overview);
 
     // 2. Fetch Chart History
-    await loadStockChart(symbol, timeframe, token);
+    await loadStockChart(symbol, token);
 
     // 3. Fetch Research Core Dossier & Multi-Year Statements
     loadStockResearch(symbol, token);
@@ -1017,7 +1760,7 @@ async function loadStock(symbol, timeframe = '1y') {
     // 4. Fetch Deep Research Bundle
     loadStockDeepResearch(symbol, token, overview);
 
-    // 5. Fetch Apex v4 Intelligence (What Changed, Anomalies, Relationships, Statement Quality, Filing Diff)
+    // 5. Fetch Mara v4 Intelligence (What Changed, Anomalies, Relationships, Statement Quality, Filing Diff)
     loadStockV4Intelligence(symbol, token);
 
     // 6. Fetch Macro Explorer correlations
@@ -1029,25 +1772,30 @@ async function loadStock(symbol, timeframe = '1y') {
 }
 
 // Load Only Chart Data with Race Condition Token and Skeleton Shimmer
-async function loadStockChart(symbol, timeframe = '1y', parentToken = null) {
+async function loadStockChart(symbol, parentToken = null) {
   const token = parentToken || ++currentLoadToken;
   const shimmer = document.getElementById('chart-skeleton-shimmer');
   if (shimmer) shimmer.classList.add('active');
 
+  const activeInt = chartInstance?.activeInterval || 'D';
+  const intLabel = activeInt === 'W' ? '1W' : (activeInt === 'M' ? '1M' : '1D');
   const tvLegInterval = document.getElementById('tv-leg-interval');
-  if (tvLegInterval) tvLegInterval.textContent = timeframe.toUpperCase();
+  if (tvLegInterval) tvLegInterval.textContent = intLabel;
 
   if (chartInstance) {
-    chartInstance.resetCornerLegend(symbol, timeframe);
+    chartInstance.resetCornerLegend(symbol, intLabel);
   }
 
   try {
-    const historyData = await api.getStockHistory(symbol, timeframe);
+    const historyData = await api.getStockHistory(symbol, 'max');
     if (token !== currentLoadToken) return; // Discard stale chart response
     currentCandles = historyData.candles || [];
     if (chartInstance) {
       chartInstance.setData(historyData);
       updateChartEventMarkers();
+    }
+    if (historyData.last_updated) {
+      updateStatusBar(historyData.data_source, historyData.exchange, historyData.exchange_timezone, historyData.last_updated);
     }
     renderObservations(historyData.observations || []);
   } catch (err) {
@@ -1136,12 +1884,70 @@ function renderStockOverview(data) {
   if (tvTbSymbol) tvTbSymbol.textContent = data.symbol;
   if (tvTbName) tvTbName.textContent = data.name || data.symbol;
   if (tvLegSym) tvLegSym.textContent = data.symbol;
-  if (tvLegInterval) tvLegInterval.textContent = currentTimeframe.toUpperCase();
-  if (tvBbStatus) tvBbStatus.textContent = `${data.provenance?.primary_source || 'NSE India'} · Live Session`;
+  if (tvLegInterval) {
+    const activeInt = chartInstance?.activeInterval || 'D';
+    tvLegInterval.textContent = activeInt === 'W' ? '1W' : (activeInt === 'M' ? '1M' : '1D');
+  }
   if (alertFormSymbol) alertFormSymbol.textContent = data.symbol;
+
+  updateStatusBar(data.data_source, data.exchange, data.exchange_timezone, data.last_updated);
 
   // Render Valuation Grid
   renderValuationGrid(data);
+}
+
+let statusAgeTimer = null;
+let lastDataTimestamp = null;
+
+function updateStatusBar(source, exchange, timezone, lastUpdated) {
+  const statusEl = document.getElementById('tv-bb-status');
+  const tzEl = document.getElementById('tv-bb-tz');
+  const ageEl = document.getElementById('tv-bb-age');
+  const provSource = document.getElementById('provenance-source');
+  const provStatus = document.getElementById('provenance-status');
+  const provTime = document.getElementById('provenance-timestamp');
+
+  const srcText = source || 'Yahoo Finance';
+  const exchText = exchange || 'Market';
+  const tzText = timezone || 'UTC';
+
+  if (statusEl) {
+    statusEl.textContent = `${srcText} · ${exchText}`;
+  }
+  if (tzEl) {
+    tzEl.textContent = tzText;
+  }
+  if (provSource) {
+    provSource.textContent = `${srcText} (${exchText})`;
+  }
+  if (provStatus) {
+    provStatus.textContent = 'Cached (60s TTL)';
+  }
+
+  if (lastUpdated) {
+    lastDataTimestamp = new Date(lastUpdated).getTime();
+    if (provTime) {
+      provTime.textContent = new Date(lastUpdated).toLocaleTimeString();
+    }
+  }
+
+  const renderAge = () => {
+    if (!ageEl || !lastDataTimestamp) return;
+    const diffSec = Math.max(0, Math.floor((Date.now() - lastDataTimestamp) / 1000));
+    if (diffSec < 5) {
+      ageEl.textContent = 'Updated just now';
+    } else if (diffSec < 60) {
+      ageEl.textContent = `Updated ${diffSec}s ago`;
+    } else if (diffSec < 3600) {
+      ageEl.textContent = `Updated ${Math.floor(diffSec / 60)}m ago`;
+    } else {
+      ageEl.textContent = `Updated ${Math.floor(diffSec / 3600)}h ago`;
+    }
+  };
+
+  renderAge();
+  if (statusAgeTimer) clearInterval(statusAgeTimer);
+  statusAgeTimer = setInterval(renderAge, 1000);
 }
 
 // Render Valuation Multiples Grid (Strict 3-State Adaptive Market Matrix)
@@ -1899,7 +2705,7 @@ function renderScreenerTable(items) {
     row.addEventListener('click', () => {
       const sym = row.getAttribute('data-symbol');
       if (sym) {
-        loadStock(sym, currentTimeframe);
+        router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
         window.scrollTo({ top: document.querySelector('.terminal-card')?.offsetTop - 80 || 280, behavior: 'smooth' });
       }
     });
@@ -1969,7 +2775,7 @@ async function loadStockDeepResearch(symbol, token, overview) {
    APEX v4 RELATIONSHIP & ANOMALY INTELLIGENCE RENDERERS
    ======================================================== */
 
-// Fetch and Render Apex v4 Intelligence
+// Fetch and Render Mara v4 Intelligence
 async function loadStockV4Intelligence(symbol, token) {
   try {
     const data = await api.getV4Intelligence(symbol);
@@ -1992,7 +2798,7 @@ async function loadStockV4Intelligence(symbol, token) {
     renderFilingDiff(data.filing_intelligence);
   } catch (err) {
     if (token !== currentLoadToken) return;
-    console.warn(`Apex v4 intelligence notice for ${symbol}:`, err);
+    console.warn(`Mara v4 intelligence notice for ${symbol}:`, err);
   }
 }
 
@@ -2687,66 +3493,205 @@ function renderRelativePerformance(relPerf, dd) {
 }
 
 // Global Market Map & Sector Intelligence (Tab 8)
+let currentSelectedSector = null;
+
 async function loadAndRenderSectorsAndMarketMap() {
   const mapGrid = document.getElementById('global-market-map-grid');
   const secGrid = document.getElementById('sector-intelligence-grid');
 
-  if (mapGrid) {
-    const markets = [
-      { name: 'India (NIFTY 50)', symbol: '^NSEI', region: 'India Benchmark', change: '+0.84%', isUp: true },
-      { name: 'India (SENSEX)', symbol: '^BSESN', region: 'BSE Index', change: '+0.76%', isUp: true },
-      { name: 'US (S&P 500)', symbol: '^GSPC', region: 'US Broad Market', change: '+0.42%', isUp: true },
-      { name: 'US (Nasdaq 100)', symbol: '^NDX', region: 'US Technology', change: '+0.65%', isUp: true },
-      { name: 'Europe (FTSE 100)', symbol: '^FTSE', region: 'United Kingdom', change: '-0.18%', isUp: false },
-      { name: 'Japan (Nikkei 225)', symbol: '^N225', region: 'Asia Pacific', change: '+0.73%', isUp: true },
-    ];
+  const benchmarkMeta = [
+    { name: 'India (NIFTY 50)', symbol: '^NSEI', region: 'NSE Benchmark' },
+    { name: 'India (SENSEX)', symbol: '^BSESN', region: 'BSE Benchmark' },
+    { name: 'US (S&P 500)', symbol: '^GSPC', region: 'US Broad Market' },
+    { name: 'US (Nasdaq 100)', symbol: '^NDX', region: 'US Technology' },
+    { name: 'Europe (FTSE 100)', symbol: '^FTSE', region: 'United Kingdom' },
+    { name: 'Japan (Nikkei 225)', symbol: '^N225', region: 'Asia Pacific' },
+  ];
 
-    mapGrid.innerHTML = markets
-      .map(
-        (m) => `
-        <div class="market-map-tile" style="cursor: pointer;" onclick="window.apexLoad('${m.symbol}')">
-          <div>
-            <div style="font-size: 11px; color: var(--text-muted);">${m.region}</div>
-            <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin: 4px 0;">${m.name}</div>
+  if (mapGrid) {
+    const liveIndices = (marketDataCache?.macro?.Indices || []);
+    const lookup = new Map(liveIndices.map((i) => [i.symbol, i]));
+
+    mapGrid.innerHTML = benchmarkMeta
+      .map((m) => {
+        const live = lookup.get(m.symbol);
+        const price = live?.price != null ? live.price.toFixed(2) : (m.symbol === '^NSEI' && marketDataCache?.hero?.price != null ? marketDataCache.hero.price.toFixed(2) : '—');
+        const chgPct = live?.change_pct != null ? live.change_pct : (m.symbol === '^NSEI' && marketDataCache?.hero?.change_pct != null ? marketDataCache.hero.change_pct : 0);
+        const isUp = chgPct >= 0;
+        const chgDisplay = `${isUp ? '+' : ''}${chgPct.toFixed(2)}%`;
+
+        return `
+          <div class="market-map-tile" data-sym="${m.symbol}" style="cursor: pointer;" title="Open ${m.name} in Terminal Chart">
+            <div>
+              <div style="font-size: 11px; color: var(--text-dim);">${m.region}</div>
+              <div style="font-size: 14px; font-weight: 700; color: var(--text); margin: 4px 0;">${m.name}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">${m.symbol}</span>
+              <div style="display: flex; gap: 8px; align-items: baseline;">
+                ${price !== '—' ? `<span style="font-family: var(--font-mono); font-size: 12px; color: var(--text);">${price}</span>` : ''}
+                <span class="tape-chg ${isUp ? 'chg-up' : 'chg-down'}">${chgDisplay}</span>
+              </div>
+            </div>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-cyan);">${m.symbol}</span>
-            <span class="tape-chg ${m.isUp ? 'chg-up' : 'chg-down'}">${m.change}</span>
-          </div>
-        </div>
-      `
-      )
+        `;
+      })
       .join('');
+
+    mapGrid.querySelectorAll('.market-map-tile').forEach((tile) => {
+      tile.addEventListener('click', () => {
+        const sym = tile.getAttribute('data-sym');
+        if (sym) {
+          router.navigate(router.formatSymbolRoute(sym, 'chart'));
+          showToast(`Loading benchmark ${sym} into Terminal`, 'info');
+          const termEl = document.querySelector('.terminal-card');
+          if (termEl) termEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+  }
+
+  function renderSelectedSectorDetail(sector) {
+    const titleEl = document.getElementById('sector-detail-title');
+    const metaEl = document.getElementById('sector-detail-meta');
+    const bodyEl = document.getElementById('sector-detail-body');
+    if (!titleEl || !bodyEl || !sector) return;
+
+    titleEl.textContent = `${sector.display_name} Constituents`;
+    const proxyStr = [sector.indian_proxy, sector.benchmark_etf].filter(Boolean).join(' · ');
+    metaEl.innerHTML = `
+      ${proxyStr ? `Benchmark: <span style="font-family: var(--font-mono); color: var(--accent);">${proxyStr}</span> · ` : ''}
+      Leader: <span style="font-family: var(--font-mono); color: var(--gain);">${sector.leading_asset}</span> ·
+      ${sector.constituents.length} Key Assets
+    `;
+
+    bodyEl.innerHTML = `
+      <table class="timeline-table">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 10px 14px;">Asset</th>
+            <th style="text-align: left; padding: 10px 14px;">Sector Weight Role</th>
+            <th style="text-align: right; padding: 10px 14px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sector.constituents
+            .map((sym, idx) => {
+              const isLeader = sym === sector.leading_asset;
+              const isCurrent = sym === currentSymbol;
+              return `
+                <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s ease;">
+                  <td style="padding: 10px 14px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-family: var(--font-mono); font-weight: 700; color: ${isCurrent ? 'var(--accent)' : 'var(--text)'}; font-size: 13px;">${sym}</span>
+                      ${isLeader ? `<span class="meta-badge" style="background: rgba(232, 179, 78, 0.15); color: var(--accent); font-size: 10px;">Sector Leader</span>` : ''}
+                      ${isCurrent ? `<span class="meta-badge" style="background: rgba(62, 207, 142, 0.15); color: var(--gain); font-size: 10px;">Currently Active</span>` : ''}
+                    </div>
+                  </td>
+                  <td style="padding: 10px 14px; font-size: 12px; color: var(--text-dim);">
+                    ${idx === 0 ? 'Primary Anchor Constituent' : idx < 3 ? 'Core Sector Leader' : 'Constituent Peer'}
+                  </td>
+                  <td style="padding: 10px 14px; text-align: right;">
+                    <button class="sector-analyze-btn" data-sym="${sym}" style="background: var(--surface-light); border: 1px solid var(--border); color: var(--text); padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.15s ease;">
+                      📈 Analyze
+                    </button>
+                  </td>
+                </tr>
+              `;
+            })
+            .join('')}
+        </tbody>
+      </table>
+    `;
+
+    bodyEl.querySelectorAll('.sector-analyze-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sym = btn.getAttribute('data-sym');
+        if (sym) {
+          router.navigate(router.formatSymbolRoute(sym, 'chart'));
+          showToast(`Opening ${sym} on Terminal Chart`, 'info');
+          const termEl = document.querySelector('.terminal-card');
+          if (termEl) termEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
   }
 
   if (secGrid) {
     try {
       const data = await api.getSectorIntelligence();
-      secGrid.innerHTML = (data.sectors || [])
+      const sectorData = data.sectors || [];
+
+      if (!currentSelectedSector && sectorData.length > 0) {
+        currentSelectedSector = sectorData[0];
+      }
+
+      secGrid.innerHTML = sectorData
         .map((s) => {
-          const isUp = s.performance_24h_pct >= 0;
+          const isUp = (s.performance_24h_pct || 0) >= 0;
+          const isSelected = currentSelectedSector?.sector === s.sector;
+          const proxy = s.indian_proxy || s.benchmark_etf || '';
           return `
-          <div class="sector-card" style="cursor: pointer;" onclick="window.apexLoad('${s.leading_asset}')">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 13px; font-weight: 700; color: #ffffff;">${s.display_name}</span>
-              <span class="tape-chg ${isUp ? 'chg-up' : 'chg-down'}">${isUp ? '+' : ''}${s.performance_24h_pct}%</span>
+            <div class="sector-card ${isSelected ? 'selected' : ''}" data-sector="${s.sector}" title="Click to view ${s.display_name} constituents">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 13px; font-weight: 700; color: var(--text);">${s.display_name}</span>
+                <span class="tape-chg ${isUp ? 'chg-up' : 'chg-down'}">${isUp ? '+' : ''}${(s.performance_24h_pct || 0).toFixed(2)}%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 11px;">
+                <span style="color: var(--text-dim);">Leader: <button class="sector-leader-btn" data-sym="${s.leading_asset}" title="Open leader ${s.leading_asset}">${s.leading_asset}</button></span>
+                ${proxy ? `<span style="font-family: var(--font-mono); color: var(--text-dim);">${proxy}</span>` : ''}
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                ${s.constituents.slice(0, 5).map((c) => `<button class="sector-sym-btn" data-sym="${c}" title="Analyze ${c}">${c}</button>`).join('')}
+                ${s.constituents.length > 5 ? `<span style="font-size: 11px; color: var(--text-dim); margin-left: 2px;">+${s.constituents.length - 5} more</span>` : ''}
+              </div>
             </div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
-              Leader: <strong style="color: var(--accent-cyan);">${s.leading_asset}</strong>
-            </div>
-            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-              ${s.constituents.slice(0, 4).map((c) => `<span class="meta-badge" style="font-size: 10px;">${c}</span>`).join('')}
-            </div>
-          </div>
-        `;
+          `;
         })
         .join('');
+
+      // Wire card click -> select sector
+      secGrid.querySelectorAll('.sector-card').forEach((card) => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.sector-sym-btn') || e.target.closest('.sector-leader-btn')) return;
+          const secName = card.getAttribute('data-sector');
+          const found = sectorData.find((s) => s.sector === secName);
+          if (found) {
+            currentSelectedSector = found;
+            secGrid.querySelectorAll('.sector-card').forEach((c) => c.classList.toggle('selected', c.getAttribute('data-sector') === secName));
+            renderSelectedSectorDetail(found);
+          }
+        });
+      });
+
+      // Wire constituent pills click -> load stock into terminal chart
+      secGrid.querySelectorAll('.sector-sym-btn, .sector-leader-btn').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sym = btn.getAttribute('data-sym');
+          if (sym) {
+            router.navigate(router.formatSymbolRoute(sym, 'chart'));
+            showToast(`Loading ${sym} into Terminal Chart`, 'info');
+            const termEl = document.querySelector('.terminal-card');
+            if (termEl) termEl.scrollIntoView({ behavior: 'smooth' });
+          }
+        });
+      });
+
+      if (currentSelectedSector) {
+        renderSelectedSectorDetail(currentSelectedSector);
+      }
     } catch (e) {
       console.warn('Failed sector intelligence load:', e);
     }
   }
 }
-window.apexLoad = (sym) => loadStock(sym, currentTimeframe);
+window.apexLoad = (sym) => {
+  router.navigate(router.formatSymbolRoute(sym, 'chart'));
+  const termEl = document.querySelector('.terminal-card');
+  if (termEl) termEl.scrollIntoView({ behavior: 'smooth' });
+};
 
 // Multi-Asset Pearson Correlation Heatmap (Tab 9)
 async function loadAndRenderCorrelation(period = '1y') {
@@ -3060,26 +4005,7 @@ function renderOneClickReport(stockData, researchData, deepData, v4Data) {
 
 // Local Market Alerts Setup (Zero Accounts)
 function setupAlertsControls() {
-  const drawer = document.getElementById('alerts-drawer');
-  const backdrop = document.getElementById('alerts-backdrop');
-  const toggleBtn = document.getElementById('alerts-modal-toggle');
-  const closeBtn = document.getElementById('close-alerts-drawer-btn');
   const createBtn = document.getElementById('create-alert-btn');
-
-  const open = () => {
-    if (drawer) drawer.classList.add('open');
-    if (backdrop) backdrop.classList.add('open');
-    refreshAlertsUI();
-  };
-
-  const close = () => {
-    if (drawer) drawer.classList.remove('open');
-    if (backdrop) backdrop.classList.remove('open');
-  };
-
-  if (toggleBtn) toggleBtn.addEventListener('click', open);
-  if (closeBtn) closeBtn.addEventListener('click', close);
-  if (backdrop) backdrop.addEventListener('click', close);
 
   if (createBtn) {
     createBtn.addEventListener('click', () => {
@@ -3233,4 +4159,3 @@ window.apexRemoveRule = (id) => {
   screenerBuilder.removeCondition(id);
   renderScreenerRulesUI();
 };
-

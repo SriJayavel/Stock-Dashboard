@@ -492,7 +492,17 @@ def get_stock_overview(symbol: str) -> dict:
         "recommendation": (info.get("recommendationKey") or "").replace("_", " ").upper(),
         "volume": int(info.get("regularMarketVolume") or info.get("volume") or _get_fast_info_val(fast, "last_volume", "lastVolume") or 0),
         "avg_volume": int(info.get("averageVolume") or _get_fast_info_val(fast, "ten_day_average_volume", "tenDayAverageVolume") or 0),
-        "data_source": "NSE Direct" if nse_data else "yfinance API",
+        "exchange": (
+            "NSE" if sym.endswith(".NS") or sym in ["^NSEI", "^NSEBANK"] else
+            "BSE" if sym.endswith(".BO") or sym == "^BSESN" else
+            info.get("exchange") or _get_fast_info_val(fast, "exchange") or ("CCY" if "=X" in sym else "Crypto" if "-USD" in sym else "US")
+        ),
+        "exchange_timezone": (
+            "IST (UTC+5:30)" if sym.endswith(".NS") or sym.endswith(".BO") or sym in ["^NSEI", "^BSESN", "^NSEBANK"] else
+            "UTC" if "=X" in sym or "-USD" in sym else
+            (info.get("timeZoneShortName") or "EDT") + " (" + (info.get("exchangeTimezoneName") or "America/New_York") + ")"
+        ),
+        "data_source": "NSE Direct" if nse_data else "Yahoo Finance",
         "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
     }
 
@@ -500,7 +510,7 @@ def get_stock_overview(symbol: str) -> dict:
     return overview
 
 
-def get_stock_history(symbol: str, timeframe: str = "1y", interval: str = "1d") -> dict:
+def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d") -> dict:
     """
     Fetch historical OHLCV, compute technical indicators, and return Lightweight Charts payload.
     """
@@ -521,7 +531,7 @@ def get_stock_history(symbol: str, timeframe: str = "1y", interval: str = "1d") 
         "5y": "max",
         "max": "max",
     }
-    fetch_period = fetch_period_map.get(timeframe, "2y")
+    fetch_period = fetch_period_map.get(timeframe, "max")
 
     t = yf.Ticker(sym, session=_yf_session)
     df = t.history(period=fetch_period, interval=interval, auto_adjust=True)
@@ -593,6 +603,7 @@ def get_stock_history(symbol: str, timeframe: str = "1y", interval: str = "1d") 
             "high": c_high,
             "low": c_low,
             "close": c_close,
+            "volume": c_vol,
         })
 
         is_up = c_close >= c_open
@@ -649,6 +660,17 @@ def get_stock_history(symbol: str, timeframe: str = "1y", interval: str = "1d") 
             "macd": macd_series,
         },
         "observations": observations,
+        "exchange": (
+            "NSE" if sym.endswith(".NS") or sym in ["^NSEI", "^NSEBANK"] else
+            "BSE" if sym.endswith(".BO") or sym == "^BSESN" else
+            ("CCY" if "=X" in sym else "Crypto" if "-USD" in sym else "US")
+        ),
+        "exchange_timezone": (
+            "IST (UTC+5:30)" if sym.endswith(".NS") or sym.endswith(".BO") or sym in ["^NSEI", "^BSESN", "^NSEBANK"] else
+            "UTC" if "=X" in sym or "-USD" in sym else
+            "EDT (America/New_York)"
+        ),
+        "data_source": "Yahoo Finance",
         "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
     }
 
@@ -932,7 +954,7 @@ def warm_all_caches() -> dict:
         for sym in core_universe:
             try:
                 get_stock_overview(sym)
-                get_stock_history(sym, timeframe="1y")
+                get_stock_history(sym, timeframe="max")
                 warmed_count += 1
                 # Randomized jittered pause between fetches to look human and avoid rate limits
                 time.sleep(random.uniform(0.15, 0.35))

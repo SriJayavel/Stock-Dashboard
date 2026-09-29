@@ -3,6 +3,7 @@
  * Handles Render free-tier wake-up latency (30-50s) gracefully by providing
  * status updates to the UI.
  */
+import { auth, getAuthToken } from './auth.js';
 
 // Base URL configured for production (e.g. Vercel/Netlify pointing to Render/Cloud Run)
 // Falls back to empty string in development to use Vite's dev proxy.
@@ -36,6 +37,10 @@ class ApiClient {
 
       const response = await fetch(`${API_BASE}${url}`, {
         ...options,
+        headers: {
+          ...(options.headers || {}),
+          ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+        },
         signal: controller.signal,
       });
 
@@ -44,12 +49,19 @@ class ApiClient {
       this.setStatus({ isWaking: false, message: '' });
 
       if (!response.ok) {
+        if (response.status === 401 && !url.startsWith('/api/auth/')) {
+          await auth.expireToken();
+          const expired = new Error('Your Mara session has expired. Please sign in again.');
+          expired.authExpired = true;
+          throw expired;
+        }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
     } catch (error) {
       clearTimeout(coldStartTimer);
+      if (error?.authExpired) throw error;
       if (retries > 0) {
         console.warn(`Request failed for ${url}, retrying... (${retries} left). Error: ${error.message}`);
         this.setStatus({
@@ -84,7 +96,7 @@ class ApiClient {
     });
   }
 
-  async getStockHistory(symbol, timeframe = '1y', interval = '1d') {
+  async getStockHistory(symbol, timeframe = 'max', interval = '1d') {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(
       `/api/stocks/${encodeURIComponent(sym)}/history?timeframe=${timeframe}&interval=${interval}`
@@ -153,4 +165,3 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
-

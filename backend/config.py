@@ -1,15 +1,19 @@
 from pathlib import Path
 import os
 import logging
-from pydantic import model_validator
-from pydantic_settings import BaseSettings
+import json
+from typing import Annotated
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode
 
 logger = logging.getLogger("config")
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Apex Financial Terminal API"
+    APP_NAME: str = "Mara Market Intelligence API"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", os.getenv("SUPABASE_PUBLISHABLE_KEY", ""))
     
     # Path to NSE companies catalog (deterministic from module location)
     COMPANIES_CSV_PATH: str = os.getenv(
@@ -18,7 +22,7 @@ class Settings(BaseSettings):
     )
     
     # Security & CORS (strict explicit origins; no wildcards allowed with credentials)
-    CORS_ORIGINS: list[str] = [
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
@@ -28,6 +32,16 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8080",
         os.getenv("FRONTEND_URL", "https://stock-dashboard.vercel.app"),
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return []
+            value = json.loads(value) if value.startswith("[") else value.split(",")
+        return [origin.strip().rstrip("/") for origin in value if origin and origin.strip()]
     
     # Internal scheduled refresh secret (used by GitHub Actions / external cron)
     # Default provided ONLY for local development. Prohibited in production.
@@ -56,6 +70,11 @@ class Settings(BaseSettings):
         
         # Enforce strict secret and distributed cache in production
         if self.ENVIRONMENT == "production":
+            if not self.SUPABASE_URL.strip() or not self.SUPABASE_KEY.strip():
+                raise ValueError(
+                    "FATAL SECURITY MISCONFIGURATION: SUPABASE_URL and SUPABASE_KEY must be configured "
+                    "in production to verify account access."
+                )
             if not self.INTERNAL_REFRESH_SECRET or self.INTERNAL_REFRESH_SECRET in insecure_placeholders:
                 raise ValueError(
                     "FATAL SECURITY MISCONFIGURATION: INTERNAL_REFRESH_SECRET must be explicitly set "

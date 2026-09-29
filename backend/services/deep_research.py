@@ -52,7 +52,7 @@ BENCHMARK_SECTORS = {
     "Automotive": {
         "benchmark_etf": "CARZ",
         "indian_proxy": "^CNXAUTO",
-        "constituents": ["TATAMOTORS.NS", "MARUTI.NS", "M&M.NS", "BAJAJ-AUTO.NS", "TSLA", "TM"],
+        "constituents": ["MARUTI.NS", "M&M.NS", "BAJAJ-AUTO.NS", "TATAMOTORS.NS", "TSLA", "TM"],
         "display_name": "Automotive & Mobility",
     },
     "Pharma & Healthcare": {
@@ -775,6 +775,8 @@ def get_sector_intelligence() -> Dict[str, Any]:
         sectors_out.append({
             "sector": sec_name,
             "display_name": meta["display_name"],
+            "benchmark_etf": meta.get("benchmark_etf", ""),
+            "indian_proxy": meta.get("indian_proxy", ""),
             "performance_24h_pct": perf_pct,
             "constituents": meta["constituents"],
             "leading_asset": meta["constituents"][0],

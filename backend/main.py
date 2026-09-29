@@ -1,17 +1,22 @@
 """
-FastAPI Backend for Apex Financial Terminal:
+FastAPI Backend for Mara Market Intelligence:
 - Gated internal cache refresh endpoint (`POST /internal/refresh-cache`) for external cron/GitHub Actions.
 - Two-tier cached data pipeline serving multi-asset market analytics.
 - Structured endpoints optimized for TradingView Lightweight Charts frontend.
 """
 
+import os
 import logging
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Depends, Query, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, FileResponse
+from starlette.staticfiles import StaticFiles
 
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
+from backend.auth import verify_access_token
 
 from backend.config import settings
 from backend.services.data_pipeline import (
@@ -44,10 +49,13 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 app = FastAPI(
-    title="Apex Financial Terminal API",
+    title="Mara Market Intelligence API",
     description="High-frequency financial market terminal and analytics engine.",
     version="2.0.0",
 )
+
+# HTTP Compression Middleware (compresses JSON payloads >= 1KB)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # CORS Middleware
 app.add_middleware(
@@ -57,6 +65,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def require_mara_account(request, call_next):
+    """Require an active Supabase Auth session for all application data APIs."""
+    path = request.url.path
+    public_paths = {"/api/health"}
+    if request.method != "OPTIONS" and path.startswith("/api/") and path not in public_paths:
+        authorization = request.headers.get("authorization", "")
+        scheme, _, credential = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not credential:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Sign in to Mara to access this data."},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        try:
+            request.state.mara_user = await run_in_threadpool(verify_access_token, credential)
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers={"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None,
+            )
+    return await call_next(request)
 
 
 def verify_internal_secret(x_internal_secret: Optional[str] = Header(None)):
@@ -75,7 +108,7 @@ def health_check():
     """Lightweight ping endpoint for uptime monitors and container liveness probes."""
     return {
         "status": "healthy",
-        "service": "Apex Terminal API",
+        "service": "Mara API",
         "environment": settings.ENVIRONMENT,
     }
 
@@ -124,7 +157,7 @@ def api_stock_overview(symbol: str):
 @app.get("/api/stocks/{symbol:path}/history")
 def api_stock_history(
     symbol: str,
-    timeframe: str = Query("1y", pattern="^(1mo|3mo|6mo|1y|2y|5y|max)$"),
+    timeframe: str = Query("max", pattern="^(1mo|3mo|6mo|1y|2y|5y|max)$"),
     interval: str = Query("1d", pattern="^(1d|1wk|1mo)$"),
 ):
     """
@@ -226,7 +259,7 @@ def api_screener(universe: str = Query("us_mega_caps")):
 @app.get("/api/stocks/{symbol:path}/v4-intelligence")
 def api_v4_intelligence(symbol: str):
     """
-    Apex v4 Intelligence: Fundamental Relationships, Statement Quality,
+    Mara v4 Intelligence: Fundamental Relationships, Statement Quality,
     Anomaly Detection, What Changed (30D), Filing Diff, and Asset Profile.
     """
     try:
@@ -279,8 +312,27 @@ def api_refresh_cache(
     }
 
 
+# ---------------------------------------------------------------------------
+# Static SPA Frontend Serving (Zero-Configuration Local & Production Hosting)
+# ---------------------------------------------------------------------------
+DIST_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
+
+if os.path.isdir(DIST_DIR):
+    assets_dir = os.path.join(DIST_DIR, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/") or full_path.startswith("internal/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        target_file = os.path.join(DIST_DIR, full_path)
+        if full_path and os.path.isfile(target_file):
+            return FileResponse(target_file)
+        return FileResponse(os.path.join(DIST_DIR, "index.html"))
+
+
 if __name__ == "__main__":
-    import os
     import uvicorn
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run("backend.main:app", host="0.0.0.0", port=port, reload=True)

@@ -1,5 +1,5 @@
 /**
- * Apex Backtesting Laboratory
+ * Mara Backtesting Laboratory
  * Simulates algorithmic strategy rules on historical OHLCV data:
  * - Strategy Rules: EMA Golden Cross, RSI Mean Reversion, BB Breakout
  * - Computes: Strategy CAGR, Benchmark CAGR, Max Drawdown, Win Rate, Total Signals

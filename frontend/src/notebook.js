@@ -1,5 +1,5 @@
 /**
- * Apex Terminal Research Notebook
+ * Mara Research Notebook
  * Stores per-asset institutional research notes locally without server accounts:
  * - Investment Thesis
  * - Key Structural Risks
@@ -8,11 +8,13 @@
  * Includes auto-save and one-click Markdown export.
  */
 
+import { getAccountStorageKey } from './auth.js';
+
 const NOTEBOOK_PREFIX = 'apex_notebook_';
 
 export class ResearchNotebook {
   static getNoteKey(symbol) {
-    return `${NOTEBOOK_PREFIX}${(symbol || '').toUpperCase().trim()}`;
+    return getAccountStorageKey(`${NOTEBOOK_PREFIX}${(symbol || '').toUpperCase().trim()}`);
   }
 
   static loadNote(symbol) {
@@ -81,14 +83,14 @@ ${note.questions || '_No outstanding questions logged._'}
 ${note.valuationNotes || '_No valuation parameters set._'}
 
 ---
-*Note: Produced in Apex Terminal. Stored locally in this browser.*
+*Note: Produced in Mara. Stored locally in this browser.*
 `;
 
     const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Apex_Research_Note_${symbol}_${new Date().toISOString().slice(0, 10)}.md`;
+    a.download = `Mara_Research_Note_${symbol}_${new Date().toISOString().slice(0, 10)}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

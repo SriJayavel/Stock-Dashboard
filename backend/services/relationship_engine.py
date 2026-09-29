@@ -414,12 +414,15 @@ def detect_anomalies(symbol: str, t: yf.Ticker, info: Dict[str, Any], hist_val: 
 
     # 4. Receivables / Revenue Divergence from Quality signals
     for sig in quality.get("signals", []):
-        if "Receivables Divergence" in sig.get("status", ""):
+        sig_status = sig.get("status") or ""
+        if "Receivables Divergence" in sig_status:
+            val_str = str(sig.get("value") or "")
+            det_str = str(sig.get("detail") or "")
             anomalies.append({
                 "type": "Revenue / Receivables Divergence",
                 "severity": "medium",
                 "title": "Receivables Expansion Outstripping Sales",
-                "evidence": sig.get("value") + " — " + sig.get("detail"),
+                "evidence": f"{val_str} — {det_str}".strip(" —"),
                 "mathematical_threshold": "Receivables Growth - Revenue Growth > 6%",
             })
 
@@ -798,12 +801,37 @@ def get_v4_intelligence(symbol: str) -> Dict[str, Any]:
     price = float(info.get("currentPrice") or info.get("regularMarketPrice") or 0.0)
     hist_val = get_historical_valuation_and_drawdown(t, pe_val, price, currency)
 
-    # 2. Compute v4 Engines
-    relationships = analyze_fundamental_relationships(fin_timeline, info)
-    quality = analyze_statement_quality(t, info, currency)
-    anomalies = detect_anomalies(sym, t, info, hist_val["historical_valuation"], quality)
-    what_changed = compute_what_changed(sym, t, info, currency)
-    filings = get_filing_intelligence_and_diff(sym, t, info)
+    # 2. Compute v4 Engines with fault-tolerant individual fallbacks
+    try:
+        relationships = analyze_fundamental_relationships(fin_timeline, info)
+    except Exception as e:
+        logger.error(f"Error computing fundamental relationships for {sym}: {e}")
+        relationships = {"has_data": False, "observations": [], "cagr_spreads": {}, "operating_leverage": None}
+
+    try:
+        quality = analyze_statement_quality(t, info, currency)
+    except Exception as e:
+        logger.error(f"Error computing statement quality for {sym}: {e}")
+        quality = {"has_data": False, "signals": [], "metrics": {}}
+
+    try:
+        hist_valuation = hist_val.get("historical_valuation", {}) if isinstance(hist_val, dict) else {}
+        anomalies = detect_anomalies(sym, t, info, hist_valuation, quality)
+    except Exception as e:
+        logger.error(f"Error computing anomalies for {sym}: {e}")
+        anomalies = []
+
+    try:
+        what_changed = compute_what_changed(sym, t, info, currency)
+    except Exception as e:
+        logger.error(f"Error computing what changed for {sym}: {e}")
+        what_changed = {"has_data": False, "kpis": {}, "observations": [], "recent_events": []}
+
+    try:
+        filings = get_filing_intelligence_and_diff(sym, t, info)
+    except Exception as e:
+        logger.error(f"Error computing filing diff for {sym}: {e}")
+        filings = {"symbol": sym, "document_center": [], "filing_diff": {"has_diff": False, "items": []}}
 
     response = {
         "symbol": sym,

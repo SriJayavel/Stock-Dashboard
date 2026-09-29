@@ -1,5 +1,5 @@
 /**
- * Apex Screener 2.0 - Dynamic Multi-Condition Query Builder
+ * Mara Screener 2.0 - Dynamic Multi-Condition Query Builder
  * Evaluates assets against arbitrary rule combinations (AND / OR).
  * Allows saving query presets to localStorage and exporting results to CSV / JSON.
  */
@@ -110,7 +110,7 @@ export class ScreenerBuilder {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Apex_Screener_Results_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `Mara_Screener_Results_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -122,7 +122,7 @@ export class ScreenerBuilder {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Apex_Screener_Results_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `Mara_Screener_Results_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

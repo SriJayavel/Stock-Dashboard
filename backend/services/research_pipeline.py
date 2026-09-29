@@ -9,7 +9,9 @@ Separates:
 
 import datetime
 import logging
+import math
 from typing import Any, Optional
+import pandas as pd
 import yfinance as yf
 from backend.services.cache_manager import cache
 from backend.services.data_pipeline import (
@@ -25,6 +27,16 @@ from backend.services.data_pipeline import (
 from backend.config import settings
 
 logger = logging.getLogger("research_pipeline")
+
+
+def _safe_float(val: Any) -> Optional[float]:
+    if val is None or pd.isna(val):
+        return None
+    try:
+        f = float(val)
+        return None if math.isnan(f) or math.isinf(f) else f
+    except (ValueError, TypeError):
+        return None
 
 # Curated peer groups for high-confidence comparative benchmarking
 PEER_GROUPS = {
@@ -123,9 +135,9 @@ def _extract_peer_summary(peer_sym: str) -> dict:
             "current_price": round(price, 2),
             "change_pct": round(chg_pct, 2),
             "market_cap_str": _format_market_cap(info.get("marketCap") or _get_fast_info_val(fast, "market_cap", "marketCap"), currency),
-            "pe_trailing": round(float(info["trailingPE"]), 2) if info.get("trailingPE") is not None else None,
-            "roe": round(float(info["returnOnEquity"] * 100), 2) if info.get("returnOnEquity") is not None else None,
-            "profit_margin": round(float(info["profitMargins"] * 100), 2) if info.get("profitMargins") is not None else None,
+            "pe_trailing": round(_safe_float(info.get("trailingPE")), 2) if _safe_float(info.get("trailingPE")) is not None else None,
+            "roe": round(_safe_float(info.get("returnOnEquity")) * 100, 2) if _safe_float(info.get("returnOnEquity")) is not None else None,
+            "profit_margin": round(_safe_float(info.get("profitMargins")) * 100, 2) if _safe_float(info.get("profitMargins")) is not None else None,
             "debt_to_equity": _parse_debt_to_equity(info, sym=peer_sym),
             "dividend_yield": _parse_dividend_yield(info, price=price, sym=peer_sym),
         }
@@ -215,111 +227,126 @@ def get_stock_research(symbol: str) -> dict:
     cagr_3y = None
 
     if asset_type == "EQUITY":
-        fin = getattr(t, "financials", None)
-        if fin is not None and hasattr(fin, "empty") and not fin.empty:
-            years = [col.strftime("%Y") for col in fin.columns]
-            rev_row = fin.loc["Total Revenue"].values if "Total Revenue" in fin.index else []
-            ni_row = fin.loc["Net Income"].values if "Net Income" in fin.index else []
-            op_row = fin.loc["Operating Income"].values if "Operating Income" in fin.index else []
-            gp_row = fin.loc["Gross Profit"].values if "Gross Profit" in fin.index else []
+        try:
+            fin = getattr(t, "financials", None)
+            if fin is not None and hasattr(fin, "empty") and not fin.empty and getattr(fin, "index", None) is not None and getattr(fin, "columns", None) is not None:
+                years = [col.strftime("%Y") if hasattr(col, "strftime") else str(col)[:4] for col in fin.columns]
+                fin_idx = fin.index if fin.index is not None else []
+                rev_row = fin.loc["Total Revenue"].values if "Total Revenue" in fin_idx else []
+                ni_row = fin.loc["Net Income"].values if "Net Income" in fin_idx else []
+                op_row = fin.loc["Operating Income"].values if "Operating Income" in fin_idx else []
+                gp_row = fin.loc["Gross Profit"].values if "Gross Profit" in fin_idx else []
 
-            # Chronological order (oldest to newest)
-            timeline_items = []
-            for i in range(len(years) - 1, -1, -1):
-                y = years[i]
-                r = float(rev_row[i]) if i < len(rev_row) and rev_row[i] is not None else None
-                ni = float(ni_row[i]) if i < len(ni_row) and ni_row[i] is not None else None
-                op = float(op_row[i]) if i < len(op_row) and op_row[i] is not None else None
-                gp = float(gp_row[i]) if i < len(gp_row) and gp_row[i] is not None else None
+                # Chronological order (oldest to newest)
+                timeline_items = []
+                for i in range(len(years) - 1, -1, -1):
+                    y = years[i]
+                    r = _safe_float(rev_row[i]) if i < len(rev_row) else None
+                    ni = _safe_float(ni_row[i]) if i < len(ni_row) else None
+                    op = _safe_float(op_row[i]) if i < len(op_row) else None
+                    gp = _safe_float(gp_row[i]) if i < len(gp_row) else None
 
-                # Calculated metrics
-                net_margin = round((ni / r * 100), 2) if r and ni and r > 0 else None
-                op_margin = round((op / r * 100), 2) if r and op and r > 0 else None
-                gross_margin = round((gp / r * 100), 2) if r and gp and r > 0 else None
+                    # Calculated metrics
+                    net_margin = round((ni / r * 100), 2) if r and ni and r > 0 else None
+                    op_margin = round((op / r * 100), 2) if r and op and r > 0 else None
+                    gross_margin = round((gp / r * 100), 2) if r and gp and r > 0 else None
 
-                timeline_items.append({
-                    "fiscal_year": y,
-                    "source_data": {
-                        "total_revenue": r,
-                        "gross_profit": gp,
-                        "operating_income": op,
-                        "net_income": ni,
-                    },
-                    "calculated_metrics": {
-                        "net_margin_pct": net_margin,
-                        "operating_margin_pct": op_margin,
-                        "gross_margin_pct": gross_margin,
-                        "revenue_str": _format_market_cap(r, currency) if r else "—",
-                        "net_income_str": _format_market_cap(ni, currency) if ni else "—",
-                    },
-                })
+                    timeline_items.append({
+                        "fiscal_year": y,
+                        "source_data": {
+                            "total_revenue": r,
+                            "gross_profit": gp,
+                            "operating_income": op,
+                            "net_income": ni,
+                        },
+                        "calculated_metrics": {
+                            "net_margin_pct": net_margin,
+                            "operating_margin_pct": op_margin,
+                            "gross_margin_pct": gross_margin,
+                            "revenue_str": _format_market_cap(r, currency) if r else "—",
+                            "net_income_str": _format_market_cap(ni, currency) if ni else "—",
+                        },
+                    })
 
-            # Calculate YoY growth rates
-            for idx in range(1, len(timeline_items)):
-                prev_rev = timeline_items[idx - 1]["source_data"]["total_revenue"]
-                curr_rev = timeline_items[idx]["source_data"]["total_revenue"]
-                if prev_rev and curr_rev and prev_rev > 0:
-                    yoy = round(((curr_rev - prev_rev) / prev_rev) * 100, 2)
-                    timeline_items[idx]["calculated_metrics"]["yoy_revenue_growth_pct"] = yoy
+                # Calculate YoY growth rates
+                for idx in range(1, len(timeline_items)):
+                    prev_rev = timeline_items[idx - 1]["source_data"]["total_revenue"]
+                    curr_rev = timeline_items[idx]["source_data"]["total_revenue"]
+                    if prev_rev and curr_rev and prev_rev > 0:
+                        yoy = round(((curr_rev - prev_rev) / prev_rev) * 100, 2)
+                        timeline_items[idx]["calculated_metrics"]["yoy_revenue_growth_pct"] = yoy
 
-            # 3-year CAGR
-            if len(timeline_items) >= 4:
-                first_r = timeline_items[-4]["source_data"]["total_revenue"]
-                last_r = timeline_items[-1]["source_data"]["total_revenue"]
-                if first_r and last_r and first_r > 0:
-                    cagr_3y = round(((last_r / first_r) ** (1 / 3) - 1) * 100, 2)
+                # 3-year CAGR
+                if len(timeline_items) >= 4:
+                    first_r = timeline_items[-4]["source_data"]["total_revenue"]
+                    last_r = timeline_items[-1]["source_data"]["total_revenue"]
+                    if first_r and last_r and first_r > 0:
+                        cagr_3y = round(((last_r / first_r) ** (1 / 3) - 1) * 100, 2)
 
-            financial_timeline = timeline_items
+                financial_timeline = timeline_items
+        except Exception as e:
+            logger.warning(f"Financial timeline extraction notice for {sym}: {e}")
 
     # 3. Peer Intelligence Dataset
-    peer_symbols = find_peers_for_symbol(sym, sector=info.get("sector", ""), industry=info.get("industry", ""))
     peer_datasets = []
-    for psym in peer_symbols:
-        peer_datasets.append(_extract_peer_summary(psym))
+    peer_median_pe = None
+    peer_median_roe = None
+    try:
+        sec = info.get("sector") or ""
+        ind = info.get("industry") or ""
+        peer_symbols = find_peers_for_symbol(sym, sector=sec, industry=ind)
+        for psym in peer_symbols:
+            peer_datasets.append(_extract_peer_summary(psym))
 
-    # Peer median calculations
-    valid_pes = [p["pe_trailing"] for p in peer_datasets if p.get("pe_trailing") is not None]
-    peer_median_pe = round(sorted(valid_pes)[len(valid_pes) // 2], 2) if valid_pes else None
+        valid_pes = [p["pe_trailing"] for p in peer_datasets if p.get("pe_trailing") is not None]
+        peer_median_pe = round(sorted(valid_pes)[len(valid_pes) // 2], 2) if valid_pes else None
 
-    valid_roes = [p["roe"] for p in peer_datasets if p.get("roe") is not None]
-    peer_median_roe = round(sorted(valid_roes)[len(valid_roes) // 2], 2) if valid_roes else None
+        valid_roes = [p["roe"] for p in peer_datasets if p.get("roe") is not None]
+        peer_median_roe = round(sorted(valid_roes)[len(valid_roes) // 2], 2) if valid_roes else None
+    except Exception as e:
+        logger.warning(f"Peer extraction notice for {sym}: {e}")
 
     # 4. Context-Classified News & Events
     news_items = []
-    raw_news = getattr(t, "news", []) or []
-    for item in raw_news[:8]:
-        content = item.get("content") or {}
-        title = content.get("title") or item.get("title")
-        prov = content.get("provider") or {}
-        pub = prov.get("displayName") or item.get("publisher") or "Market Telemetry"
-        ctu = content.get("clickThroughUrl") or {}
-        can = content.get("canonicalUrl") or {}
-        link = ctu.get("url") or can.get("url") or item.get("link") or "#"
-        date_str = content.get("pubDate") or ""
-        summary = content.get("summary") or ""
+    try:
+        raw_news = getattr(t, "news", []) or []
+        for item in (raw_news or [])[:8]:
+            if not isinstance(item, dict):
+                continue
+            content = item.get("content") or {}
+            title = content.get("title") or item.get("title")
+            prov = content.get("provider") or {}
+            pub = prov.get("displayName") or item.get("publisher") or "Market Telemetry"
+            ctu = content.get("clickThroughUrl") or {}
+            can = content.get("canonicalUrl") or {}
+            link = ctu.get("url") or can.get("url") or item.get("link") or "#"
+            date_str = content.get("pubDate") or ""
+            summary = content.get("summary") or ""
 
-        # Impact area classification based on headline content
-        t_low = (title or "").lower()
-        impact = "Corporate"
-        if any(w in t_low for w in ["sector", "industry", "rally", "slump", "rival", "peer", "cloud"]):
-            impact = "Industry Dynamics"
-        elif any(w in t_low for w in ["fed", "inflation", "tariff", "rbi", "gdp", "interest rate", "treasury"]):
-            impact = "Macro & Policy"
-        elif any(w in t_low for w in ["earnings", "profit", "q1", "q2", "q3", "q4", "dividend", "revenue", "guidance"]):
-            impact = "Earnings & Capital"
-        elif any(w in t_low for w in ["lawsuit", "antitrust", "investigation", "sec", "regulation"]):
-            impact = "Regulatory"
+            # Impact area classification based on headline content
+            t_low = str(title or "").lower()
+            impact = "Corporate"
+            if any(w in t_low for w in ["sector", "industry", "rally", "slump", "rival", "peer", "cloud"]):
+                impact = "Industry Dynamics"
+            elif any(w in t_low for w in ["fed", "inflation", "tariff", "rbi", "gdp", "interest rate", "treasury"]):
+                impact = "Macro & Policy"
+            elif any(w in t_low for w in ["earnings", "profit", "q1", "q2", "q3", "q4", "dividend", "revenue", "guidance"]):
+                impact = "Earnings & Capital"
+            elif any(w in t_low for w in ["lawsuit", "antitrust", "investigation", "sec", "regulation"]):
+                impact = "Regulatory"
 
-        if title:
-            news_items.append({
-                "title": title,
-                "publisher": pub,
-                "link": link,
-                "published_date": date_str[:10] if date_str else datetime.date.today().isoformat(),
-                "summary": summary,
-                "impact_area": impact,
-                "provenance": "Yahoo News Telemetry",
-            })
+            if title:
+                news_items.append({
+                    "title": title,
+                    "publisher": pub,
+                    "link": link,
+                    "published_date": date_str[:10] if date_str else datetime.date.today().isoformat(),
+                    "summary": summary,
+                    "impact_area": impact,
+                    "provenance": "Yahoo News Telemetry",
+                })
+    except Exception as e:
+        logger.warning(f"News extraction notice for {sym}: {e}")
 
     # 5. Attributed Context & Structural Observations (Math & Facts Only)
     structural_observations = []
@@ -344,9 +371,10 @@ def get_stock_research(symbol: str) -> dict:
             })
 
     # Profitability observation
+    # Profitability observation
     roe_val = info.get("returnOnEquity")
-    if roe_val is not None:
-        roe_pct = round(float(roe_val) * 100, 2)
+    if roe_val is not None and _safe_float(roe_val) is not None:
+        roe_pct = round(_safe_float(roe_val) * 100, 2)
         structural_observations.append({
             "category": "Capital Efficiency",
             "observation": f"Return on Equity stands at {roe_pct}%.",
@@ -370,7 +398,8 @@ def get_stock_research(symbol: str) -> dict:
             })
 
     # Valuation context relative to peers
-    pe_val = round(float(info["trailingPE"]), 2) if info.get("trailingPE") is not None else None
+    safe_pe = _safe_float(info.get("trailingPE"))
+    pe_val = round(safe_pe, 2) if safe_pe is not None else None
     if pe_val is not None and peer_median_pe is not None:
         rel = "at a discount to" if pe_val < peer_median_pe else ("at a premium to" if pe_val > peer_median_pe else "in line with")
         structural_observations.append({
@@ -434,8 +463,8 @@ def get_stock_research(symbol: str) -> dict:
         },
         "price_structure": {
             "current_price": round(price, 4 if is_forex else 2),
-            "high_52w": round(float(h52), 4 if is_forex else 2) if h52 is not None else None,
-            "low_52w": round(float(l52), 4 if is_forex else 2) if l52 is not None else None,
+            "high_52w": round(_safe_float(h52), 4 if is_forex else 2) if _safe_float(h52) is not None else None,
+            "low_52w": round(_safe_float(l52), 4 if is_forex else 2) if _safe_float(l52) is not None else None,
             "percentile_52w": percentile_52w,
         },
         "financial_timeline": financial_timeline,

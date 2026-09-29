@@ -34,4 +34,7 @@ Thumbs.db
 node_modules/
 frontend/dist/
 frontend/node_modules/
+frontend/test-results/
+frontend/playwright-report/
 scratch/
+claude-code-setup/

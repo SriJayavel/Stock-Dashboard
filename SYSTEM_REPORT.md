@@ -312,14 +312,17 @@ c:\Project_Files\Stock-Dashboard\
 │       ├── alerts.js               # Client-side rule alerts & desktop notifications
 │       ├── api.js                  # Resilient API client with cold-start detection
 │       ├── backtester.js           # Strategy simulation engine (EMA Cross, RSI)
-│       ├── chart.js                # TradingView Lightweight Charts canvas engine
+│       ├── indicators.js           # Client-side technical indicator calculations & definitions
 │       ├── main.js                 # Primary controller, workspace manager & event bus
 │       ├── notebook.js             # LocalStorage research notebook with markdown export
 │       ├── report_generator.js     # Institutional research memo synthesizer & PDF export
+│       ├── router.js               # Client-side hash routing & browser history navigation
 │       ├── screener_builder.js     # Multi-rule relational screener query builder
 │       ├── watchlist.js            # Cross-tab synchronized localStorage watchlist
 │       └── styles/
 │           └── terminal.css        # OLED-black design system & restrained color tokens
+├── tests/
+│   └── smoke.spec.js               # Playwright end-to-end smoke test suite (Phases 1-5)
 ├── companies.csv                   # Master catalog of 1,800+ listed NSE companies
 ├── Dockerfile                      # Multi-cloud deployment container specification
 ├── requirements.txt                # Root dependency manifest
@@ -332,6 +335,46 @@ c:\Project_Files\Stock-Dashboard\
 ## 8. Summary of Current Production Status
 
 - **UI / UX**: Fully overhauled. All 6 legacy accents pruned down to 3 functional colors (`--gain: #3ecf8e`, `--loss: #f0655a`, `--accent: #e8b34e`). Zero emojis, zero middle dots, zero badge-itis, and zero decorative animations remain.
-- **Frontend Build**: Verified with `npm run build` (builds cleanly in under 1.7 seconds with zero bundle warnings).
+- **Frontend Build**: Verified with `npm run build` (builds cleanly in 5.46 seconds with zero bundle warnings).
 - **Backend API**: Active and verified with both direct symbol resolution and multi-asset overview endpoints responding with status 200.
 - **Security & Caching**: Multi-tier L1/L2 caching guards against rate limits; production secret validators prevent deployment misconfigurations.
+
+---
+
+## 9. 5-Phase Terminal Engineering Overhaul (Production Verification)
+
+The site-wide terminal modernization was executed across five coordinated engineering phases:
+
+### Phase 1: Static Interactive Audit & Status Bar Honesty
+- **Elimination of Dead Controls**: Replaced inactive mock controls with fully wired interactive elements (Indicator Parameters modal, Watchlist Drawer, Alerts view toggle, Fullscreen, Screenshot capture, Quick symbol chips).
+- **Truthful Status Bar**: Fixed the footer status bar to display actual exchange provenance (`Direct NSE`, `Yahoo Finance`, `Cached`), genuine market timezone (`IST`, `UTC`, `EDT`), and dynamic humanized update latency counters (`Updated Xm ago`).
+- **Comprehensive E2E Automation**: Built Playwright smoke test suite in `frontend/tests/smoke.spec.js` asserting zero HTTP 4xx/5xx responses and zero browser console errors.
+
+### Phase 2: Network Efficiency & Client-Side Candle Resampling
+- **Single Daily Fetch (`max`)**: The client fetches the full daily price history once per symbol upon navigation.
+- **Client-Side Resampling**: Daily bars are resampled on the client into Weekly (`W`) and Monthly (`M`) intervals with zero downstream network requests.
+- **Zero-Roundtrip Range Navigation**: Range buttons (`1M`, `3M`, `6M`, `YTD`, `1Y`, `5Y`, `All`) zoom the visible time scale instantly using local bar series data.
+- **Pruned Redundant Controls**: Eliminated the redundant `1D` range button.
+- **GZip Compression**: Enabled `GZipMiddleware` in FastAPI for rapid payload transfer.
+
+### Phase 3: Viewport Fill Layout & TradingView Canvas Precision
+- **Strict Viewport-Filling Grid**: Formatted the workspace into a rigid `100vh` grid layout eliminating double scrollbars.
+- **Interactive Splitters**: Added draggable pane splitters (`.tv-pane-splitter`) for continuous horizontal and vertical layout adjustment.
+- **Real-Time 60s Bar Patching**: Integrated `chartInstance.patchLatestBar(quoteData)` to dynamically update the active candle from live price quotes without fetching the full historical series.
+- **TradingView Controls**: Added Log/Percent/Normal scale toggles, chart type switchers (Candles, Line, Area), time scale crosshair tooltips, and watermark branding.
+
+### Phase 4: Client-Side Hash Routing & Multi-View Navigation
+- **Custom Hash Router**: Implemented `frontend/src/router.js` supporting deep links (`#/symbol/:symbol/:tab`) and full browser Back/Forward history navigation.
+- **Top-Level View Switcher**: Added header tabs for Terminal, Screener, and Sectors views.
+- **Asset Deep Linking**: Directly addressable URLs allow sharing and bookmarking of specific stocks and analysis panels.
+
+### Phase 5: User Preference Persistence, Global Shortcuts & Resilience
+- **LocalStorage Preferences**: Automatically restores active chart type (`apex_chart_type`), price scale mode (`apex_chart_scale`), interval (`apex_chart_interval`), range (`apex_chart_range`), and drawer state (`apex_watchlist_drawer_open`).
+- **Global Keyboard Shortcuts**:
+  - `/` focuses the global ticker search bar.
+  - `Escape` dismisses open dropdowns, indicator modals, watchlist drawer, and resets views.
+  - Number keys `1`–`9` instantly switch between analysis tabs.
+- **Watchlist Empty State & Quick-Add**: Displays quick-add suggestion pills (`+ TCS`, `+ RELIANCE`, `+ INFY`, `+ NVDA`) when the watchlist is empty.
+- **Race Condition Prevention**: Added generation sequence tracking (`watchlistRefreshSeq`) and empty-list guards to prevent stale async batch responses from overwriting the empty state DOM.
+- **Offline / Retry Resilience**: Added floating status banner (`#apex-retry-banner`) with auto-reconnection and user retry action.
+

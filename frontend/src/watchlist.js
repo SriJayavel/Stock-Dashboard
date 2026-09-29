@@ -6,6 +6,8 @@
  * - Export to JSON backup.
  */
 
+import { getAccountStorageKey } from './auth.js';
+
 const STORAGE_KEY = 'apex_user_watchlist';
 const DEFAULT_WATCHLIST = ['TCS.NS', 'RELIANCE.NS', 'NVDA', 'BTC-USD', 'EURUSD=X'];
 const TICKER_REGEX = /^[A-Za-z0-9\.\^\=\-_]{1,20}$/;
@@ -19,7 +21,7 @@ export class WatchlistManager {
 
   getSymbols() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(getAccountStorageKey(STORAGE_KEY));
       if (!raw) {
         this.saveSymbols(DEFAULT_WATCHLIST);
         return [...DEFAULT_WATCHLIST];
@@ -40,7 +42,7 @@ export class WatchlistManager {
       .map((s) => s.trim().toUpperCase())
       .slice(0, MAX_WATCHLIST_ITEMS);
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+    localStorage.setItem(getAccountStorageKey(STORAGE_KEY), JSON.stringify(sanitized));
     this.notifySubscribers(sanitized);
     return sanitized;
   }
@@ -99,7 +101,7 @@ export class WatchlistManager {
   // Multi-tab synchronization
   initStorageListener() {
     window.addEventListener('storage', (event) => {
-      if (event.key === STORAGE_KEY) {
+      if (event.key === getAccountStorageKey(STORAGE_KEY)) {
         try {
           const updated = event.newValue ? JSON.parse(event.newValue) : [];
           this.notifySubscribers(updated);
@@ -115,7 +117,7 @@ export class WatchlistManager {
     const symbols = this.getSymbols();
     const dataStr = JSON.stringify(
       {
-        app: 'Apex Financial Terminal',
+        app: 'Mara',
         version: '2.0.0',
         exportedAt: new Date().toISOString(),
         watchlist: symbols,

@@ -1,9 +1,11 @@
 /**
- * Apex Terminal Local Alerts Engine (Zero Backend / Zero Accounts)
+ * Mara Local Alerts Engine (browser-local rules for signed-in accounts)
  * Persists user-defined alerts in localStorage.
  * Evaluates live prices and technical conditions, triggering in-app toast
  * and native HTML5 notifications when conditions are met.
  */
+
+import { getAccountStorageKey } from './auth.js';
 
 const STORAGE_KEY = 'apex_terminal_alerts';
 
@@ -15,7 +17,7 @@ class AlertsManager {
 
   loadAlerts() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(getAccountStorageKey(STORAGE_KEY));
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
@@ -24,10 +26,14 @@ class AlertsManager {
 
   saveAlerts() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.alerts));
+      localStorage.setItem(getAccountStorageKey(STORAGE_KEY), JSON.stringify(this.alerts));
     } catch (e) {
       console.error('Failed to save alerts to localStorage:', e);
     }
+  }
+
+  activateAccount() {
+    this.alerts = this.loadAlerts();
   }
 
   requestPermission() {
@@ -112,7 +118,7 @@ class AlertsManager {
   }
 
   notify(alert, conditionText) {
-    const title = `Apex Alert: ${alert.symbol}`;
+    const title = `Mara Alert: ${alert.symbol}`;
     const body = `${conditionText} (${alert.operator} ${alert.target}). ${alert.note || ''}`;
 
     // 1. Native HTML5 Notification
