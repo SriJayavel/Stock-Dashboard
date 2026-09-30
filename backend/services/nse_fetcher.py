@@ -34,7 +34,8 @@ class NSEFetcher:
             return True
 
         try:
-            res = self.session.get("https://www.nseindia.com", timeout=8)
+            # Keep synchronous overview requests within a small upstream budget.
+            res = self.session.get("https://www.nseindia.com", timeout=(1, 2))
             if res.status_code == 200:
                 self._last_handshake = now
                 logger.info("NSE session handshake initialized successfully.")
@@ -52,7 +53,7 @@ class NSEFetcher:
         try:
             api_headers = dict(self.headers)
             api_headers["Accept"] = "application/json, text/plain, */*"
-            res = self.session.get(url, headers=api_headers, timeout=6)
+            res = self.session.get(url, headers=api_headers, timeout=(1, 2))
             if res.status_code == 200:
                 data = res.json()
                 for idx_item in data.get("data", []):
@@ -82,7 +83,7 @@ class NSEFetcher:
         try:
             api_headers = dict(self.headers)
             api_headers["Accept"] = "application/json, text/plain, */*"
-            res = self.session.get(url, headers=api_headers, timeout=6)
+            res = self.session.get(url, headers=api_headers, timeout=(1, 2))
             if res.status_code == 200:
                 data = res.json()
                 price_info = data.get("priceInfo", {})

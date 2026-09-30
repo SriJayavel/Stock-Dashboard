@@ -152,16 +152,6 @@ class ApiClient {
       body: JSON.stringify({ query, active_symbol: activeSymbol }),
     });
   }
-
-  async triggerCacheRefresh(secret = 'apex_internal_secret_change_in_prod') {
-    return this.fetchWithRetry('/internal/refresh-cache', {
-      method: 'POST',
-      headers: {
-        'X-Internal-Secret': secret,
-        'Content-Type': 'application/json',
-      },
-    });
-  }
 }
 
 export const api = new ApiClient();

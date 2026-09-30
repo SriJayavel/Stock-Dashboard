@@ -16,6 +16,7 @@ import requests
 import pandas as pd
 import numpy as np
 import yfinance as yf
+from typing import Any, Optional
 
 from backend.config import settings
 from backend.services.cache_manager import cache
@@ -345,6 +346,8 @@ def get_stock_overview(symbol: str) -> dict:
     if cached:
         return cached
 
+    stale_cached = cache.get("overview_stale", sym)
+
     # Attempt direct NSE fetch if Indian equity
     nse_data = None
     if sym.endswith(".NS") and not sym.startswith("^"):
@@ -359,7 +362,11 @@ def get_stock_overview(symbol: str) -> dict:
     except Exception as e:
         logger.debug(f"yfinance info fetch error for {sym}: {e}")
 
-    fast = getattr(t, "fast_info", None)
+    try:
+        fast = getattr(t, "fast_info", None)
+    except Exception as e:
+        logger.warning(f"yfinance fast_info unavailable for {sym}: {e}")
+        fast = None
 
     # Determine Price
     price = 0.0
@@ -378,8 +385,19 @@ def get_stock_overview(symbol: str) -> dict:
                 h = t.history(period="5d")
                 if not h.empty and "Close" in h.columns:
                     price = float(h["Close"].dropna().iloc[-1])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"yfinance price history unavailable for {sym}: {e}")
+                if stale_cached:
+                    stale = dict(stale_cached)
+                    stale["is_stale"] = True
+                    return stale
+
+    # Provider calls may fail softly by returning empty payloads instead of
+    # raising. In that case preserve the last genuine quote and label it stale.
+    if price <= 0 and stale_cached:
+        stale = dict(stale_cached)
+        stale["is_stale"] = True
+        return stale
 
     # Previous Close & Change
     prev_close = 0.0
@@ -503,10 +521,14 @@ def get_stock_overview(symbol: str) -> dict:
             (info.get("timeZoneShortName") or "EDT") + " (" + (info.get("exchangeTimezoneName") or "America/New_York") + ")"
         ),
         "data_source": "NSE Direct" if nse_data else "Yahoo Finance",
+        "is_stale": False,
         "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
     }
 
     cache.set("overview", sym, overview, ttl=settings.L1_STOCK_OVERVIEW_TTL)
+    # Retain the latest genuine payload so transient provider failures can be
+    # answered with clearly marked stale data instead of an invocation crash.
+    cache.set("overview_stale", sym, overview, ttl=604800)
     return overview
 
 

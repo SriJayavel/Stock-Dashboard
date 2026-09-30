@@ -160,8 +160,11 @@ def api_stock_overview(symbol: str):
         data = get_stock_overview(symbol)
         return data
     except Exception as e:
-        logger.error(f"Error serving stock overview for {symbol}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch overview for {symbol}.")
+        logger.exception("Error serving stock overview for %s", symbol)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Unable to retrieve overview for {symbol} from the data providers.",
+        ) from e
 
 
 @app.get("/api/stocks/{symbol:path}/history")

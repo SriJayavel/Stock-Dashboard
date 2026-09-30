@@ -31,6 +31,7 @@ class Settings(BaseSettings):
         "http://localhost:8080",
         "http://127.0.0.1:8080",
         os.getenv("FRONTEND_URL", "https://stock-dashboard.vercel.app"),
+        "https://stock-dashboard-886f.vercel.app",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
