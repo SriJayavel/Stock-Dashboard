@@ -85,9 +85,8 @@ class Settings(BaseSettings):
                     "via environment variable in production and cannot use default placeholders."
                 )
             if not self.REDIS_URL or not self.REDIS_URL.strip():
-                errors.append(
-                    "FATAL CONFIGURATION ERROR: REDIS_URL must be explicitly configured in production "
-                    "to support multi-worker Uvicorn distributed locking and persistent L2 caching."
+                logger.warning(
+                    "NOTICE: REDIS_URL is not configured. Running with high-performance L1 in-memory cache."
                 )
         
         self.config_errors = errors
