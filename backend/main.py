@@ -50,7 +50,7 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 app = FastAPI(
-    title="Mara Market Intelligence API",
+    title="Mara Stock Dashboard API",
     description="High-frequency financial market terminal and analytics engine.",
     version="2.0.0",
 )
@@ -112,14 +112,14 @@ def health_check():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "misconfigured",
-                "service": "Mara API",
+                "service": "Mara Stock Dashboard API",
                 "environment": settings.ENVIRONMENT,
                 "config_errors": settings.config_errors,
             },
         )
     return {
         "status": "healthy",
-        "service": "Mara API",
+        "service": "Mara Stock Dashboard API",
         "environment": settings.ENVIRONMENT,
     }
 

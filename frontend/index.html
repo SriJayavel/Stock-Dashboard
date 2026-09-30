@@ -3,14 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mara | Market Intelligence</title>
+    <title>Mara Stock Dashboard</title>
+    <meta name="description" content="Mara Stock Dashboard — Real-time equities intelligence, TradingView charts, valuation multiples, and institutional analytics." />
+    <meta property="og:title" content="Mara Stock Dashboard" />
+    <meta property="og:description" content="Real-time equities intelligence, TradingView charts, and fundamental valuation analytics." />
+    <meta property="og:image" content="/favicon.svg" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/src/styles/terminal.css" />
   </head>
   <body class="auth-required">
     <section class="auth-gate" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <div class="auth-gate-shell">
-        <div class="auth-gate-brand"><span class="auth-brand-mark" aria-hidden="true">M</span><span>Mara</span></div>
+        <div class="auth-gate-brand"><img src="/favicon.svg" alt="Mara Logo" width="26" height="26" style="border-radius:6px;vertical-align:middle;margin-right:8px;" /><span>Mara Stock Dashboard</span></div>
         <div class="auth-gate-content">
           <div class="auth-gate-intro">
             <span class="auth-eyebrow"><span class="auth-eyebrow-dot"></span> MARKET RESEARCH WORKSPACE</span>
@@ -58,7 +62,7 @@
             <p class="auth-privacy">Supabase Auth verifies your credentials over HTTPS. Your password is never sent to Mara’s market-data API.</p>
           </div>
         </div>
-        <footer class="auth-gate-footer"><span>MARA · MARKET INTELLIGENCE</span><span>Market data for research purposes</span></footer>
+        <footer class="auth-gate-footer"><span>MARA STOCK DASHBOARD</span><span>Market data for research purposes</span></footer>
       </div>
     </section>
     <!-- Cold Start Spin-Up Banner -->
@@ -78,7 +82,8 @@
     <!-- Navigation Header -->
     <header class="navbar">
       <div class="brand" id="brand-home-btn">
-        <span class="brand-name">Mara</span>
+        <img src="/favicon.svg" alt="Mara Logo" class="brand-logo" width="22" height="22" />
+        <span class="brand-name">Mara <span class="brand-suffix">Stock Dashboard</span></span>
       </div>
 
       <!-- Top-Level Views Switcher -->

@@ -223,6 +223,27 @@ body {
   font-weight: 600;
   letter-spacing: 0.2px;
   color: var(--text);
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: block;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.brand:hover .brand-logo {
+  transform: scale(1.06);
+}
+
+.brand-suffix {
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-left: 3px;
 }
 
 .brand-badge {

@@ -10,7 +10,7 @@ logger = logging.getLogger("config")
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Mara Market Intelligence API"
+    APP_NAME: str = "Mara Stock Dashboard API"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", os.getenv("SUPABASE_PUBLISHABLE_KEY", ""))
@@ -32,6 +32,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8080",
         os.getenv("FRONTEND_URL", "https://stock-dashboard.vercel.app"),
         "https://stock-dashboard-886f.vercel.app",
+        "https://mara-stock-dashboard.vercel.app",
+        "https://mara-dashboard.vercel.app",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
