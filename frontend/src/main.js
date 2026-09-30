@@ -36,6 +36,7 @@ let showChartEvents = true;
 let activeCorrelationPeriod = '1y';
 let currentScreenerAssets = [];
 let currentOverviewData = null;
+let searchRequestSeq = 0;
 
 // Rapid ticker switching race condition guard
 let currentLoadToken = 0;
@@ -313,19 +314,30 @@ function setupEventListeners() {
   if (searchInput && searchDropdown) {
     searchInput.addEventListener('input', (e) => {
       clearTimeout(searchDebounceTimer);
+      const requestSeq = ++searchRequestSeq;
       const query = e.target.value.trim();
 
       if (query.length === 0) {
         searchDropdown.classList.remove('open');
+        searchDropdown.setAttribute('aria-busy', 'false');
+        searchInput.setAttribute('aria-expanded', 'false');
         return;
       }
 
+      searchDropdown.innerHTML = '<div class="search-loading-state" role="option" aria-selected="false" aria-disabled="true">Searching the asset directory…</div>';
+      searchDropdown.classList.add('open');
+      searchDropdown.setAttribute('aria-busy', 'true');
+      searchInput.setAttribute('aria-expanded', 'true');
       searchDebounceTimer = setTimeout(async () => {
         try {
           const res = await api.searchAssets(query);
+          if (requestSeq !== searchRequestSeq) return;
           renderSearchDropdown(res.results || []);
         } catch (err) {
+          if (requestSeq !== searchRequestSeq) return;
           console.error('Search query failed:', err);
+          searchDropdown.innerHTML = '<div class="search-error-state" role="option" aria-selected="false" aria-disabled="true">Search is temporarily unavailable. Try again in a moment.</div>';
+          searchDropdown.setAttribute('aria-busy', 'false');
         }
       }, 200);
     });
@@ -333,6 +345,8 @@ function setupEventListeners() {
     // Click on kbd shortcut hint also focuses search
     const kbdHint = document.getElementById('search-kbd-hint');
     if (kbdHint) {
+      const platform = navigator.userAgentData?.platform || navigator.platform || '';
+      kbdHint.textContent = /Mac|iPhone|iPad/i.test(platform) ? '⌘ K' : 'Ctrl K';
       kbdHint.addEventListener('click', () => {
         searchInput.focus();
         searchInput.select();
@@ -342,7 +356,11 @@ function setupEventListeners() {
     // Close search dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+        clearTimeout(searchDebounceTimer);
+        searchRequestSeq += 1;
         searchDropdown.classList.remove('open');
+        searchDropdown.setAttribute('aria-busy', 'false');
+        searchInput.setAttribute('aria-expanded', 'false');
       }
     });
   }
@@ -400,7 +418,11 @@ function setupEventListeners() {
       const searchInput = document.getElementById('global-search-input');
       const searchDropdown = document.getElementById('search-dropdown');
       if (searchDropdown?.classList.contains('open')) {
+        clearTimeout(searchDebounceTimer);
+        searchRequestSeq += 1;
         searchDropdown.classList.remove('open');
+        searchDropdown.setAttribute('aria-busy', 'false');
+        searchInput?.setAttribute('aria-expanded', 'false');
       }
       if (document.activeElement === searchInput) {
         searchInput.blur();
@@ -1174,6 +1196,8 @@ function setupWatchlistControls() {
     if (drawer) drawer.classList.remove('open');
     if (backdrop) backdrop.classList.remove('open');
     if (tvSidebarToggle) tvSidebarToggle.classList.remove('active');
+    toggleBtn?.classList.remove('active');
+    document.getElementById('alerts-modal-toggle')?.classList.remove('active');
     document.body.classList.remove('watchlist-drawer-open');
     localStorage.setItem(getAccountStorageKey('apex_watchlist_drawer_open'), 'false');
     if (chartInstance) {
@@ -1206,6 +1230,7 @@ function setupWatchlistControls() {
         closeDrawer();
       } else {
         openDrawer();
+        switchTab(tabAlerts?.classList.contains('active') ? 'alerts' : 'watchlist');
       }
     });
   }
@@ -1217,6 +1242,8 @@ function setupWatchlistControls() {
   const viewAlerts = document.getElementById('tv-drawer-view-alerts');
 
   const switchTab = (tab) => {
+    toggleBtn?.classList.toggle('active', tab !== 'alerts');
+    document.getElementById('alerts-modal-toggle')?.classList.toggle('active', tab === 'alerts');
     if (tab === 'alerts') {
       tabAlerts?.classList.add('active');
       tabWl?.classList.remove('active');
@@ -1443,6 +1470,10 @@ function renderWatchlistRows(quotes) {
 
   // Delete button
   listContainer.querySelectorAll('.wl-item-del-btn').forEach((btn) => {
+    const sym = btn.getAttribute('data-del');
+    btn.type = 'button';
+    btn.title = `Remove ${sym}`;
+    btn.setAttribute('aria-label', `Remove ${sym} from watchlist`);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const sym = btn.getAttribute('data-del');
@@ -1462,38 +1493,47 @@ function renderSearchDropdown(items) {
 
   if (items.length === 0) {
     searchDropdown.innerHTML = `
-      <div style="padding: 14px 16px; font-size: 12px; color: var(--text-dim); text-align: center;">
+      <div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true">
         <div style="margin-bottom: 6px; color: var(--text);">No matching assets found</div>
         <div style="font-size: 11px;">Try searching for <strong>TCS</strong>, <strong>RELIANCE</strong>, <strong>NVDA</strong>, or <strong>BTC</strong></div>
       </div>
     `;
+    searchDropdown.setAttribute('aria-busy', 'false');
     searchDropdown.classList.add('open');
+    document.getElementById('global-search-input')?.setAttribute('aria-expanded', 'true');
     return;
   }
 
   searchDropdown.innerHTML = items
     .map(
       (item) => `
-      <div class="search-item" data-symbol="${item.symbol}">
+      <button class="search-item" type="button" role="option" aria-selected="false" data-symbol="${item.symbol}">
         <div>
           <div class="search-item-symbol">${item.symbol}</div>
           <div class="search-item-name">${item.name}</div>
         </div>
         <span class="search-item-category">${item.category || item.exchange || 'Asset'}</span>
-      </div>
+      </button>
     `
     )
     .join('');
 
   searchDropdown.classList.add('open');
+  searchDropdown.setAttribute('aria-busy', 'false');
+  document.getElementById('global-search-input')?.setAttribute('aria-expanded', 'true');
 
   // Attach click to each result item
   searchDropdown.querySelectorAll('.search-item').forEach((elem) => {
     elem.addEventListener('click', () => {
       const sym = elem.getAttribute('data-symbol');
+      searchRequestSeq += 1;
       searchDropdown.classList.remove('open');
+      searchDropdown.setAttribute('aria-busy', 'false');
       const searchInput = document.getElementById('global-search-input');
-      if (searchInput) searchInput.value = '';
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.setAttribute('aria-expanded', 'false');
+      }
       router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
     });
   });
@@ -4072,27 +4112,34 @@ function refreshAlertsUI() {
   if (!container) return;
 
   if (allAlerts.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">No alerts configured. Create one above to track price or indicator thresholds.</div>';
+    container.innerHTML = '<div class="alerts-empty-state"><span class="alerts-empty-mark" aria-hidden="true">◌</span><strong>No alerts yet</strong><span>Create a price or indicator threshold above to keep an eye on a level.</span></div>';
     return;
   }
 
   container.innerHTML = allAlerts
     .map(
       (a) => `
-      <div style="background: var(--surface); border: 1px solid ${a.triggered ? 'var(--loss)' : 'var(--border)'}; border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <div style="font-weight: 600; color: var(--text); font-size: 13px;">
+      <div class="alert-card ${a.triggered ? 'triggered' : ''}">
+        <div class="alert-card-copy">
+          <div class="alert-card-title">
             ${a.symbol} | <span>${a.metric}</span> ${a.operator} ${a.target}
           </div>
-          <div style="font-size: 11px; color: ${a.triggered ? 'var(--loss)' : 'var(--text-dim)'}; margin-top: 2px;">
+          <div class="alert-card-meta">
             ${a.triggered ? `Triggered at ${new Date(a.triggeredAt).toLocaleTimeString()}` : `Active. Created ${new Date(a.createdAt).toLocaleDateString()}`}
           </div>
         </div>
-        <button onclick="window.apexDeleteAlert('${a.id}')" style="background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px;">✕</button>
+        <button class="alert-delete-btn" type="button" onclick="window.apexDeleteAlert('${a.id}')" aria-label="Delete alert" title="Delete alert">×</button>
       </div>
     `
     )
     .join('');
+  container.querySelectorAll('button[onclick^="window.apexDeleteAlert"]').forEach((button, index) => {
+    const symbol = allAlerts[index]?.symbol || 'asset';
+    button.type = 'button';
+    button.classList.add('alert-delete-btn');
+    button.setAttribute('aria-label', `Delete alert for ${symbol}`);
+    button.title = `Delete alert for ${symbol}`;
+  });
 }
 window.apexDeleteAlert = (id) => {
   alertsManager.removeAlert(id);
