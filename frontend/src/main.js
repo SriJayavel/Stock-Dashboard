@@ -1790,6 +1790,7 @@ async function loadStockChart(symbol, parentToken = null) {
     const historyData = await api.getStockHistory(symbol, 'max');
     if (token !== currentLoadToken) return; // Discard stale chart response
     currentCandles = historyData.candles || [];
+    renderTechnicalSnapshot(historyData.technical_snapshot);
     if (chartInstance) {
       chartInstance.setData(historyData);
       updateChartEventMarkers();
@@ -1806,6 +1807,29 @@ async function loadStockChart(symbol, parentToken = null) {
       shimmer.classList.remove('active');
     }
   }
+}
+
+function renderTechnicalSnapshot(snapshot) {
+  const trend = document.getElementById('snapshot-trend');
+  if (!trend) return;
+  if (!snapshot) {
+    trend.textContent = 'Snapshot unavailable';
+    return;
+  }
+  trend.textContent = snapshot.trend_context || 'Insufficient history';
+  trend.dataset.state = (snapshot.trend_context || '').toLowerCase().replace(/\s+/g, '-');
+  const detail = document.getElementById('snapshot-trend-detail');
+  if (detail) detail.textContent = snapshot.trend_basis || 'Based on available moving averages';
+  const setMetric = (id, value, suffix = '%') => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.textContent = Number.isFinite(value) ? `${value > 0 && id !== 'snapshot-rsi' ? '+' : ''}${value.toFixed(1)}${suffix}` : '—';
+    node.dataset.direction = Number.isFinite(value) ? (value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral') : 'neutral';
+  };
+  setMetric('snapshot-return-1m', snapshot.return_1m_pct);
+  setMetric('snapshot-return-3m', snapshot.return_3m_pct);
+  setMetric('snapshot-rsi', snapshot.rsi_14, '');
+  setMetric('snapshot-drawdown', snapshot.max_drawdown_1y_pct);
 }
 
 function updateChartEventMarkers() {

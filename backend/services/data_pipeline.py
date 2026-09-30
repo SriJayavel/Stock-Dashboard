@@ -585,6 +585,47 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
     df = apply_all_indicators(df)
     observations = generate_technical_observations(df)
 
+    # Compact, auditable price context for the terminal header. This uses the
+    # same history request and calculated series as the chart; it makes no
+    # additional provider calls and does not encode a buy/sell recommendation.
+    latest = df.iloc[-1]
+    close = float(latest["Close"]) if pd.notna(latest.get("Close")) else None
+
+    def _snapshot_return(lookback: int):
+        if close is None or len(df) <= lookback:
+            return None
+        prior = float(df.iloc[-(lookback + 1)]["Close"])
+        return round((close / prior - 1) * 100, 2) if prior > 0 else None
+
+    sma_50 = float(latest["SMA_50"]) if pd.notna(latest.get("SMA_50")) else None
+    sma_200 = float(latest["SMA_200"]) if pd.notna(latest.get("SMA_200")) else None
+    if close is None or sma_50 is None:
+        trend_context = "Insufficient history"
+        trend_basis = "Not enough observations for the 50 day average"
+    elif sma_200 is not None and close > sma_50 and sma_50 > sma_200:
+        trend_context = "Above key averages"
+        trend_basis = "Close > SMA 50 > SMA 200"
+    elif sma_200 is not None and close < sma_50 and sma_50 < sma_200:
+        trend_context = "Below key averages"
+        trend_basis = "Close < SMA 50 < SMA 200"
+    else:
+        trend_context = "Mixed structure"
+        trend_basis = "Close and available 50/200 day averages are not fully aligned"
+
+    return_windows = {"1d": (21, 63, 252), "1wk": (4, 13, 52), "1mo": (1, 3, 12)}
+    one_month_bars, three_month_bars, one_year_bars = return_windows.get(interval, return_windows["1d"])
+    trailing = df.tail(one_year_bars)["Close"].astype(float)
+    drawdown = ((trailing / trailing.cummax()) - 1).min() * 100 if not trailing.empty else None
+    technical_snapshot = {
+        "trend_context": trend_context,
+        "trend_basis": trend_basis,
+        "return_1m_pct": _snapshot_return(one_month_bars),
+        "return_3m_pct": _snapshot_return(three_month_bars),
+        "rsi_14": round(float(latest["RSI"]), 2) if pd.notna(latest.get("RSI")) else None,
+        "max_drawdown_1y_pct": round(float(drawdown), 2) if drawdown is not None else None,
+        "methodology": f"Close-to-close returns use {one_month_bars} and {three_month_bars} {interval} observations. Trend context compares the latest close with 50 and 200 observation simple moving averages. Drawdown is the minimum close-to-prior-peak decline across up to {one_year_bars} observations. Historical context only; not a forecast.",
+    }
+
     # Filter to requested timeframe window for client display
     now = datetime.datetime.now()
     days_map = {
@@ -688,6 +729,7 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
             "macd": macd_series,
         },
         "observations": observations,
+        "technical_snapshot": technical_snapshot,
         "exchange": (
             "NSE" if sym.endswith(".NS") or sym in ["^NSEI", "^NSEBANK"] else
             "BSE" if sym.endswith(".BO") or sym == "^BSESN" else
