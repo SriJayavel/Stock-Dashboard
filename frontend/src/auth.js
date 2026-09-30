@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/^['"]|['"]$/g, '');
+const SUPABASE_URL = rawUrl && !rawUrl.startsWith('http') ? `https://${rawUrl}` : rawUrl;
+const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim().replace(/^['"]|['"]$/g, '');
+
 export const supabase = SUPABASE_URL && SUPABASE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_KEY, {
       auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, flowType: 'pkce' },
@@ -137,6 +139,7 @@ class MaraAccount {
 
   friendlyError(error) {
     const message = error?.message || 'Something went wrong. Please try again.';
+    if (/failed to fetch/i.test(message)) return 'Connection error: Unable to reach Supabase. Check your Supabase URL in Vercel or pause ad-blockers (ABP) for this page.';
     if (/invalid login credentials/i.test(message)) return 'Email or password is incorrect.';
     if (/already registered|already been registered/i.test(message)) return 'An account already exists for this email. Sign in instead.';
     if (/email not confirmed/i.test(message)) return 'Confirm your email from the link we sent before signing in.';
