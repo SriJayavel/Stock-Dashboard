@@ -18,6 +18,12 @@ import numpy as np
 import yfinance as yf
 from typing import Any, Optional
 
+# Vercel serverless filesystem is read-only except /tmp
+try:
+    yf.set_tz_cache_location("/tmp/py-yfinance")
+except Exception:
+    pass
+
 from backend.config import settings
 from backend.services.cache_manager import cache
 from backend.services.nse_fetcher import nse_client
