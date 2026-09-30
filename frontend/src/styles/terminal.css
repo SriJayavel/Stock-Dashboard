@@ -3528,3 +3528,80 @@ body {
 .tv-btn-primary:hover {
   opacity: 0.9;
 }
+
+/* Workspace polish: clearer navigation, keyboard focus and compact layouts. */
+.navbar {
+  gap: clamp(12px, 2vw, 28px);
+  min-height: 66px;
+  padding-inline: clamp(16px, 3vw, 40px);
+  border-bottom-color: rgba(255, 255, 255, .09);
+}
+
+.top-nav-btn,
+.watchlist-nav-toggle-btn,
+.ws-tab-btn {
+  transition: color .16s ease, background-color .16s ease, border-color .16s ease;
+}
+
+.top-nav-btn:focus-visible,
+.watchlist-nav-toggle-btn:focus-visible,
+.ws-tab-btn:focus-visible,
+.nav-search input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.terminal-card,
+.hero-card,
+.macro-panel {
+  border-color: color-mix(in srgb, var(--border) 78%, white 22%);
+}
+
+.terminal-header {
+  gap: 24px;
+  padding: clamp(20px, 3vw, 34px);
+}
+
+.stock-title-group h1 {
+  line-height: 1.2;
+  letter-spacing: -.035em;
+}
+
+.stock-price-display {
+  flex-shrink: 0;
+}
+
+.workspace-nav-bar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+
+.ws-nav-group {
+  gap: 5px;
+}
+
+.ws-tab-btn {
+  min-height: 36px;
+  padding: 0 11px;
+  white-space: nowrap;
+}
+
+.research-view-panel {
+  scroll-margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+  .navbar { flex-wrap: wrap; padding: 12px 16px; }
+  .nav-search { order: 3; flex: 1 0 100%; width: 100%; }
+  .nav-actions { margin-left: auto; }
+  .terminal-header { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .stock-price-display { align-items: baseline; flex-direction: row; gap: 12px; }
+  .workspace-nav-bar { -webkit-overflow-scrolling: touch; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

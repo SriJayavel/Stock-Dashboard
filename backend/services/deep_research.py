@@ -752,6 +752,80 @@ def compute_correlation_matrix(symbols: List[str], period: str = "1y") -> Dict[s
         return {"error": str(e), "symbols": clean_syms, "matrix": []}
 
 
+def compute_cached_portfolio_risk(positions: List[Dict[str, Any]], period: str = "1y") -> Dict[str, Any]:
+    """Estimate historical equal/weighted portfolio risk using cached chart bars only.
+
+    This deliberately does not call a market data provider. Missing symbols are
+    reported so callers can show a clear pending state while scheduled warming runs.
+    """
+    from backend.services.data_pipeline import resolve_symbol
+
+    allowed_periods = {"3mo", "6mo", "1y", "2y", "5y"}
+    if period not in allowed_periods:
+        period = "1y"
+
+    normalized = []
+    for position in positions[:20]:
+        raw_symbol = str(position.get("symbol", "")).strip()
+        if not raw_symbol:
+            continue
+        try:
+            weight = float(position.get("weight", 1))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(weight) or weight <= 0:
+            continue
+        normalized.append((resolve_symbol(raw_symbol), weight))
+
+    if not normalized:
+        return {"status": "invalid", "detail": "Provide at least one position with a positive weight."}
+
+    total_weight = sum(weight for _, weight in normalized)
+    close_series = {}
+    missing = []
+    for symbol, weight in normalized:
+        history = cache.get("history", f"{symbol}_{period}_1d")
+        candles = history.get("candles", []) if isinstance(history, dict) else []
+        closes = {bar.get("time"): _safe_float(bar.get("close")) for bar in candles if bar.get("time")}
+        closes = {date: value for date, value in closes.items() if value is not None and value > 0}
+        if len(closes) < 3:
+            missing.append(symbol)
+        else:
+            close_series[symbol] = (weight / total_weight, closes)
+
+    if missing:
+        return {
+            "status": "pending", "period": period,
+            "missing_symbols": sorted(set(missing)),
+            "detail": "Cached price history is not available yet; scheduled cache warming can populate it.",
+        }
+
+    close_frame = pd.DataFrame({symbol: pd.Series(closes) for symbol, (_, closes) in close_series.items()}).sort_index().ffill()
+    returns = close_frame.pct_change().dropna(how="any")
+    if returns.empty:
+        return {"status": "insufficient_data", "period": period, "observations": 0}
+
+    weights = pd.Series({symbol: weight for symbol, (weight, _) in close_series.items()})
+    weights = weights / weights.sum()
+    portfolio_returns = returns[weights.index].dot(weights)
+    equity = (1 + portfolio_returns).cumprod()
+    peak = equity.cummax()
+    drawdown = (equity / peak) - 1
+    annualized_vol = float(portfolio_returns.std(ddof=1) * math.sqrt(252) * 100) if len(portfolio_returns) > 1 else None
+    return {
+        "status": "ready",
+        "symbols": list(weights.index),
+        "weights_pct": {symbol: round(float(weight) * 100, 2) for symbol, weight in weights.items()},
+        "period": period,
+        "methodology": "Daily close-to-close simple returns; weighted by supplied portfolio weights; volatility annualized with 252 trading days.",
+        "observations": int(len(portfolio_returns)),
+        "cumulative_return_pct": round(float((equity.iloc[-1] - 1) * 100), 2),
+        "annualized_volatility_pct": round(annualized_vol, 2) if annualized_vol is not None else None,
+        "max_drawdown_pct": round(float(drawdown.min() * 100), 2),
+        "calculated_at": datetime.datetime.utcnow().isoformat() + "Z",
+    }
+
+
 def get_sector_intelligence() -> Dict[str, Any]:
     """Return performance and constituent summaries for benchmark sectors."""
     cache_key = "sectors_intelligence"

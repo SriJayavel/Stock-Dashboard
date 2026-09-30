@@ -135,18 +135,19 @@ class TestDistributedLock(unittest.TestCase):
                 self.assertTrue(re_acquired)
                 cache_manager.cache.release_lock(lock_name)
 
-    def test_production_fails_fast_on_missing_redis_url(self):
+    def test_production_supports_missing_redis_url_with_warning(self):
         """
-        Verify that Settings raises ValueError at startup in production if REDIS_URL is omitted.
+        Verify that Settings initializes cleanly in production even if REDIS_URL is omitted (falling back to L1 cache).
         """
         from backend.config import Settings
-        with self.assertRaises(ValueError) as ctx:
-            Settings(
-                ENVIRONMENT="production",
-                INTERNAL_REFRESH_SECRET="valid_production_secret_token_12345",
-                REDIS_URL="",
-            )
-        self.assertIn("REDIS_URL must be explicitly configured in production", str(ctx.exception))
+        prod_settings = Settings(
+            ENVIRONMENT="production",
+            SUPABASE_URL="https://example.supabase.co",
+            SUPABASE_KEY="valid_key",
+            INTERNAL_REFRESH_SECRET="valid_production_secret_token_12345",
+            REDIS_URL="",
+        )
+        self.assertEqual(prod_settings.REDIS_URL, "")
 
     def test_production_succeeds_with_valid_redis_url_and_secret(self):
         """

@@ -131,6 +131,14 @@ class ApiClient {
     });
   }
 
+  async getPortfolioRisk(positions, period = '1y') {
+    return this.fetchWithRetry('/api/analytics/portfolio-risk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ positions, period }),
+    });
+  }
+
   async getSectorIntelligence() {
     return this.fetchWithRetry('/api/analytics/sectors');
   }

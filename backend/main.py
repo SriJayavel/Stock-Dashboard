@@ -33,6 +33,7 @@ from backend.services.research_pipeline import get_stock_research
 from backend.services.deep_research import (
     get_deep_stock_research,
     compute_correlation_matrix,
+    compute_cached_portfolio_risk,
     get_sector_intelligence,
 )
 from backend.services.relationship_engine import (
@@ -205,6 +206,16 @@ class CorrelationRequest(BaseModel):
     period: str = "1y"
 
 
+class PortfolioPosition(BaseModel):
+    symbol: str = Field(..., min_length=1, max_length=32)
+    weight: float = Field(default=1, gt=0, le=100)
+
+
+class PortfolioRiskRequest(BaseModel):
+    positions: list[PortfolioPosition] = Field(default_factory=list, max_length=20)
+    period: str = "1y"
+
+
 @app.get("/api/stocks/{symbol:path}/deep-research")
 def api_stock_deep_research(symbol: str):
     """
@@ -227,6 +238,13 @@ def api_correlation_matrix(body: CorrelationRequest):
     except Exception as e:
         logger.error(f"Error computing correlation matrix: {e}")
         raise HTTPException(status_code=500, detail="Failed to calculate correlation matrix.")
+
+
+@app.post("/api/analytics/portfolio-risk")
+def api_portfolio_risk(body: PortfolioRiskRequest):
+    """Estimate weighted historical return and risk using cached chart data only."""
+    positions = [position.model_dump() for position in body.positions]
+    return compute_cached_portfolio_risk(positions, period=body.period)
 
 
 @app.get("/api/analytics/sectors")
