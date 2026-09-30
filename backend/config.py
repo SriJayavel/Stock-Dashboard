@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     L1_INDICATORS_TTL: int = 3600           # 1 hour
     L1_SCREENER_TTL: int = 1800             # 30 minutes
 
+    config_errors: list[str] = []
+
     @model_validator(mode="after")
     def validate_security(self):
         insecure_placeholders = [
@@ -68,23 +70,28 @@ class Settings(BaseSettings):
             "",
         ]
         
+        errors = []
         # Enforce strict secret and distributed cache in production
         if self.ENVIRONMENT == "production":
             if not self.SUPABASE_URL.strip() or not self.SUPABASE_KEY.strip():
-                raise ValueError(
+                errors.append(
                     "FATAL SECURITY MISCONFIGURATION: SUPABASE_URL and SUPABASE_KEY must be configured "
                     "in production to verify account access."
                 )
             if not self.INTERNAL_REFRESH_SECRET or self.INTERNAL_REFRESH_SECRET in insecure_placeholders:
-                raise ValueError(
+                errors.append(
                     "FATAL SECURITY MISCONFIGURATION: INTERNAL_REFRESH_SECRET must be explicitly set "
                     "via environment variable in production and cannot use default placeholders."
                 )
             if not self.REDIS_URL or not self.REDIS_URL.strip():
-                raise ValueError(
+                errors.append(
                     "FATAL CONFIGURATION ERROR: REDIS_URL must be explicitly configured in production "
                     "to support multi-worker Uvicorn distributed locking and persistent L2 caching."
                 )
+        
+        self.config_errors = errors
+        for err in errors:
+            logger.error(err)
         
         # Ensure no wildcard in CORS origins when credentials are enabled
         if "*" in self.CORS_ORIGINS:

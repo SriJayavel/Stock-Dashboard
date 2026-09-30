@@ -106,6 +106,16 @@ def verify_internal_secret(x_internal_secret: Optional[str] = Header(None)):
 @app.get("/api/health")
 def health_check():
     """Lightweight ping endpoint for uptime monitors and container liveness probes."""
+    if settings.config_errors:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "misconfigured",
+                "service": "Mara API",
+                "environment": settings.ENVIRONMENT,
+                "config_errors": settings.config_errors,
+            },
+        )
     return {
         "status": "healthy",
         "service": "Mara API",

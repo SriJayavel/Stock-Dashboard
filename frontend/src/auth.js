@@ -77,7 +77,10 @@ class MaraAccount {
 
   async submit(event) {
     event.preventDefault();
-    if (!supabase) return;
+    if (!supabase) {
+      this.setMessage('Authentication service is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your deployment environment variables and redeploy.');
+      return;
+    }
     const email = document.getElementById('auth-email')?.value.trim();
     const password = document.getElementById('auth-password')?.value || '';
     const confirmPassword = document.getElementById('auth-confirm-password')?.value || '';
