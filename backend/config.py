@@ -32,6 +32,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8080",
         os.getenv("FRONTEND_URL", "https://stock-dashboard.vercel.app"),
         "https://stock-dashboard-886f.vercel.app",
+        "https://stock-dashboard-five-nu.vercel.app",
         "https://mara-stock-dashboard.vercel.app",
         "https://mara-dashboard.vercel.app",
     ]

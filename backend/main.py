@@ -58,10 +58,11 @@ app = FastAPI(
 # HTTP Compression Middleware (compresses JSON payloads >= 1KB)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# CORS Middleware
+# CORS Middleware (supports explicit origins and any *.vercel.app deployment preview/production)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
