@@ -2,7 +2,7 @@ name: Keep-Alive & Cache Warmer
 
 on:
   schedule:
-    # Keep the Render service warm and register daily database activity in Supabase.
+    # Refresh the Vercel backend cache and register database activity in Supabase.
     - cron: '*/12 * * * *'
   workflow_dispatch:
 
@@ -10,7 +10,7 @@ jobs:
   warm-cache:
     runs-on: ubuntu-latest
     env:
-      BACKEND_API_URL: ${{ secrets.BACKEND_API_URL || 'https://stock-dashboard-api.onrender.com' }}
+      BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
       INTERNAL_REFRESH_SECRET: ${{ secrets.INTERNAL_REFRESH_SECRET }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -36,11 +36,15 @@ jobs:
           fi
           echo "Supabase health query returned 1."
 
-      - name: Keep Render awake and schedule cache refresh
+      - name: Schedule Vercel backend cache refresh
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -z "$BACKEND_API_URL" ]]; then
+            echo "ERROR: BACKEND_API_URL repository secret must be set to the Vercel deployment origin."
+            exit 1
+          fi
           if [[ -z "$INTERNAL_REFRESH_SECRET" ]]; then
             echo "ERROR: INTERNAL_REFRESH_SECRET repository secret is not set."
             exit 1

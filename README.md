@@ -99,6 +99,18 @@ docker build -t apex-financial-terminal .
 docker run -p 8080:8000 apex-financial-terminal
 ```
 
+## Cloudflare Pages Deployment
+
+Cloudflare Pages hosts the Vite frontend. The FastAPI backend still needs a Python container host such as Render or Google Cloud Run; Pages does not run this project's Python service. The Pages Function at `frontend/functions/api/[[path]].js` forwards same-origin `/api/*` requests to that backend.
+
+1. Push this repository to a Git provider and create a Pages project from it in **Workers & Pages → Create application → Pages → Connect to Git**.
+2. Set the project root directory to `frontend`, the build command to `npm run build`, and the build output directory to `dist`.
+3. Set `BACKEND_API_URL` as a Pages runtime variable to the HTTPS origin of the deployed FastAPI service (for example, `https://api.example.com`). Do not include an `/api` suffix.
+4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Pages build variables using the project's Supabase URL and publishable/anonymous key. These are embedded in the frontend build.
+5. Deploy. Pages will rebuild on pushes and provide a `*.pages.dev` URL. Add that URL to the backend's `CORS_ORIGINS`/`FRONTEND_URL` configuration if other browser flows require direct cross-origin calls.
+
+The FastAPI deployment must separately receive its production `SUPABASE_URL`, `SUPABASE_KEY`, `REDIS_URL`, `INTERNAL_REFRESH_SECRET`, and `CORS_ORIGINS` settings. Keep the GitHub Actions `BACKEND_API_URL` secret pointed at the backend origin so scheduled cache refreshes continue to work.
+
 ---
 
 ## 📦 Legacy Streamlit Prototype

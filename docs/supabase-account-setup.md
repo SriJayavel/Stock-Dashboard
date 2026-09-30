@@ -6,10 +6,8 @@ Mara uses Supabase Auth email/password accounts. No social sign-in provider or O
 
 1. **Supabase:** create the project, enable Email under Auth providers, turn off other providers, and copy the Project URL plus anon/publishable key. Keep email confirmation enabled and configure SMTP before launch. Apply the `mara_healthcheck()` SQL migration described below.
 2. **Upstash:** create the Redis database and copy its `REDIS_URL`.
-3. **Render:** deploy the repository from its Dockerfile. Set `ENVIRONMENT=production`, a generated `INTERNAL_REFRESH_SECRET`, `REDIS_URL`, `SUPABASE_URL`, and `SUPABASE_KEY`. Leave `CORS_ORIGINS` for the post-Vercel update in step 5.
-4. **Vercel:** build with `npm run build`, output `dist`, and set `VITE_API_BASE_URL` to the Render service URL plus `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-5. **Render CORS:** update `CORS_ORIGINS` with the actual Vercel URL and redeploy the backend.
-6. **GitHub Actions:** add `INTERNAL_REFRESH_SECRET` (matching Render), `BACKEND_API_URL`, `SUPABASE_URL`, and `SUPABASE_KEY` as repository secrets.
+3. **Vercel:** import the repository with the project root set to the repository root. `vercel.json` defines the Vite frontend and FastAPI backend as services; set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ENVIRONMENT=production`, a generated `INTERNAL_REFRESH_SECRET`, `REDIS_URL`, `SUPABASE_URL`, and `SUPABASE_KEY` in the Vercel project environment. Leave `VITE_API_BASE_URL` unset so the browser uses the same-origin `/api` route.
+4. **GitHub Actions:** add `INTERNAL_REFRESH_SECRET` (matching Vercel), `BACKEND_API_URL` set to the Vercel deployment origin (for example, `https://your-project.vercel.app`), `SUPABASE_URL`, and `SUPABASE_KEY` as repository secrets.
 
 ## Supabase project
 
@@ -28,13 +26,13 @@ Frontend build variables:
 
 - `VITE_SUPABASE_URL`: Supabase Project URL
 - `VITE_SUPABASE_ANON_KEY`: Supabase anon/publishable key (safe to expose in a browser)
-- `VITE_API_BASE_URL`: backend HTTPS origin; leave empty locally to use Vite's API proxy
+- `VITE_API_BASE_URL`: optional separate backend HTTPS origin; leave unset for the Vercel services deployment so `/api` uses the same Vercel origin, and leave empty locally to use Vite's API proxy
 
 Backend runtime variables:
 
 - `SUPABASE_URL`: same Supabase Project URL
 - `SUPABASE_KEY`: same anon/publishable key, used to validate access tokens with Supabase Auth
-- `CORS_ORIGINS`: comma-separated exact origins, such as `http://localhost:5173,https://your-app.vercel.app`
+- `CORS_ORIGINS`: comma-separated exact origins for separate frontend/backend deployments; same-origin Vercel service routing does not require cross-origin API access
 
 For the Docker build, pass the frontend values as build arguments:
 
@@ -55,8 +53,8 @@ Apply [`20260929000000_mara_healthcheck.sql`](../supabase/migrations/20260929000
 
 Add these repository Actions secrets:
 
-- `INTERNAL_REFRESH_SECRET`: the same generated value configured on Render
-- `BACKEND_API_URL`: the Render API origin (optional while the workflow default is correct)
+- `INTERNAL_REFRESH_SECRET`: the same generated secret configured on Vercel
+- `BACKEND_API_URL`: the Vercel deployment origin (e.g. `https://your-project.vercel.app`)
 - `SUPABASE_URL`: the Supabase Project URL
 - `SUPABASE_KEY`: the anon JWT or publishable key; the workflow sends it only as `apikey`
 
