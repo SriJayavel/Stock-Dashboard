@@ -994,6 +994,7 @@ function setupTradingViewChromeControls() {
     }
 
     chartPanel.classList.add('chart-fullscreen-mode');
+    document.body.classList.add('chart-fullscreen-active');
     if (fsBtn) fsBtn.classList.add('active');
     triggerChartResize();
   };
@@ -1001,6 +1002,7 @@ function setupTradingViewChromeControls() {
   const exitFullscreen = () => {
     if (!chartPanel || !chartPanel.classList.contains('chart-fullscreen-mode')) return;
     chartPanel.classList.remove('chart-fullscreen-mode');
+    document.body.classList.remove('chart-fullscreen-active');
     if (fsBtn) fsBtn.classList.remove('active');
 
     // Restore previous sidebar state exactly as the user had it

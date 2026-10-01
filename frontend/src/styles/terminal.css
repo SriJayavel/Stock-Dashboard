@@ -4179,3 +4179,18 @@ html .screener-table th { background: #252a36; }
 html .screener-table tbody tr:hover { background: rgba(41,98,255,.08); }
 html .auth-submit-button, html .tv-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 html :focus-visible { outline-color: #5b9cf6; }
+
+/* Fullscreen creates a high stacking context. Keep supporting UI above it. */
+body.chart-fullscreen-active .tv-modal-backdrop,
+body.chart-fullscreen-active .tv-modal { z-index: 10020; }
+body.chart-fullscreen-active .tv-modal { z-index: 10021; }
+body.chart-fullscreen-active .watchlist-backdrop { z-index: 10020; }
+body.chart-fullscreen-active .watchlist-drawer { z-index: 10021; }
+body.chart-fullscreen-active .apex-toast-container { z-index: 10022; }
+body.chart-fullscreen-active .navbar:focus-within {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10030;
+}
