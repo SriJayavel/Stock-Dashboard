@@ -73,28 +73,163 @@
   .auth-preview-foot { gap: 7px 12px; }
 }
 
-/* Focused visual system: calm graphite surfaces, teal data accents, clear hierarchy. */
-html:root {
-  --bg: #0b1012;
-  --surface: #11191d;
-  --surface-solid: #11191d;
-  --surface-card: #141e22;
-  --surface-hover: #192529;
-  --border: rgba(145, 161, 159, .17);
-  --border-strong: rgba(145, 161, 159, .3);
-  --text: #e7eeec;
-  --text-dim: #91a19e;
-  --text-muted: #71817e;
-  --accent: #b9a477;
-  --accent-cyan: #8eaead;
-  --accent-blue: #8eaead;
-  --accent-purple: #a59db1;
-  --gain: #69c49b;
-  --loss: #e17d78;
-  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --radius-sm: 5px;
+/* ============================================================================
+   TradingView Design System — Track All Markets
+   Extracted from TradingView (5,000 Elements Analyzed)
+   ============================================================================ */
+:root, html:root {
+  /* Neutral Color Inventory */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-transparent: transparent;
+  --color-cold-gray-50: #f9f9f9;
+  --color-cold-gray-100: #f2f2f2;
+  --color-cold-gray-150: #ebebeb;
+  --color-cold-gray-200: #dbdbdb;
+  --color-cold-gray-250: #c9c9c9;
+  --color-cold-gray-300: #b8b8b8;
+  --color-cold-gray-350: #a8a8a8;
+  --color-cold-gray-400: #9c9c9c;
+  --color-cold-gray-450: #8c8c8c;
+  --color-cold-gray-500: #808080;
+  --color-cold-gray-550: #707070;
+  --color-cold-gray-600: #636363;
+  --color-cold-gray-650: #575757;
+  --color-cold-gray-700: #4a4a4a;
+  --color-cold-gray-750: #3d3d3d;
+  --color-cold-gray-800: #2e2e2e;
+  --color-cold-gray-850: #1f1f1f;
+  --color-cold-gray-900: #0f0f0f;
+  --color-cold-gray-950: #000000;
+
+  /* TradingView Blue Scale (Primary & Interactive) */
+  --color-tv-blue-50: #e3effd;
+  --color-tv-blue-100: #bbd9fb;
+  --color-tv-blue-200: #90bff9;
+  --color-tv-blue-300: #5b9cf6;
+  --color-tv-blue-400: #3179f5;
+  --color-tv-blue-500: #2962ff;
+  --color-tv-blue-600: #1e53e5;
+  --color-tv-blue-700: #1848cc;
+  --color-tv-blue-800: #143eb2;
+  --color-tv-blue-900: #0c3299;
+  --color-tv-blue-a100: #82b1ff;
+  --color-tv-blue-a200: #448aff;
+  --color-tv-blue-a400: #2979ff;
+  --color-tv-blue-a600: #2962ff;
+  --color-tv-blue-a700: #143a87;
+  --color-tv-blue-a800: #142e61;
+  --color-tv-blue-a900: #132042;
+
+  /* Minty Green & Forest Green Scale (Bullish Telemetry) */
+  --color-minty-green-50: #daf2ee;
+  --color-minty-green-100: #ace5dc;
+  --color-minty-green-200: #70ccbd;
+  --color-minty-green-300: #42bda8;
+  --color-minty-green-400: #22ab94;
+  --color-minty-green-500: #089981;
+  --color-minty-green-600: #06806b;
+  --color-minty-green-700: #056656;
+  --color-minty-green-800: #004d40;
+  --color-minty-green-900: #00332a;
+  --color-forest-green-400: #22ab67;
+  --color-forest-green-500: #089950;
+  --color-forest-green-800: #004d27;
+
+  /* Ripe Red Scale (Bearish Telemetry) */
+  --color-ripe-red-50: #ffebec;
+  --color-ripe-red-100: #fccbcd;
+  --color-ripe-red-200: #faa1a4;
+  --color-ripe-red-300: #f77c80;
+  --color-ripe-red-400: #f7525f;
+  --color-ripe-red-500: #f23645;
+  --color-ripe-red-600: #cc2f3c;
+  --color-ripe-red-700: #b22833;
+  --color-ripe-red-800: #991f29;
+  --color-ripe-red-900: #801922;
+
+  /* Tan Orange Scale (Accents, Alerts, Badges) */
+  --color-tan-orange-50: #fff3e0;
+  --color-tan-orange-100: #ffe0b2;
+  --color-tan-orange-200: #ffcc80;
+  --color-tan-orange-300: #ffb74d;
+  --color-tan-orange-400: #ffa726;
+  --color-tan-orange-500: #ff9800;
+  --color-tan-orange-600: #fb8c00;
+  --color-tan-orange-700: #f57c00;
+  --color-tan-orange-800: #ef6c00;
+  --color-tan-orange-900: #e65100;
+
+  /* Deep Blue & Purple */
+  --color-deep-blue-300: #9575cd;
+  --color-deep-blue-500: #673ab7;
+
+  /* Terminal Semantic Mapping */
+  --bg: #131722;
+  --bg-deep: #0f0f0f;
+  --bg-canvas: #131722;
+  --bg-surface: #1e222d;
+  --bg-card: #1e222d;
+  --bg-elevated: #252a36;
+  --bg-void: #131722;
+
+  --surface: #1e222d;
+  --surface-solid: #1e222d;
+  --surface-card: #1e222d;
+  --surface-elevated: #252a36;
+  --surface-hover: #2a2e39;
+  --surface-active: #2a2e39;
+
+  --border: rgba(152, 161, 178, 0.18);
+  --border-strong: rgba(152, 161, 178, 0.32);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+
+  --text: #d1d4dc;
+  --text-heading: #ffffff;
+  --text-dim: #9598a1;
+  --text-muted: #707583;
+  --text-primary: #d1d4dc;
+  --text-secondary: #9598a1;
+
+  --accent: #2962ff;
+  --accent-hover: #1e53e5;
+  --accent-active: #1848cc;
+  --accent-cyan: #5b9cf6;
+  --accent-blue: #2962ff;
+  --accent-purple: #9575cd;
+  --accent-orange: #ff9800;
+  --accent-amber: #ff9800;
+  --accent-gold: #ff9800;
+
+  --gain: #22ab94;
+  --gain-bg: rgba(34, 171, 148, 0.15);
+  --gain-glow: rgba(34, 171, 148, 0.25);
+  --loss: #f23645;
+  --loss-bg: rgba(242, 54, 69, 0.15);
+  --loss-glow: rgba(242, 54, 69, 0.25);
+  --accent-emerald: var(--gain);
+  --accent-green: var(--gain);
+  --accent-rose: var(--loss);
+  --accent-red: var(--loss);
+  --accent-red-alert: var(--loss);
+
+  /* Typography System */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* Border Radii */
+  --radius-sm: 4px;
   --radius-md: 8px;
-  --radius-lg: 11px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 24px;
+  --radius-full: 100px;
+
+  /* Box Shadows */
+  --shadow-sm: rgba(0, 0, 0, 0.2) 0px 2px 4px 0px;
+  --shadow-card: rgba(0, 0, 0, 0.2) 0px 2px 4px 0px;
+  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.6);
 }
 
 html { scroll-behavior: smooth; }
@@ -219,42 +354,8 @@ button:active { transform: translateY(1px); }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
-/* Final palette overrides the legacy graphite tokens above. */
-html:root {
-  --bg: #131722;
-  --surface: #1e222d;
-  --surface-solid: #1e222d;
-  --surface-card: #1e222d;
-  --surface-hover: #2a2e39;
-  --border: rgba(152, 161, 178, .18);
-  --border-strong: rgba(152, 161, 178, .32);
-  --text: #d1d4dc;
-  --text-dim: #9598a1;
-  --text-muted: #707583;
-  --accent: #2962ff;
-  --accent-cyan: #5b9cf6;
-  --accent-blue: #2962ff;
-  --accent-purple: #9575cd;
-  --gain: #22ab94;
-  --loss: #f23645;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 8px;
-}
-html body { background: #131722; color: var(--text); font-family: var(--font-sans); }
-html .navbar { background: rgba(19, 23, 34, .96); border-bottom-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-html .top-nav-views, html .search-input-wrapper, html .workspace-nav-bar { background: #1e222d; }
-html .top-nav-btn.active, html .ws-tab-btn.active { background: rgba(41,98,255,.14); border-color: rgba(41,98,255,.36); color: #8db1ff; }
-html .search-input-wrapper:focus-within { box-shadow: 0 0 0 3px rgba(41,98,255,.14); }
-html .glass, html .terminal-card, html .hero-card, html .macro-panel, html .screener-card { background: #1e222d; border-color: var(--border); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.16); backdrop-filter: none; }
-html .hero-card, html .tv-top-toolbar { background: #1e222d; }
-html .screener-table th { background: #252a36; }
-html .screener-table tbody tr:hover { background: rgba(41,98,255,.08); }
-html .auth-submit-button, html .tv-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-html .auth-card, html .auth-preview { background: #1e222d; }
-html :focus-visible { outline-color: #5b9cf6; }
+
+
 
 /* TradingView-inspired terminal palette: cool graphite, crisp blue controls,
    and color reserved for price movement. */
@@ -324,119 +425,8 @@ button:focus-visible, a:focus-visible, :focus-visible { outline-color: #5b9cf6; 
   .main-layout { padding-inline: 10px; }
 }
 
-/* Keep the terminal surfaces quiet and reserve color for market movement. */
-:root {
-  --bg: #0b1012;
-  --surface: #11191d;
-  --surface-solid: #11191d;
-  --surface-card: #141e22;
-  --surface-hover: #192529;
-  --border: rgba(145, 161, 159, .17);
-  --border-strong: rgba(145, 161, 159, .3);
-  --text: #e7eeec;
-  --text-dim: #91a19e;
-  --text-muted: #71817e;
-  --accent: #b9a477;
-  --accent-cyan: #8eaead;
-  --accent-blue: #8eaead;
-  --accent-purple: #a59db1;
-  --gain: #69c49b;
-  --loss: #e17d78;
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 11px;
-}
 
-body {
-  background: radial-gradient(ellipse at 48% -20%, rgba(104,137,126,.1), transparent 52%), linear-gradient(180deg,#0d1417 0,var(--bg) 460px);
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.navbar { background: rgba(11,16,19,.94); border-bottom-color: var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.14); backdrop-filter: blur(16px); }
-.brand-name { text-shadow: none; }
-.brand-suffix { color: var(--text-muted); }
-.top-nav-views { border: 1px solid var(--border); border-radius: 8px; background: rgba(17,25,29,.72); }
-.top-nav-btn { border-radius: 5px; color: var(--text-dim); }
-.top-nav-btn:hover { color: var(--text); background: var(--surface-hover); }
-.top-nav-btn.active, .ws-tab-btn.active { border-color: rgba(142,174,173,.22); background: #1a292d; color: #dce9e6; box-shadow: none; }
-.search-input-wrapper { border-color: var(--border); border-radius: 7px; background: #121a1e; box-shadow: none; }
-.search-input-wrapper:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(185,164,119,.1); }
-.search-input-wrapper > svg { stroke: var(--text-dim); }
-.search-dropdown { border-color: var(--border-strong); border-radius: 8px; background: #121a1e; box-shadow: 0 18px 42px rgba(0,0,0,.42); }
-.search-item:hover, .search-item:focus-visible, .ws-tab-btn:hover { background: #1b292d; }
-.search-item-symbol, .search-item-category { color: var(--accent); }
-.glass, .terminal-card, .hero-card, .macro-panel, .screener-card { border-color: var(--border); border-radius: var(--radius-lg); background: rgba(17,25,29,.9); box-shadow: 0 14px 42px rgba(0,0,0,.16), inset 0 1px rgba(255,255,255,.025); backdrop-filter: blur(12px); }
-.hero-card { background: linear-gradient(145deg,rgba(26,39,42,.96),rgba(17,25,29,.94)); }
-.hero-range-block, .macro-tabs { border-color: var(--border); }
-.macro-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); text-shadow: none; }
-.workspace-nav-bar { border-bottom-color: var(--border); }
-.ws-tab-btn { border-radius: 5px; color: var(--text-dim); }
-.screener-table-wrapper { border-color: var(--border); border-radius: 8px; }
-.screener-table th { background: #172125; color: var(--text-dim); }
-.technical-snapshot { border-color: var(--border); border-radius: 8px; background: linear-gradient(100deg,rgba(26,39,42,.72),rgba(18,27,31,.78)); }
-.snapshot-kicker { color: var(--accent); text-shadow: none; }
-.snapshot-regime strong[data-state="above-key-averages"], .snapshot-metric strong[data-direction="positive"] { color: var(--gain); text-shadow: none; }
-.snapshot-regime strong[data-state="below-key-averages"], .snapshot-metric strong[data-direction="negative"] { color: var(--loss); text-shadow: none; }
-button:active { transform: translateY(1px); }
-:focus-visible { outline-color: var(--accent); }
 
-@media (max-width: 760px) {
-  .hero-macro-grid { grid-template-columns: 1fr; }
-  .navbar { padding: 11px 14px; }
-}
-
-:root {
-  /* Black & Aurum Gold Ionic Design System */
-  --bg: #070707;
-  --bg-deep: #020202;
-  --surface: rgba(18, 18, 18, 0.78);
-  --surface-solid: #121212;
-  --surface-card: #141414;
-  --surface-hover: rgba(30, 27, 20, 0.85);
-  --border: rgba(212, 175, 55, 0.22);
-  --border-strong: rgba(212, 175, 55, 0.45);
-  --border-glow: rgba(245, 215, 127, 0.5);
-  --text: #ffffff;
-  --text-dim: #a89f8c;
-  --text-muted: #736c5e;
-
-  /* Ionic Aurum Gold Accents */
-  --accent: #d4af37;           /* Classic Metallic Gold */
-  --accent-gold: #f5d77f;      /* Luminous Pale Gold */
-  --accent-gold-dark: #aa8214; /* Deep Bronze Gold */
-  --accent-cyan: #d4af37;
-  --accent-purple: #d4af37;
-  --accent-indigo: #d4af37;
-  --accent-amber: #f5d77f;
-  --accent-blue: #d4af37;
-
-  /* Market Telemetry (Gilded Emerald & Crimson Rose) */
-  --gain: #10b981;
-  --gain-glow: rgba(16, 185, 129, 0.28);
-  --loss: #f43f5e;
-  --loss-glow: rgba(244, 63, 94, 0.28);
-  --accent-emerald: var(--gain);
-  --accent-green: var(--gain);
-  --accent-rose: var(--loss);
-  --accent-red: var(--loss);
-  --accent-red-alert: var(--loss);
-
-  /* Aliases for functional compatibility */
-  --bg-void: var(--bg);
-  --bg-surface: var(--surface);
-  --bg-elevated: var(--surface-card);
-  --border-subtle: var(--border);
-  --text-primary: var(--text);
-  --text-secondary: var(--text-dim);
-
-  /* Ionic Typography & Radii */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-pill: 9999px;
-}
 
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -3245,38 +3235,8 @@ body {
   }
 }
 
-/* Mara visual system refresh: restrained ink, warm metal and clear hierarchy. */
-:root {
-  --bg: #0b1013;
-  --surface: #11191d;
-  --border: #253238;
-  --text: #e8eeec;
-  --text-dim: #91a19f;
-  --gain: #77c9a4;
-  --loss: #e47f75;
-  --accent: #d7b36a;
-  --bg-void: var(--bg);
-  --bg-surface: var(--surface);
-  --bg-elevated: #172126;
-  --border-subtle: #1b282d;
-  --border-strong: #34434a;
-  --text-primary: var(--text);
-  --text-secondary: var(--text-dim);
-  --text-muted: #71817f;
-  --accent-cyan: #8eaead;
-  --accent-emerald: var(--gain);
-  --accent-rose: var(--loss);
-  --accent-amber: var(--accent);
-  --accent-red-alert: var(--loss);
-  --accent-green: var(--gain);
-  --accent-red: var(--loss);
-  --accent-blue: #8eaead;
-  --accent-purple: #9a9aaf;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 11px;
-}
+
+
 
 body {
   background:

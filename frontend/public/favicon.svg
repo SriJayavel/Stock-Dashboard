@@ -1,32 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#141414"/>
-      <stop offset="100%" stop-color="#040404"/>
+    <linearGradient id="tvBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e222d"/>
+      <stop offset="100%" stop-color="#131722"/>
     </linearGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#c59b27"/>
-      <stop offset="45%" stop-color="#e5c058"/>
-      <stop offset="100%" stop-color="#fae29c"/>
+    <linearGradient id="tvBlueGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e53e5"/>
+      <stop offset="50%" stop-color="#2962ff"/>
+      <stop offset="100%" stop-color="#5b9cf6"/>
     </linearGradient>
     <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="rgba(245, 215, 127, 0.6)"/>
-      <stop offset="100%" stop-color="rgba(170, 130, 20, 0.25)"/>
+      <stop offset="0%" stop-color="rgba(152, 161, 178, 0.35)"/>
+      <stop offset="100%" stop-color="rgba(41, 98, 255, 0.25)"/>
     </linearGradient>
-    <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.8" result="blur" />
+    <filter id="tvGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
 
-  <!-- Deep Obsidian Squircle -->
-  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#bg)" stroke="url(#borderGrad)" stroke-width="2"/>
+  <!-- TradingView Dark Squircle Card -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#tvBg)" stroke="url(#borderGrad)" stroke-width="2"/>
 
-  <!-- Celestial Aurum Monogram 'M' -->
-  <path d="M15 45 L15 22 L27 34 L37 23 L49 35" fill="none" stroke="url(#goldGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#goldGlow)"/>
+  <!-- TradingView Blue Market Path 'M' -->
+  <path d="M15 45 L15 22 L27 34 L37 23 L49 35" fill="none" stroke="url(#tvBlueGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#tvGlow)"/>
   
-  <!-- Golden Celestial Star Beacon -->
-  <path d="M37 23 L49 13" stroke="#f5d77f" stroke-width="4.5" stroke-linecap="round" filter="url(#goldGlow)"/>
-  <circle cx="49" cy="13" r="3.5" fill="#f5d77f" filter="url(#goldGlow)"/>
+  <!-- Mint Green Market Peak Beacon -->
+  <path d="M37 23 L49 13" stroke="#22ab94" stroke-width="4.5" stroke-linecap="round" filter="url(#tvGlow)"/>
+  <circle cx="49" cy="13" r="3.5" fill="#22ab94" filter="url(#tvGlow)"/>
   <circle cx="49" cy="13" r="1.5" fill="#ffffff"/>
 </svg>
