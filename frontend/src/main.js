@@ -1599,10 +1599,10 @@ async function loadMarketOverview() {
         if (isUnavailable) {
           heroChange.textContent = 'Feed Offline';
         } else {
-          const glyph = isUp ? '▲ +' : '▼ ';
+          const sign = isUp ? '+' : '−';
           const chgVal = Math.abs(data.hero.change || 0).toFixed(2);
           const chgPct = Math.abs(data.hero.change_pct || 0).toFixed(2);
-          heroChange.textContent = `${glyph}${chgVal} (${glyph}${chgPct}%)`;
+          heroChange.textContent = `${sign}${chgVal} (${sign}${chgPct}%)`;
         }
       }
 
@@ -1723,28 +1723,28 @@ function renderMacroCards() {
     .map((item) => {
       const isUp = (item.change || 0) >= 0;
       const chgClass = isUp ? 'chg-up' : 'chg-down';
-      const chgGlyph = isUp ? '▲ +' : '▼ ';
+      const chgGlyph = isUp ? '+ ' : '- ';
       const decimals = currentMacroCategory === 'Forex' ? 4 : 2;
       const isStale = Boolean(item.is_stale);
       const isOffline = item.price == null || item.status === 'unavailable';
       const statusDot = isOffline
         ? '<span class="macro-status-dot offline" title="Feed Offline"></span>'
         : (isStale ? '<span class="macro-status-dot stale" title="Stale Cache"></span>' : '');
+      const formattedPrice = item.price != null
+        ? Number(item.price).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+        : '—';
 
       return `
         <div class="macro-mini-card ${isStale ? 'stale-card' : ''}" data-symbol="${item.symbol}">
           <div class="macro-mini-sym">
-            <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="macro-mini-sym-left">
               ${statusDot}
-              <span>${item.symbol}</span>
+              <span class="macro-code">${item.symbol}</span>
             </div>
-            <span class="tape-chg ${chgClass}">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>
+            <span class="macro-pill ${chgClass}">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>
           </div>
           <div class="macro-mini-name">${item.name || item.symbol}</div>
-          <div class="macro-mini-middle">
-            <div class="macro-mini-price">${item.price != null ? item.price.toFixed(decimals) : '—'}</div>
-            ${generateSparklineSvg(isUp, item.symbol)}
-          </div>
+          <div class="macro-mini-price">${formattedPrice}</div>
         </div>
       `;
     })
@@ -1930,10 +1930,10 @@ function renderStockOverview(data) {
   }
 
   if (stockChangePct) {
-    const glyph = isUp ? '▲ +' : '▼ ';
+    const sign = isUp ? '+' : '−';
     const chgVal = Math.abs(data.change || 0).toFixed(decimals);
     const chgPct = Math.abs(data.change_pct || 0).toFixed(2);
-    stockChangePct.textContent = `${glyph}${chgVal} (${glyph}${chgPct}%)`;
+    stockChangePct.textContent = `${sign}${chgVal} (${sign}${chgPct}%)`;
   }
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
