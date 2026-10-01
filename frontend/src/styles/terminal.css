@@ -74,7 +74,7 @@
 }
 
 /* Focused visual system: calm graphite surfaces, teal data accents, clear hierarchy. */
-:root {
+html:root {
   --bg: #0b1012;
   --surface: #11191d;
   --surface-solid: #11191d;
@@ -217,6 +217,111 @@ button:active { transform: translateY(1px); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Final palette overrides the legacy graphite tokens above. */
+html:root {
+  --bg: #131722;
+  --surface: #1e222d;
+  --surface-solid: #1e222d;
+  --surface-card: #1e222d;
+  --surface-hover: #2a2e39;
+  --border: rgba(152, 161, 178, .18);
+  --border-strong: rgba(152, 161, 178, .32);
+  --text: #d1d4dc;
+  --text-dim: #9598a1;
+  --text-muted: #707583;
+  --accent: #2962ff;
+  --accent-cyan: #5b9cf6;
+  --accent-blue: #2962ff;
+  --accent-purple: #9575cd;
+  --gain: #22ab94;
+  --loss: #f23645;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+}
+html body { background: #131722; color: var(--text); font-family: var(--font-sans); }
+html .navbar { background: rgba(19, 23, 34, .96); border-bottom-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+html .top-nav-views, html .search-input-wrapper, html .workspace-nav-bar { background: #1e222d; }
+html .top-nav-btn.active, html .ws-tab-btn.active { background: rgba(41,98,255,.14); border-color: rgba(41,98,255,.36); color: #8db1ff; }
+html .search-input-wrapper:focus-within { box-shadow: 0 0 0 3px rgba(41,98,255,.14); }
+html .glass, html .terminal-card, html .hero-card, html .macro-panel, html .screener-card { background: #1e222d; border-color: var(--border); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.16); backdrop-filter: none; }
+html .hero-card, html .tv-top-toolbar { background: #1e222d; }
+html .screener-table th { background: #252a36; }
+html .screener-table tbody tr:hover { background: rgba(41,98,255,.08); }
+html .auth-submit-button, html .tv-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+html .auth-card, html .auth-preview { background: #1e222d; }
+html :focus-visible { outline-color: #5b9cf6; }
+
+/* TradingView-inspired terminal palette: cool graphite, crisp blue controls,
+   and color reserved for price movement. */
+:root {
+  --bg: #131722;
+  --surface: #1e222d;
+  --surface-solid: #1e222d;
+  --surface-card: #1e222d;
+  --surface-hover: #2a2e39;
+  --border: rgba(152, 161, 178, .18);
+  --border-strong: rgba(152, 161, 178, .32);
+  --text: #d1d4dc;
+  --text-dim: #9598a1;
+  --text-muted: #707583;
+  --accent: #2962ff;
+  --accent-cyan: #5b9cf6;
+  --accent-blue: #2962ff;
+  --accent-purple: #9575cd;
+  --gain: #22ab94;
+  --loss: #f23645;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+}
+
+body {
+  background: #131722;
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+.navbar {
+  background: rgba(19, 23, 34, .96);
+  border-bottom-color: var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+  backdrop-filter: blur(12px);
+}
+.top-nav-views, .search-input-wrapper { background: #1e222d; }
+.top-nav-btn.active, .ws-tab-btn.active {
+  background: rgba(41, 98, 255, .14);
+  border-color: rgba(41, 98, 255, .36);
+  color: #8db1ff;
+}
+.search-input-wrapper:focus-within { box-shadow: 0 0 0 3px rgba(41, 98, 255, .14); }
+.main-layout { max-width: 1660px; }
+.glass, .terminal-card, .hero-card, .macro-panel, .screener-card {
+  background: #1e222d;
+  border-color: var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .16);
+  backdrop-filter: none;
+}
+.hero-card { background: #1e222d; }
+.workspace-nav-bar { background: #1e222d; }
+.ws-tab-btn:hover, .top-nav-btn:hover { background: #2a2e39; }
+.tv-top-toolbar { background: #1e222d; border-color: var(--border); }
+.tv-workspace-body { border-color: var(--border); }
+.screener-table th { background: #252a36; }
+.screener-table tbody tr:hover { background: rgba(41, 98, 255, .08); }
+.auth-submit-button, .tv-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.auth-mode-tabs button.active, .auth-text-button { border-bottom-color: var(--accent); color: #8db1ff; }
+.auth-card, .auth-preview { background: #1e222d; }
+button:focus-visible, a:focus-visible, :focus-visible { outline-color: #5b9cf6; }
+
+@media (max-width: 760px) {
+  .main-layout { padding-inline: 10px; }
 }
 
 /* Keep the terminal surfaces quiet and reserve color for market movement. */
@@ -4051,3 +4156,26 @@ a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Active design tokens; these are last so legacy theme declarations cannot override them. */
+html:root {
+  --bg: #131722; --surface: #1e222d; --surface-solid: #1e222d; --surface-card: #1e222d;
+  --surface-hover: #2a2e39; --border: rgba(152,161,178,.18); --border-strong: rgba(152,161,178,.32);
+  --text: #d1d4dc; --text-dim: #9598a1; --text-muted: #707583;
+  --accent: #2962ff; --accent-cyan: #5b9cf6; --accent-blue: #2962ff; --accent-purple: #9575cd;
+  --gain: #22ab94; --loss: #f23645;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 8px;
+}
+html body { background: #131722; color: var(--text); font-family: var(--font-sans); }
+html .navbar { background: rgba(19,23,34,.96); border-bottom-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+html .top-nav-views, html .search-input-wrapper, html .workspace-nav-bar { background: #1e222d; }
+html .top-nav-btn.active, html .ws-tab-btn.active { background: rgba(41,98,255,.14); border-color: rgba(41,98,255,.36); color: #8db1ff; }
+html .search-input-wrapper:focus-within { box-shadow: 0 0 0 3px rgba(41,98,255,.14); }
+html .glass, html .terminal-card, html .hero-card, html .macro-panel, html .screener-card { background: #1e222d; border-color: var(--border); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.16); backdrop-filter: none; }
+html .tv-top-toolbar, html .hero-card, html .auth-card, html .auth-preview { background: #1e222d; }
+html .screener-table th { background: #252a36; }
+html .screener-table tbody tr:hover { background: rgba(41,98,255,.08); }
+html .auth-submit-button, html .tv-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+html :focus-visible { outline-color: #5b9cf6; }
