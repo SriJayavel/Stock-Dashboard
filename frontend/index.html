@@ -79,11 +79,24 @@
       </div>
     </div>
 
-    <!-- Navigation Header -->
+    <!-- Navigation Header (Single Unified 44px Master Navbar) -->
     <header class="navbar">
-      <div class="brand" id="brand-home-btn">
+      <div class="brand" id="brand-home-btn" title="Mara Home">
         <img src="/favicon.svg" alt="Mara Logo" class="brand-logo" width="22" height="22" />
-        <span class="brand-name">Mara <span class="brand-suffix">Stock Dashboard</span></span>
+        <span class="brand-name">Mara</span>
+      </div>
+
+      <!-- Active Instrument Live Pill -->
+      <div class="header-active-asset" id="header-active-asset">
+        <span class="header-sym-badge" id="stock-symbol">TCS.NS</span>
+        <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Add to Watchlist">★</button>
+        <span class="header-name" id="stock-name">Tata Consultancy Services</span>
+        <div class="header-price-wrap">
+          <span class="current-price-val" id="stock-current-price">₹4,250.00</span>
+          <div class="hero-change-badge chg-up" id="stock-change-badge">
+            <span id="stock-change-pct">+32.50 (+0.77%)</span>
+          </div>
+        </div>
       </div>
 
       <!-- Top-Level Views Switcher -->
@@ -145,16 +158,16 @@
 
       <!-- System Status / Action -->
       <div class="nav-actions">
-        <button class="watchlist-nav-toggle-btn nav-utility-btn" id="alerts-modal-toggle" type="button" aria-label="Open alerts" title="Open alerts">
-          <svg class="nav-utility-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 20h4"/></svg>
-          <span>Alerts</span><span class="nav-count" id="alerts-nav-count">0</span>
-        </button>
         <button class="watchlist-nav-toggle-btn nav-utility-btn" id="watchlist-drawer-toggle" type="button" aria-label="Open watchlist" title="Open watchlist">
-          <svg class="nav-utility-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></svg>
+          <svg class="nav-utility-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></svg>
           <span>Watchlist</span><span class="nav-count" id="watchlist-nav-count">0</span>
         </button>
-        <div class="live-pulse">
-          <span style="color: var(--text-dim); font-size: 11px;">Market open</span>
+        <button class="watchlist-nav-toggle-btn nav-utility-btn" id="alerts-modal-toggle" type="button" aria-label="Open alerts" title="Open alerts">
+          <svg class="nav-utility-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 20h4"/></svg>
+          <span>Alerts</span><span class="nav-count" id="alerts-nav-count">0</span>
+        </button>
+        <div class="live-pulse" title="Market Data Connected">
+          <span style="color: var(--text-dim); font-size: 11px;">Live</span>
         </div>
         <div class="auth-account" id="auth-account" hidden>
           <img id="auth-avatar" alt="" hidden />
@@ -167,147 +180,10 @@
       </div>
     </header>
 
-    <!-- Main Content Grid -->
+    <!-- Main Content Workstation (Full-Bleed TradingView Layout) -->
     <main class="main-layout">
-      <!-- 1. Global Market Ticker Ribbon (Single 34px Row) -->
-      <section class="terminal-ticker-bar" id="terminal-ticker-bar" aria-label="Global Market Quotes">
-        <div class="ticker-tape-container" id="ticker-tape-container">
-          <div class="ticker-tape-track" id="ticker-tape-track">
-            <!-- Pre-hydrated realistic index quotes for instant zero-delay render -->
-            <div class="tape-item" data-symbol="^NSEI">
-              <span class="tape-sym">NIFTY 50</span>
-              <span class="tape-val" id="hero-price">₹22,421.95</span>
-              <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">−198.50 (−0.88%)</span></span>
-            </div>
-            <div class="tape-item" data-symbol="^BSESN">
-              <span class="tape-sym">SENSEX</span>
-              <span class="tape-val">71,909.70</span>
-              <span class="tape-chg chg-down">−0.79%</span>
-            </div>
-            <div class="tape-item" data-symbol="^NSEBANK">
-              <span class="tape-sym">BANK NIFTY</span>
-              <span class="tape-val">54,450.75</span>
-              <span class="tape-chg chg-down">−0.33%</span>
-            </div>
-            <div class="tape-item" data-symbol="^GSPC">
-              <span class="tape-sym">S&P 500</span>
-              <span class="tape-val">5,751.20</span>
-              <span class="tape-chg chg-down">−0.25%</span>
-            </div>
-            <div class="tape-item" data-symbol="^IXIC">
-              <span class="tape-sym">NASDAQ</span>
-              <span class="tape-val">18,189.50</span>
-              <span class="tape-chg chg-up">+0.24%</span>
-            </div>
-            <div class="tape-item" data-symbol="^FTSE">
-              <span class="tape-sym">FTSE 100</span>
-              <span class="tape-val">8,250.40</span>
-              <span class="tape-chg chg-down">−0.86%</span>
-            </div>
-            <div class="tape-item" data-symbol="^N225">
-              <span class="tape-sym">NIKKEI 225</span>
-              <span class="tape-val">38,720.50</span>
-              <span class="tape-chg chg-up">+1.12%</span>
-            </div>
-          </div>
-        </div>
-        <!-- Hidden hooks to maintain 100% compatibility with background telemetry updates -->
-        <div style="display:none;" id="hero-hidden-hooks">
-          <span id="hero-name">NIFTY 50</span>
-          <span id="hero-high">₹22,610.60</span>
-          <span id="hero-low">₹22,217.30</span>
-          <span id="hero-source">Direct NSE</span>
-          <div id="hero-range-dot"></div>
-          <div id="hero-range-fill"></div>
-          <div id="macro-cards-container"></div>
-        </div>
-      </section>
-
-      <!-- 2. Terminal & Chart Workstation -->
+      <!-- Full-Bleed Terminal Workstation -->
       <section class="glass terminal-card">
-        <!-- Consolidated Instrument Header Row (48px) -->
-        <div class="terminal-header">
-          <div class="header-asset-col">
-            <span class="header-sym-badge" id="stock-symbol">TCS.NS</span>
-            <div class="header-name-wrap">
-              <h1 class="header-name" id="stock-name">Tata Consultancy Services</h1>
-              <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Add to Watchlist">★</button>
-            </div>
-            <div class="header-meta-tags">
-              <span id="stock-sector">Information Technology</span>
-              <span class="meta-dot">·</span>
-              <span id="stock-mcap">₹14.2 Lakh Cr</span>
-            </div>
-          </div>
-
-          <div class="header-price-col">
-            <div class="current-price-val" id="stock-current-price">₹4,250.00</div>
-            <div class="hero-change-badge chg-up" id="stock-change-badge">
-              <span id="stock-change-pct">+32.50 (+0.77%)</span>
-            </div>
-          </div>
-
-          <div class="header-telemetry-col">
-            <div class="telemetry-pill">
-              <span class="pill-k">RSI</span>
-              <strong class="pill-v" id="snapshot-rsi">56.4</strong>
-            </div>
-            <div class="telemetry-pill">
-              <span class="pill-k">1M</span>
-              <strong class="pill-v chg-up" id="snapshot-return-1m">+3.4%</strong>
-            </div>
-            <div class="telemetry-pill">
-              <span class="pill-k">3M</span>
-              <strong class="pill-v chg-up" id="snapshot-return-3m">+8.2%</strong>
-            </div>
-            <div class="telemetry-pill">
-              <span class="pill-k">1Y DD</span>
-              <strong class="pill-v chg-down" id="snapshot-drawdown">−6.2%</strong>
-            </div>
-            <div class="telemetry-pill trend-pill">
-              <span class="pill-k">Trend</span>
-              <strong class="pill-v" id="snapshot-trend">Above 50/200</strong>
-              <span id="snapshot-trend-detail" style="display:none;"></span>
-            </div>
-            <div class="telemetry-pill prov-pill">
-              <span class="prov-dot"></span>
-              <span id="provenance-source">Direct NSE</span>
-              <span id="provenance-status" style="display:none;">Live</span>
-              <span id="provenance-timestamp" style="display:none;">—</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Consolidated Workspace Navigation (34px) -->
-        <div class="workspace-nav-bar" id="workspace-nav-bar">
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn active" data-tab="chart">Chart</button>
-            <button class="ws-tab-btn" data-tab="overview">Profile</button>
-            <button class="ws-tab-btn" data-tab="fundamentals">Fundamentals</button>
-            <button class="ws-tab-btn" data-tab="valuation">Valuation</button>
-          </div>
-          <div class="ws-nav-divider"></div>
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn" data-tab="peers">Peers</button>
-            <button class="ws-tab-btn" data-tab="correlation">Correlation</button>
-            <button class="ws-tab-btn" data-tab="sectors">Sectors</button>
-          </div>
-          <div class="ws-nav-divider"></div>
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn" data-tab="earnings">Earnings</button>
-            <button class="ws-tab-btn" data-tab="news">News</button>
-            <button class="ws-tab-btn" data-tab="whatchanged">30-Day Change</button>
-            <button class="ws-tab-btn" data-tab="anomalies">Anomalies</button>
-          </div>
-          <div class="ws-nav-divider"></div>
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn" data-tab="lab">Scenario</button>
-            <button class="ws-tab-btn" data-tab="quality">Quality</button>
-            <button class="ws-tab-btn" data-tab="notebook">Notes</button>
-            <button class="ws-tab-btn" data-tab="report">Report</button>
-          </div>
-        </div>
-
         <!-- PANEL 1: CHART -->
         <div class="research-view-panel active" id="panel-chart">
           <!-- TradingView-Style Top Toolbar -->
@@ -792,6 +668,36 @@
             </div>
           </div>
         </div>
+
+        <!-- TradingView-Style Bottom Dock Tabs (30px) -->
+        <div class="workspace-nav-bar" id="workspace-nav-bar">
+          <div class="ws-nav-group">
+            <button class="ws-tab-btn active" data-tab="chart">Chart</button>
+            <button class="ws-tab-btn" data-tab="overview">Profile</button>
+            <button class="ws-tab-btn" data-tab="fundamentals">Fundamentals</button>
+            <button class="ws-tab-btn" data-tab="valuation">Valuation</button>
+          </div>
+          <div class="ws-nav-divider"></div>
+          <div class="ws-nav-group">
+            <button class="ws-tab-btn" data-tab="peers">Peers</button>
+            <button class="ws-tab-btn" data-tab="correlation">Correlation</button>
+            <button class="ws-tab-btn" data-tab="sectors">Sectors</button>
+          </div>
+          <div class="ws-nav-divider"></div>
+          <div class="ws-nav-group">
+            <button class="ws-tab-btn" data-tab="earnings">Earnings</button>
+            <button class="ws-tab-btn" data-tab="news">News</button>
+            <button class="ws-tab-btn" data-tab="whatchanged">30-Day Change</button>
+            <button class="ws-tab-btn" data-tab="anomalies">Anomalies</button>
+          </div>
+          <div class="ws-nav-divider"></div>
+          <div class="ws-nav-group">
+            <button class="ws-tab-btn" data-tab="lab">Scenario</button>
+            <button class="ws-tab-btn" data-tab="quality">Quality</button>
+            <button class="ws-tab-btn" data-tab="notebook">Notes</button>
+            <button class="ws-tab-btn" data-tab="report">Report</button>
+          </div>
+        </div>
       </section>
 
       <!-- Fundamental Valuation Multiples / Asset Profile Matrix -->
@@ -896,24 +802,122 @@
         <button id="close-watchlist-drawer-btn" class="close-drawer-btn" title="Close">✕</button>
       </div>
 
-      <!-- VIEW 1: WATCHLIST -->
+      <!-- VIEW 1: WATCHLIST & INSPECTOR -->
       <div id="tv-drawer-view-watchlist" class="tv-drawer-view active">
-        <!-- Scope Transparency Disclaimer -->
-        <div class="watchlist-disclaimer">
-          <span>Saved to this browser only. Export to back up.</span>
+        <!-- Active Asset Telemetry Card -->
+        <div class="drawer-section drawer-telemetry-section">
+          <div class="drawer-section-header">
+            <span class="drawer-section-title">ACTIVE TELEMETRY</span>
+            <div class="drawer-prov-badge">
+              <span class="prov-dot"></span>
+              <span id="provenance-source">Direct NSE</span>
+              <span id="provenance-status" style="display:none;">Live</span>
+              <span id="provenance-timestamp" style="display:none;">—</span>
+            </div>
+          </div>
+          <div class="drawer-meta-line">
+            <span id="stock-sector">Information Technology</span>
+            <span class="meta-dot">·</span>
+            <span id="stock-mcap">₹14.2 Lakh Cr</span>
+          </div>
+          <div class="drawer-kpi-grid">
+            <div class="drawer-kpi-cell">
+              <span class="kpi-label">RSI (14)</span>
+              <strong class="kpi-val" id="snapshot-rsi">56.4</strong>
+            </div>
+            <div class="drawer-kpi-cell">
+              <span class="kpi-label">Trend 50/200</span>
+              <strong class="kpi-val" id="snapshot-trend">Above 50/200</strong>
+              <span id="snapshot-trend-detail" style="display:none;"></span>
+            </div>
+            <div class="drawer-kpi-cell">
+              <span class="kpi-label">1M Return</span>
+              <strong class="kpi-val chg-up" id="snapshot-return-1m">+3.4%</strong>
+            </div>
+            <div class="drawer-kpi-cell">
+              <span class="kpi-label">3M Return</span>
+              <strong class="kpi-val chg-up" id="snapshot-return-3m">+8.2%</strong>
+            </div>
+            <div class="drawer-kpi-cell">
+              <span class="kpi-label">1Y Max DD</span>
+              <strong class="kpi-val chg-down" id="snapshot-drawdown">−6.2%</strong>
+            </div>
+          </div>
         </div>
 
-        <!-- Import / Export Controls -->
-        <div class="watchlist-actions-bar">
-          <button id="export-watchlist-btn" class="wl-btn">Export</button>
-          <label for="import-watchlist-input" class="wl-btn" style="cursor: pointer;">Import</label>
-          <input type="file" id="import-watchlist-input" accept=".json,.csv" style="display:none;" />
-          <button id="clear-watchlist-btn" class="wl-btn wl-btn-danger">Clear</button>
+        <!-- Market Benchmarks Section -->
+        <div class="drawer-section drawer-benchmarks-section">
+          <div class="drawer-section-header">
+            <span class="drawer-section-title">GLOBAL BENCHMARKS</span>
+          </div>
+          <div class="drawer-benchmarks-list">
+            <div class="ticker-tape-track" id="ticker-tape-track">
+              <!-- Pre-hydrated realistic index quotes -->
+              <div class="tape-item" data-symbol="^NSEI">
+                <span class="tape-sym">NIFTY 50</span>
+                <span class="tape-val" id="hero-price">₹22,421.95</span>
+                <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">−0.88%</span></span>
+              </div>
+              <div class="tape-item" data-symbol="^BSESN">
+                <span class="tape-sym">SENSEX</span>
+                <span class="tape-val">71,909.70</span>
+                <span class="tape-chg chg-down">−0.79%</span>
+              </div>
+              <div class="tape-item" data-symbol="^NSEBANK">
+                <span class="tape-sym">BANK NIFTY</span>
+                <span class="tape-val">54,450.75</span>
+                <span class="tape-chg chg-down">−0.33%</span>
+              </div>
+              <div class="tape-item" data-symbol="^GSPC">
+                <span class="tape-sym">S&P 500</span>
+                <span class="tape-val">5,751.20</span>
+                <span class="tape-chg chg-down">−0.25%</span>
+              </div>
+              <div class="tape-item" data-symbol="^IXIC">
+                <span class="tape-sym">NASDAQ</span>
+                <span class="tape-val">18,189.50</span>
+                <span class="tape-chg chg-up">+0.24%</span>
+              </div>
+              <div class="tape-item" data-symbol="^FTSE">
+                <span class="tape-sym">FTSE 100</span>
+                <span class="tape-val">8,250.40</span>
+                <span class="tape-chg chg-down">−0.86%</span>
+              </div>
+              <div class="tape-item" data-symbol="^N225">
+                <span class="tape-sym">NIKKEI 225</span>
+                <span class="tape-val">38,720.50</span>
+                <span class="tape-chg chg-up">+1.12%</span>
+              </div>
+            </div>
+          </div>
+          <!-- Hidden hooks to maintain background telemetry compatibility -->
+          <div style="display:none;" id="hero-hidden-hooks">
+            <span id="hero-name">NIFTY 50</span>
+            <span id="hero-high">₹22,610.60</span>
+            <span id="hero-low">₹22,217.30</span>
+            <span id="hero-source">Direct NSE</span>
+            <div id="hero-range-dot"></div>
+            <div id="hero-range-fill"></div>
+            <div id="macro-cards-container"></div>
+          </div>
         </div>
 
-        <!-- Watchlist Items Container -->
-        <div id="watchlist-items-list" class="watchlist-items-list">
-          <!-- Rendered via JavaScript -->
+        <!-- Saved Watchlist Section -->
+        <div class="drawer-section drawer-watchlist-section">
+          <div class="drawer-section-header">
+            <span class="drawer-section-title">MY WATCHLIST</span>
+            <div class="watchlist-actions-bar">
+              <button id="export-watchlist-btn" class="wl-btn">Export</button>
+              <label for="import-watchlist-input" class="wl-btn" style="cursor: pointer;">Import</label>
+              <input type="file" id="import-watchlist-input" accept=".json,.csv" style="display:none;" />
+              <button id="clear-watchlist-btn" class="wl-btn wl-btn-danger">Clear</button>
+            </div>
+          </div>
+
+          <!-- Watchlist Items Container -->
+          <div id="watchlist-items-list" class="watchlist-items-list">
+            <!-- Rendered via JavaScript -->
+          </div>
         </div>
       </div>
 
