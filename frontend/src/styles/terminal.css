@@ -478,82 +478,209 @@ body {
    Layout & Main Grid
    ============================================================================ */
 .main-layout {
-  max-width: 1660px;
+  max-width: 1720px;
   margin: 0 auto;
-  padding: 20px clamp(16px, 2.5vw, 36px) 60px;
+  padding: 6px 14px 24px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 6px;
 }
 
-.glass, .terminal-card, .hero-card, .macro-panel, .screener-card, .auth-card {
+.glass, .terminal-card, .screener-card, .auth-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
-  backdrop-filter: none;
 }
 
 /* ============================================================================
-   Hero Benchmark & Macro Dashboard
+   1. Global Market Ticker Ribbon (32px - 34px)
    ============================================================================ */
-.hero-macro-grid {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 12px;
-  align-items: stretch;
+.terminal-ticker-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  height: 32px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  position: relative;
+  user-select: none;
 }
 
-.hero-card {
-  padding: 10px 14px;
+.ticker-tape-container {
+  display: flex;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ticker-tape-container::-webkit-scrollbar {
+  display: none;
+}
+
+.ticker-tape-track {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.tape-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 3px;
+  transition: background 0.12s ease;
+}
+.tape-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tape-sym {
+  font-weight: 600;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.tape-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.tape-chg {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+.tape-chg.chg-up {
+  color: var(--gain);
+  background: var(--gain-bg);
+}
+.tape-chg.chg-down {
+  color: var(--loss);
+  background: var(--loss-bg);
+}
+
+/* ============================================================================
+   2. Terminal Card & Unified Instrument Header (46px)
+   ============================================================================ */
+.terminal-card {
+  padding: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
 }
-.hero-top-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.hero-header {
+
+.terminal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 14px;
+  min-height: 44px;
 }
-.hero-title {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
+
+.header-asset-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
-.hero-name {
-  font-size: 16px;
+
+.header-sym-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(41, 98, 255, 0.15);
+  border: 1px solid rgba(41, 98, 255, 0.35);
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+.header-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-name {
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.2px;
   color: #ffffff;
+  margin: 0;
+  white-space: nowrap;
 }
-.hero-price-row {
+
+.star-toggle-btn {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+.star-toggle-btn:hover, .star-toggle-btn.active {
+  color: var(--accent-orange);
+}
+
+.header-meta-tags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.meta-dot {
+  color: var(--border);
+}
+
+/* Center Price Col */
+.header-price-col {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin-top: 1px;
+  flex-shrink: 0;
 }
-.hero-price {
-  font-size: 22px;
-  font-weight: 600;
+
+.current-price-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
   letter-spacing: -0.02em;
   color: #ffffff;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
+
 .hero-change-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
+  font-family: var(--font-mono);
+  line-height: 1;
 }
 .hero-change-badge.chg-up {
   background: var(--gain-bg);
@@ -564,229 +691,134 @@ body {
   color: var(--loss);
 }
 
-/* Day Range Bar */
-.hero-range-block {
-  border-top: 1px solid var(--border);
-  padding-top: 6px;
-  margin-top: 2px;
-}
-.hero-range-labels {
+/* Right Telemetry Col */
+.header-telemetry-col {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 10px;
-  color: var(--text-dim);
-  margin-bottom: 4px;
-}
-.hero-range-track {
-  width: 100%;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 1px;
-  position: relative;
-}
-.hero-range-fill {
-  height: 100%;
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 1px;
-}
-.hero-range-dot {
-  position: absolute;
-  top: 50%;
-  width: 2px;
-  height: 8px;
-  border-radius: 1px;
-  background: #ffffff;
-  box-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
-  transform: translate(-50%, -50%);
-  transition: left 0.3s ease-out;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
-/* Macro Quote Board */
-.macro-panel {
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 6px;
+.telemetry-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  font-size: 10.5px;
+  white-space: nowrap;
 }
-.macro-tabs {
-  display: flex;
-  gap: 3px;
-  padding: 2px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--radius-sm);
-  width: max-content;
+.pill-k {
+  color: var(--text-muted);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
-.macro-tab-btn {
-  padding: 2px 8px;
+.pill-v {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 10.5px;
+  color: #ffffff;
+}
+.pill-v.chg-up {
+  color: var(--gain);
+}
+.pill-v.chg-down {
+  color: var(--loss);
+}
+
+.trend-pill {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.prov-pill {
+  color: var(--text-dim);
+  font-size: 10.5px;
+  padding: 2px 6px;
+}
+.prov-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gain);
+}
+
+/* ============================================================================
+   3. Workspace Tab Navigation (34px)
+   ============================================================================ */
+.workspace-nav-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid var(--border);
+  height: 34px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.workspace-nav-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.ws-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.ws-nav-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+.ws-tab-btn {
+  padding: 3px 9px;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-dim);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-.macro-tab-btn:hover {
-  color: #ffffff;
-}
-.macro-tab-btn.active {
-  background: var(--surface-hover);
-  color: #ffffff;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.macro-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(100px, 1fr));
-  gap: 6px;
-}
-.macro-mini-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-sm);
-  padding: 5px 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.macro-mini-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(41, 98, 255, 0.35);
-  transform: translateY(-1px);
-}
-.macro-mini-sym {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.macro-mini-sym-left {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-.macro-code {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: #ffffff;
-}
-.macro-pill {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-family: var(--font-mono);
-}
-.macro-pill.chg-up {
-  background: var(--gain-bg);
-  color: var(--gain);
-}
-.macro-pill.chg-down {
-  background: var(--loss-bg);
-  color: var(--loss);
-}
-.macro-mini-name {
-  font-size: 10px;
-  color: var(--text-dim);
+  transition: all 0.12s ease;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.macro-mini-price {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
+.ws-tab-btn:hover {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.ws-tab-btn.active {
+  color: #ffffff;
+  background: var(--accent);
+  font-weight: 600;
 }
 
 /* ============================================================================
-   Terminal Header & Asset Identity
-   ============================================================================ */
-.terminal-card {
-  padding: 14px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.terminal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-  gap: 16px;
-}
-.stock-identity {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.stock-title-group h1 {
-  font-size: clamp(20px, 2.2vw, 25px);
-  font-weight: 600;
-  letter-spacing: -0.3px;
-  color: #ffffff;
-  line-height: 1.15;
-}
-.star-toggle-btn {
-  background: transparent;
-  border: none;
-  font-size: 16px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.star-toggle-btn:hover, .star-toggle-btn.active {
-  color: var(--accent-orange);
-}
-.stock-meta-badges {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.stock-price-display {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-shrink: 0;
-}
-.current-price-val {
-  font-size: clamp(24px, 2.6vw, 30px);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  color: #ffffff;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ============================================================================
-   TradingView Top Toolbar & Workspace Body
+   4. TradingView Toolbar & Fullscreen / Canvas Height
    ============================================================================ */
 .tv-top-toolbar {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  min-height: 42px;
-  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  min-height: 36px;
+  height: 36px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .tv-tb-btn {
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  padding: 4px 10px;
+  padding: 3px 8px;
   cursor: pointer;
   transition: all 0.12s;
 }
@@ -800,91 +832,51 @@ body {
   border-color: rgba(41, 98, 255, 0.3);
   font-weight: 600;
 }
+
 .tv-workspace-body {
-  border: 1px solid var(--border);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: 0;
   background: var(--bg-canvas);
   overflow: hidden;
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: clamp(520px, calc(100vh - 200px), 880px);
 }
 .tv-chart-viewport, #tv-chart-container {
   background: var(--bg-canvas);
 }
-
-/* Technical Snapshot */
-.technical-snapshot {
-  padding: 12px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-.snapshot-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.snapshot-kicker {
-  color: var(--accent-cyan);
-  font: 600 10px/1.4 var(--font-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.snapshot-method {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-.snapshot-metrics {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(90px, 0.7fr));
-  align-items: center;
-}
-.snapshot-regime, .snapshot-metric {
-  min-height: 42px;
+.tv-chart-viewport {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  padding: 0 14px;
-  border-left: 1px solid var(--border);
+  position: relative;
+  min-width: 0;
+  height: 100%;
 }
-.snapshot-regime {
-  padding-left: 0;
-  border-left: 0;
+.chart-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  height: 100%;
+  min-height: 480px;
 }
-.snapshot-label {
-  color: var(--text-dim);
-  font-size: 10px;
-}
-.snapshot-regime strong, .snapshot-metric strong {
-  color: #ffffff;
-  font: 600 14px/1.2 var(--font-sans);
-}
-.snapshot-regime strong[data-state="above-key-averages"],
-.snapshot-metric strong[data-direction="positive"] {
-  color: var(--gain);
-}
-.snapshot-regime strong[data-state="below-key-averages"],
-.snapshot-metric strong[data-direction="negative"] {
-  color: var(--loss);
+#tv-chart-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
 
 /* Responsive Breakpoints */
-@media (max-width: 980px) {
-  .navbar { flex-wrap: wrap; padding: 10px 16px; }
+@media (max-width: 1080px) {
+  .header-telemetry-col { display: none; }
+}
+@media (max-width: 768px) {
+  .navbar { flex-wrap: wrap; padding: 8px 12px; }
   .nav-search { order: 3; max-width: 100%; width: 100%; }
   .nav-actions { margin-left: auto; }
-  .hero-macro-grid { grid-template-columns: 1fr; }
-  .snapshot-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .snapshot-regime { grid-column: 1 / -1; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-  .snapshot-metric:nth-child(2) { border-left: 0; padding-left: 0; }
-}
-@media (max-width: 680px) {
-  .brand-suffix { display: none; }
-  .top-nav-views { order: 2; width: 100%; justify-content: space-between; }
-  .top-nav-btn { flex: 1; justify-content: center; }
-  .terminal-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .stock-price-display { width: 100%; justify-content: space-between; }
-  .hero-price { font-size: 28px; }
+  .terminal-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .header-price-col { width: 100%; justify-content: space-between; }
+  .tv-workspace-body { height: 480px; }
 }
 
 

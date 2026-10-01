@@ -1679,24 +1679,37 @@ function renderTickerTape(data) {
   if (data.macro) {
     Object.values(data.macro).forEach((categoryList) => {
       if (Array.isArray(categoryList)) {
-        categoryList.forEach((it) => items.push(it));
+        categoryList.forEach((it) => {
+          // Avoid duplicate NIFTY 50 if hero already pushed
+          if (it.symbol === '^NSEI' && data.hero) return;
+          items.push(it);
+        });
       }
     });
   }
 
-  // Duplicate list to create seamless infinite marquee
+  // Duplicate list to create seamless infinite scroll
   const fullTape = [...items, ...items];
 
   tapeTrack.innerHTML = fullTape
-    .map((item) => {
+    .map((item, idx) => {
       const isUp = (item.change || 0) >= 0;
       const chgClass = isUp ? 'chg-up' : 'chg-down';
-      const chgGlyph = isUp ? '▲ +' : '▼ ';
+      const sign = isUp ? '+' : '−';
+      const isHeroItem = idx === 0 && (item.symbol === '^NSEI' || item === data.hero);
+      const valId = isHeroItem ? 'id="hero-price"' : '';
+      const badgeId = isHeroItem ? 'id="hero-change-badge"' : '';
+      const chgId = isHeroItem ? 'id="hero-change"' : '';
+
+      const formattedPrice = item.price != null
+        ? Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : '—';
+
       return `
         <div class="tape-item" data-symbol="${item.symbol}">
           <span class="tape-sym">${item.name || item.symbol}</span>
-          <span class="tape-val">${item.price?.toFixed(2) || '—'}</span>
-          <span class="tape-chg ${chgClass}">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>
+          <span class="tape-val" ${valId}>${formattedPrice}</span>
+          <span class="tape-chg ${chgClass}" ${badgeId}><span ${chgId}>${sign}${Math.abs(item.change_pct || 0).toFixed(2)}%</span></span>
         </div>
       `;
     })
@@ -1706,7 +1719,7 @@ function renderTickerTape(data) {
   tapeTrack.querySelectorAll('.tape-item').forEach((elem) => {
     elem.addEventListener('click', () => {
       const sym = elem.getAttribute('data-symbol');
-      loadStock(sym, currentTimeframe);
+      if (sym) router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
     });
   });
 }

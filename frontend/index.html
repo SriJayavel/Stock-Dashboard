@@ -169,184 +169,142 @@
 
     <!-- Main Content Grid -->
     <main class="main-layout">
-      <!-- Hero & Macro Dashboard Row -->
-      <section class="hero-macro-grid">
-        <!-- Hero NIFTY 50 Benchmark Card -->
-        <div class="glass hero-card" id="hero-card">
-          <div class="hero-top-section">
-            <div class="hero-header">
-              <span class="hero-title">Indian Benchmark</span>
-              <span id="hero-source" style="font-size: 11px; color: var(--text-dim);">Direct NSE</span>
+      <!-- 1. Global Market Ticker Ribbon (Single 34px Row) -->
+      <section class="terminal-ticker-bar" id="terminal-ticker-bar" aria-label="Global Market Quotes">
+        <div class="ticker-tape-container" id="ticker-tape-container">
+          <div class="ticker-tape-track" id="ticker-tape-track">
+            <!-- Pre-hydrated realistic index quotes for instant zero-delay render -->
+            <div class="tape-item" data-symbol="^NSEI">
+              <span class="tape-sym">NIFTY 50</span>
+              <span class="tape-val" id="hero-price">₹22,421.95</span>
+              <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">−198.50 (−0.88%)</span></span>
             </div>
-            <h2 class="hero-name" id="hero-name">NIFTY 50</h2>
-            <div class="hero-price-row">
-              <div class="hero-price" id="hero-price">₹22,421.95</div>
-              <div class="hero-change-badge chg-down" id="hero-change-badge">
-                <span id="hero-change">−198.50 (−0.88%)</span>
-              </div>
+            <div class="tape-item" data-symbol="^BSESN">
+              <span class="tape-sym">SENSEX</span>
+              <span class="tape-val">71,909.70</span>
+              <span class="tape-chg chg-down">−0.79%</span>
             </div>
-          </div>
-          <div class="hero-bottom-section">
-            <div class="hero-range-block">
-              <div class="hero-range-labels">
-                <span class="hero-stat-label">Day Low: <strong id="hero-low" class="hero-stat-val">₹22,217.30</strong></span>
-                <span class="hero-range-title">Day Range</span>
-                <span class="hero-stat-label">Day High: <strong id="hero-high" class="hero-stat-val">₹22,610.60</strong></span>
-              </div>
-              <div class="hero-range-track" id="hero-range-track">
-                <div class="hero-range-fill" id="hero-range-fill" style="width: 48%;"></div>
-                <div class="hero-range-dot" id="hero-range-dot" title="Current Price Position" style="left: 48%;"></div>
-              </div>
+            <div class="tape-item" data-symbol="^NSEBANK">
+              <span class="tape-sym">BANK NIFTY</span>
+              <span class="tape-val">54,450.75</span>
+              <span class="tape-chg chg-down">−0.33%</span>
             </div>
-            <div class="hero-stat-row" style="margin-top: 10px;">
-              <span class="hero-stat-label">Asset Class</span>
-              <span class="hero-stat-val" style="color: var(--text-dim); font-weight: 500;">Index / NSE Telemetry</span>
+            <div class="tape-item" data-symbol="^GSPC">
+              <span class="tape-sym">S&P 500</span>
+              <span class="tape-val">5,751.20</span>
+              <span class="tape-chg chg-down">−0.25%</span>
+            </div>
+            <div class="tape-item" data-symbol="^IXIC">
+              <span class="tape-sym">NASDAQ</span>
+              <span class="tape-val">18,189.50</span>
+              <span class="tape-chg chg-up">+0.24%</span>
+            </div>
+            <div class="tape-item" data-symbol="^FTSE">
+              <span class="tape-sym">FTSE 100</span>
+              <span class="tape-val">8,250.40</span>
+              <span class="tape-chg chg-down">−0.86%</span>
+            </div>
+            <div class="tape-item" data-symbol="^N225">
+              <span class="tape-sym">NIKKEI 225</span>
+              <span class="tape-val">38,720.50</span>
+              <span class="tape-chg chg-up">+1.12%</span>
             </div>
           </div>
         </div>
-
-        <!-- Multi-Asset Macro Segment -->
-        <div class="glass macro-panel">
-          <div class="macro-tabs">
-            <button class="macro-tab-btn active" data-category="Indices">Indices</button>
-            <button class="macro-tab-btn" data-category="Forex">Forex</button>
-            <button class="macro-tab-btn" data-category="Commodities">Commodities</button>
-            <button class="macro-tab-btn" data-category="Crypto">Crypto</button>
-          </div>
-          <div class="macro-cards-grid" id="macro-cards-container">
-            <div class="macro-mini-card" data-symbol="^BSESN">
-              <div class="macro-mini-sym">
-                <div class="macro-mini-sym-left"><span class="macro-code">^BSESN</span></div>
-                <span class="macro-pill chg-down">−0.79%</span>
-              </div>
-              <div class="macro-mini-name">SENSEX</div>
-              <div class="macro-mini-price">71,909.70</div>
-            </div>
-            <div class="macro-mini-card" data-symbol="^NSEBANK">
-              <div class="macro-mini-sym">
-                <div class="macro-mini-sym-left"><span class="macro-code">^NSEBANK</span></div>
-                <span class="macro-pill chg-down">−0.33%</span>
-              </div>
-              <div class="macro-mini-name">BANK NIFTY</div>
-              <div class="macro-mini-price">54,450.75</div>
-            </div>
-            <div class="macro-mini-card" data-symbol="^GSPC">
-              <div class="macro-mini-sym">
-                <div class="macro-mini-sym-left"><span class="macro-code">^GSPC</span></div>
-                <span class="macro-pill chg-down">−0.25%</span>
-              </div>
-              <div class="macro-mini-name">S&P 500</div>
-              <div class="macro-mini-price">5,751.20</div>
-            </div>
-            <div class="macro-mini-card" data-symbol="^IXIC">
-              <div class="macro-mini-sym">
-                <div class="macro-mini-sym-left"><span class="macro-code">^IXIC</span></div>
-                <span class="macro-pill chg-up">+0.24%</span>
-              </div>
-              <div class="macro-mini-name">NASDAQ</div>
-              <div class="macro-mini-price">18,189.50</div>
-            </div>
-            <div class="macro-mini-card" data-symbol="^FTSE">
-              <div class="macro-mini-sym">
-                <div class="macro-mini-sym-left"><span class="macro-code">^FTSE</span></div>
-                <span class="macro-pill chg-down">−0.86%</span>
-              </div>
-              <div class="macro-mini-name">FTSE 100</div>
-              <div class="macro-mini-price">8,250.40</div>
-            </div>
-            <div class="macro-mini-card" data-symbol="^N225">
-              <div class="macro-mini-sym">
-                <div class="macro-mini-sym-left"><span class="macro-code">^N225</span></div>
-                <span class="macro-pill chg-up">+1.12%</span>
-              </div>
-              <div class="macro-mini-name">NIKKEI 225</div>
-              <div class="macro-mini-price">38,720.50</div>
-            </div>
-          </div>
+        <!-- Hidden hooks to maintain 100% compatibility with background telemetry updates -->
+        <div style="display:none;" id="hero-hidden-hooks">
+          <span id="hero-name">NIFTY 50</span>
+          <span id="hero-high">₹22,610.60</span>
+          <span id="hero-low">₹22,217.30</span>
+          <span id="hero-source">Direct NSE</span>
+          <div id="hero-range-dot"></div>
+          <div id="hero-range-fill"></div>
+          <div id="macro-cards-container"></div>
         </div>
       </section>
 
-      <!-- Terminal & Chart View -->
+      <!-- 2. Terminal & Chart Workstation -->
       <section class="glass terminal-card">
-        <!-- Stock Title, Price & Identity -->
+        <!-- Consolidated Instrument Header Row (48px) -->
         <div class="terminal-header">
-          <div class="stock-identity">
-            <div class="stock-title-group">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <h1 id="stock-name">Tata Consultancy Services</h1>
-                <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Watchlist">
-                  ★
-                </button>
-              </div>
-              <div class="stock-meta-badges">
-                <span id="stock-symbol" style="font-family: var(--font-mono); color: var(--text); font-weight: 600; font-size: 12px;">TCS.NS</span>
-                <span id="stock-sector" style="color: var(--text-dim); font-size: 11px;">Information Technology</span>
-                <span id="stock-mcap" style="color: var(--text-dim); font-size: 11px;">₹14.2 Lakh Cr</span>
-              </div>
+          <div class="header-asset-col">
+            <span class="header-sym-badge" id="stock-symbol">TCS.NS</span>
+            <div class="header-name-wrap">
+              <h1 class="header-name" id="stock-name">Tata Consultancy Services</h1>
+              <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Add to Watchlist">★</button>
+            </div>
+            <div class="header-meta-tags">
+              <span id="stock-sector">Information Technology</span>
+              <span class="meta-dot">·</span>
+              <span id="stock-mcap">₹14.2 Lakh Cr</span>
             </div>
           </div>
-          <div class="stock-price-display">
+
+          <div class="header-price-col">
             <div class="current-price-val" id="stock-current-price">₹4,250.00</div>
             <div class="hero-change-badge chg-up" id="stock-change-badge">
               <span id="stock-change-pct">+32.50 (+0.77%)</span>
             </div>
           </div>
+
+          <div class="header-telemetry-col">
+            <div class="telemetry-pill">
+              <span class="pill-k">RSI</span>
+              <strong class="pill-v" id="snapshot-rsi">56.4</strong>
+            </div>
+            <div class="telemetry-pill">
+              <span class="pill-k">1M</span>
+              <strong class="pill-v chg-up" id="snapshot-return-1m">+3.4%</strong>
+            </div>
+            <div class="telemetry-pill">
+              <span class="pill-k">3M</span>
+              <strong class="pill-v chg-up" id="snapshot-return-3m">+8.2%</strong>
+            </div>
+            <div class="telemetry-pill">
+              <span class="pill-k">1Y DD</span>
+              <strong class="pill-v chg-down" id="snapshot-drawdown">−6.2%</strong>
+            </div>
+            <div class="telemetry-pill trend-pill">
+              <span class="pill-k">Trend</span>
+              <strong class="pill-v" id="snapshot-trend">Above 50/200</strong>
+              <span id="snapshot-trend-detail" style="display:none;"></span>
+            </div>
+            <div class="telemetry-pill prov-pill">
+              <span class="prov-dot"></span>
+              <span id="provenance-source">Direct NSE</span>
+              <span id="provenance-status" style="display:none;">Live</span>
+              <span id="provenance-timestamp" style="display:none;">—</span>
+            </div>
+          </div>
         </div>
 
-        <section class="technical-snapshot" id="technical-snapshot" aria-label="Technical context" aria-live="polite">
-          <div class="snapshot-heading"><span class="snapshot-kicker">PRICE STRUCTURE</span><span class="snapshot-method">Historical calculations · no forecast</span></div>
-          <div class="snapshot-metrics">
-            <div class="snapshot-regime"><span class="snapshot-label">Trend context</span><strong id="snapshot-trend" data-state="above-key-averages">Above 50 & 200 EMA</strong><small id="snapshot-trend-detail">Compared with 50 and 200 period averages</small></div>
-            <div class="snapshot-metric"><span class="snapshot-label">1 month</span><strong id="snapshot-return-1m" data-direction="positive">+3.42%</strong></div>
-            <div class="snapshot-metric"><span class="snapshot-label">3 months</span><strong id="snapshot-return-3m" data-direction="positive">+8.15%</strong></div>
-            <div class="snapshot-metric"><span class="snapshot-label">RSI · 14</span><strong id="snapshot-rsi">56.4</strong></div>
-            <div class="snapshot-metric"><span class="snapshot-label">1Y max drawdown</span><strong id="snapshot-drawdown">−6.20%</strong></div>
-          </div>
-        </section>
-
-        <!-- Consolidated Workspace Navigation -->
+        <!-- Consolidated Workspace Navigation (34px) -->
         <div class="workspace-nav-bar" id="workspace-nav-bar">
           <div class="ws-nav-group">
-            <span class="ws-group-label">Analyze</span>
             <button class="ws-tab-btn active" data-tab="chart">Chart</button>
             <button class="ws-tab-btn" data-tab="overview">Profile</button>
             <button class="ws-tab-btn" data-tab="fundamentals">Fundamentals</button>
             <button class="ws-tab-btn" data-tab="valuation">Valuation</button>
           </div>
+          <div class="ws-nav-divider"></div>
           <div class="ws-nav-group">
-            <span class="ws-group-label">Compare</span>
             <button class="ws-tab-btn" data-tab="peers">Peers</button>
             <button class="ws-tab-btn" data-tab="correlation">Correlation</button>
             <button class="ws-tab-btn" data-tab="sectors">Sectors</button>
           </div>
+          <div class="ws-nav-divider"></div>
           <div class="ws-nav-group">
-            <span class="ws-group-label">Research</span>
             <button class="ws-tab-btn" data-tab="earnings">Earnings</button>
             <button class="ws-tab-btn" data-tab="news">News</button>
             <button class="ws-tab-btn" data-tab="whatchanged">30-Day Change</button>
             <button class="ws-tab-btn" data-tab="anomalies">Anomalies</button>
           </div>
+          <div class="ws-nav-divider"></div>
           <div class="ws-nav-group">
-            <span class="ws-group-label">Lab</span>
             <button class="ws-tab-btn" data-tab="lab">Scenario</button>
             <button class="ws-tab-btn" data-tab="quality">Quality</button>
-          </div>
-          <div class="ws-nav-group">
-            <span class="ws-group-label">Workspace</span>
             <button class="ws-tab-btn" data-tab="notebook">Notes</button>
             <button class="ws-tab-btn" data-tab="report">Report</button>
-          </div>
-        </div>
-
-        <!-- Provenance Status Banner -->
-        <div class="provenance-bar" id="provenance-bar">
-          <div>
-            <span>Source: </span><span class="provenance-tag" id="provenance-source">NSE Direct / Yahoo</span>
-            <span style="margin: 0 6px; color: var(--border);">|</span>
-            <span>Status: </span><span class="provenance-tag" id="provenance-status">Live Session</span>
-          </div>
-          <div>
-            <span>Updated: </span><span id="provenance-timestamp" style="font-family: var(--font-mono); color: var(--text-dim);">—</span>
           </div>
         </div>
 
