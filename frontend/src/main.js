@@ -84,10 +84,6 @@ async function startApp() {
   setupIndicatorControls();
   setupWatchlistControls();
 
-  await loadMarketOverview();
-  await loadScreener('indian_leaders');
-  await refreshWatchlistUI();
-
   // Router Subscription: deep links & browser back/forward history handling
   router.subscribe(async (route) => {
     if (route.type === 'symbol') {
@@ -127,7 +123,15 @@ async function startApp() {
   });
 
   window.apexRouter = router;
+  // Initialize router immediately so the active asset chart mounts without waiting for macro overview
   router.init({ symbol: 'TCS.NS', tab: 'chart' });
+
+  // Fetch secondary feeds concurrently in background
+  Promise.allSettled([
+    loadMarketOverview(),
+    loadScreener('indian_leaders'),
+    refreshWatchlistUI()
+  ]);
 
   startQuotePatchWorker();
 }
@@ -1787,14 +1791,16 @@ async function loadStock(symbol, timeframe = '1y') {
   }
 
   try {
-    // 1. Fetch Overview Fundamentals
-    const overview = await api.getStockOverview(symbol);
+    // 1 & 2. Fetch Overview Fundamentals and Chart History in parallel
+    const overviewPromise = api.getStockOverview(symbol);
+    const chartPromise = loadStockChart(symbol, token);
+
+    const overview = await overviewPromise;
     if (token !== currentLoadToken) return; // Discard stale click response
     currentOverviewData = overview;
     renderStockOverview(overview);
 
-    // 2. Fetch Chart History
-    await loadStockChart(symbol, token);
+    await chartPromise;
 
     // 3. Fetch Research Core Dossier & Multi-Year Statements
     loadStockResearch(symbol, token);

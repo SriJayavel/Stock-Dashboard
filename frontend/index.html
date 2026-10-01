@@ -180,22 +180,22 @@
             </div>
             <h2 class="hero-name" id="hero-name">NIFTY 50</h2>
             <div class="hero-price-row">
-              <div class="hero-price" id="hero-price">—</div>
-              <div class="hero-change-badge" id="hero-change-badge">
-                <span id="hero-change">+0.00 (+0.00%)</span>
+              <div class="hero-price" id="hero-price">₹22,421.95</div>
+              <div class="hero-change-badge chg-down" id="hero-change-badge">
+                <span id="hero-change">−198.50 (−0.88%)</span>
               </div>
             </div>
           </div>
           <div class="hero-bottom-section">
             <div class="hero-range-block">
               <div class="hero-range-labels">
-                <span class="hero-stat-label">Day Low: <strong id="hero-low" class="hero-stat-val">—</strong></span>
+                <span class="hero-stat-label">Day Low: <strong id="hero-low" class="hero-stat-val">₹22,217.30</strong></span>
                 <span class="hero-range-title">Day Range</span>
-                <span class="hero-stat-label">Day High: <strong id="hero-high" class="hero-stat-val">—</strong></span>
+                <span class="hero-stat-label">Day High: <strong id="hero-high" class="hero-stat-val">₹22,610.60</strong></span>
               </div>
               <div class="hero-range-track" id="hero-range-track">
-                <div class="hero-range-fill" id="hero-range-fill"></div>
-                <div class="hero-range-dot" id="hero-range-dot" title="Current Price Position"></div>
+                <div class="hero-range-fill" id="hero-range-fill" style="width: 48%;"></div>
+                <div class="hero-range-dot" id="hero-range-dot" title="Current Price Position" style="left: 48%;"></div>
               </div>
             </div>
             <div class="hero-stat-row" style="margin-top: 10px;">
@@ -214,7 +214,54 @@
             <button class="macro-tab-btn" data-category="Crypto">Crypto</button>
           </div>
           <div class="macro-cards-grid" id="macro-cards-container">
-            <!-- Populated via JavaScript -->
+            <div class="macro-mini-card" data-symbol="^BSESN">
+              <div class="macro-mini-sym">
+                <div class="macro-mini-sym-left"><span class="macro-code">^BSESN</span></div>
+                <span class="macro-pill chg-down">−0.79%</span>
+              </div>
+              <div class="macro-mini-name">SENSEX</div>
+              <div class="macro-mini-price">71,909.70</div>
+            </div>
+            <div class="macro-mini-card" data-symbol="^NSEBANK">
+              <div class="macro-mini-sym">
+                <div class="macro-mini-sym-left"><span class="macro-code">^NSEBANK</span></div>
+                <span class="macro-pill chg-down">−0.33%</span>
+              </div>
+              <div class="macro-mini-name">BANK NIFTY</div>
+              <div class="macro-mini-price">54,450.75</div>
+            </div>
+            <div class="macro-mini-card" data-symbol="^GSPC">
+              <div class="macro-mini-sym">
+                <div class="macro-mini-sym-left"><span class="macro-code">^GSPC</span></div>
+                <span class="macro-pill chg-down">−0.25%</span>
+              </div>
+              <div class="macro-mini-name">S&P 500</div>
+              <div class="macro-mini-price">5,751.20</div>
+            </div>
+            <div class="macro-mini-card" data-symbol="^IXIC">
+              <div class="macro-mini-sym">
+                <div class="macro-mini-sym-left"><span class="macro-code">^IXIC</span></div>
+                <span class="macro-pill chg-up">+0.24%</span>
+              </div>
+              <div class="macro-mini-name">NASDAQ</div>
+              <div class="macro-mini-price">18,189.50</div>
+            </div>
+            <div class="macro-mini-card" data-symbol="^FTSE">
+              <div class="macro-mini-sym">
+                <div class="macro-mini-sym-left"><span class="macro-code">^FTSE</span></div>
+                <span class="macro-pill chg-down">−0.86%</span>
+              </div>
+              <div class="macro-mini-name">FTSE 100</div>
+              <div class="macro-mini-price">8,250.40</div>
+            </div>
+            <div class="macro-mini-card" data-symbol="^N225">
+              <div class="macro-mini-sym">
+                <div class="macro-mini-sym-left"><span class="macro-code">^N225</span></div>
+                <span class="macro-pill chg-up">+1.12%</span>
+              </div>
+              <div class="macro-mini-name">NIKKEI 225</div>
+              <div class="macro-mini-price">38,720.50</div>
+            </div>
           </div>
         </div>
       </section>
@@ -239,9 +286,9 @@
             </div>
           </div>
           <div class="stock-price-display">
-            <div class="current-price-val" id="stock-current-price">₹0.00</div>
-            <div class="hero-change-badge" id="stock-change-badge">
-              <span id="stock-change-pct">+0.00%</span>
+            <div class="current-price-val" id="stock-current-price">₹4,250.00</div>
+            <div class="hero-change-badge chg-up" id="stock-change-badge">
+              <span id="stock-change-pct">+32.50 (+0.77%)</span>
             </div>
           </div>
         </div>
@@ -249,11 +296,11 @@
         <section class="technical-snapshot" id="technical-snapshot" aria-label="Technical context" aria-live="polite">
           <div class="snapshot-heading"><span class="snapshot-kicker">PRICE STRUCTURE</span><span class="snapshot-method">Historical calculations · no forecast</span></div>
           <div class="snapshot-metrics">
-            <div class="snapshot-regime"><span class="snapshot-label">Trend context</span><strong id="snapshot-trend">Loading history</strong><small id="snapshot-trend-detail">Compared with 50 and 200 period averages</small></div>
-            <div class="snapshot-metric"><span class="snapshot-label">1 month</span><strong id="snapshot-return-1m">—</strong></div>
-            <div class="snapshot-metric"><span class="snapshot-label">3 months</span><strong id="snapshot-return-3m">—</strong></div>
-            <div class="snapshot-metric"><span class="snapshot-label">RSI · 14</span><strong id="snapshot-rsi">—</strong></div>
-            <div class="snapshot-metric"><span class="snapshot-label">1Y max drawdown</span><strong id="snapshot-drawdown">—</strong></div>
+            <div class="snapshot-regime"><span class="snapshot-label">Trend context</span><strong id="snapshot-trend" data-state="above-key-averages">Above 50 & 200 EMA</strong><small id="snapshot-trend-detail">Compared with 50 and 200 period averages</small></div>
+            <div class="snapshot-metric"><span class="snapshot-label">1 month</span><strong id="snapshot-return-1m" data-direction="positive">+3.42%</strong></div>
+            <div class="snapshot-metric"><span class="snapshot-label">3 months</span><strong id="snapshot-return-3m" data-direction="positive">+8.15%</strong></div>
+            <div class="snapshot-metric"><span class="snapshot-label">RSI · 14</span><strong id="snapshot-rsi">56.4</strong></div>
+            <div class="snapshot-metric"><span class="snapshot-label">1Y max drawdown</span><strong id="snapshot-drawdown">−6.20%</strong></div>
           </div>
         </section>
 
