@@ -74,32 +74,35 @@
 }
 
 :root {
-  /* Cosmic Galaxy Theme Tokens */
-  --bg: #050714;
-  --bg-deep: #02030a;
-  --surface: rgba(11, 16, 38, 0.72);
-  --surface-solid: #0c1228;
-  --surface-hover: rgba(22, 30, 66, 0.75);
-  --border: rgba(99, 102, 241, 0.2);
-  --border-strong: rgba(139, 92, 246, 0.35);
-  --border-glow: rgba(56, 189, 248, 0.45);
-  --text: #f8fafc;
-  --text-dim: #94a3b8;
-  --text-muted: #64748b;
+  /* Black & Aurum Gold Ionic Design System */
+  --bg: #070707;
+  --bg-deep: #020202;
+  --surface: rgba(18, 18, 18, 0.78);
+  --surface-solid: #121212;
+  --surface-card: #141414;
+  --surface-hover: rgba(30, 27, 20, 0.85);
+  --border: rgba(212, 175, 55, 0.22);
+  --border-strong: rgba(212, 175, 55, 0.45);
+  --border-glow: rgba(245, 215, 127, 0.5);
+  --text: #ffffff;
+  --text-dim: #a89f8c;
+  --text-muted: #736c5e;
 
-  /* Celestial Galaxy Accents */
-  --accent: #38bdf8;
-  --accent-cyan: #38bdf8;
-  --accent-purple: #c084fc;
-  --accent-indigo: #818cf8;
-  --accent-amber: #fbbf24;
-  --accent-blue: #38bdf8;
+  /* Ionic Aurum Gold Accents */
+  --accent: #d4af37;           /* Classic Metallic Gold */
+  --accent-gold: #f5d77f;      /* Luminous Pale Gold */
+  --accent-gold-dark: #aa8214; /* Deep Bronze Gold */
+  --accent-cyan: #d4af37;
+  --accent-purple: #d4af37;
+  --accent-indigo: #d4af37;
+  --accent-amber: #f5d77f;
+  --accent-blue: #d4af37;
 
-  /* Market Action Indicators (Supernova Mint & Solar Flare Coral) */
-  --gain: #00f5a0;
-  --gain-glow: rgba(0, 245, 160, 0.28);
-  --loss: #ff4d6d;
-  --loss-glow: rgba(255, 77, 109, 0.28);
+  /* Market Telemetry (Gilded Emerald & Crimson Rose) */
+  --gain: #10b981;
+  --gain-glow: rgba(16, 185, 129, 0.28);
+  --loss: #f43f5e;
+  --loss-glow: rgba(244, 63, 94, 0.28);
   --accent-emerald: var(--gain);
   --accent-green: var(--gain);
   --accent-rose: var(--loss);
@@ -109,16 +112,18 @@
   /* Aliases for functional compatibility */
   --bg-void: var(--bg);
   --bg-surface: var(--surface);
-  --bg-elevated: var(--surface);
+  --bg-elevated: var(--surface-card);
   --border-subtle: var(--border);
   --text-primary: var(--text);
   --text-secondary: var(--text-dim);
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --radius-sm: 4px;
-  --radius-md: 7px;
-  --radius-lg: 10px;
+  /* Ionic Typography & Radii */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
 }
 
 :focus-visible {
@@ -3872,103 +3877,204 @@ a:focus-visible {
 /* ==========================================================================
    COSMIC GALAXY VIEWPORT & DYNAMIC STARFIELD
    ========================================================================== */
+/* ==========================================================================
+   COSMIC GALAXY VIEWPORT & 3D ROTATING CELESTIAL PLANET
+   ========================================================================== */
 .galaxy-viewport {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -1;
   overflow: hidden;
-  background-color: #040612;
-  background-image: radial-gradient(circle at 50% 0%, #0c1435 0%, #050714 60%, #02030a 100%);
+  background-color: #050505;
+  background-image: radial-gradient(circle at 75% 20%, #171207 0%, #080808 55%, #020202 100%);
 }
 
-.galaxy-nebula {
+.galaxy-nebula-gold {
   position: absolute;
-  pointer-events: none;
-  border-radius: 50%;
-  will-change: transform;
-}
-
-.galaxy-nebula-orion {
-  top: -15%;
-  left: 8%;
-  width: 75vw;
-  height: 65vh;
-  background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.12) 45%, transparent 72%);
-  filter: blur(60px);
-  opacity: 0.85;
-  animation: nebula-drift-1 26s ease-in-out infinite alternate;
-}
-
-.galaxy-nebula-andromeda {
-  top: 32%;
-  right: -12%;
-  width: 68vw;
-  height: 70vh;
-  background: radial-gradient(ellipse at center, rgba(6, 182, 212, 0.2) 0%, rgba(56, 189, 248, 0.1) 40%, transparent 70%);
-  filter: blur(70px);
-  opacity: 0.75;
-  animation: nebula-drift-2 32s ease-in-out infinite alternate;
-}
-
-.galaxy-nebula-celestial {
-  bottom: -22%;
-  left: 28%;
+  top: -12%;
+  right: -5%;
   width: 72vw;
-  height: 55vh;
-  background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.18) 0%, rgba(217, 70, 239, 0.08) 45%, transparent 70%);
+  height: 65vh;
+  background: radial-gradient(ellipse at center, rgba(212, 175, 55, 0.16) 0%, rgba(170, 130, 20, 0.07) 45%, transparent 72%);
   filter: blur(65px);
+  opacity: 0.85;
+  animation: nebula-drift-gold 28s ease-in-out infinite alternate;
+}
+
+.galaxy-nebula-deep {
+  position: absolute;
+  bottom: -20%;
+  left: 8%;
+  width: 65vw;
+  height: 60vh;
+  background: radial-gradient(ellipse at center, rgba(138, 107, 34, 0.1) 0%, transparent 65%);
+  filter: blur(75px);
   opacity: 0.7;
-  animation: nebula-drift-3 22s ease-in-out infinite alternate;
 }
 
-@keyframes nebula-drift-1 {
+@keyframes nebula-drift-gold {
   0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(-3%, 4%) scale(1.08); }
+  100% { transform: translate(-3%, 4%) scale(1.06); }
 }
 
-@keyframes nebula-drift-2 {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(4%, -5%) scale(1.1); }
+/* 3D Rotating Celestial Planet */
+.celestial-planet-wrap {
+  position: absolute;
+  top: 55px;
+  right: 6vw;
+  width: min(340px, 32vw);
+  height: min(340px, 32vw);
+  pointer-events: none;
+  z-index: 0;
 }
 
-@keyframes nebula-drift-3 {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(-4%, -3%) scale(1.05); }
+.planet-atmosphere {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 60%, rgba(212, 175, 55, 0.22) 78%, rgba(245, 215, 127, 0.08) 90%, transparent 100%);
+  filter: blur(10px);
 }
 
+.celestial-planet {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    inset 24px 24px 45px rgba(245, 215, 127, 0.5),
+    inset -38px -38px 70px rgba(0, 0, 0, 0.98),
+    0 0 50px rgba(212, 175, 55, 0.22),
+    0 0 100px rgba(212, 175, 55, 0.08);
+  background: #141008;
+}
+
+/* Moving surface cloud/gas bands creating the rotation effect */
+.planet-surface {
+  position: absolute;
+  top: -10%;
+  left: 0;
+  width: 300%;
+  height: 120%;
+  background: repeating-linear-gradient(
+    90deg,
+    #171207 0%,
+    #2a200b 8%,
+    #4a3814 16%,
+    #7a5f22 24%,
+    #b89434 32%,
+    #e5c058 40%,
+    #aa8214 48%,
+    #5c4516 56%,
+    #2a200b 64%,
+    #171207 72%,
+    #0d0a04 80%,
+    #171207 100%
+  );
+  background-image:
+    radial-gradient(ellipse 90% 20% at 50% 25%, rgba(250, 226, 156, 0.4), transparent 70%),
+    radial-gradient(ellipse 80% 22% at 50% 50%, rgba(138, 107, 34, 0.45), transparent 60%),
+    radial-gradient(ellipse 95% 18% at 50% 75%, rgba(212, 175, 55, 0.35), transparent 70%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.55) 0px,
+      transparent 9px,
+      rgba(212, 175, 55, 0.25) 18px,
+      transparent 26px,
+      rgba(0, 0, 0, 0.45) 36px
+    );
+  animation: planet-rotate 40s linear infinite;
+  mix-blend-mode: hard-light;
+  opacity: 0.92;
+}
+
+@keyframes planet-rotate {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Spherical Shadow overlay to ensure 3D sphere curvature */
+.planet-shadow-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, transparent 35%, rgba(0, 0, 0, 0.85) 75%, rgba(0, 0, 0, 0.98) 100%);
+  pointer-events: none;
+}
+
+.planet-specular {
+  position: absolute;
+  top: 8%;
+  left: 12%;
+  width: 45%;
+  height: 45%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.35) 0%, rgba(245, 215, 127, 0.2) 40%, transparent 75%);
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+/* Saturn-Style Angled Celestial Planetary Ring */
+.planet-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180%;
+  height: 48%;
+  transform: translate(-50%, -50%) rotate(-23deg);
+  border-radius: 50%;
+  border: 8px solid rgba(212, 175, 55, 0.35);
+  box-shadow: 
+    0 0 25px rgba(212, 175, 55, 0.35),
+    inset 0 0 15px rgba(245, 215, 127, 0.25);
+  pointer-events: none;
+}
+
+.planet-ring-back {
+  z-index: -1;
+  border-color: rgba(170, 130, 20, 0.28);
+}
+
+.planet-ring-front {
+  z-index: 2;
+  clip-path: polygon(0 48%, 100% 48%, 100% 100%, 0% 100%);
+  border-color: rgba(245, 215, 127, 0.42);
+}
+
+/* Sparkling Starlight Starfield */
 .starfield-dense {
   position: absolute;
   inset: 0;
   background-image:
     radial-gradient(1px 1px at 8% 12%, rgba(255, 255, 255, 0.95) 100%, transparent),
-    radial-gradient(1.2px 1.2px at 15% 45%, rgba(147, 197, 253, 0.88) 100%, transparent),
+    radial-gradient(1.2px 1.2px at 15% 45%, rgba(245, 215, 127, 0.8) 100%, transparent),
     radial-gradient(1.5px 1.5px at 28% 18%, rgba(255, 255, 255, 0.95) 100%, transparent),
-    radial-gradient(0.8px 0.8px at 35% 65%, rgba(196, 181, 253, 0.8) 100%, transparent),
-    radial-gradient(1.8px 1.8px at 45% 25%, rgba(56, 189, 248, 0.92) 100%, transparent),
+    radial-gradient(0.8px 0.8px at 35% 65%, rgba(212, 175, 55, 0.7) 100%, transparent),
+    radial-gradient(1.8px 1.8px at 45% 25%, rgba(250, 226, 156, 0.9) 100%, transparent),
     radial-gradient(1px 1px at 55% 80%, rgba(255, 255, 255, 0.85) 100%, transparent),
     radial-gradient(1.4px 1.4px at 68% 14%, rgba(255, 255, 255, 0.95) 100%, transparent),
-    radial-gradient(0.9px 0.9px at 75% 55%, rgba(167, 139, 250, 0.85) 100%, transparent),
-    radial-gradient(1.6px 1.6px at 88% 30%, rgba(255, 255, 255, 0.92) 100%, transparent),
-    radial-gradient(1.2px 1.2px at 94% 75%, rgba(56, 189, 248, 0.88) 100%, transparent),
+    radial-gradient(0.9px 0.9px at 75% 55%, rgba(212, 175, 55, 0.8) 100%, transparent),
+    radial-gradient(1.6px 1.6px at 88% 30%, rgba(255, 255, 255, 0.9) 100%, transparent),
+    radial-gradient(1.2px 1.2px at 94% 75%, rgba(245, 215, 127, 0.8) 100%, transparent),
     radial-gradient(1px 1px at 22% 85%, rgba(255, 255, 255, 0.8) 100%, transparent),
     radial-gradient(1.3px 1.3px at 62% 40%, rgba(255, 255, 255, 0.9) 100%, transparent),
     radial-gradient(0.8px 0.8px at 82% 90%, rgba(255, 255, 255, 0.75) 100%, transparent),
-    radial-gradient(1.5px 1.5px at 4% 60%, rgba(216, 180, 254, 0.88) 100%, transparent),
-    radial-gradient(1.1px 1.1px at 50% 10%, rgba(255, 255, 255, 0.92) 100%, transparent);
+    radial-gradient(1.5px 1.5px at 4% 60%, rgba(245, 215, 127, 0.85) 100%, transparent);
   background-size: 550px 550px;
-  opacity: 0.7;
+  opacity: 0.65;
 }
 
 .starfield-twinkle {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(2px 2px at 12% 28%, rgba(255, 255, 255, 1) 0%, rgba(56, 189, 248, 0.85) 50%, transparent 100%),
-    radial-gradient(2.2px 2.2px at 42% 52%, rgba(255, 255, 255, 1) 0%, rgba(168, 85, 247, 0.85) 50%, transparent 100%),
-    radial-gradient(2px 2px at 78% 22%, rgba(255, 255, 255, 1) 0%, rgba(56, 189, 248, 0.85) 50%, transparent 100%),
-    radial-gradient(2.5px 2.5px at 85% 82%, rgba(255, 255, 255, 1) 0%, rgba(192, 132, 252, 0.85) 50%, transparent 100%),
-    radial-gradient(1.8px 1.8px at 25% 75%, rgba(255, 255, 255, 1) 0%, rgba(0, 245, 160, 0.8) 50%, transparent 100%);
+    radial-gradient(2px 2px at 12% 28%, rgba(255, 255, 255, 1) 0%, rgba(245, 215, 127, 0.85) 50%, transparent 100%),
+    radial-gradient(2.2px 2.2px at 42% 52%, rgba(255, 255, 255, 1) 0%, rgba(212, 175, 55, 0.85) 50%, transparent 100%),
+    radial-gradient(2px 2px at 78% 22%, rgba(255, 255, 255, 1) 0%, rgba(245, 215, 127, 0.85) 50%, transparent 100%),
+    radial-gradient(2.5px 2.5px at 85% 82%, rgba(255, 255, 255, 1) 0%, rgba(250, 226, 156, 0.85) 50%, transparent 100%),
+    radial-gradient(1.8px 1.8px at 25% 75%, rgba(255, 255, 255, 1) 0%, rgba(16, 185, 129, 0.8) 50%, transparent 100%);
   background-size: 700px 700px;
   animation: galaxy-starlight-twinkle 6s ease-in-out infinite alternate;
 }
@@ -3983,52 +4089,52 @@ a:focus-visible {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(ellipse at 30% 40%, rgba(129, 140, 248, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 70% 70%, rgba(56, 189, 248, 0.07) 0%, transparent 60%);
+    radial-gradient(ellipse at 40% 30%, rgba(212, 175, 55, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 65%, rgba(245, 215, 127, 0.05) 0%, transparent 60%);
   mix-blend-mode: screen;
 }
 
 /* ==========================================================================
-   COSMIC GALAXY UI HARMONIZATION
+   IONIC FRAMEWORK BLACK & GOLD UI DESIGN
    ========================================================================== */
 body {
   position: relative;
   isolation: isolate;
-  background-color: #040612;
+  background-color: #070707;
   color: var(--text);
   overflow-x: hidden;
 }
 
 .auth-gate {
-  background: radial-gradient(ellipse at 50% 25%, #101942 0%, #06091c 55%, #02030a 100%);
+  background: radial-gradient(ellipse at 50% 25%, #1c170a 0%, #0c0b06 55%, #020202 100%);
 }
 
 .auth-card {
-  background: rgba(10, 15, 38, 0.88);
-  border: 1px solid rgba(99, 102, 241, 0.32);
-  border-radius: 14px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 40px rgba(99, 102, 241, 0.18);
-  backdrop-filter: blur(24px);
+  background: rgba(14, 14, 14, 0.92);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 18px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(212, 175, 55, 0.18);
+  backdrop-filter: blur(28px);
 }
 
 .auth-gate-brand .auth-brand-mark, .auth-gate-brand img {
-  outline: 1px solid rgba(56, 189, 248, 0.4);
+  outline: 1px solid rgba(212, 175, 55, 0.5);
   outline-offset: -1px;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.35);
 }
 
 .auth-preview {
-  background: rgba(10, 15, 38, 0.8);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 12px;
+  background: rgba(14, 14, 14, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 14px;
 }
 
 .auth-preview-area {
-  fill: rgba(0, 245, 160, 0.1);
+  fill: rgba(212, 175, 55, 0.12);
 }
 
 .auth-preview-line {
-  stroke: var(--gain);
+  stroke: var(--accent);
 }
 
 .auth-preview-value span {
@@ -4037,106 +4143,111 @@ body {
 
 .auth-eyebrow-dot {
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
 }
 
 .auth-submit-button {
   min-height: 46px;
   border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #00f5ff 0%, #38bdf8 50%, #818cf8 100%);
-  color: #020617;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fae29c 0%, #d4af37 50%, #aa8214 100%);
+  color: #070707;
   font-weight: 600;
-  box-shadow: 0 6px 24px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.35);
 }
 
 .auth-submit-button:hover {
   filter: brightness(1.1);
-  box-shadow: 0 8px 30px rgba(56, 189, 248, 0.5);
+  box-shadow: 0 8px 30px rgba(212, 175, 55, 0.5);
 }
 
 .auth-field-input {
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 8px;
-  background: rgba(7, 10, 26, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.9);
   color: var(--text);
 }
 
 .auth-field-input:focus {
   border-color: var(--accent);
-  outline: 2px solid rgba(56, 189, 248, 0.25);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+  outline: 2px solid rgba(212, 175, 55, 0.25);
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.25);
 }
 
-/* Cosmic Navbar */
+/* Ionic Toolbar & Navigation */
 .navbar {
-  background: rgba(6, 9, 24, 0.82);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.22);
-  backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.45);
+  background: rgba(10, 10, 10, 0.88);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
 }
 
 .brand-name {
   color: #ffffff;
-  text-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
+  font-weight: 600;
+  text-shadow: 0 0 18px rgba(212, 175, 55, 0.45);
 }
 
 .brand-suffix {
-  color: #94a3b8;
-  font-weight: 400;
+  color: #d4af37;
+  font-weight: 500;
 }
 
 .brand-logo {
-  outline: 1px solid rgba(56, 189, 248, 0.5);
+  outline: 1px solid rgba(212, 175, 55, 0.5);
   outline-offset: -1px;
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.35), 0 0 30px rgba(168, 85, 247, 0.2);
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.35);
 }
 
+/* Ionic Segmented Controls (ion-segment) */
 .top-nav-views {
-  background: rgba(10, 15, 38, 0.85);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 8px;
+  background: rgba(18, 18, 18, 0.9);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 20px;
   padding: 3px;
 }
 
 .top-nav-btn {
   min-height: 34px;
-  border-radius: 6px;
-  color: #94a3b8;
+  border-radius: 16px;
+  color: #a89f8c;
+  padding: 0 14px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .top-nav-btn:hover {
-  color: #f8fafc;
-  background: rgba(56, 189, 248, 0.1);
+  color: #ffffff;
+  background: rgba(212, 175, 55, 0.1);
 }
 
 .top-nav-btn.active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.18));
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  color: #38bdf8;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.22);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.24), rgba(245, 215, 127, 0.12));
+  border: 1px solid #d4af37;
+  color: #f5d77f;
+  box-shadow: 0 2px 14px rgba(212, 175, 55, 0.25);
 }
 
-/* Global Search - Clean layout, zero Ctrl K collision */
+/* Ionic Searchbar (ion-searchbar) */
 .search-input-wrapper {
   display: flex;
   align-items: center;
   gap: 9px;
-  min-height: 40px;
-  padding: 0 12px;
-  background: rgba(10, 15, 38, 0.85);
-  border: 1px solid rgba(99, 102, 241, 0.28);
-  border-radius: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  background: rgba(18, 18, 18, 0.9);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 22px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .search-input-wrapper:focus-within {
-  border-color: rgba(56, 189, 248, 0.7);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18), 0 8px 30px rgba(0, 0, 0, 0.45);
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2), 0 8px 30px rgba(0, 0, 0, 0.6);
 }
 
 .search-input-wrapper > svg {
-  stroke: #38bdf8;
+  stroke: #d4af37;
   flex: none;
 }
 
@@ -4146,23 +4257,23 @@ body {
   background: transparent;
   border: none;
   outline: none;
-  color: #f8fafc;
-  font-size: 12px;
+  color: #ffffff;
+  font-size: 12.5px;
   padding: 0;
 }
 
 .search-input-wrapper input::placeholder {
-  color: #64748b;
+  color: #736c5e;
 }
 
 .search-kbd {
   flex: none;
   min-width: unset;
-  padding: 2px 7px;
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 5px;
-  background: rgba(56, 189, 248, 0.1);
-  color: #38bdf8;
+  padding: 2px 8px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 12px;
+  background: rgba(212, 175, 55, 0.12);
+  color: #f5d77f;
   cursor: pointer;
   font-size: 10px;
   font-family: var(--font-mono);
@@ -4170,18 +4281,18 @@ body {
 
 .search-dropdown {
   top: calc(100% + 8px);
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  border-radius: 10px;
-  background: rgba(8, 12, 28, 0.96);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(56, 189, 248, 0.14);
-  backdrop-filter: blur(24px);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 14px;
+  background: rgba(14, 14, 14, 0.98);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(212, 175, 55, 0.12);
+  backdrop-filter: blur(28px);
   overflow: hidden;
 }
 
 .search-item {
   width: 100%;
   border: 0;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.12);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
   text-align: left;
   background: transparent;
   color: var(--text);
@@ -4189,17 +4300,17 @@ body {
 }
 
 .search-item:hover, .search-item:focus-visible {
-  background: rgba(56, 189, 248, 0.12);
-  color: #f8fafc;
+  background: rgba(212, 175, 55, 0.12);
+  color: #ffffff;
 }
 
 .search-item-symbol {
-  color: #38bdf8;
+  color: #f5d77f;
   font-weight: 600;
 }
 
 .search-item-category {
-  color: #a78bfa;
+  color: #d4af37;
 }
 
 .search-empty-state {
@@ -4213,38 +4324,33 @@ body {
   color: var(--text);
 }
 
-/* Nav Actions & Utility Buttons */
+/* Ionic Utility Chips & Badges (ion-chip, ion-badge) */
 .nav-actions {
   gap: 8px;
 }
 
 .nav-utility-btn {
   min-height: 38px;
-  padding: 0 12px;
+  padding: 0 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  border: 1px solid rgba(99, 102, 241, 0.28);
-  border-radius: 8px;
-  background: rgba(10, 15, 38, 0.85);
-  color: #cbd5e1;
-  font-size: 11px;
+  gap: 8px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 20px;
+  background: rgba(18, 18, 18, 0.88);
+  color: #f5f5f5;
+  font-size: 11.5px;
   font-weight: 500;
   white-space: nowrap;
+  transition: all 0.2s ease;
 }
 
-.nav-utility-btn:hover, .nav-utility-btn:focus-visible {
-  border-color: rgba(56, 189, 248, 0.6);
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.22);
-}
-
-.nav-utility-btn.active {
-  border-color: rgba(56, 189, 248, 0.65);
-  background: rgba(56, 189, 248, 0.16);
-  color: #38bdf8;
+.nav-utility-btn:hover, .nav-utility-btn.active {
+  border-color: #d4af37;
+  background: rgba(212, 175, 55, 0.16);
+  color: #f5d77f;
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.25);
 }
 
 .nav-utility-icon {
@@ -4257,21 +4363,21 @@ body {
   height: 20px;
   display: inline-grid;
   place-items: center;
-  padding: 0 5px;
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 0 6px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
   border-radius: 10px;
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  font: 500 10px/1 var(--font-mono);
+  background: rgba(212, 175, 55, 0.18);
+  color: #f5d77f;
+  font: 600 10px/1 var(--font-mono);
 }
 
 .auth-account {
   gap: 8px;
-  color: #cbd5e1;
+  color: #f5f5f5;
 }
 
 .auth-account img {
-  outline: 1px solid rgba(56, 189, 248, 0.35);
+  outline: 1px solid rgba(212, 175, 55, 0.4);
   outline-offset: -1px;
 }
 
@@ -4280,30 +4386,31 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 0 11px;
-  border: 1px solid rgba(168, 85, 247, 0.3);
-  border-radius: 8px;
-  background: rgba(168, 85, 247, 0.08);
-  color: #c084fc;
+  padding: 0 14px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 18px;
+  background: rgba(212, 175, 55, 0.1);
+  color: #f5d77f;
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .auth-account button:hover {
-  border-color: #c084fc;
-  background: rgba(168, 85, 247, 0.18);
-  color: #f3e8ff;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.25);
+  border-color: #d4af37;
+  background: rgba(212, 175, 55, 0.22);
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
 }
 
 .auth-account button:active, .nav-utility-btn:active, .wl-btn:active, .alert-delete-btn:active {
   scale: .96;
 }
 
-/* Cosmic Watchlist Drawer */
+/* Ionic Watchlist Drawer (ion-menu) */
 .watchlist-backdrop {
   top: 66px;
-  background: rgba(2, 4, 14, 0.75);
+  background: rgba(2, 2, 2, 0.8);
   backdrop-filter: blur(4px);
 }
 
@@ -4313,10 +4420,10 @@ body {
   width: min(420px, 100vw);
   height: calc(100dvh - 66px);
   transform: translateX(calc(100% + 2px));
-  border-left: 1px solid rgba(99, 102, 241, 0.32);
-  border-radius: 14px 0 0 14px;
-  background: rgba(8, 12, 28, 0.95);
-  box-shadow: -24px 0 70px rgba(0, 0, 0, 0.8), -5px 0 30px rgba(99, 102, 241, 0.18);
+  border-left: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 16px 0 0 16px;
+  background: rgba(12, 12, 12, 0.96);
+  box-shadow: -24px 0 70px rgba(0, 0, 0, 0.9), -5px 0 30px rgba(212, 175, 55, 0.15);
   backdrop-filter: blur(28px);
   transition-property: transform, box-shadow;
   transition-duration: 220ms;
@@ -4330,21 +4437,21 @@ body {
 
 .watchlist-drawer-header {
   padding: 13px 16px;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.18);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.18);
 }
 
 .tv-drawer-tab-btn {
   min-height: 38px;
-  padding: 0 13px;
-  border-radius: 7px;
-  color: #94a3b8;
+  padding: 0 14px;
+  border-radius: 18px;
+  color: #a89f8c;
 }
 
 .tv-drawer-tab-btn.active {
-  background: rgba(56, 189, 248, 0.14);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  background: rgba(212, 175, 55, 0.16);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  color: #f5d77f;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.2);
 }
 
 .close-drawer-btn {
@@ -4353,35 +4460,35 @@ body {
   display: grid;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 18px;
 }
 
 .close-drawer-btn:hover {
-  border-color: rgba(99, 102, 241, 0.3);
-  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.12);
   color: var(--accent);
 }
 
 .watchlist-disclaimer {
-  background: rgba(56, 189, 248, 0.04);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.15);
-  color: #94a3b8;
+  background: rgba(212, 175, 55, 0.05);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  color: #a89f8c;
 }
 
 .watchlist-actions-bar {
   gap: 7px;
   padding: 11px 16px;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
   background: transparent;
 }
 
 .wl-btn {
   min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 7px;
-  background: rgba(12, 17, 40, 0.85);
-  color: #cbd5e1;
+  padding: 0 12px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 17px;
+  background: rgba(18, 18, 18, 0.88);
+  color: #f5f5f5;
   font-size: 11px;
   transition-property: color, background-color, border-color, box-shadow, scale;
   transition-duration: 150ms;
@@ -4389,16 +4496,16 @@ body {
 }
 
 .wl-btn:hover {
-  border-color: rgba(56, 189, 248, 0.5);
-  background: rgba(56, 189, 248, 0.14);
-  color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.18);
+  border-color: #d4af37;
+  background: rgba(212, 175, 55, 0.16);
+  color: #f5d77f;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.2);
 }
 
 .wl-btn-danger:hover {
-  border-color: rgba(255, 77, 109, 0.5);
-  background: rgba(255, 77, 109, 0.12);
-  color: #ff4d6d;
+  border-color: rgba(244, 63, 94, 0.5);
+  background: rgba(244, 63, 94, 0.12);
+  color: #f43f5e;
 }
 
 .watchlist-items-list {
@@ -4409,33 +4516,33 @@ body {
 .wl-item-row {
   min-height: 67px;
   padding: 11px 12px;
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  border-radius: 8px;
-  background: rgba(11, 16, 38, 0.7);
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 10px;
+  background: rgba(18, 18, 18, 0.75);
   transition-property: background-color, border-color, box-shadow;
   transition-duration: 150ms;
 }
 
 .wl-item-row:hover, .wl-item-row:focus-visible {
-  border-color: rgba(56, 189, 248, 0.45);
-  background: rgba(18, 27, 62, 0.85);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.15);
+  border-color: rgba(212, 175, 55, 0.5);
+  background: rgba(26, 24, 18, 0.9);
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.18);
   outline-offset: 2px;
 }
 
 .wl-item-row.active {
-  border-color: rgba(56, 189, 248, 0.65);
-  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16), rgba(129, 140, 248, 0.05));
-  box-shadow: inset 3px 0 #38bdf8;
+  border-color: #d4af37;
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.04));
+  box-shadow: inset 3px 0 #d4af37;
 }
 
 .wl-item-name {
   max-width: 190px;
-  color: #94a3b8;
+  color: #a89f8c;
 }
 
 .wl-item-price {
-  color: #f8fafc;
+  color: #ffffff;
 }
 
 .wl-item-del-btn {
@@ -4444,12 +4551,12 @@ body {
   display: grid;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 16px;
 }
 
 .wl-item-del-btn:hover, .wl-item-del-btn:focus-visible {
-  border-color: rgba(255, 77, 109, 0.4);
-  background: rgba(255, 77, 109, 0.12);
+  border-color: rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.12);
   color: var(--loss);
 }
 
@@ -4462,8 +4569,8 @@ body {
   width: 42px;
   height: 42px;
   margin-bottom: 8px;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 14px;
   color: var(--accent);
 }
 
@@ -4473,66 +4580,66 @@ body {
   display: grid;
   place-items: center;
   margin: 0 auto 12px !important;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 14px;
   color: var(--accent) !important;
 }
 
 .watchlist-empty-text {
-  color: #f8fafc;
+  color: #ffffff;
   font-size: 14px;
 }
 
 .watchlist-empty-suggestions button {
   min-height: 32px;
-  padding: 0 10px !important;
-  border: 1px solid rgba(99, 102, 241, 0.28) !important;
-  border-radius: 7px !important;
-  background: rgba(12, 17, 40, 0.8) !important;
-  color: #38bdf8 !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(212, 175, 55, 0.3) !important;
+  border-radius: 16px !important;
+  background: rgba(18, 18, 18, 0.85) !important;
+  color: #f5d77f !important;
   transition-property: background-color, border-color, color, scale;
   transition-duration: 150ms;
 }
 
 .watchlist-empty-suggestions button:hover {
-  border-color: rgba(56, 189, 248, 0.55) !important;
-  background: rgba(56, 189, 248, 0.15) !important;
-  color: #f8fafc !important;
+  border-color: #d4af37 !important;
+  background: rgba(212, 175, 55, 0.2) !important;
+  color: #ffffff !important;
 }
 
-/* Cosmic Alerts View */
+/* Ionic Alerts View */
 .alerts-create-form {
-  background: rgba(56, 189, 248, 0.04);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.18) !important;
+  background: rgba(212, 175, 55, 0.04);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.18) !important;
 }
 
 .alerts-create-form .screener-input {
   min-height: 38px;
-  border: 1px solid rgba(99, 102, 241, 0.28);
-  border-radius: 7px;
-  background: rgba(7, 10, 26, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.9);
   color: var(--text);
 }
 
 .alerts-create-form .screener-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
 }
 
 .alerts-create-form #create-alert-btn {
   min-height: 38px;
-  padding: 0 14px !important;
+  padding: 0 16px !important;
   border: none;
-  border-radius: 7px;
-  background: linear-gradient(135deg, #00f5ff 0%, #38bdf8 100%);
-  color: #020617;
+  border-radius: 19px;
+  background: linear-gradient(135deg, #fae29c 0%, #d4af37 100%);
+  color: #070707;
   font-weight: 600;
-  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.3);
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.35);
 }
 
 .alerts-create-form #create-alert-btn:hover {
   filter: brightness(1.1);
-  box-shadow: 0 6px 22px rgba(56, 189, 248, 0.45);
+  box-shadow: 0 6px 22px rgba(212, 175, 55, 0.5);
 }
 
 .alerts-list-container {
@@ -4546,15 +4653,15 @@ body {
   gap: 12px;
   margin-bottom: 8px;
   padding: 12px;
-  border: 1px solid rgba(99, 102, 241, 0.22);
-  border-radius: 8px;
-  background: rgba(11, 16, 38, 0.7);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 10px;
+  background: rgba(18, 18, 18, 0.75);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.025);
 }
 
 .alert-card.triggered {
-  border-color: rgba(255, 77, 109, 0.55);
-  background: rgba(255, 77, 109, 0.14);
+  border-color: rgba(244, 63, 94, 0.55);
+  background: rgba(244, 63, 94, 0.14);
 }
 
 .alert-card-copy {
@@ -4562,23 +4669,23 @@ body {
 }
 
 .alert-card-title {
-  color: #f8fafc;
+  color: #ffffff;
   font-size: 12px;
   font-weight: 600;
 }
 
 .alert-card-title span {
-  color: #38bdf8;
+  color: #f5d77f;
 }
 
 .alert-card-meta {
   margin-top: 5px;
-  color: #94a3b8;
+  color: #a89f8c;
   font-size: 10px;
 }
 
 .alert-card.triggered .alert-card-meta {
-  color: #ff4d6d;
+  color: #f43f5e;
 }
 
 .alert-delete-btn {
@@ -4588,17 +4695,17 @@ body {
   display: grid;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 17px;
   background: transparent;
-  color: #94a3b8;
+  color: #a89f8c;
   cursor: pointer;
   font-size: 17px;
 }
 
 .alert-delete-btn:hover, .alert-delete-btn:focus-visible {
-  border-color: rgba(255, 77, 109, 0.4);
-  background: rgba(255, 77, 109, 0.12);
-  color: #ff4d6d;
+  border-color: rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.12);
+  color: #f43f5e;
 }
 
 .alerts-empty-state {
@@ -4609,7 +4716,7 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 24px;
-  color: #94a3b8;
+  color: #a89f8c;
   text-align: center;
 }
 
@@ -4619,14 +4726,14 @@ body {
   display: grid;
   place-items: center;
   margin-bottom: 4px;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 12px;
-  color: #38bdf8;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 14px;
+  color: #d4af37;
   font-size: 24px;
 }
 
 .alerts-empty-state strong {
-  color: #f8fafc;
+  color: #ffffff;
   font-size: 13px;
 }
 
@@ -4636,53 +4743,80 @@ body {
   line-height: 1.6;
 }
 
-/* Terminal Panels, Cards, and Technical Snapshot */
+/* Ionic Cards (ion-card) */
 .terminal-card, .macro-panel, .screener-card {
-  background: rgba(10, 15, 36, 0.74);
-  border: 1px solid rgba(99, 102, 241, 0.22);
-  border-radius: 12px;
-  box-shadow: 0 16px 40px -12px rgba(2, 6, 23, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(14, 14, 14, 0.82);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 16px;
+  box-shadow: 0 18px 45px -10px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 
 .hero-card {
-  background: linear-gradient(135deg, rgba(16, 23, 56, 0.82) 0%, rgba(9, 13, 31, 0.78) 100%);
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 12px;
-  box-shadow: 0 16px 40px -12px rgba(2, 6, 23, 0.8), 0 0 25px rgba(56, 189, 248, 0.12);
-  backdrop-filter: blur(20px);
+  background: linear-gradient(135deg, rgba(26, 22, 14, 0.88) 0%, rgba(12, 12, 12, 0.82) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.32);
+  border-radius: 16px;
+  box-shadow: 0 18px 45px -10px rgba(0, 0, 0, 0.9), 0 0 25px rgba(212, 175, 55, 0.15);
+  backdrop-filter: blur(24px);
 }
 
 .hero-range-block {
-  border-top-color: rgba(99, 102, 241, 0.2);
+  border-top-color: rgba(212, 175, 55, 0.2);
 }
 
 .technical-snapshot {
-  background: linear-gradient(100deg, rgba(16, 24, 58, 0.8) 0%, rgba(10, 15, 34, 0.85) 100%);
-  border: 1px solid rgba(139, 92, 246, 0.28);
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(100deg, rgba(28, 24, 15, 0.85) 0%, rgba(12, 12, 12, 0.88) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 14px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
 }
 
 .snapshot-kicker {
-  color: #38bdf8;
-  text-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+  color: #f5d77f;
+  text-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
 }
 
 .snapshot-regime strong[data-state="above-key-averages"],
 .snapshot-metric strong[data-direction="positive"] {
   color: var(--gain);
-  text-shadow: 0 0 12px rgba(0, 245, 160, 0.35);
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
 }
 
 .snapshot-regime strong[data-state="below-key-averages"],
 .snapshot-metric strong[data-direction="negative"] {
   color: var(--loss);
-  text-shadow: 0 0 12px rgba(255, 77, 109, 0.35);
+  text-shadow: 0 0 12px rgba(244, 63, 94, 0.35);
+}
+
+.macro-tabs {
+  border-bottom: 1px solid rgba(212, 175, 55, 0.18);
+}
+
+.macro-tab-btn.active {
+  color: #f5d77f;
+  border-bottom: 2px solid #d4af37;
+  text-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+}
+
+.ws-tab-btn {
+  border-radius: 8px;
+  color: #a89f8c;
+}
+
+.ws-tab-btn:hover {
+  background: rgba(212, 175, 55, 0.1);
+  color: #ffffff;
+}
+
+.ws-tab-btn.active {
+  background: rgba(212, 175, 55, 0.16);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  color: #f5d77f;
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.2);
 }
 
 .top-nav-btn:focus-visible, .watchlist-nav-toggle-btn:focus-visible, .auth-account button:focus-visible, .wl-btn:focus-visible, .alert-delete-btn:focus-visible, .search-item:focus-visible {
-  outline: 2px solid #38bdf8;
+  outline: 2px solid #d4af37;
   outline-offset: 2px;
 }
 
@@ -4691,6 +4825,7 @@ body {
   .navbar { flex-wrap: wrap; gap: 10px 16px; }
   .nav-search { order: 3; flex: 1 1 100%; width: 100%; }
   .nav-actions { margin-left: auto; }
+  .celestial-planet-wrap { width: 220px; height: 220px; top: 120px; opacity: 0.65; }
 }
 
 @media (max-width: 760px) {
@@ -4710,6 +4845,7 @@ body {
   .snapshot-regime { grid-column: 1 / -1; }
   .snapshot-metric { padding: 0 10px; }
   .snapshot-metric:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .celestial-planet-wrap { width: 160px; height: 160px; top: 180px; opacity: 0.45; }
 }
 
 @media (max-width: 700px) {
