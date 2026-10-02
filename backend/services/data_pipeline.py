@@ -860,11 +860,15 @@ def get_market_overview() -> dict:
         {"symbol": "GC=F", "name": "Gold", "category": "Commodities"},
         {"symbol": "SI=F", "name": "Silver", "category": "Commodities"},
         {"symbol": "CL=F", "name": "Crude Oil", "category": "Commodities"},
+        {"symbol": "NG=F", "name": "Natural Gas", "category": "Commodities"},
+        {"symbol": "HG=F", "name": "Copper", "category": "Commodities"},
 
         # Crypto
         {"symbol": "BTC-USD", "name": "Bitcoin", "category": "Crypto"},
         {"symbol": "ETH-USD", "name": "Ethereum", "category": "Crypto"},
         {"symbol": "SOL-USD", "name": "Solana", "category": "Crypto"},
+        {"symbol": "BNB-USD", "name": "BNB", "category": "Crypto"},
+        {"symbol": "XRP-USD", "name": "XRP", "category": "Crypto"},
     ]
 
     macro_results = {

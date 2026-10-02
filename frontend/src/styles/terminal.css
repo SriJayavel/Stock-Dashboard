@@ -1040,8 +1040,18 @@ body[data-workspace="monitor"] .watchlist-drawer {
 /* Authentic Financial Sector Heatmap Matrix */
 .sector-heatmap-matrix {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+@media (max-width: 1024px) {
+  .sector-heatmap-matrix {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .sector-heatmap-matrix {
+    grid-template-columns: 1fr;
+  }
 }
 .hm-tile {
   display: flex;
@@ -1058,33 +1068,39 @@ body[data-workspace="monitor"] .watchlist-drawer {
   position: relative;
 }
 .hm-tile:hover {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
 }
 .hm-tile.active-hm-cell {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent), 0 2px 8px rgba(41, 98, 255, 0.25);
 }
 
 /* Heatmap Performance Color Intensities */
 .hm-tile.hm-gain-strong {
-  background: rgba(34, 171, 148, 0.22);
-  border-left: 3px solid #22ab94;
+  background: rgba(34, 171, 148, 0.16);
+  border-color: rgba(34, 171, 148, 0.38);
+  border-left: 3.5px solid #22ab94;
 }
 .hm-tile.hm-gain-mod {
-  background: rgba(34, 171, 148, 0.10);
-  border-left: 3px solid rgba(34, 171, 148, 0.6);
+  background: rgba(34, 171, 148, 0.08);
+  border-color: rgba(34, 171, 148, 0.22);
+  border-left: 3.5px solid rgba(34, 171, 148, 0.7);
 }
 .hm-tile.hm-neutral {
   background: rgba(255, 255, 255, 0.03);
-  border-left: 3px solid rgba(255, 255, 255, 0.15);
+  border-color: var(--border);
+  border-left: 3.5px solid rgba(255, 255, 255, 0.18);
 }
 .hm-tile.hm-loss-mod {
-  background: rgba(242, 54, 69, 0.10);
-  border-left: 3px solid rgba(242, 54, 69, 0.6);
+  background: rgba(242, 54, 69, 0.08);
+  border-color: rgba(242, 54, 69, 0.22);
+  border-left: 3.5px solid rgba(242, 54, 69, 0.7);
 }
 .hm-tile.hm-loss-strong {
-  background: rgba(242, 54, 69, 0.22);
-  border-left: 3px solid #f23645;
+  background: rgba(242, 54, 69, 0.16);
+  border-color: rgba(242, 54, 69, 0.38);
+  border-left: 3.5px solid #f23645;
 }
 
 .hm-tile-header {

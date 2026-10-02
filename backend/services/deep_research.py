@@ -73,6 +73,12 @@ BENCHMARK_SECTORS = {
         "constituents": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "COALINDIA.NS", "RIO", "BHP"],
         "display_name": "Metals, Mining & Materials",
     },
+    "Infrastructure & Industrials": {
+        "benchmark_etf": "XLI",
+        "indian_proxy": "^CNXINFRA",
+        "constituents": ["LT.NS", "SIEMENS.NS", "ABB.NS", "BEL.NS", "CAT", "GE"],
+        "display_name": "Infrastructure & Capital Goods",
+    },
 }
 
 
