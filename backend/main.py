@@ -75,6 +75,10 @@ async def require_mara_account(request, call_next):
     path = request.url.path
     public_paths = {"/api/health"}
     if request.method != "OPTIONS" and path.startswith("/api/") and path not in public_paths:
+        if settings.ENVIRONMENT != "production" and (not settings.SUPABASE_URL or not settings.SUPABASE_KEY):
+            request.state.mara_user = {"id": "guest_dev", "email": "dev@mara.internal"}
+            return await call_next(request)
+
         authorization = request.headers.get("authorization", "")
         scheme, _, credential = authorization.partition(" ")
         if scheme.lower() != "bearer" or not credential:

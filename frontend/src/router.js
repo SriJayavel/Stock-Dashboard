@@ -25,36 +25,74 @@ export class HashRouter {
   parseHash(hash = window.location.hash) {
     const raw = (hash || '').replace(/^#\/?/, '').trim();
     if (!raw) {
-      return { type: 'root', symbol: null, tab: null, raw: '' };
+      return { type: 'root', workspace: 'analyze', symbol: null, tab: null, raw: '' };
     }
 
     const parts = raw.split('/').map((p) => decodeURIComponent(p.trim())).filter(Boolean);
+    const first = parts[0]?.toLowerCase();
 
-    // #/screener or #/screener/:universe
-    if (parts[0].toLowerCase() === 'screener') {
+    // #/markets or #/sectors
+    if (first === 'markets' || first === 'sectors') {
       return {
-        type: 'screener',
-        view: 'screener',
+        type: 'markets',
+        workspace: 'markets',
+        view: 'markets',
+        tab: 'markets',
+        raw,
+      };
+    }
+
+    // #/discover or #/screener
+    if (first === 'discover' || first === 'screener') {
+      return {
+        type: 'discover',
+        workspace: 'discover',
+        view: 'discover',
         universe: parts[1] || 'indian_leaders',
         raw,
       };
     }
 
-    // #/sectors
-    if (parts[0].toLowerCase() === 'sectors') {
+    // #/compare or #/compare/:symbol
+    if (first === 'compare') {
       return {
-        type: 'sectors',
-        view: 'sectors',
-        tab: 'sectors',
+        type: 'compare',
+        workspace: 'compare',
+        view: 'compare',
+        symbol: parts[1] ? parts[1].toUpperCase() : null,
         raw,
       };
     }
 
-    // #/symbol/:symbol/:tab?
-    if (parts[0].toLowerCase() === 'symbol' && parts[1]) {
+    // #/research or #/research/:symbol/:sub
+    if (first === 'research') {
+      return {
+        type: 'research',
+        workspace: 'research',
+        view: 'research',
+        symbol: parts[1] ? parts[1].toUpperCase() : null,
+        subTab: parts[2] ? parts[2].toLowerCase() : 'news',
+        raw,
+      };
+    }
+
+    // #/monitor or #/monitor/:sub
+    if (first === 'monitor') {
+      return {
+        type: 'monitor',
+        workspace: 'monitor',
+        view: 'monitor',
+        subTab: parts[1] ? parts[1].toLowerCase() : 'watchlist',
+        raw,
+      };
+    }
+
+    // #/analyze/:symbol/:tab or #/symbol/:symbol/:tab
+    if ((first === 'analyze' || first === 'symbol') && parts[1]) {
       return {
         type: 'symbol',
-        view: 'terminal',
+        workspace: 'analyze',
+        view: 'analyze',
         symbol: parts[1].toUpperCase(),
         tab: parts[2] ? parts[2].toLowerCase() : 'chart',
         raw,
@@ -62,17 +100,18 @@ export class HashRouter {
     }
 
     // Direct ticker shorthand, e.g. #/TCS.NS or #/INFY.NS
-    if (parts.length === 1 && !['screener', 'sectors', 'terminal'].includes(parts[0].toLowerCase())) {
+    if (parts.length === 1 && !['markets', 'discover', 'screener', 'sectors', 'terminal', 'analyze', 'compare', 'research', 'monitor'].includes(first)) {
       return {
         type: 'symbol',
-        view: 'terminal',
+        workspace: 'analyze',
+        view: 'analyze',
         symbol: parts[0].toUpperCase(),
         tab: 'chart',
         raw,
       };
     }
 
-    return { type: 'unknown', view: 'terminal', parts, raw };
+    return { type: 'unknown', workspace: 'analyze', view: 'analyze', parts, raw };
   }
 
   /**
@@ -88,18 +127,37 @@ export class HashRouter {
   }
 
   /**
+   * Format URL route string for workspace
+   */
+  formatWorkspaceRoute(workspace, symbol = null, sub = null) {
+    if (workspace === 'markets') return '/markets';
+    if (workspace === 'discover') return sub ? `/discover/${encodeURIComponent(sub)}` : '/discover';
+    if (workspace === 'analyze') {
+      const sym = symbol ? encodeURIComponent(symbol.toUpperCase()) : 'TCS.NS';
+      return `/symbol/${sym}/${encodeURIComponent(sub || 'chart')}`;
+    }
+    if (workspace === 'compare') return symbol ? `/compare/${encodeURIComponent(symbol.toUpperCase())}` : '/compare';
+    if (workspace === 'research') {
+      const sym = symbol ? encodeURIComponent(symbol.toUpperCase()) : 'TCS.NS';
+      return `/research/${sym}/${encodeURIComponent(sub || 'news')}`;
+    }
+    if (workspace === 'monitor') return sub ? `/monitor/${encodeURIComponent(sub)}` : '/monitor';
+    return '/markets';
+  }
+
+  /**
    * Format URL route string for screener
    * @param {string} universe
    */
   formatScreenerRoute(universe = 'indian_leaders') {
-    return `/screener/${encodeURIComponent(universe)}`;
+    return `/discover/${encodeURIComponent(universe)}`;
   }
 
   /**
    * Format URL route string for sectors
    */
   formatSectorsRoute() {
-    return '/sectors';
+    return '/markets';
   }
 
   /**

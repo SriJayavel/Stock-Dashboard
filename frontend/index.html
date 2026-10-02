@@ -99,37 +99,25 @@
         </div>
       </div>
 
-      <!-- Top-Level Views Switcher -->
-      <nav class="top-nav-views" id="top-nav-views">
-        <button class="top-nav-btn active" id="top-view-terminal" data-top-view="terminal" title="Deep Asset Terminal">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-            <line x1="8" y1="21" x2="16" y2="21"/>
-            <line x1="12" y1="17" x2="12" y2="21"/>
-          </svg>
-          <span>Terminal</span>
+      <!-- Workspace Navigation: MARKETS, DISCOVER, ANALYZE, COMPARE, RESEARCH, MONITOR -->
+      <nav class="top-nav-workspaces" id="top-nav-workspaces" role="tablist" aria-label="Workspaces">
+        <button class="top-ws-btn" id="ws-btn-markets" data-workspace="markets" role="tab" aria-selected="false" title="Markets: Indices, Macro & Sectors">
+          <span>Markets</span>
         </button>
-        <button class="top-nav-btn" id="top-view-screener" data-top-view="screener" title="Market Screener & Discovery">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="4" y1="21" x2="4" y2="14"/>
-            <line x1="4" y1="10" x2="4" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="12"/>
-            <line x1="12" y1="8" x2="12" y2="3"/>
-            <line x1="20" y1="21" x2="20" y2="16"/>
-            <line x1="20" y1="12" x2="20" y2="3"/>
-            <line x1="1" y1="14" x2="7" y2="14"/>
-            <line x1="9" y1="8" x2="15" y2="8"/>
-            <line x1="17" y1="16" x2="23" y2="16"/>
-          </svg>
-          <span>Screener</span>
+        <button class="top-ws-btn" id="ws-btn-discover" data-workspace="discover" role="tab" aria-selected="false" title="Discover: Screener & Asset Finder">
+          <span>Discover</span>
         </button>
-        <button class="top-nav-btn" id="top-view-sectors" data-top-view="sectors" title="Sector Heatmap & Breadth">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-            <polyline points="2 17 12 22 22 17"/>
-            <polyline points="2 12 12 17 22 12"/>
-          </svg>
-          <span>Sectors</span>
+        <button class="top-ws-btn active" id="ws-btn-analyze" data-workspace="analyze" role="tab" aria-selected="true" title="Analyze: Asset Workstation & Chart">
+          <span>Analyze</span>
+        </button>
+        <button class="top-ws-btn" id="ws-btn-compare" data-workspace="compare" role="tab" aria-selected="false" title="Compare: Peer Multiples & Correlation">
+          <span>Compare</span>
+        </button>
+        <button class="top-ws-btn" id="ws-btn-research" data-workspace="research" role="tab" aria-selected="false" title="Research: Events, Anomalies & Reports">
+          <span>Research</span>
+        </button>
+        <button class="top-ws-btn" id="ws-btn-monitor" data-workspace="monitor" role="tab" aria-selected="false" title="Monitor: Watchlist & Alerts">
+          <span>Monitor</span>
         </button>
       </nav>
 
@@ -180,12 +168,136 @@
       </div>
     </header>
 
-    <!-- Main Content Workstation (Full-Bleed TradingView Layout) -->
-    <main class="main-layout" id="main-layout" data-active-view="terminal">
-      <!-- Full-Bleed Terminal Workstation -->
-      <section class="glass terminal-card terminal-view-card active" id="view-terminal">
-        <!-- PANEL 1: CHART -->
-        <div class="research-view-panel active" id="panel-chart">
+    <!-- Main Content Workstation: 6 Institutional Workspaces -->
+    <main class="main-layout" id="main-layout" data-workspace="analyze" data-active-view="terminal">
+      <!-- =====================================================================
+           WORKSPACE 1: MARKETS
+           ===================================================================== -->
+      <section class="workspace-view" id="workspace-markets" role="tabpanel" aria-labelledby="ws-btn-markets">
+        <div class="workspace-scroll-wrap">
+          <div class="workspace-header">
+            <div class="workspace-title-row">
+              <h2 class="workspace-title">Markets Overview</h2>
+              <span class="workspace-badge">Global Macro</span>
+            </div>
+            <p class="workspace-desc">Real-time benchmark index performance, sector rotation heatmaps, and constituent telemetry.</p>
+          </div>
+
+          <div class="ws-section-block">
+            <div class="section-sub-header">
+              <h3 class="section-sub-title">Global Indices &amp; Benchmarks</h3>
+              <span class="section-sub-caption">Click any benchmark to load in Analyze workstation</span>
+            </div>
+            <div class="market-map-grid" id="global-market-map-grid">
+              <!-- Populated via JavaScript loadAndRenderSectorsAndMarketMap -->
+            </div>
+          </div>
+
+          <div class="ws-section-block">
+            <div class="section-sub-header">
+              <h3 class="section-sub-title">Sector Heatmap &amp; Intelligence</h3>
+              <span class="section-sub-caption">Click any sector card to inspect constituent breadth</span>
+            </div>
+            <div class="sector-grid" id="sector-intelligence-grid">
+              <!-- Populated via JavaScript loadAndRenderSectorsAndMarketMap -->
+            </div>
+          </div>
+
+          <div class="ws-section-block" id="sector-detail-section">
+            <div class="section-sub-header">
+              <h3 class="section-sub-title" id="sector-detail-title">Sector Constituents</h3>
+              <span class="section-sub-caption" id="sector-detail-meta"></span>
+            </div>
+            <div id="sector-detail-body" class="timeline-table-wrapper">
+              <!-- Populated via JavaScript -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           WORKSPACE 2: DISCOVER (SCREENER & ASSET FINDER)
+           ===================================================================== -->
+      <section class="workspace-view" id="workspace-discover" role="tabpanel" aria-labelledby="ws-btn-discover">
+        <div class="workspace-scroll-wrap">
+          <div class="workspace-header">
+            <div class="workspace-title-row">
+              <h2 class="workspace-title">Asset Discovery &amp; Screener</h2>
+              <span class="workspace-badge">Multi-Asset Scanner</span>
+            </div>
+            <p class="workspace-desc">Cross-market quantitative scanner across Indian Bluechips, US Mega-Caps, AI Leaders, Crypto, Commodities, and Forex.</p>
+          </div>
+
+          <div class="screener-control-bar">
+            <div class="screener-tabs" id="screener-tabs">
+              <button class="screener-tab-btn active" data-universe="indian_leaders">Indian Leaders</button>
+              <button class="screener-tab-btn" data-universe="us_mega_caps">US Mega-Caps</button>
+              <button class="screener-tab-btn" data-universe="semiconductors_ai">AI &amp; Semiconductors</button>
+              <button class="screener-tab-btn" data-universe="crypto">Crypto</button>
+              <button class="screener-tab-btn" data-universe="commodities">Commodities</button>
+              <button class="screener-tab-btn" data-universe="forex">Forex</button>
+            </div>
+            <button id="toggle-screener-builder-btn" class="ws-action-btn" title="Toggle quantitative rule filter">
+              Filters &amp; Rules
+            </button>
+          </div>
+
+          <!-- Screener Query Builder Container (Collapsible) -->
+          <div id="screener-builder-wrap" class="screener-builder-panel" style="display: none;">
+            <div class="screener-builder-top">
+              <span class="builder-label">Quantitative Filters</span>
+              <div class="builder-actions">
+                <select id="screener-combinator" class="screener-select" aria-label="Rule matching logic">
+                  <option value="AND">Match all (AND)</option>
+                  <option value="OR">Match any (OR)</option>
+                </select>
+                <button id="screener-add-rule-btn" class="ws-tab-btn active">+ Condition</button>
+                <button id="screener-run-builder-btn" class="ws-tab-btn active">Run Filter</button>
+                <button id="screener-export-csv-btn" class="ws-tab-btn">Export CSV</button>
+                <button id="screener-export-json-btn" class="ws-tab-btn">Export JSON</button>
+              </div>
+            </div>
+            <div id="screener-rules-container">
+              <!-- Populated via JavaScript -->
+            </div>
+          </div>
+
+          <div class="screener-table-wrapper">
+            <table class="screener-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Company / Asset</th>
+                  <th>Price</th>
+                  <th>Change %</th>
+                  <th>Market Cap / Metric</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="screener-table-body">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 30px;">Loading market snapshot...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           WORKSPACE 3: ANALYZE (CORE TERMINAL WORKSTATION)
+           ===================================================================== -->
+      <section class="workspace-view active" id="workspace-analyze" role="tabpanel" aria-labelledby="ws-btn-analyze">
+        <!-- Sub-Navigation Bar for Analyze Workspace -->
+        <div class="workspace-subnav" id="analyze-subnav">
+          <button class="ws-sub-btn active" data-analyze-tab="chart" id="tab-analyze-chart">Chart</button>
+          <button class="ws-sub-btn" data-analyze-tab="overview" id="tab-analyze-overview">Overview &amp; Profile</button>
+          <button class="ws-sub-btn" data-analyze-tab="fundamentals" id="tab-analyze-fundamentals">Financial Statements</button>
+          <button class="ws-sub-btn" data-analyze-tab="valuation" id="tab-analyze-valuation">Valuation Multiples</button>
+        </div>
+
+        <!-- SUB-PANEL 1: FULL-HEIGHT CHART WORKSTATION -->
+        <div class="analyze-panel active" id="panel-chart">
           <!-- TradingView-Style Top Toolbar -->
           <div class="tv-top-toolbar" id="tv-top-toolbar">
             <div class="tv-tb-left">
@@ -346,461 +458,406 @@
           </div>
         </div>
 
-        <!-- PANEL 2: ASSET PROFILE & TECHNICAL OVERVIEW -->
-        <div class="research-view-panel" id="panel-overview">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Asset Profile Dossier</h4>
-          </div>
-          <div class="dossier-grid" id="overview-grid" style="margin-bottom: 24px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Technical Observations & Market Structure</h4>
-            <span class="brand-badge">Algorithmic Signals</span>
-          </div>
-          <div class="observations-container" id="observations-container">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- PANEL 3: FINANCIAL STATEMENTS & ADVANCED RATIOS -->
-        <div class="research-view-panel" id="panel-fundamentals">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Annual Financial Statements</h4>
-          </div>
-          <div class="timeline-table-wrapper" id="timeline-container" style="margin-bottom: 20px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Growth Spreads & Operating Leverage</h4>
-          </div>
-          <div id="fundamental-relationships-container" style="margin-bottom: 20px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Filing Statements Diff</h4>
-          </div>
-          <div id="filing-diff-container" style="margin-bottom: 20px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Statement Quality Signals</h4>
-          </div>
-          <div id="statement-quality-container" style="margin-bottom: 20px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Financial Ratios & Solvency</h4>
-          </div>
-          <div class="valuation-grid" id="advanced-ratios-grid">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- PANEL 4: EARNINGS INTELLIGENCE & DIVIDEND HISTORY -->
-        <div class="research-view-panel" id="panel-earnings">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Quarterly Earnings & Margins</h4>
-          </div>
-          <div class="timeline-table-wrapper" id="quarterly-earnings-container" style="margin-bottom: 20px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Corporate Actions & Dividends</h4>
-          </div>
-          <div class="timeline-table-wrapper" id="corporate-events-container">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- PANEL 5: HISTORICAL VALUATION & HEALTH SCORE -->
-        <div class="research-view-panel" id="panel-valuation">
-          <div class="timeline-card-header">
-            <h4 id="valuation-section-title" style="font-size: 13px; font-weight: 600; color: var(--text);">
-              Fundamental Multiples & Valuation Matrix
-            </h4>
-            <span id="valuation-section-badge" class="brand-badge">Equities Valuation</span>
-          </div>
-          <div class="valuation-grid" id="valuation-grid" style="margin-bottom: 24px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Financial Health & Solvency Score</h4>
-          </div>
-          <div class="health-overview-grid">
-            <div class="health-score-hero" id="health-score-hero">
-              <div style="font-size: 11px; font-weight: 600; color: var(--text-dim);">
-                Financial Health Score
-              </div>
-              <div class="health-score-val" id="health-overall-score">—</div>
-              <div style="font-size: 11px; color: var(--text-dim); max-width: 220px;" id="health-score-summary">
-                Transparent multi-pillar model with verifiable mathematical formulas.
-              </div>
+        <!-- SUB-PANEL 2: ASSET PROFILE & TECHNICAL OVERVIEW -->
+        <div class="analyze-panel" id="panel-overview">
+          <div class="workspace-scroll-wrap">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Asset Profile Dossier</h4>
             </div>
-            <div id="health-pillars-container">
-              <!-- Populated via JavaScript -->
+            <div class="dossier-grid" id="overview-grid" style="margin-bottom: 24px;"></div>
+
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Technical Observations &amp; Market Structure</h4>
+              <span class="brand-badge">Algorithmic Signals</span>
             </div>
-          </div>
-
-          <div class="timeline-card-header" style="margin-top: 20px;">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Historical Valuation (5Y P/E)</h4>
-          </div>
-          <div class="dossier-grid" id="historical-valuation-grid">
-            <!-- Populated via JavaScript -->
+            <div class="observations-container" id="observations-container"></div>
           </div>
         </div>
 
-        <!-- PANEL 6: PEER BENCHMARKING & RELATIVE PERFORMANCE -->
-        <div class="research-view-panel" id="panel-peers">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Sector Peers</h4>
-          </div>
-          <div class="peer-table-wrapper" id="peers-container" style="margin-bottom: 20px;">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Relative Alpha (vs NIFTY 50 & S&P 500)</h4>
-          </div>
-          <div class="dossier-grid" id="relative-performance-grid">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- PANEL 7: CONTEXTUAL NEWS & EVENTS -->
-        <div class="research-view-panel" id="panel-news">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">News & Events</h4>
-          </div>
-          <div class="news-grid" id="news-container">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- PANEL 7B: WHAT CHANGED? (30-DAY STATE ENGINE) -->
-        <div class="research-view-panel" id="panel-whatchanged">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">30-Day Change</h4>
-          </div>
-          <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
-            State delta comparing price regime, valuation multiples, technical momentum, and corporate actions across T vs T-30 days.
-          </div>
-          <div class="dossier-grid" id="whatchanged-kpis-grid" style="margin-bottom: 20px;">
-            <!-- Populated via JavaScript -->
-          </div>
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Observations & Events</h4>
-          </div>
-          <div id="whatchanged-observations-container" style="display: flex; flex-direction: column; gap: 8px;">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- PANEL 7C: ANOMALY DETECTION ENGINE -->
-        <div class="research-view-panel" id="panel-anomalies">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Anomalies</h4>
-          </div>
-          <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
-            Detection screening for earnings quality red flags, working capital divergence, balance sheet leverage changes, and volume anomalies.
-          </div>
-          <div id="anomalies-list-container" style="display: flex; flex-direction: column; gap: 10px;">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-
-
-        <!-- PANEL 9: MULTI-ASSET CORRELATION MATRIX -->
-        <div class="research-view-panel" id="panel-correlation">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Correlation Heatmap</h4>
-            <div style="display: flex; gap: 6px;">
-              <button class="tf-btn corr-tf-btn active" data-period="1y">1Y</button>
-              <button class="tf-btn corr-tf-btn" data-period="6mo">6M</button>
-              <button class="tf-btn corr-tf-btn" data-period="3mo">90D</button>
-              <button class="tf-btn corr-tf-btn" data-period="1mo">30D</button>
+        <!-- SUB-PANEL 3: FINANCIAL STATEMENTS & ADVANCED RATIOS -->
+        <div class="analyze-panel" id="panel-fundamentals">
+          <div class="workspace-scroll-wrap">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Annual Financial Statements</h4>
             </div>
-          </div>
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
-            <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">
-              Log-return correlation: <strong style="color: var(--text);">TCS, INFY, NIFTY 50, Gold, and Bitcoin</strong>.
-            </div>
-            <div class="timeline-table-wrapper" id="correlation-matrix-container">
-              <!-- Populated via JavaScript -->
-            </div>
-          </div>
+            <div class="timeline-table-wrapper" id="timeline-container" style="margin-bottom: 20px;"></div>
 
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Macro Relationships</h4>
-          </div>
-          <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">
-            Rolling 1-Year and 90-Day correlation dynamics between current asset and primary macro factors.
-          </div>
-          <div class="dossier-grid" id="macro-explorer-grid" style="margin-bottom: 14px;">
-            <!-- Populated via JavaScript -->
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Growth Spreads &amp; Operating Leverage</h4>
+            </div>
+            <div id="fundamental-relationships-container" style="margin-bottom: 20px;"></div>
+
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Filing Statements Diff</h4>
+            </div>
+            <div id="filing-diff-container" style="margin-bottom: 20px;"></div>
+
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Statement Quality Signals</h4>
+            </div>
+            <div id="statement-quality-container" style="margin-bottom: 20px;"></div>
+
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Financial Ratios &amp; Solvency</h4>
+            </div>
+            <div class="valuation-grid" id="advanced-ratios-grid"></div>
           </div>
         </div>
 
-        <!-- PANEL 10: SCENARIO ANALYSIS & BACKTESTING LABORATORY -->
-        <div class="research-view-panel" id="panel-lab">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Valuation Scenarios</h4>
-          </div>
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px;">
-            <div class="scenario-input-group">
-              <div class="scenario-control">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
-                  <span>Expected Revenue Growth</span>
-                  <span id="scenario-rev-val" style="color: var(--accent);">+8%</span>
+        <!-- SUB-PANEL 4: HISTORICAL VALUATION & HEALTH SCORE -->
+        <div class="analyze-panel" id="panel-valuation">
+          <div class="workspace-scroll-wrap">
+            <div class="timeline-card-header">
+              <h4 id="valuation-section-title" style="font-size: 13px; font-weight: 600; color: var(--text);">
+                Fundamental Multiples &amp; Valuation Matrix
+              </h4>
+              <span id="valuation-section-badge" class="brand-badge">Equities Valuation</span>
+            </div>
+            <div class="valuation-grid" id="valuation-grid" style="margin-bottom: 24px;"></div>
+
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Financial Health &amp; Solvency Score</h4>
+            </div>
+            <div class="health-overview-grid">
+              <div class="health-score-hero" id="health-score-hero">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-dim);">Financial Health Score</div>
+                <div class="health-score-val" id="health-overall-score">—</div>
+                <div style="font-size: 11px; color: var(--text-dim); max-width: 220px;" id="health-score-summary">
+                  Transparent multi-pillar model with verifiable mathematical formulas.
                 </div>
-                <input type="range" id="scenario-rev-slider" min="-10" max="35" value="8" step="1" class="scenario-slider" />
-                <div style="font-size: 10px; color: var(--text-dim);">Annual top-line expansion estimate</div>
               </div>
-
-              <div class="scenario-control">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
-                  <span>Target Operating Margin</span>
-                  <span id="scenario-margin-val" style="color: var(--accent);">24%</span>
-                </div>
-                <input type="range" id="scenario-margin-slider" min="5" max="45" value="24" step="1" class="scenario-slider" />
-                <div style="font-size: 10px; color: var(--text-dim);">Operating profit margin</div>
-              </div>
-
-              <div class="scenario-control">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
-                  <span>Target Exit P/E Multiple</span>
-                  <span id="scenario-pe-val" style="color: var(--accent);">26x</span>
-                </div>
-                <input type="range" id="scenario-pe-slider" min="10" max="60" value="26" step="1" class="scenario-slider" />
-                <div style="font-size: 10px; color: var(--text-dim);">Valuation multiple at exit</div>
-              </div>
+              <div id="health-pillars-container"></div>
             </div>
 
-            <div class="dossier-grid" id="scenario-results-grid">
-              <!-- Populated via JavaScript -->
+            <div class="timeline-card-header" style="margin-top: 20px;">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Historical Valuation (5Y P/E)</h4>
             </div>
-            <div style="font-size: 11px; color: var(--text-dim); margin-top: 10px; text-align: center;">
-              User-defined hypothetical scenario. Not an investment recommendation.
+            <div class="dossier-grid" id="historical-valuation-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           WORKSPACE 4: COMPARE (PEER BENCHMARKING & MULTIPLES MATRIX)
+           ===================================================================== -->
+      <section class="workspace-view" id="workspace-compare" role="tabpanel" aria-labelledby="ws-btn-compare">
+        <div class="workspace-scroll-wrap">
+          <div class="workspace-header">
+            <div class="workspace-title-row">
+              <h2 class="workspace-title">Peer Benchmarking &amp; Comparison</h2>
+              <span class="workspace-badge">Relative Valuation</span>
+            </div>
+            <p class="workspace-desc">Side-by-side comparative analysis of industry peers, relative alpha, normalized returns, and multi-asset correlation.</p>
+          </div>
+
+          <div class="ws-section-block">
+            <div class="section-sub-header">
+              <h3 class="section-sub-title">Industry Peers Financial Matrix</h3>
+              <span class="section-sub-caption">P/E, EV/EBITDA, ROE, Margin, and growth metrics compared</span>
+            </div>
+            <div class="peer-table-wrapper" id="peers-container">
+              <!-- Populated via JavaScript renderPeerIntelligence -->
             </div>
           </div>
 
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Strategy Backtester</h4>
-            <div style="display: flex; gap: 8px;">
-              <select id="backtest-strategy-select" class="screener-input">
-                <option value="ema_crossover">EMA 50 / 200 Cross</option>
-                <option value="rsi_mean_reversion">RSI Mean Reversion (30 / 70)</option>
-              </select>
-              <button id="run-backtest-btn" class="ws-tab-btn active" style="padding: 4px 12px;">Run Backtest</button>
+          <div class="ws-section-block">
+            <div class="section-sub-header">
+              <h3 class="section-sub-title">Relative Alpha (vs NIFTY 50 &amp; S&amp;P 500)</h3>
+              <span class="section-sub-caption">Normalized excess returns across 1M, 3M, 6M, 1Y, and 3Y horizons</span>
+            </div>
+            <div class="dossier-grid" id="relative-performance-grid">
+              <!-- Populated via JavaScript renderRelativePerformance -->
             </div>
           </div>
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px;" id="backtest-results-container">
-            <div style="text-align: center; color: var(--text-dim); font-size: 12px; padding: 16px;">
-              Click "Run Backtest" to simulate against historical price bars.
+
+          <div class="ws-section-block">
+            <div class="section-sub-header">
+              <h3 class="section-sub-title">Multi-Asset Correlation Matrix</h3>
+              <div style="display: flex; gap: 6px;">
+                <button class="tf-btn corr-tf-btn active" data-period="1y">1Y</button>
+                <button class="tf-btn corr-tf-btn" data-period="6mo">6M</button>
+                <button class="tf-btn corr-tf-btn" data-period="3mo">90D</button>
+                <button class="tf-btn corr-tf-btn" data-period="1mo">30D</button>
+              </div>
+            </div>
+            <div class="corr-table-shell">
+              <div class="timeline-table-wrapper" id="correlation-matrix-container">
+                <!-- Populated via JavaScript loadAndRenderCorrelation -->
+              </div>
+            </div>
+          </div>
+
+          <div class="ws-section-block">
+            <div class="section-sub-header">
+              <h3 class="section-sub-title">Macro Relationships Explorer</h3>
+              <span class="section-sub-caption">Rolling correlation dynamics between asset and macroeconomic benchmarks</span>
+            </div>
+            <div class="dossier-grid" id="macro-explorer-grid">
+              <!-- Populated via JavaScript loadAndRenderMacroExplorer -->
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- PANEL 11: RESEARCH NOTEBOOK -->
-        <div class="research-view-panel" id="panel-notebook">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Research Notes: <span id="notebook-asset-title">TCS.NS</span></h4>
-            <div style="display: flex; gap: 8px;">
+      <!-- =====================================================================
+           WORKSPACE 5: RESEARCH (DEEP CONTEXTUAL INTELLIGENCE)
+           ===================================================================== -->
+      <section class="workspace-view" id="workspace-research" role="tabpanel" aria-labelledby="ws-btn-research">
+        <!-- Sub-Navigation Bar for Research Workspace -->
+        <div class="workspace-subnav" id="research-subnav">
+          <button class="ws-sub-btn active" data-research-tab="news" id="tab-res-news">News &amp; Events</button>
+          <button class="ws-sub-btn" data-research-tab="earnings" id="tab-res-earnings">Earnings &amp; Events</button>
+          <button class="ws-sub-btn" data-research-tab="whatchanged" id="tab-res-whatchanged">30-Day Delta</button>
+          <button class="ws-sub-btn" data-research-tab="anomalies" id="tab-res-anomalies">Anomalies</button>
+          <button class="ws-sub-btn" data-research-tab="lab" id="tab-res-lab">Scenario Lab</button>
+          <button class="ws-sub-btn" data-research-tab="notebook" id="tab-res-notebook">Notebook</button>
+          <button class="ws-sub-btn" data-research-tab="quality" id="tab-res-quality">Data Quality</button>
+          <button class="ws-sub-btn" data-research-tab="report" id="tab-res-report">Institutional Report</button>
+        </div>
+
+        <div class="workspace-scroll-wrap">
+          <!-- SUB-PANEL: NEWS -->
+          <div class="research-panel active" id="panel-news">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Attributed News &amp; Corporate Announcements</h4>
+            </div>
+            <div class="news-grid" id="news-container"></div>
+          </div>
+
+          <!-- SUB-PANEL: EARNINGS & CORPORATE EVENTS -->
+          <div class="research-panel" id="panel-earnings">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Quarterly Earnings &amp; Operating Margins</h4>
+            </div>
+            <div class="timeline-table-wrapper" id="quarterly-earnings-container" style="margin-bottom: 20px;"></div>
+
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Corporate Actions &amp; Dividends</h4>
+            </div>
+            <div class="timeline-table-wrapper" id="corporate-events-container"></div>
+          </div>
+
+          <!-- SUB-PANEL: 30-DAY WHAT CHANGED -->
+          <div class="research-panel" id="panel-whatchanged">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">30-Day State Delta</h4>
+            </div>
+            <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
+              State delta comparing price regime, valuation multiples, technical momentum, and corporate actions across T vs T-30 days.
+            </div>
+            <div class="dossier-grid" id="whatchanged-kpis-grid" style="margin-bottom: 20px;"></div>
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Observations &amp; Events</h4>
+            </div>
+            <div id="whatchanged-observations-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          </div>
+
+          <!-- SUB-PANEL: ANOMALIES -->
+          <div class="research-panel" id="panel-anomalies">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Statistical &amp; Financial Anomalies</h4>
+            </div>
+            <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
+              Detection screening for earnings quality red flags, working capital divergence, balance sheet leverage changes, and volume anomalies.
+            </div>
+            <div id="anomalies-list-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+          </div>
+
+          <!-- SUB-PANEL: SCENARIO LAB & BACKTEST -->
+          <div class="research-panel" id="panel-lab">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Hypothetical Valuation Scenarios</h4>
+            </div>
+            <div class="lab-card-shell">
+              <div class="scenario-input-group">
+                <div class="scenario-control">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
+                    <span>Expected Revenue Growth</span>
+                    <span id="scenario-rev-val" style="color: var(--accent);">+8%</span>
+                  </div>
+                  <input type="range" id="scenario-rev-slider" min="-10" max="35" value="8" step="1" class="scenario-slider" />
+                  <div style="font-size: 10px; color: var(--text-dim);">Annual top-line expansion estimate</div>
+                </div>
+
+                <div class="scenario-control">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
+                    <span>Target Operating Margin</span>
+                    <span id="scenario-margin-val" style="color: var(--accent);">24%</span>
+                  </div>
+                  <input type="range" id="scenario-margin-slider" min="5" max="45" value="24" step="1" class="scenario-slider" />
+                  <div style="font-size: 10px; color: var(--text-dim);">Operating profit margin</div>
+                </div>
+
+                <div class="scenario-control">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
+                    <span>Target Exit P/E Multiple</span>
+                    <span id="scenario-pe-val" style="color: var(--accent);">26x</span>
+                  </div>
+                  <input type="range" id="scenario-pe-slider" min="10" max="60" value="26" step="1" class="scenario-slider" />
+                  <div style="font-size: 10px; color: var(--text-dim);">Valuation multiple at exit</div>
+                </div>
+              </div>
+
+              <div class="dossier-grid" id="scenario-results-grid"></div>
+              <div style="font-size: 11px; color: var(--text-dim); margin-top: 10px; text-align: center;">
+                User-defined hypothetical scenario. Not an investment recommendation.
+              </div>
+            </div>
+
+            <div class="timeline-card-header" style="margin-top: 24px;">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Strategy Backtester</h4>
+              <div style="display: flex; gap: 8px;">
+                <select id="backtest-strategy-select" class="screener-input">
+                  <option value="ema_crossover">EMA 50 / 200 Cross</option>
+                  <option value="rsi_mean_reversion">RSI Mean Reversion (30 / 70)</option>
+                </select>
+                <button id="run-backtest-btn" class="ws-tab-btn active" style="padding: 4px 12px;">Run Backtest</button>
+              </div>
+            </div>
+            <div class="lab-card-shell" id="backtest-results-container">
+              <div style="text-align: center; color: var(--text-dim); font-size: 12px; padding: 16px;">
+                Click "Run Backtest" to simulate against historical price bars.
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-PANEL: RESEARCH NOTEBOOK -->
+          <div class="research-panel" id="panel-notebook">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Research Notes: <span id="notebook-asset-title">TCS.NS</span></h4>
               <button id="export-notebook-btn" class="ws-tab-btn active" style="padding: 4px 12px;">Export Markdown</button>
             </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+              <div class="dossier-card">
+                <div class="dossier-card-title">Core Investment Thesis</div>
+                <textarea id="nb-thesis" class="notebook-textarea" placeholder="Record your investment thesis, competitive advantages..."></textarea>
+              </div>
+              <div class="dossier-card">
+                <div class="dossier-card-title">Structural Risks &amp; Threats</div>
+                <textarea id="nb-risks" class="notebook-textarea" placeholder="List macroeconomic, regulatory, operational, or competitive risks..."></textarea>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="dossier-card">
+                <div class="dossier-card-title">Due Diligence Questions</div>
+                <textarea id="nb-questions" class="notebook-textarea" placeholder="Unresolved questions, upcoming earnings checks..."></textarea>
+              </div>
+              <div class="dossier-card">
+                <div class="dossier-card-title">Valuation &amp; Target Scenarios</div>
+                <textarea id="nb-valuation" class="notebook-textarea" placeholder="Entry targets, stop levels, upside hurdle rates..."></textarea>
+              </div>
+            </div>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
-            <div class="dossier-card">
-              <div class="dossier-card-title">Core Investment Thesis</div>
-              <textarea id="nb-thesis" class="notebook-textarea" placeholder="Record your investment thesis, competitive advantages..."></textarea>
-            </div>
-            <div class="dossier-card">
-              <div class="dossier-card-title">Structural Risks & Threats</div>
-              <textarea id="nb-risks" class="notebook-textarea" placeholder="List macroeconomic, regulatory, operational, or competitive risks..."></textarea>
-            </div>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-            <div class="dossier-card">
-              <div class="dossier-card-title">Due Diligence Questions</div>
-              <textarea id="nb-questions" class="notebook-textarea" placeholder="Unresolved questions, upcoming earnings checks..."></textarea>
-            </div>
-            <div class="dossier-card">
-              <div class="dossier-card-title">Valuation & Target Scenarios</div>
-              <textarea id="nb-valuation" class="notebook-textarea" placeholder="Entry targets, stop levels, upside hurdle rates..."></textarea>
-            </div>
-          </div>
-        </div>
 
-        <!-- PANEL 12: DATA QUALITY & PROVENANCE CENTER -->
-        <div class="research-view-panel" id="panel-quality">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Data Integrity & Sources</h4>
-          </div>
-          <div class="dossier-grid" id="data-quality-grid">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- PANEL 13: ONE-CLICK RESEARCH REPORT -->
-        <div class="research-view-panel" id="panel-report">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Research Report</h4>
-            <div style="display: flex; gap: 8px;">
-              <button id="download-report-md-btn" class="ws-tab-btn active" style="padding: 4px 12px;">Download Markdown</button>
-              <button id="print-report-pdf-btn" class="ws-tab-btn" style="padding: 4px 12px;">Print PDF</button>
+          <!-- SUB-PANEL: DATA QUALITY -->
+          <div class="research-panel" id="panel-quality">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Data Provenance &amp; Verification</h4>
             </div>
+            <div class="dossier-grid" id="data-quality-grid"></div>
           </div>
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px;">
-            <div id="report-rendered-preview" style="font-family: var(--font-sans); color: var(--text); font-size: 13px; line-height: 1.6; white-space: pre-wrap;">
-              Generating research report...
-            </div>
-          </div>
-        </div>
 
-        <!-- TradingView-Style Bottom Dock Tabs (30px) -->
-        <div class="workspace-nav-bar" id="workspace-nav-bar">
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn active" data-tab="chart">Chart</button>
-            <button class="ws-tab-btn" data-tab="overview">Profile</button>
-            <button class="ws-tab-btn" data-tab="fundamentals">Fundamentals</button>
-            <button class="ws-tab-btn" data-tab="valuation">Valuation</button>
-          </div>
-          <div class="ws-nav-divider"></div>
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn" data-tab="peers">Peers</button>
-            <button class="ws-tab-btn" data-tab="correlation">Correlation</button>
-            <button class="ws-tab-btn" data-tab="sectors">Sectors</button>
-          </div>
-          <div class="ws-nav-divider"></div>
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn" data-tab="earnings">Earnings</button>
-            <button class="ws-tab-btn" data-tab="news">News</button>
-            <button class="ws-tab-btn" data-tab="whatchanged">30-Day Change</button>
-            <button class="ws-tab-btn" data-tab="anomalies">Anomalies</button>
-          </div>
-          <div class="ws-nav-divider"></div>
-          <div class="ws-nav-group">
-            <button class="ws-tab-btn" data-tab="lab">Scenario</button>
-            <button class="ws-tab-btn" data-tab="quality">Quality</button>
-            <button class="ws-tab-btn" data-tab="notebook">Notes</button>
-            <button class="ws-tab-btn" data-tab="report">Report</button>
+          <!-- SUB-PANEL: ONE-CLICK REPORT -->
+          <div class="research-panel" id="panel-report">
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Institutional Research Report</h4>
+              <div style="display: flex; gap: 8px;">
+                <button id="download-report-md-btn" class="ws-tab-btn active" style="padding: 4px 12px;">Download Markdown</button>
+                <button id="print-report-pdf-btn" class="ws-tab-btn" style="padding: 4px 12px;">Print PDF</button>
+              </div>
+            </div>
+            <div class="lab-card-shell">
+              <div id="report-rendered-preview" style="font-family: var(--font-sans); color: var(--text); font-size: 13px; line-height: 1.6; white-space: pre-wrap;">
+                Generating research report...
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- VIEW 2: DEDICATED SCREENER WORKSTATION -->
-      <section class="glass screener-card screener-view-card" id="view-screener">
-        <div class="screener-header-wrap">
-          <div>
-            <h3 style="font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.01em;">
-              Multi-Asset Market Screener
-            </h3>
-            <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
-              Cross-market asset discovery across US Mega-Caps, Indian Bluechips, AI Leaders, Crypto, Commodities, and Forex.
-            </p>
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <div class="screener-tabs" id="screener-tabs">
-              <button class="screener-tab-btn active" data-universe="indian_leaders">Indian Leaders</button>
-              <button class="screener-tab-btn" data-universe="us_mega_caps">US Mega-Caps</button>
-              <button class="screener-tab-btn" data-universe="semiconductors_ai">AI & Semiconductors</button>
-              <button class="screener-tab-btn" data-universe="crypto">Crypto</button>
-              <button class="screener-tab-btn" data-universe="commodities">Commodities</button>
-              <button class="screener-tab-btn" data-universe="forex">Forex</button>
-            </div>
-            <button id="toggle-screener-builder-btn" class="ws-tab-btn" style="padding: 4px 12px; height: 28px; font-weight: 600;">
-              Filters &amp; Rules
-            </button>
-          </div>
+      <!-- =====================================================================
+           WORKSPACE 6: MONITOR (WATCHLISTS & ALERT ENGINE)
+           ===================================================================== -->
+      <section class="workspace-view" id="workspace-monitor" role="tabpanel" aria-labelledby="ws-btn-monitor">
+        <!-- Sub-Navigation Bar for Monitor Workspace -->
+        <div class="workspace-subnav" id="monitor-subnav">
+          <button class="ws-sub-btn active" data-monitor-tab="watchlist" id="tab-mon-watchlist">Watchlists</button>
+          <button class="ws-sub-btn" data-monitor-tab="alerts" id="tab-mon-alerts">Alerts Center</button>
         </div>
 
-        <!-- Screener Query Builder Container (Collapsible) -->
-        <div id="screener-builder-wrap" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin: 14px 0;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <div style="font-size: 12px; font-weight: 600; color: var(--text-dim);">
-              Filters
+        <div class="workspace-scroll-wrap">
+          <!-- MONITOR SUB-PANEL: WATCHLIST -->
+          <div class="monitor-panel active" id="monitor-panel-watchlist">
+            <div class="workspace-header">
+              <div class="workspace-title-row">
+                <h2 class="workspace-title">Active Watchlist Workstation</h2>
+                <div class="watchlist-actions-bar">
+                  <button id="ws-export-watchlist-btn" class="wl-btn">Export Backup</button>
+                  <label for="ws-import-watchlist-input" class="wl-btn" style="cursor: pointer;">Import</label>
+                  <input type="file" id="ws-import-watchlist-input" accept=".json,.csv" style="display:none;" />
+                  <button id="ws-clear-watchlist-btn" class="wl-btn wl-btn-danger">Clear All</button>
+                </div>
+              </div>
+              <p class="workspace-desc">Persistent local portfolio watchlists with real-time price updates and cross-asset telemetry.</p>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <span style="font-size: 11px; color: var(--text-dim);">Logic:</span>
-              <select id="screener-combinator" class="screener-input" style="padding: 2px 8px; font-size: 11px;">
-                <option value="AND">Match all (AND)</option>
-                <option value="OR">Match any (OR)</option>
-              </select>
-              <button id="screener-add-rule-btn" class="ws-tab-btn active" style="padding: 2px 8px; font-size: 11px;">+ Condition</button>
-              <button id="screener-run-builder-btn" class="ws-tab-btn active" style="padding: 2px 10px; font-size: 11px;">Run</button>
-              <button id="screener-export-csv-btn" class="ws-tab-btn" style="padding: 2px 8px; font-size: 11px;">CSV</button>
-              <button id="screener-export-json-btn" class="ws-tab-btn" style="padding: 2px 8px; font-size: 11px;">JSON</button>
+
+            <div id="workspace-watchlist-container" class="workspace-watchlist-container">
+              <!-- Rendered via JavaScript -->
             </div>
           </div>
-          <div id="screener-rules-container">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
 
-        <div class="screener-table-wrapper" style="margin-top: 14px;">
-          <table class="screener-table">
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Company / Asset</th>
-                <th>Price</th>
-                <th>Change %</th>
-                <th>Market Cap / Metric</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="screener-table-body">
-              <tr>
-                <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 30px;">Loading market snapshot...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <!-- MONITOR SUB-PANEL: ALERTS -->
+          <div class="monitor-panel" id="monitor-panel-alerts">
+            <div class="workspace-header">
+              <div class="workspace-title-row">
+                <h2 class="workspace-title">Client-Side Alert Center</h2>
+                <span class="workspace-badge">Real-Time Rules</span>
+              </div>
+              <p class="workspace-desc">Zero-server private price and indicator threshold alerts evaluated client-side in this browser.</p>
+            </div>
 
-      <!-- VIEW 3: DEDICATED SECTOR HEATMAP & INTELLIGENCE -->
-      <section class="glass sectors-view-card" id="view-sectors">
-        <div class="sectors-header-wrap" style="margin-bottom: 20px;">
-          <h3 style="font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.01em;">
-            Global Market Map &amp; Sector Intelligence
-          </h3>
-          <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
-            Cross-market benchmark tracker, sector relative rotation, and constituent telemetry.
-          </p>
-        </div>
+            <!-- Workspace Alert Creation Form -->
+            <div class="lab-card-shell" style="margin-bottom: 24px;">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px;">Create Alert Rule</h4>
+              <div class="alert-rule-grid">
+                <div>
+                  <label class="auth-field-label" style="margin: 0 0 4px;">Target Symbol</label>
+                  <input type="text" id="ws-alert-sym-input" class="screener-input" value="TCS.NS" />
+                </div>
+                <div>
+                  <label class="auth-field-label" style="margin: 0 0 4px;">Metric</label>
+                  <select id="ws-alert-metric-select" class="screener-input">
+                    <option value="price">Price ($ / ₹)</option>
+                    <option value="rsi">RSI Indicator</option>
+                    <option value="pe">P/E Multiple</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="auth-field-label" style="margin: 0 0 4px;">Condition</label>
+                  <select id="ws-alert-op-select" class="screener-input">
+                    <option value=">">&gt; Crosses Above</option>
+                    <option value="<">&lt; Crosses Below</option>
+                    <option value=">=">&gt;= Greater or Equal</option>
+                    <option value="<=">&lt;= Less or Equal</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="auth-field-label" style="margin: 0 0 4px;">Threshold Value</label>
+                  <input type="number" id="ws-alert-target-input" placeholder="e.g. 4500" class="screener-input" />
+                </div>
+                <div style="display: flex; align-items: flex-end;">
+                  <button id="ws-create-alert-btn" class="ws-action-btn" style="width: 100%; height: 32px;">Add Rule</button>
+                </div>
+              </div>
+            </div>
 
-        <div class="timeline-card-header">
-          <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Global Benchmarks</h4>
-          <span style="font-size: 11px; color: var(--text-dim);">Click any benchmark to load in Terminal</span>
-        </div>
-        <div class="market-map-grid" id="global-market-map-grid" style="margin-bottom: 24px;">
-          <!-- Populated via JavaScript -->
-        </div>
-
-        <div class="timeline-card-header" style="margin-top: 20px;">
-          <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Sector Heatmap &amp; Intelligence</h4>
-          <span style="font-size: 11px; color: var(--text-dim);">Select a sector card to inspect constituents or click any ticker pill to load</span>
-        </div>
-        <div class="sector-grid" id="sector-intelligence-grid" style="margin-bottom: 24px;">
-          <!-- Populated via JavaScript -->
-        </div>
-
-        <!-- Selected Sector Constituent Breakdown -->
-        <div id="sector-detail-section" style="margin-top: 24px;">
-          <div class="timeline-card-header">
-            <h4 id="sector-detail-title" style="font-size: 13px; font-weight: 600; color: var(--text);">Sector Constituents</h4>
-            <span id="sector-detail-meta" style="font-size: 11px; color: var(--text-dim);"></span>
-          </div>
-          <div id="sector-detail-body" class="timeline-table-wrapper">
-            <!-- Populated via JavaScript -->
+            <!-- Active Alerts Table / List -->
+            <div class="timeline-card-header">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Active Alert Rules</h4>
+            </div>
+            <div id="ws-alerts-list-container" class="timeline-table-wrapper">
+              <!-- Rendered via JavaScript -->
+            </div>
           </div>
         </div>
       </section>

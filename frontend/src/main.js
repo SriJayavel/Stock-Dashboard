@@ -25,6 +25,10 @@ import { auth, getAccountStorageKey } from './auth.js';
 let chartInstance = null;
 let currentSymbol = null;
 let currentTimeframe = '1y';
+let currentActiveWorkspace = 'analyze';
+let currentAnalyzeTab = 'chart';
+let currentResearchTab = 'news';
+let currentMonitorTab = 'watchlist';
 let currentActiveTab = 'chart';
 let currentMacroCategory = 'Indices';
 let marketDataCache = null;
@@ -40,6 +44,30 @@ let searchRequestSeq = 0;
 
 // Rapid ticker switching race condition guard
 let currentLoadToken = 0;
+
+// Centralized Financial Currency Formatter
+export function getCurrencySymbol(symbol = '', currency = '') {
+  if (currency === 'INR' || (typeof symbol === 'string' && (symbol.endsWith('.NS') || symbol.endsWith('.BO')))) {
+    return '₹';
+  }
+  if (currency === 'EUR' || (typeof symbol === 'string' && (symbol.endsWith('.DE') || symbol.endsWith('.PA')))) {
+    return '€';
+  }
+  if (currency === 'GBP' || (typeof symbol === 'string' && symbol.endsWith('.L'))) {
+    return '£';
+  }
+  if (currency === 'JPY' || (typeof symbol === 'string' && symbol.endsWith('.T'))) {
+    return '¥';
+  }
+  return '$';
+}
+
+export function formatCurrencyValue(val, symbol = '', currency = '') {
+  if (val == null || isNaN(val)) return '—';
+  const sym = getCurrencySymbol(symbol, currency);
+  const decimals = (typeof symbol === 'string' && symbol.includes('=X')) ? 4 : 2;
+  return `${sym}${Number(val).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
 
 // Cold-Start Alert Controller
 const coldStartBanner = document.getElementById('cold-start-banner');
@@ -78,39 +106,39 @@ async function startApp() {
   }
 
   setupEventListeners();
-  setupTopNavViewControls();
+  setupWorkspaceControls();
   setupTradingViewChromeControls();
   syncChartControlsToPreferences();
   setupIndicatorControls();
   setupWatchlistControls();
 
-  // Router Subscription: deep links & browser back/forward history handling
+  // Router Subscription: 6 Institutional Workspaces
   router.subscribe(async (route) => {
-    if (route.type === 'symbol') {
-      setTopLevelView('terminal');
-      const targetSym = route.symbol;
+    if (route.type === 'markets' || route.workspace === 'markets') {
+      setWorkspace('markets');
+    } else if (route.type === 'discover' || route.workspace === 'discover' || route.type === 'screener') {
+      setWorkspace('discover', route.universe);
+    } else if (route.type === 'compare' || route.workspace === 'compare') {
+      if (route.symbol && route.symbol !== currentSymbol) {
+        await loadStock(route.symbol, currentTimeframe);
+      }
+      setWorkspace('compare');
+    } else if (route.type === 'research' || route.workspace === 'research') {
+      if (route.symbol && route.symbol !== currentSymbol) {
+        await loadStock(route.symbol, currentTimeframe);
+      }
+      setWorkspace('research', route.subTab || 'news');
+    } else if (route.type === 'monitor' || route.workspace === 'monitor') {
+      setWorkspace('monitor', route.subTab || 'watchlist');
+    } else if (route.type === 'symbol' || route.type === 'analyze' || route.workspace === 'analyze') {
+      const targetSym = route.symbol || currentSymbol || 'TCS.NS';
       const targetTab = route.tab || 'chart';
       if (!currentSymbol || targetSym !== currentSymbol) {
         await loadStock(targetSym, currentTimeframe);
       }
-      activateWorkspaceTab(targetTab);
-    } else if (route.type === 'screener') {
-      setTopLevelView('screener');
-      if (route.universe) {
-        const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${route.universe}"]`);
-        if (tabBtn) {
-          document.querySelectorAll('.screener-tab-btn').forEach((t) => t.classList.remove('active'));
-          tabBtn.classList.add('active');
-        }
-        await loadScreener(route.universe);
-      } else {
-        if (!screenerItemsCache || screenerItemsCache.length === 0) {
-          await loadScreener('indian_leaders');
-        }
-      }
+      setWorkspace('analyze', targetTab);
     } else if (route.type === 'sectors') {
-      setTopLevelView('sectors');
-      loadAndRenderSectorsAndMarketMap();
+      setWorkspace('markets');
     }
   });
 
@@ -133,55 +161,240 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (await auth.initialize()) await startApp();
 });
 
-// Top-Level Views Switcher
-function setupTopNavViewControls() {
-  const topBtns = document.querySelectorAll('#top-nav-views .top-nav-btn[data-top-view]');
-  topBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const view = btn.getAttribute('data-top-view');
-      if (view === 'terminal') {
-        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentActiveTab || 'chart'));
-      } else if (view === 'screener') {
-        router.navigate('/screener');
-      } else if (view === 'sectors') {
-        router.navigate('/sectors');
-      }
-    });
-  });
-}
+// Primary Workspace Switcher
+export function setWorkspace(workspaceName, subTab = null) {
+  currentActiveWorkspace = workspaceName;
 
-export function setTopLevelView(viewName) {
-  document.querySelectorAll('#top-nav-views .top-nav-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.getAttribute('data-top-view') === viewName);
+  // 1. Top workspace navigation buttons
+  document.querySelectorAll('#top-nav-workspaces .top-ws-btn').forEach((btn) => {
+    const isTarget = btn.getAttribute('data-workspace') === workspaceName;
+    btn.classList.toggle('active', isTarget);
+    btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
   });
 
+  // 2. Main layout & body attributes
   const mainLayout = document.getElementById('main-layout');
   if (mainLayout) {
-    mainLayout.setAttribute('data-active-view', viewName);
+    mainLayout.setAttribute('data-workspace', workspaceName);
+    mainLayout.setAttribute('data-active-view', workspaceName === 'analyze' ? 'terminal' : workspaceName);
   }
-  document.body.setAttribute('data-top-view', viewName);
+  document.body.setAttribute('data-workspace', workspaceName);
+  document.body.setAttribute('data-top-view', workspaceName === 'analyze' ? 'terminal' : workspaceName);
 
-  const termView = document.getElementById('view-terminal');
-  const screenerView = document.getElementById('view-screener');
-  const sectorsView = document.getElementById('view-sectors');
+  // 3. Toggle workspace section visibility
+  document.querySelectorAll('.workspace-view').forEach((view) => {
+    const isTarget = view.id === `workspace-${workspaceName}`;
+    view.classList.toggle('active', isTarget);
+  });
 
-  if (termView) termView.classList.toggle('active', viewName === 'terminal');
-  if (screenerView) screenerView.classList.toggle('active', viewName === 'screener');
-  if (sectorsView) sectorsView.classList.toggle('active', viewName === 'sectors');
-
-  if (viewName === 'terminal') {
-    requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('resize'));
-      if (chartInstance && chartInstance.resize) {
-        chartInstance.resize();
+  // 4. Sub-tab activation & specific data triggers
+  if (workspaceName === 'analyze') {
+    const targetSub = subTab || currentAnalyzeTab || 'chart';
+    setAnalyzeSubTab(targetSub);
+  } else if (workspaceName === 'research') {
+    const targetSub = subTab || currentResearchTab || 'news';
+    setResearchSubTab(targetSub);
+  } else if (workspaceName === 'monitor') {
+    const targetSub = subTab || currentMonitorTab || 'watchlist';
+    setMonitorSubTab(targetSub);
+  } else if (workspaceName === 'markets') {
+    loadMarketOverview();
+    loadAndRenderSectorsAndMarketMap();
+  } else if (workspaceName === 'discover') {
+    if (subTab) {
+      const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
+      if (tabBtn) {
+        document.querySelectorAll('.screener-tab-btn').forEach((t) => t.classList.remove('active'));
+        tabBtn.classList.add('active');
       }
-    });
-  } else if (viewName === 'screener') {
-    if (!screenerItemsCache || screenerItemsCache.length === 0) {
+      loadScreener(subTab);
+    } else if (!screenerItemsCache || screenerItemsCache.length === 0) {
       loadScreener('indian_leaders');
     }
-  } else if (viewName === 'sectors') {
-    loadAndRenderSectorsAndMarketMap();
+  } else if (workspaceName === 'compare') {
+    if (currentSymbol) {
+      loadStockResearch(currentSymbol, currentLoadToken);
+      loadAndRenderMacroExplorer(currentSymbol);
+    }
+    loadAndRenderCorrelation(activeCorrelationPeriod);
+  }
+}
+
+export function setAnalyzeSubTab(subTab) {
+  currentAnalyzeTab = subTab;
+  currentActiveTab = subTab;
+
+  document.querySelectorAll('#analyze-subnav .ws-sub-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-analyze-tab') === subTab);
+  });
+
+  document.querySelectorAll('#workspace-analyze .analyze-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === `panel-${subTab}`);
+  });
+
+  if (subTab === 'chart' && chartInstance) {
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'));
+      if (chartInstance.resize) chartInstance.resize();
+    });
+  }
+}
+
+export function setResearchSubTab(subTab) {
+  currentResearchTab = subTab;
+  document.querySelectorAll('#research-subnav .ws-sub-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-research-tab') === subTab);
+  });
+
+  document.querySelectorAll('#workspace-research .research-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === `panel-${subTab}`);
+  });
+
+  if (subTab === 'report') {
+    renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
+  } else if (subTab === 'whatchanged' && currentV4Data) {
+    renderWhatChanged(currentV4Data.what_changed_30d);
+  } else if (subTab === 'anomalies' && currentV4Data) {
+    renderAnomalies(currentV4Data.anomalies);
+  } else if (subTab === 'notebook') {
+    loadNotebookForCurrentSymbol();
+  } else if (subTab === 'lab') {
+    updateScenarioCalculation();
+  }
+}
+
+export function setMonitorSubTab(subTab) {
+  currentMonitorTab = subTab;
+  document.querySelectorAll('#monitor-subnav .ws-sub-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-monitor-tab') === subTab);
+  });
+
+  document.querySelectorAll('#workspace-monitor .monitor-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === `monitor-panel-${subTab}`);
+  });
+
+  if (subTab === 'watchlist') {
+    refreshWatchlistUI();
+  } else if (subTab === 'alerts') {
+    alertsManager.renderAlerts();
+  }
+}
+
+// Workspace Navigation Controls Setup
+function setupWorkspaceControls() {
+  // Top Workspace Nav Buttons
+  document.querySelectorAll('#top-nav-workspaces .top-ws-btn[data-workspace]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const ws = btn.getAttribute('data-workspace');
+      if (ws === 'analyze') {
+        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentAnalyzeTab || 'chart'));
+      } else if (ws === 'discover') {
+        router.navigate('/discover');
+      } else if (ws === 'markets') {
+        router.navigate('/markets');
+      } else if (ws === 'compare') {
+        router.navigate(router.formatWorkspaceRoute('compare', currentSymbol || 'TCS.NS'));
+      } else if (ws === 'research') {
+        router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', currentResearchTab || 'news'));
+      } else if (ws === 'monitor') {
+        router.navigate(router.formatWorkspaceRoute('monitor', null, currentMonitorTab || 'watchlist'));
+      }
+    });
+  });
+
+  // Analyze Subnav
+  document.querySelectorAll('#analyze-subnav .ws-sub-btn[data-analyze-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-analyze-tab');
+      router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', tab));
+    });
+  });
+
+  // Research Subnav
+  document.querySelectorAll('#research-subnav .ws-sub-btn[data-research-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-research-tab');
+      router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', tab));
+    });
+  });
+
+  // Monitor Subnav
+  document.querySelectorAll('#monitor-subnav .ws-sub-btn[data-monitor-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-monitor-tab');
+      router.navigate(router.formatWorkspaceRoute('monitor', null, tab));
+    });
+  });
+
+  // Monitor workspace alerts form
+  const wsAlertBtn = document.getElementById('ws-create-alert-btn');
+  if (wsAlertBtn) {
+    wsAlertBtn.addEventListener('click', () => {
+      const symInput = document.getElementById('ws-alert-sym-input');
+      const metricInput = document.getElementById('ws-alert-metric-select');
+      const opInput = document.getElementById('ws-alert-op-select');
+      const targetInput = document.getElementById('ws-alert-target-input');
+      const sym = (symInput?.value || currentSymbol || '').trim().toUpperCase();
+      const metric = metricInput?.value || 'price';
+      const op = opInput?.value || '>';
+      const target = parseFloat(targetInput?.value);
+      if (!sym || isNaN(target)) {
+        showToast('Please enter a valid symbol and numeric threshold', 'warning');
+        return;
+      }
+      alertsManager.addAlert(sym, metric, op, target);
+      showToast(`Alert set for ${sym} ${metric} ${op} ${target}`, 'success');
+      if (targetInput) targetInput.value = '';
+      alertsManager.renderAlerts();
+    });
+  }
+
+  // Monitor workspace watchlist backup actions
+  const wsExportBtn = document.getElementById('ws-export-watchlist-btn');
+  if (wsExportBtn) {
+    wsExportBtn.addEventListener('click', () => {
+      const exportBtn = document.getElementById('export-watchlist-btn');
+      if (exportBtn) exportBtn.click();
+    });
+  }
+  const wsImportInput = document.getElementById('ws-import-watchlist-input');
+  if (wsImportInput) {
+    wsImportInput.addEventListener('change', (e) => {
+      const mainInput = document.getElementById('import-watchlist-input');
+      if (mainInput && e.target.files?.length) {
+        const dt = new DataTransfer();
+        dt.items.add(e.target.files[0]);
+        mainInput.files = dt.files;
+        mainInput.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+  const wsClearBtn = document.getElementById('ws-clear-watchlist-btn');
+  if (wsClearBtn) {
+    wsClearBtn.addEventListener('click', () => {
+      const clearBtn = document.getElementById('clear-watchlist-btn');
+      if (clearBtn) clearBtn.click();
+    });
+  }
+}
+
+// Backward Compatibility Bridges
+export function setTopLevelView(viewName) {
+  if (viewName === 'terminal') setWorkspace('analyze');
+  else if (viewName === 'screener') setWorkspace('discover');
+  else if (viewName === 'sectors') setWorkspace('markets');
+  else setWorkspace(viewName);
+}
+
+export function activateWorkspaceTab(targetTab) {
+  if (['chart', 'overview', 'fundamentals', 'valuation'].includes(targetTab)) {
+    setWorkspace('analyze', targetTab);
+  } else if (['peers', 'correlation'].includes(targetTab)) {
+    setWorkspace('compare');
+  } else if (targetTab === 'sectors') {
+    setWorkspace('markets');
+  } else if (['news', 'earnings', 'whatchanged', 'anomalies', 'lab', 'notebook', 'quality', 'report'].includes(targetTab)) {
+    setWorkspace('research', targetTab);
   }
 }
 
@@ -214,56 +427,6 @@ export function syncChartControlsToPreferences() {
   const pctBtn = document.getElementById('tv-scale-pct-btn');
   if (logBtn) logBtn.classList.toggle('active', scale === 'log');
   if (pctBtn) pctBtn.classList.toggle('active', scale === 'pct');
-}
-
-// Workspace Navigation Tabs Controller
-export function activateWorkspaceTab(targetTab) {
-  if (targetTab === 'sectors') {
-    setTopLevelView('sectors');
-    router.navigate('/sectors');
-    return;
-  }
-
-  // Ensure top-level terminal view is active when selecting dock tabs
-  setTopLevelView('terminal');
-
-  const wsTabs = document.querySelectorAll('#workspace-nav-bar .ws-tab-btn[data-tab]');
-  const targetBtn = document.querySelector(`#workspace-nav-bar .ws-tab-btn[data-tab="${targetTab}"]`);
-  if (!targetBtn) return;
-
-  currentActiveTab = targetTab;
-  wsTabs.forEach((b) => b.classList.remove('active'));
-  targetBtn.classList.add('active');
-
-  document.querySelectorAll('.research-view-panel').forEach((panel) => {
-    panel.classList.toggle('active', panel.id === `panel-${targetTab}`);
-  });
-
-  if (targetTab === 'chart' && chartInstance) {
-    requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('resize'));
-      if (chartInstance.resize) chartInstance.resize();
-    });
-  }
-  if (targetTab === 'report') {
-    renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
-  }
-  if (targetTab === 'correlation') {
-    loadAndRenderCorrelation(activeCorrelationPeriod);
-    if (currentSymbol) loadAndRenderMacroExplorer(currentSymbol);
-  }
-  if (targetTab === 'whatchanged' && currentV4Data) {
-    renderWhatChanged(currentV4Data.what_changed_30d);
-  }
-  if (targetTab === 'anomalies' && currentV4Data) {
-    renderAnomalies(currentV4Data.anomalies);
-  }
-  if (targetTab === 'notebook') {
-    loadNotebookForCurrentSymbol();
-  }
-  if (targetTab === 'lab') {
-    updateScenarioCalculation();
-  }
 }
 
 // Setup DOM Event Listeners
@@ -1460,65 +1623,126 @@ async function refreshWatchlistUI() {
 function renderWatchlistRows(quotes) {
   if (watchlist.getSymbols().length === 0) return;
   const listContainer = document.getElementById('watchlist-items-list');
-  if (!listContainer) return;
+  const wsContainer = document.getElementById('workspace-watchlist-container');
 
-  listContainer.innerHTML = quotes
-    .map((item) => {
-      const sym = item.symbol;
-      const isCurrent = sym === currentSymbol;
-      const isPending = item.status === 'pending';
-      const isUp = (item.change || 0) >= 0;
-      const chgClass = isUp ? 'chg-up' : 'chg-down';
-      const chgGlyph = isUp ? '▲ +' : '▼ ';
-      const curr = item.currency_symbol || '$';
-      const decimals = sym.includes('=X') ? 4 : 2;
+  if (listContainer) {
+    listContainer.innerHTML = quotes
+      .map((item) => {
+        const sym = item.symbol;
+        const isCurrent = sym === currentSymbol;
+        const isPending = item.status === 'pending';
+        const isUp = (item.change || 0) >= 0;
+        const chgClass = isUp ? 'chg-up' : 'chg-down';
+        const chgGlyph = isUp ? '▲ +' : '▼ ';
+        const curr = item.currency_symbol || getCurrencySymbol(item.symbol, item.currency);
+        const decimals = sym.includes('=X') ? 4 : 2;
 
-      return `
-        <div class="wl-item-row ${isCurrent ? 'active' : ''}" data-symbol="${sym}">
-          <div class="wl-item-info">
-            <span class="wl-item-sym">${sym}</span>
-            <span class="wl-item-name">${item.name || sym}</span>
-          </div>
-          <div class="wl-item-stats">
-            <div class="wl-item-price-block">
-              ${
-                isPending
-                  ? `<span class="meta-badge" style="font-size:10px; color:#fbbf24;">Queued</span>`
-                  : `<span class="wl-item-price">${curr}${item.current_price ? item.current_price.toFixed(decimals) : '—'}</span>
-                     <span class="tape-chg ${chgClass}" style="font-size:10px;">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>`
-              }
+        return `
+          <div class="wl-item-row ${isCurrent ? 'active' : ''}" data-symbol="${sym}">
+            <div class="wl-item-info">
+              <span class="wl-item-sym">${sym}</span>
+              <span class="wl-item-name">${item.name || sym}</span>
             </div>
-            <button class="wl-item-del-btn" data-del="${sym}" title="Remove">✕</button>
+            <div class="wl-item-stats">
+              <div class="wl-item-price-block">
+                ${
+                  isPending
+                    ? `<span class="meta-badge" style="font-size:10px; color:#fbbf24;">Queued</span>`
+                    : `<span class="wl-item-price">${curr}${item.current_price ? item.current_price.toFixed(decimals) : '—'}</span>
+                       <span class="tape-chg ${chgClass}" style="font-size:10px;">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>`
+                }
+              </div>
+              <button class="wl-item-del-btn" data-del="${sym}" title="Remove">✕</button>
+            </div>
           </div>
-        </div>
-      `;
-    })
-    .join('');
+        `;
+      })
+      .join('');
 
-  // Click row to switch stock
-  listContainer.querySelectorAll('.wl-item-row').forEach((row) => {
-    row.addEventListener('click', (e) => {
-      if (e.target.closest('.wl-item-del-btn')) return;
-      const sym = row.getAttribute('data-symbol');
-      router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
+    // Click row to switch stock
+    listContainer.querySelectorAll('.wl-item-row').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.wl-item-del-btn')) return;
+        const sym = row.getAttribute('data-symbol');
+        router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
+      });
     });
-  });
 
-  // Delete button
-  listContainer.querySelectorAll('.wl-item-del-btn').forEach((btn) => {
-    const sym = btn.getAttribute('data-del');
-    btn.type = 'button';
-    btn.title = `Remove ${sym}`;
-    btn.setAttribute('aria-label', `Remove ${sym} from watchlist`);
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
+    // Delete button
+    listContainer.querySelectorAll('.wl-item-del-btn').forEach((btn) => {
       const sym = btn.getAttribute('data-del');
-      watchlist.removeSymbol(sym);
-      showToast(`Removed ${sym} from Watchlist`, 'info');
-      updateStarBtn();
-      refreshWatchlistUI();
+      btn.type = 'button';
+      btn.title = `Remove ${sym}`;
+      btn.setAttribute('aria-label', `Remove ${sym} from watchlist`);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sym = btn.getAttribute('data-del');
+        watchlist.removeSymbol(sym);
+        showToast(`Removed ${sym} from Watchlist`, 'info');
+        updateStarBtn();
+        refreshWatchlistUI();
+      });
     });
-  });
+  }
+
+  // Populate Monitor Workspace Watchlist
+  if (wsContainer) {
+    wsContainer.innerHTML = `
+      <table class="screener-table">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Change %</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${quotes.map((item) => {
+            const sym = item.symbol;
+            const isUp = (item.change || 0) >= 0;
+            const chgClass = isUp ? 'chg-up' : 'chg-down';
+            const chgGlyph = isUp ? '▲ +' : '▼ ';
+            const curr = item.currency_symbol || getCurrencySymbol(sym, item.currency);
+            const decimals = sym.includes('=X') ? 4 : 2;
+            const isPending = item.status === 'pending';
+            return `
+              <tr data-symbol="${sym}">
+                <td class="screener-sym-col">${sym}</td>
+                <td style="font-weight: 500;">${item.name || sym}</td>
+                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Queued</span>' : `${curr}${item.current_price ? item.current_price.toFixed(decimals) : '—'}`}</td>
+                <td><span class="tape-chg ${chgClass}">${isPending ? '—' : `${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%`}</span></td>
+                <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
+                <td>
+                  <button class="wl-btn ws-inspect-btn" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px;">Analyze ↗</button>
+                  <button class="wl-btn wl-btn-danger ws-remove-btn" data-del="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px;">Remove</button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+    wsContainer.querySelectorAll('.ws-inspect-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sym = btn.getAttribute('data-symbol');
+        if (sym) router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
+      });
+    });
+    wsContainer.querySelectorAll('.ws-remove-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sym = btn.getAttribute('data-del');
+        if (sym) {
+          watchlist.removeSymbol(sym);
+          showToast(`Removed ${sym} from Watchlist`, 'info');
+          updateStarBtn();
+          refreshWatchlistUI();
+        }
+      });
+    });
+  }
 }
 
 
@@ -1961,7 +2185,7 @@ function renderStockOverview(data) {
   if (stockMcap) stockMcap.textContent = `MCap: ${data.market_cap_str || '—'}`;
 
   const isUp = (data.change || 0) >= 0;
-  const currSym = data.currency_symbol || '₹';
+  const currSym = data.currency_symbol || getCurrencySymbol(data.symbol, data.currency);
   const decimals = data.symbol.includes('=X') ? 4 : 2;
 
   if (stockPrice) {
@@ -2794,7 +3018,7 @@ function renderScreenerTable(items) {
       const isUp = (item.change_pct || 0) >= 0;
       const chgClass = isUp ? 'chg-up' : 'chg-down';
       const chgGlyph = isUp ? '▲ +' : '▼ ';
-      const currSym = item.currency_symbol || '$';
+      const currSym = item.currency_symbol || getCurrencySymbol(item.symbol, item.currency);
       const priceStr = item.price != null ? `${currSym}${item.price.toFixed(item.symbol.includes('=X') ? 4 : 2)}` : '—';
       const chgStr = item.change_pct != null ? `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%` : '—';
       const metricStr = item.market_cap_str || item.volume_str || (item.pe_trailing ? `P/E ${item.pe_trailing}x` : '—');
@@ -2808,7 +3032,7 @@ function renderScreenerTable(items) {
           <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metricStr}</td>
           <td>
             <button class="wl-btn screener-load-btn" data-symbol="${item.symbol}" style="padding: 4px 10px; font-size: 11px;">
-              Inspect ↗
+              Analyze ↗
             </button>
           </td>
         </tr>
@@ -2820,8 +3044,7 @@ function renderScreenerTable(items) {
     row.addEventListener('click', () => {
       const sym = row.getAttribute('data-symbol');
       if (sym) {
-        router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
-        window.scrollTo({ top: document.querySelector('.terminal-card')?.offsetTop - 80 || 280, behavior: 'smooth' });
+        router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
       }
     });
   });
