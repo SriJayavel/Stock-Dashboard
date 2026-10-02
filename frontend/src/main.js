@@ -3830,109 +3830,209 @@ function renderRelativePerformance(relPerf, dd) {
     .join('');
 }
 
-// Global Market Map & Sector Intelligence (Tab 8)
+// Global Market Map & Sector Intelligence (Markets Workspace)
 let currentSelectedSector = null;
 
 async function loadAndRenderSectorsAndMarketMap() {
-  const mapGrid = document.getElementById('global-market-map-grid');
+  const tableBody = document.getElementById('markets-indices-table-body');
   const secGrid = document.getElementById('sector-intelligence-grid');
 
+  // Ensure live macro/indices data is ready in marketDataCache
+  if (!marketDataCache?.macro) {
+    try {
+      marketDataCache = await api.getMarketOverview();
+    } catch (e) {
+      console.warn('Could not fetch market overview for indices table:', e);
+    }
+  }
+
   const benchmarkMeta = [
-    { name: 'India (NIFTY 50)', symbol: '^NSEI', region: 'NSE Benchmark' },
-    { name: 'India (SENSEX)', symbol: '^BSESN', region: 'BSE Benchmark' },
-    { name: 'US (S&P 500)', symbol: '^GSPC', region: 'US Broad Market' },
-    { name: 'US (Nasdaq 100)', symbol: '^NDX', region: 'US Technology' },
-    { name: 'Europe (FTSE 100)', symbol: '^FTSE', region: 'United Kingdom' },
-    { name: 'Japan (Nikkei 225)', symbol: '^N225', region: 'Asia Pacific' },
+    { name: 'NIFTY 50', symbol: '^NSEI', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
+    { name: 'SENSEX', symbol: '^BSESN', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
+    { name: 'BANK NIFTY', symbol: '^NSEBANK', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
+    { name: 'S&P 500', symbol: '^GSPC', region: 'Americas', regionCode: 'americas', tag: 'US', tagClass: 'tag-us', curr: '$' },
+    { name: 'NASDAQ Composite', symbol: '^IXIC', region: 'Americas', regionCode: 'americas', tag: 'US', tagClass: 'tag-us', curr: '$' },
+    { name: 'FTSE 100', symbol: '^FTSE', region: 'Europe', regionCode: 'europe', tag: 'UK', tagClass: 'tag-eu', curr: '£' },
+    { name: 'NIKKEI 225', symbol: '^N225', region: 'Asia-Pacific', regionCode: 'asia', tag: 'JP', tagClass: 'tag-ap', curr: '¥' },
   ];
 
-  if (mapGrid) {
+  // 1. Populate Global Benchmark Indices Table
+  if (tableBody) {
     const liveIndices = (marketDataCache?.macro?.Indices || []);
     const lookup = new Map(liveIndices.map((i) => [i.symbol, i]));
 
-    mapGrid.innerHTML = benchmarkMeta
+    tableBody.innerHTML = benchmarkMeta
       .map((m) => {
         const live = lookup.get(m.symbol);
-        const price = live?.price != null ? live.price.toFixed(2) : (m.symbol === '^NSEI' && marketDataCache?.hero?.price != null ? marketDataCache.hero.price.toFixed(2) : '—');
-        const chgPct = live?.change_pct != null ? live.change_pct : (m.symbol === '^NSEI' && marketDataCache?.hero?.change_pct != null ? marketDataCache.hero.change_pct : 0);
-        const isUp = chgPct >= 0;
-        const chgDisplay = `${isUp ? '+' : ''}${chgPct.toFixed(2)}%`;
+        const rawPrice = live?.price != null ? live.price : (m.symbol === '^NSEI' && marketDataCache?.hero?.price != null ? marketDataCache.hero.price : null);
+        const rawChg = live?.change != null ? live.change : (m.symbol === '^NSEI' && marketDataCache?.hero?.change != null ? marketDataCache.hero.change : null);
+        const rawPct = live?.change_pct != null ? live.change_pct : (m.symbol === '^NSEI' && marketDataCache?.hero?.change_pct != null ? marketDataCache.hero.change_pct : null);
+        const rawHigh = live?.high != null ? live.high : (m.symbol === '^NSEI' && marketDataCache?.hero?.high != null ? marketDataCache.hero.high : null);
+        const rawLow = live?.low != null ? live.low : (m.symbol === '^NSEI' && marketDataCache?.hero?.low != null ? marketDataCache.hero.low : null);
+
+        const priceDisplay = rawPrice != null ? `${m.curr}${rawPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+        const isUp = (rawPct || 0) >= 0;
+        const sign = isUp ? '+' : '−';
+        const chgDisplay = rawChg != null ? `${sign}${Math.abs(rawChg).toFixed(2)}` : '—';
+        const pctDisplay = rawPct != null ? `${isUp ? '+' : ''}${rawPct.toFixed(2)}%` : '—';
+        const chgClass = isUp ? 'chg-up' : 'chg-down';
+
+        let rangeHtml = '';
+        if (rawHigh != null && rawLow != null && rawHigh > rawLow && rawPrice != null) {
+          const rangePct = Math.min(100, Math.max(0, ((rawPrice - rawLow) / (rawHigh - rawLow)) * 100));
+          const lowFmt = `${m.curr}${rawLow.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+          const highFmt = `${m.curr}${rawHigh.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+          rangeHtml = `
+            <div class="session-range-cell">
+              <span class="range-bound low">${lowFmt}</span>
+              <div class="mini-range-track">
+                <div class="mini-range-dot" style="left: ${rangePct}%;"></div>
+              </div>
+              <span class="range-bound high">${highFmt}</span>
+            </div>
+          `;
+        } else if (rawPrice != null) {
+          // Dynamic session position based on daily change %
+          const clampPct = Math.min(85, Math.max(15, 50 + (rawPct || 0) * 12));
+          rangeHtml = `
+            <div class="session-range-cell" title="Session momentum relative to previous close">
+              <span class="range-bound low" style="font-size: 10px; color: var(--text-dim);">Close</span>
+              <div class="mini-range-track">
+                <div class="mini-range-dot" style="left: ${clampPct}%; background: ${isUp ? 'var(--gain)' : 'var(--loss)'};"></div>
+              </div>
+              <span class="range-bound high" style="font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Gain' : '▼ Loss'}</span>
+            </div>
+          `;
+        } else {
+          rangeHtml = '<span style="color: var(--text-muted); font-size: 11px;">Feed syncing</span>';
+        }
 
         return `
-          <div class="market-map-tile" data-sym="${m.symbol}" style="cursor: pointer;" title="Open ${m.name} in Terminal Chart">
-            <div>
-              <div style="font-size: 11px; color: var(--text-dim);">${m.region}</div>
-              <div style="font-size: 14px; font-weight: 700; color: var(--text); margin: 4px 0;">${m.name}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-              <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">${m.symbol}</span>
-              <div style="display: flex; gap: 8px; align-items: baseline;">
-                ${price !== '—' ? `<span style="font-family: var(--font-mono); font-size: 12px; color: var(--text);">${price}</span>` : ''}
-                <span class="tape-chg ${isUp ? 'chg-up' : 'chg-down'}">${chgDisplay}</span>
+          <tr class="markets-index-row" data-region="${m.regionCode}" data-sym="${m.symbol}">
+            <td>
+              <div class="region-badge">
+                <span class="region-tag ${m.tagClass}">${m.tag}</span>
+                <span>${m.region}</span>
               </div>
-            </div>
-          </div>
+            </td>
+            <td>
+              <strong style="color: #ffffff; font-weight: 600;">${m.name}</strong>
+            </td>
+            <td>
+              <span style="font-family: var(--font-mono); color: var(--accent); font-size: 11.5px; font-weight: 600;">${m.symbol}</span>
+            </td>
+            <td class="text-right" style="font-family: var(--font-mono); font-weight: 700; color: #ffffff;">
+              ${priceDisplay}
+            </td>
+            <td class="text-right" style="font-family: var(--font-mono); color: var(--text-dim);">
+              ${chgDisplay}
+            </td>
+            <td class="text-right">
+              <span class="tape-chg ${chgClass}">${pctDisplay}</span>
+            </td>
+            <td>
+              ${rangeHtml}
+            </td>
+            <td class="text-right">
+              <button class="markets-table-action-btn" data-sym="${m.symbol}" title="Analyze ${m.name}">Analyze ↗</button>
+            </td>
+          </tr>
         `;
       })
       .join('');
 
-    mapGrid.querySelectorAll('.market-map-tile').forEach((tile) => {
-      tile.addEventListener('click', () => {
-        const sym = tile.getAttribute('data-sym');
+    // Wire Row Clicks and Action Buttons
+    tableBody.querySelectorAll('.markets-index-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const sym = row.getAttribute('data-sym');
         if (sym) {
           router.navigate(router.formatSymbolRoute(sym, 'chart'));
-          showToast(`Loading benchmark ${sym} into Terminal`, 'info');
-          const termEl = document.querySelector('.terminal-card');
-          if (termEl) termEl.scrollIntoView({ behavior: 'smooth' });
         }
+      });
+    });
+
+    tableBody.querySelectorAll('.markets-table-action-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sym = btn.getAttribute('data-sym');
+        if (sym) {
+          router.navigate(router.formatSymbolRoute(sym, 'chart'));
+        }
+      });
+    });
+
+    // Wire Filter Buttons
+    const filterBtns = document.querySelectorAll('#markets-indices-filter .markets-filter-btn');
+    filterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const region = btn.getAttribute('data-region');
+        tableBody.querySelectorAll('.markets-index-row').forEach((row) => {
+          if (region === 'all' || row.getAttribute('data-region') === region) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
       });
     });
   }
 
+  // 2. Render Sector Constituents Detail Function
   function renderSelectedSectorDetail(sector) {
     const titleEl = document.getElementById('sector-detail-title');
     const metaEl = document.getElementById('sector-detail-meta');
     const bodyEl = document.getElementById('sector-detail-body');
+    const searchInput = document.getElementById('sector-constituent-search');
     if (!titleEl || !bodyEl || !sector) return;
 
     titleEl.textContent = `${sector.display_name} Constituents`;
     const proxyStr = [sector.indian_proxy, sector.benchmark_etf].filter(Boolean).join(' · ');
     metaEl.innerHTML = `
       ${proxyStr ? `Benchmark: <span style="font-family: var(--font-mono); color: var(--accent);">${proxyStr}</span> · ` : ''}
-      Leader: <span style="font-family: var(--font-mono); color: var(--gain);">${sector.leading_asset}</span> ·
-      ${sector.constituents.length} Key Assets
+      Sector Anchor: <span style="font-family: var(--font-mono); color: var(--gain); font-weight: 600;">${sector.leading_asset}</span> ·
+      ${sector.constituents.length} Tracked Equities
     `;
 
     bodyEl.innerHTML = `
-      <table class="timeline-table">
+      <table class="markets-data-table">
         <thead>
           <tr>
-            <th style="text-align: left; padding: 10px 14px;">Asset</th>
-            <th style="text-align: left; padding: 10px 14px;">Sector Weight Role</th>
-            <th style="text-align: right; padding: 10px 14px;">Action</th>
+            <th style="width: 140px;">Symbol</th>
+            <th>Constituent Role</th>
+            <th style="width: 160px;">Benchmark Proxy</th>
+            <th class="text-right" style="width: 130px;">Status</th>
+            <th class="text-right" style="width: 100px;">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="sector-constituents-tbody">
           ${sector.constituents
             .map((sym, idx) => {
               const isLeader = sym === sector.leading_asset;
               const isCurrent = sym === currentSymbol;
+              const roleName = idx === 0 ? 'Primary Sector Anchor' : idx < 3 ? 'Core Component Leader' : 'Constituent Peer';
+
               return `
-                <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s ease;">
-                  <td style="padding: 10px 14px;">
+                <tr class="sector-constituent-row" data-sym="${sym}">
+                  <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-family: var(--font-mono); font-weight: 700; color: ${isCurrent ? 'var(--accent)' : 'var(--text)'}; font-size: 13px;">${sym}</span>
-                      ${isLeader ? `<span class="meta-badge" style="background: rgba(232, 179, 78, 0.15); color: var(--accent); font-size: 10px;">Sector Leader</span>` : ''}
-                      ${isCurrent ? `<span class="meta-badge" style="background: rgba(62, 207, 142, 0.15); color: var(--gain); font-size: 10px;">Currently Active</span>` : ''}
+                      <span style="font-family: var(--font-mono); font-weight: 700; color: ${isCurrent ? 'var(--accent)' : '#ffffff'}; font-size: 12.5px;">${sym}</span>
+                      ${isLeader ? `<span class="region-tag tag-in">Leader</span>` : ''}
+                      ${isCurrent ? `<span class="region-tag tag-ap">Active</span>` : ''}
                     </div>
                   </td>
-                  <td style="padding: 10px 14px; font-size: 12px; color: var(--text-dim);">
-                    ${idx === 0 ? 'Primary Anchor Constituent' : idx < 3 ? 'Core Sector Leader' : 'Constituent Peer'}
+                  <td style="color: var(--text-dim); font-size: 11.5px;">
+                    ${roleName}
                   </td>
-                  <td style="padding: 10px 14px; text-align: right;">
-                    <button class="sector-analyze-btn" data-sym="${sym}" style="background: var(--surface-light); border: 1px solid var(--border); color: var(--text); padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.15s ease;">
-                      📈 Analyze
-                    </button>
+                  <td style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">
+                    ${proxyStr || 'Sector Cohort'}
+                  </td>
+                  <td class="text-right">
+                    <span class="tape-chg chg-neutral" style="font-size: 10px; padding: 1px 6px;">Tracked</span>
+                  </td>
+                  <td class="text-right">
+                    <button class="markets-table-action-btn sector-analyze-btn" data-sym="${sym}">Analyze ↗</button>
                   </td>
                 </tr>
               `;
@@ -3942,20 +4042,36 @@ async function loadAndRenderSectorsAndMarketMap() {
       </table>
     `;
 
+    // Connect constituent row clicks & analyze buttons
+    bodyEl.querySelectorAll('.sector-constituent-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const sym = row.getAttribute('data-sym');
+        if (sym) router.navigate(router.formatSymbolRoute(sym, 'chart'));
+      });
+    });
+
     bodyEl.querySelectorAll('.sector-analyze-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const sym = btn.getAttribute('data-sym');
-        if (sym) {
-          router.navigate(router.formatSymbolRoute(sym, 'chart'));
-          showToast(`Opening ${sym} on Terminal Chart`, 'info');
-          const termEl = document.querySelector('.terminal-card');
-          if (termEl) termEl.scrollIntoView({ behavior: 'smooth' });
-        }
+        if (sym) router.navigate(router.formatSymbolRoute(sym, 'chart'));
       });
     });
+
+    // Wire Search Input Filter
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.oninput = () => {
+        const q = (searchInput.value || '').trim().toUpperCase();
+        bodyEl.querySelectorAll('.sector-constituent-row').forEach((row) => {
+          const sym = row.getAttribute('data-sym') || '';
+          row.style.display = sym.toUpperCase().includes(q) ? '' : 'none';
+        });
+      };
+    }
   }
 
+  // 3. Render Sector Performance Heatmap Matrix
   if (secGrid) {
     try {
       const data = await api.getSectorIntelligence();
@@ -3967,52 +4083,45 @@ async function loadAndRenderSectorsAndMarketMap() {
 
       secGrid.innerHTML = sectorData
         .map((s) => {
-          const isUp = (s.performance_24h_pct || 0) >= 0;
+          const perf = s.performance_24h_pct || 0;
+          const isUp = perf >= 0;
           const isSelected = currentSelectedSector?.sector === s.sector;
-          const proxy = s.indian_proxy || s.benchmark_etf || '';
+          const proxy = s.indian_proxy || s.benchmark_etf || 'SECTOR';
+
+          let intensityClass = 'hm-neutral';
+          if (perf >= 1.5) intensityClass = 'hm-gain-strong';
+          else if (perf >= 0.2) intensityClass = 'hm-gain-mod';
+          else if (perf <= -1.5) intensityClass = 'hm-loss-strong';
+          else if (perf <= -0.2) intensityClass = 'hm-loss-mod';
+
           return `
-            <div class="sector-card ${isSelected ? 'selected' : ''}" data-sector="${s.sector}" title="Click to view ${s.display_name} constituents">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 13px; font-weight: 700; color: var(--text);">${s.display_name}</span>
-                <span class="tape-chg ${isUp ? 'chg-up' : 'chg-down'}">${isUp ? '+' : ''}${(s.performance_24h_pct || 0).toFixed(2)}%</span>
+            <div class="hm-tile ${intensityClass} ${isSelected ? 'active-hm-cell' : ''}" data-sector="${s.sector}" title="Click to inspect ${s.display_name} constituents">
+              <div class="hm-tile-header">
+                <span class="hm-sector-name">${s.display_name}</span>
+                <span class="hm-sector-perf ${isUp ? 'text-gain' : 'text-loss'}">${isUp ? '+' : ''}${perf.toFixed(2)}%</span>
               </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 11px;">
-                <span style="color: var(--text-dim);">Leader: <button class="sector-leader-btn" data-sym="${s.leading_asset}" title="Open leader ${s.leading_asset}">${s.leading_asset}</button></span>
-                ${proxy ? `<span style="font-family: var(--font-mono); color: var(--text-dim);">${proxy}</span>` : ''}
+              <div class="hm-meta-line">
+                <span class="hm-proxy-tag">${proxy}</span>
+                <span class="hm-leader-tag">Leader: <strong>${s.leading_asset}</strong></span>
               </div>
-              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                ${s.constituents.slice(0, 5).map((c) => `<button class="sector-sym-btn" data-sym="${c}" title="Analyze ${c}">${c}</button>`).join('')}
-                ${s.constituents.length > 5 ? `<span style="font-size: 11px; color: var(--text-dim); margin-left: 2px;">+${s.constituents.length - 5} more</span>` : ''}
+              <div class="hm-footer-bar">
+                <span>${s.constituents.length} Constituents</span>
+                <span style="font-family: var(--font-mono); font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Net Bullish' : '▼ Net Bearish'}</span>
               </div>
             </div>
           `;
         })
         .join('');
 
-      // Wire card click -> select sector
-      secGrid.querySelectorAll('.sector-card').forEach((card) => {
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('.sector-sym-btn') || e.target.closest('.sector-leader-btn')) return;
-          const secName = card.getAttribute('data-sector');
+      // Wire tile click -> select sector
+      secGrid.querySelectorAll('.hm-tile').forEach((tile) => {
+        tile.addEventListener('click', () => {
+          const secName = tile.getAttribute('data-sector');
           const found = sectorData.find((s) => s.sector === secName);
           if (found) {
             currentSelectedSector = found;
-            secGrid.querySelectorAll('.sector-card').forEach((c) => c.classList.toggle('selected', c.getAttribute('data-sector') === secName));
+            secGrid.querySelectorAll('.hm-tile').forEach((t) => t.classList.toggle('active-hm-cell', t.getAttribute('data-sector') === secName));
             renderSelectedSectorDetail(found);
-          }
-        });
-      });
-
-      // Wire constituent pills click -> load stock into terminal chart
-      secGrid.querySelectorAll('.sector-sym-btn, .sector-leader-btn').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const sym = btn.getAttribute('data-sym');
-          if (sym) {
-            router.navigate(router.formatSymbolRoute(sym, 'chart'));
-            showToast(`Loading ${sym} into Terminal Chart`, 'info');
-            const termEl = document.querySelector('.terminal-card');
-            if (termEl) termEl.scrollIntoView({ behavior: 'smooth' });
           }
         });
       });
@@ -4024,6 +4133,67 @@ async function loadAndRenderSectorsAndMarketMap() {
       console.warn('Failed sector intelligence load:', e);
     }
   }
+
+  // 4. Render Cross-Asset Macro Radar Lists
+  renderMacroRadarPanels();
+}
+
+function formatMacroPrice(price, symbol = '') {
+  if (price == null) return '—';
+  if (symbol.includes('USDINR') || symbol.endsWith('.NS') || symbol.endsWith('.BO')) {
+    return `₹${price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (symbol.includes('=X')) {
+    return price.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  }
+  return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function renderMacroRadarPanels() {
+  const forexList = document.getElementById('markets-macro-forex-list');
+  const commList = document.getElementById('markets-macro-commodities-list');
+  const cryptoList = document.getElementById('markets-macro-crypto-list');
+  if (!forexList || !commList || !cryptoList || !marketDataCache?.macro) return;
+
+  const renderList = (container, items) => {
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div style="padding: 12px; color: var(--text-dim); font-size: 11px;">Feed offline</div>';
+      return;
+    }
+    container.innerHTML = items
+      .map((it) => {
+        const isUp = (it.change || 0) >= 0;
+        const sign = isUp ? '+' : '−';
+        const chgClass = isUp ? 'chg-up' : 'chg-down';
+        const chgPct = it.change_pct != null ? `${sign}${Math.abs(it.change_pct).toFixed(2)}%` : '—';
+        const priceFmt = formatMacroPrice(it.price, it.symbol);
+
+        return `
+          <div class="macro-asset-row" data-sym="${it.symbol}">
+            <div class="macro-asset-ident">
+              <span class="macro-asset-name">${it.name || it.symbol}</span>
+              <span class="macro-asset-sym">${it.symbol}</span>
+            </div>
+            <div class="macro-asset-values">
+              <span class="macro-asset-price">${priceFmt}</span>
+              <span class="tape-chg ${chgClass}" style="font-size: 10.5px; padding: 1px 6px;">${chgPct}</span>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    container.querySelectorAll('.macro-asset-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const sym = row.getAttribute('data-sym');
+        if (sym) router.navigate(router.formatSymbolRoute(sym, 'chart'));
+      });
+    });
+  };
+
+  renderList(forexList, (marketDataCache.macro.Forex || []).slice(0, 5));
+  renderList(commList, (marketDataCache.macro.Commodities || []).slice(0, 5));
+  renderList(cryptoList, (marketDataCache.macro.Crypto || []).slice(0, 5));
 }
 window.apexLoad = (sym) => {
   router.navigate(router.formatSymbolRoute(sym, 'chart'));

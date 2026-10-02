@@ -175,41 +175,140 @@
            ===================================================================== -->
       <section class="workspace-view" id="workspace-markets" role="tabpanel" aria-labelledby="ws-btn-markets">
         <div class="workspace-scroll-wrap">
+          <!-- Markets Master Header -->
           <div class="workspace-header">
             <div class="workspace-title-row">
-              <h2 class="workspace-title">Markets Overview</h2>
-              <span class="workspace-badge">Global Macro</span>
+              <div class="workspace-title-group">
+                <h2 class="workspace-title">Markets Overview</h2>
+                <span class="workspace-badge">Multi-Asset Intelligence</span>
+              </div>
+              <div class="markets-status-pill" id="markets-session-status">
+                <span class="markets-pulse-dot"></span>
+                <span class="markets-status-text">Global Feeds Active</span>
+              </div>
             </div>
-            <p class="workspace-desc">Real-time benchmark index performance, sector rotation heatmaps, and constituent telemetry.</p>
+            <p class="workspace-desc">Cross-regional equity benchmarks, sector rotation heatmaps, constituent breadth, and multi-asset macro radar.</p>
           </div>
 
+          <!-- SECTION 1: GLOBAL BENCHMARK INDICES (COMPACT FINANCIAL DATA TABLE) -->
           <div class="ws-section-block">
             <div class="section-sub-header">
-              <h3 class="section-sub-title">Global Indices &amp; Benchmarks</h3>
-              <span class="section-sub-caption">Click any benchmark to load in Analyze workstation</span>
+              <div class="section-sub-title-group">
+                <h3 class="section-sub-title">Global Benchmark Indices</h3>
+                <span class="section-sub-caption">Real-time performance across India, Americas, Europe, and Asia-Pacific. Click any row to load into Analyze workstation.</span>
+              </div>
+              <div class="markets-filter-strip" id="markets-indices-filter">
+                <button class="markets-filter-btn active" data-region="all">All (7)</button>
+                <button class="markets-filter-btn" data-region="india">India (3)</button>
+                <button class="markets-filter-btn" data-region="americas">Americas (2)</button>
+                <button class="markets-filter-btn" data-region="europe">Europe (1)</button>
+                <button class="markets-filter-btn" data-region="asia">Asia (1)</button>
+              </div>
             </div>
-            <div class="market-map-grid" id="global-market-map-grid">
-              <!-- Populated via JavaScript loadAndRenderSectorsAndMarketMap -->
+
+            <div class="markets-table-wrapper">
+              <table class="markets-data-table" id="markets-indices-table">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">Region</th>
+                    <th>Benchmark Index</th>
+                    <th style="width: 100px;">Ticker</th>
+                    <th class="text-right" style="width: 120px;">Last Price</th>
+                    <th class="text-right" style="width: 110px;">Net Change</th>
+                    <th class="text-right" style="width: 105px;">24H Return</th>
+                    <th style="width: 220px;">Session Range</th>
+                    <th class="text-right" style="width: 90px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="markets-indices-table-body">
+                  <tr>
+                    <td colspan="8" class="table-loading-cell">Loading global benchmark feed...</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
+          <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP -->
           <div class="ws-section-block">
             <div class="section-sub-header">
-              <h3 class="section-sub-title">Sector Heatmap &amp; Intelligence</h3>
-              <span class="section-sub-caption">Click any sector card to inspect constituent breadth</span>
+              <div class="section-sub-title-group">
+                <h3 class="section-sub-title">Sector Rotation &amp; Performance Heatmap</h3>
+                <span class="section-sub-caption">Proportional sector return matrix. Color intensity maps to 24H return. Click any cell to inspect constituent breadth.</span>
+              </div>
+              <div class="heatmap-legend">
+                <span class="legend-label">Return:</span>
+                <span class="heatmap-swatch hm-swatch-deep-loss">&le; -1.5%</span>
+                <span class="heatmap-swatch hm-swatch-mod-loss">-0.5%</span>
+                <span class="heatmap-swatch hm-swatch-neutral">Flat</span>
+                <span class="heatmap-swatch hm-swatch-mod-gain">+0.5%</span>
+                <span class="heatmap-swatch hm-swatch-deep-gain">&ge; +1.5%</span>
+              </div>
             </div>
-            <div class="sector-grid" id="sector-intelligence-grid">
-              <!-- Populated via JavaScript loadAndRenderSectorsAndMarketMap -->
+
+            <!-- Authentic Financial Sector Heatmap Grid -->
+            <div class="sector-heatmap-matrix" id="sector-intelligence-grid">
+              <!-- Populated dynamically via loadAndRenderSectorsAndMarketMap -->
             </div>
           </div>
 
+          <!-- SECTION 3: SECTOR CONSTITUENTS DEEP-DIVE -->
           <div class="ws-section-block" id="sector-detail-section">
             <div class="section-sub-header">
-              <h3 class="section-sub-title" id="sector-detail-title">Sector Constituents</h3>
-              <span class="section-sub-caption" id="sector-detail-meta"></span>
+              <div class="section-sub-title-group">
+                <h3 class="section-sub-title" id="sector-detail-title">Sector Constituents</h3>
+                <span class="section-sub-caption" id="sector-detail-meta">Loading constituent telemetry...</span>
+              </div>
+              <div class="table-quick-search-wrap">
+                <input type="text" id="sector-constituent-search" class="markets-table-search" placeholder="Filter constituents..." autocomplete="off" />
+              </div>
             </div>
-            <div id="sector-detail-body" class="timeline-table-wrapper">
-              <!-- Populated via JavaScript -->
+            <div class="markets-table-wrapper" id="sector-detail-body">
+              <!-- Populated via JavaScript renderSelectedSectorDetail -->
+            </div>
+          </div>
+
+          <!-- SECTION 4: CROSS-ASSET MACRO RADAR (FOREX, COMMODITIES, DIGITAL ASSETS) -->
+          <div class="ws-section-block">
+            <div class="section-sub-header">
+              <div class="section-sub-title-group">
+                <h3 class="section-sub-title">Cross-Asset Macro Radar</h3>
+                <span class="section-sub-caption">Spot currencies, sovereign commodities, and digital asset markets</span>
+              </div>
+            </div>
+            <div class="macro-radar-matrix">
+              <!-- Macro Column 1: Forex Major Pairs -->
+              <div class="macro-radar-panel">
+                <div class="macro-panel-header">
+                  <div class="macro-panel-title">Forex Major Pairs</div>
+                  <span class="macro-panel-badge">FX Spot</span>
+                </div>
+                <div class="macro-panel-body" id="markets-macro-forex-list">
+                  <!-- Populated via JS -->
+                </div>
+              </div>
+
+              <!-- Macro Column 2: Commodities -->
+              <div class="macro-radar-panel">
+                <div class="macro-panel-header">
+                  <div class="macro-panel-title">Commodities</div>
+                  <span class="macro-panel-badge">Futures</span>
+                </div>
+                <div class="macro-panel-body" id="markets-macro-commodities-list">
+                  <!-- Populated via JS -->
+                </div>
+              </div>
+
+              <!-- Macro Column 3: Digital Assets -->
+              <div class="macro-radar-panel">
+                <div class="macro-panel-header">
+                  <div class="macro-panel-title">Digital Assets</div>
+                  <span class="macro-panel-badge">24H Spot</span>
+                </div>
+                <div class="macro-panel-body" id="markets-macro-crypto-list">
+                  <!-- Populated via JS -->
+                </div>
+              </div>
             </div>
           </div>
         </div>
