@@ -94,10 +94,6 @@ async function startApp() {
         await loadStock(targetSym, currentTimeframe);
       }
       activateWorkspaceTab(targetTab);
-      const termEl = document.querySelector('.terminal-card');
-      if (termEl && targetTab === 'chart') {
-        termEl.scrollIntoView({ behavior: 'smooth' });
-      }
     } else if (route.type === 'screener') {
       setTopLevelView('screener');
       if (route.universe) {
@@ -107,18 +103,14 @@ async function startApp() {
           tabBtn.classList.add('active');
         }
         await loadScreener(route.universe);
-      }
-      const screenerEl = document.querySelector('.screener-card');
-      if (screenerEl) {
-        screenerEl.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        if (!screenerItemsCache || screenerItemsCache.length === 0) {
+          await loadScreener('indian_leaders');
+        }
       }
     } else if (route.type === 'sectors') {
       setTopLevelView('sectors');
-      activateWorkspaceTab('sectors');
-      const sectorsEl = document.getElementById('panel-sectors') || document.querySelector('.terminal-card');
-      if (sectorsEl) {
-        sectorsEl.scrollIntoView({ behavior: 'smooth' });
-      }
+      loadAndRenderSectorsAndMarketMap();
     }
   });
 
@@ -162,6 +154,35 @@ export function setTopLevelView(viewName) {
   document.querySelectorAll('#top-nav-views .top-nav-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.getAttribute('data-top-view') === viewName);
   });
+
+  const mainLayout = document.getElementById('main-layout');
+  if (mainLayout) {
+    mainLayout.setAttribute('data-active-view', viewName);
+  }
+  document.body.setAttribute('data-top-view', viewName);
+
+  const termView = document.getElementById('view-terminal');
+  const screenerView = document.getElementById('view-screener');
+  const sectorsView = document.getElementById('view-sectors');
+
+  if (termView) termView.classList.toggle('active', viewName === 'terminal');
+  if (screenerView) screenerView.classList.toggle('active', viewName === 'screener');
+  if (sectorsView) sectorsView.classList.toggle('active', viewName === 'sectors');
+
+  if (viewName === 'terminal') {
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'));
+      if (chartInstance && chartInstance.resize) {
+        chartInstance.resize();
+      }
+    });
+  } else if (viewName === 'screener') {
+    if (!screenerItemsCache || screenerItemsCache.length === 0) {
+      loadScreener('indian_leaders');
+    }
+  } else if (viewName === 'sectors') {
+    loadAndRenderSectorsAndMarketMap();
+  }
 }
 
 export function syncChartControlsToPreferences() {
@@ -197,6 +218,15 @@ export function syncChartControlsToPreferences() {
 
 // Workspace Navigation Tabs Controller
 export function activateWorkspaceTab(targetTab) {
+  if (targetTab === 'sectors') {
+    setTopLevelView('sectors');
+    router.navigate('/sectors');
+    return;
+  }
+
+  // Ensure top-level terminal view is active when selecting dock tabs
+  setTopLevelView('terminal');
+
   const wsTabs = document.querySelectorAll('#workspace-nav-bar .ws-tab-btn[data-tab]');
   const targetBtn = document.querySelector(`#workspace-nav-bar .ws-tab-btn[data-tab="${targetTab}"]`);
   if (!targetBtn) return;
@@ -210,13 +240,13 @@ export function activateWorkspaceTab(targetTab) {
   });
 
   if (targetTab === 'chart' && chartInstance) {
-    window.dispatchEvent(new Event('resize'));
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'));
+      if (chartInstance.resize) chartInstance.resize();
+    });
   }
   if (targetTab === 'report') {
     renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
-  }
-  if (targetTab === 'sectors') {
-    loadAndRenderSectorsAndMarketMap();
   }
   if (targetTab === 'correlation') {
     loadAndRenderCorrelation(activeCorrelationPeriod);

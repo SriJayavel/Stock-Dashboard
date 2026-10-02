@@ -181,9 +181,9 @@
     </header>
 
     <!-- Main Content Workstation (Full-Bleed TradingView Layout) -->
-    <main class="main-layout">
+    <main class="main-layout" id="main-layout" data-active-view="terminal">
       <!-- Full-Bleed Terminal Workstation -->
-      <section class="glass terminal-card">
+      <section class="glass terminal-card terminal-view-card active" id="view-terminal">
         <!-- PANEL 1: CHART -->
         <div class="research-view-panel active" id="panel-chart">
           <!-- TradingView-Style Top Toolbar -->
@@ -302,7 +302,7 @@
 
             <!-- 2. Chart Canvas Viewport -->
             <div class="tv-chart-viewport" id="tv-chart-viewport">
-              <div class="chart-canvas-wrapper" id="chart-canvas-wrapper" style="position: relative; width: 100%; min-height: 480px;">
+              <div class="chart-canvas-wrapper" id="chart-canvas-wrapper">
                 <!-- 3. Top-Left Corner Legend Overlay -->
                 <div class="tv-corner-legend" id="tv-corner-legend">
                   <div class="tv-legend-primary">
@@ -346,9 +346,20 @@
           </div>
         </div>
 
-        <!-- PANEL 2: ASSET PROFILE & OVERVIEW -->
+        <!-- PANEL 2: ASSET PROFILE & TECHNICAL OVERVIEW -->
         <div class="research-view-panel" id="panel-overview">
-          <div class="dossier-grid" id="overview-grid">
+          <div class="timeline-card-header">
+            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Asset Profile Dossier</h4>
+          </div>
+          <div class="dossier-grid" id="overview-grid" style="margin-bottom: 24px;">
+            <!-- Populated via JavaScript -->
+          </div>
+
+          <div class="timeline-card-header">
+            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Technical Observations & Market Structure</h4>
+            <span class="brand-badge">Algorithmic Signals</span>
+          </div>
+          <div class="observations-container" id="observations-container">
             <!-- Populated via JavaScript -->
           </div>
         </div>
@@ -410,6 +421,19 @@
 
         <!-- PANEL 5: HISTORICAL VALUATION & HEALTH SCORE -->
         <div class="research-view-panel" id="panel-valuation">
+          <div class="timeline-card-header">
+            <h4 id="valuation-section-title" style="font-size: 13px; font-weight: 600; color: var(--text);">
+              Fundamental Multiples & Valuation Matrix
+            </h4>
+            <span id="valuation-section-badge" class="brand-badge">Equities Valuation</span>
+          </div>
+          <div class="valuation-grid" id="valuation-grid" style="margin-bottom: 24px;">
+            <!-- Populated via JavaScript -->
+          </div>
+
+          <div class="timeline-card-header">
+            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Financial Health & Solvency Score</h4>
+          </div>
           <div class="health-overview-grid">
             <div class="health-score-hero" id="health-score-hero">
               <div style="font-size: 11px; font-weight: 600; color: var(--text-dim);">
@@ -492,35 +516,7 @@
           </div>
         </div>
 
-        <!-- PANEL 8: GLOBAL MARKET MAP & SECTOR INTELLIGENCE -->
-        <div class="research-view-panel" id="panel-sectors">
-          <div class="timeline-card-header">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Global Benchmarks</h4>
-            <span style="font-size: 11px; color: var(--text-dim);">Click any benchmark to load in Terminal</span>
-          </div>
-          <div class="market-map-grid" id="global-market-map-grid">
-            <!-- Populated via JavaScript -->
-          </div>
 
-          <div class="timeline-card-header" style="margin-top: 20px;">
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Sector Heatmap & Intelligence</h4>
-            <span style="font-size: 11px; color: var(--text-dim);">Select a sector card to inspect constituents or click any ticker pill to load</span>
-          </div>
-          <div class="sector-grid" id="sector-intelligence-grid">
-            <!-- Populated via JavaScript -->
-          </div>
-
-          <!-- Selected Sector Constituent Breakdown -->
-          <div id="sector-detail-section" style="margin-top: 24px;">
-            <div class="timeline-card-header">
-              <h4 id="sector-detail-title" style="font-size: 13px; font-weight: 600; color: var(--text);">Sector Constituents</h4>
-              <span id="sector-detail-meta" style="font-size: 11px; color: var(--text-dim);"></span>
-            </div>
-            <div id="sector-detail-body" class="timeline-table-wrapper">
-              <!-- Populated via JavaScript -->
-            </div>
-          </div>
-        </div>
 
         <!-- PANEL 9: MULTI-ASSET CORRELATION MATRIX -->
         <div class="research-view-panel" id="panel-correlation">
@@ -700,38 +696,18 @@
         </div>
       </section>
 
-      <!-- Fundamental Valuation Multiples / Asset Profile Matrix -->
-      <section class="glass terminal-card">
-        <h3 id="valuation-section-title" style="font-size: 13px; color: var(--text-dim); font-weight: 600;">
-          Fundamental Multiples & Valuation Matrix
-        </h3>
-        <div class="valuation-grid" id="valuation-grid">
-          <!-- Populated via JavaScript -->
-        </div>
-      </section>
-
-      <!-- Objective Rule-Based Technical Observations -->
-      <section class="glass terminal-card">
-        <h3 style="font-size: 13px; color: var(--text-dim); font-weight: 600;">
-          Technical Observations
-        </h3>
-        <div class="observations-container" id="observations-container">
-          <!-- Populated via JavaScript -->
-        </div>
-      </section>
-
-      <!-- Screener & Filters -->
-      <section class="glass screener-card">
+      <!-- VIEW 2: DEDICATED SCREENER WORKSTATION -->
+      <section class="glass screener-card screener-view-card" id="view-screener">
         <div class="screener-header-wrap">
           <div>
-            <h3 style="font-size: 14px; font-weight: 600; color: var(--text);">
-              Screener
+            <h3 style="font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.01em;">
+              Multi-Asset Market Screener
             </h3>
             <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
-              Cross-market asset discovery across US Mega-Caps, Indian Bluechips, AI Leaders, Crypto, and Forex.
+              Cross-market asset discovery across US Mega-Caps, Indian Bluechips, AI Leaders, Crypto, Commodities, and Forex.
             </p>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; align-items: center;">
             <div class="screener-tabs" id="screener-tabs">
               <button class="screener-tab-btn active" data-universe="indian_leaders">Indian Leaders</button>
               <button class="screener-tab-btn" data-universe="us_mega_caps">US Mega-Caps</button>
@@ -740,14 +716,14 @@
               <button class="screener-tab-btn" data-universe="commodities">Commodities</button>
               <button class="screener-tab-btn" data-universe="forex">Forex</button>
             </div>
-            <button id="toggle-screener-builder-btn" class="ws-tab-btn">
-              Filters
+            <button id="toggle-screener-builder-btn" class="ws-tab-btn" style="padding: 4px 12px; height: 28px; font-weight: 600;">
+              Filters &amp; Rules
             </button>
           </div>
         </div>
 
         <!-- Screener Query Builder Container (Collapsible) -->
-        <div id="screener-builder-wrap" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin: 12px 0;">
+        <div id="screener-builder-wrap" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin: 14px 0;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <div style="font-size: 12px; font-weight: 600; color: var(--text-dim);">
               Filters
@@ -769,7 +745,7 @@
           </div>
         </div>
 
-        <div class="screener-table-wrapper">
+        <div class="screener-table-wrapper" style="margin-top: 14px;">
           <table class="screener-table">
             <thead>
               <tr>
@@ -783,10 +759,49 @@
             </thead>
             <tbody id="screener-table-body">
               <tr>
-                <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 20px;">Loading market snapshot...</td>
+                <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 30px;">Loading market snapshot...</td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- VIEW 3: DEDICATED SECTOR HEATMAP & INTELLIGENCE -->
+      <section class="glass sectors-view-card" id="view-sectors">
+        <div class="sectors-header-wrap" style="margin-bottom: 20px;">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.01em;">
+            Global Market Map &amp; Sector Intelligence
+          </h3>
+          <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+            Cross-market benchmark tracker, sector relative rotation, and constituent telemetry.
+          </p>
+        </div>
+
+        <div class="timeline-card-header">
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Global Benchmarks</h4>
+          <span style="font-size: 11px; color: var(--text-dim);">Click any benchmark to load in Terminal</span>
+        </div>
+        <div class="market-map-grid" id="global-market-map-grid" style="margin-bottom: 24px;">
+          <!-- Populated via JavaScript -->
+        </div>
+
+        <div class="timeline-card-header" style="margin-top: 20px;">
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Sector Heatmap &amp; Intelligence</h4>
+          <span style="font-size: 11px; color: var(--text-dim);">Select a sector card to inspect constituents or click any ticker pill to load</span>
+        </div>
+        <div class="sector-grid" id="sector-intelligence-grid" style="margin-bottom: 24px;">
+          <!-- Populated via JavaScript -->
+        </div>
+
+        <!-- Selected Sector Constituent Breakdown -->
+        <div id="sector-detail-section" style="margin-top: 24px;">
+          <div class="timeline-card-header">
+            <h4 id="sector-detail-title" style="font-size: 13px; font-weight: 600; color: var(--text);">Sector Constituents</h4>
+            <span id="sector-detail-meta" style="font-size: 11px; color: var(--text-dim);"></span>
+          </div>
+          <div id="sector-detail-body" class="timeline-table-wrapper">
+            <!-- Populated via JavaScript -->
+          </div>
         </div>
       </section>
     </main>
