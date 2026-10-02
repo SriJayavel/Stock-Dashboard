@@ -79,97 +79,290 @@
       </div>
     </div>
 
-    <!-- Navigation Header (Single Unified 44px Master Navbar) -->
-    <header class="navbar">
-      <div class="brand" id="brand-home-btn" title="Mara Home">
-        <img src="/favicon.svg" alt="Mara Logo" class="brand-logo" width="22" height="22" />
-        <span class="brand-name">Mara</span>
-      </div>
+    <!-- =====================================================================
+         MARA PHYSICAL INTERFACE ARCHITECTURE — PHASE 0 GLOBAL SHELL
+         ===================================================================== -->
+    <div id="mara-app" class="mara-app context-panel-open" data-density="normal">
+      <!-- 1. GLOBAL APPLICATION HEADER (52px) -->
+      <header id="mara-global-header" class="mara-global-header">
+        <!-- Brand Group -->
+        <div class="mara-brand-group" id="brand-home-btn" title="Mara Financial Workstation">
+          <img src="/favicon.svg" alt="Mara Logo" class="mara-brand-logo" width="22" height="22" />
+          <span class="mara-brand-title">MARA</span>
+          <span class="mara-brand-badge">TERMINAL v2.5</span>
+        </div>
 
-      <!-- Active Instrument Live Pill -->
-      <div class="header-active-asset" id="header-active-asset">
-        <span class="header-sym-badge" id="stock-symbol">TCS.NS</span>
-        <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Add to Watchlist">★</button>
-        <span class="header-name" id="stock-name">Tata Consultancy Services</span>
-        <div class="header-price-wrap">
-          <span class="current-price-val" id="stock-current-price">₹4,250.00</span>
-          <div class="hero-change-badge chg-up" id="stock-change-badge">
+        <!-- Global Command / Search Surface (⌘K) -->
+        <div class="mara-cmd-surface" id="global-cmd-surface">
+          <div class="mara-cmd-input-wrap">
+            <svg class="mara-cmd-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              id="global-search-input"
+              class="mara-cmd-input"
+              aria-label="Search securities, sectors, macros & commands"
+              placeholder="Search securities, sectors, macros & commands..."
+              autocomplete="off"
+            />
+            <kbd class="mara-cmd-kbd" id="search-kbd-hint">⌘K</kbd>
+          </div>
+          <div id="search-dropdown" class="search-dropdown" role="listbox" aria-label="Asset search results" aria-live="polite" aria-busy="false"></div>
+        </div>
+
+        <!-- Active Security Context -->
+        <div class="mara-active-asset-strip" id="header-active-asset">
+          <span class="mara-asset-sym" id="stock-symbol">TCS.NS</span>
+          <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Toggle Watchlist">★</button>
+          <span class="mara-asset-name" id="stock-name">Tata Consultancy Services</span>
+          <span class="mara-asset-price" id="stock-current-price">₹4,250.00</span>
+          <span class="mara-asset-badge chg-up" id="stock-change-badge">
             <span id="stock-change-pct">+32.50 (+0.77%)</span>
+          </span>
+          <div class="mara-live-status" title="Direct Exchange Feed Synchronized">
+            <span class="mara-live-dot"></span>
+            <span>LIVE</span>
           </div>
         </div>
-      </div>
 
-      <!-- Workspace Navigation: MARKETS, DISCOVER, ANALYZE, COMPARE, RESEARCH, MONITOR -->
-      <nav class="top-nav-workspaces" id="top-nav-workspaces" role="tablist" aria-label="Workspaces">
-        <button class="top-ws-btn" id="ws-btn-markets" data-workspace="markets" role="tab" aria-selected="false" title="Markets: Indices, Macro & Sectors">
-          <span>Markets</span>
-        </button>
-        <button class="top-ws-btn" id="ws-btn-discover" data-workspace="discover" role="tab" aria-selected="false" title="Discover: Screener & Asset Finder">
-          <span>Discover</span>
-        </button>
-        <button class="top-ws-btn active" id="ws-btn-analyze" data-workspace="analyze" role="tab" aria-selected="true" title="Analyze: Asset Workstation & Chart">
-          <span>Analyze</span>
-        </button>
-        <button class="top-ws-btn" id="ws-btn-compare" data-workspace="compare" role="tab" aria-selected="false" title="Compare: Peer Multiples & Correlation">
-          <span>Compare</span>
-        </button>
-        <button class="top-ws-btn" id="ws-btn-research" data-workspace="research" role="tab" aria-selected="false" title="Research: Events, Anomalies & Reports">
-          <span>Research</span>
-        </button>
-        <button class="top-ws-btn" id="ws-btn-monitor" data-workspace="monitor" role="tab" aria-selected="false" title="Monitor: Watchlist & Alerts">
-          <span>Monitor</span>
-        </button>
-      </nav>
+        <!-- System & Utility Controls -->
+        <div class="mara-header-utilities">
+          <!-- Density Mode Switcher -->
+          <div class="mara-density-selector" title="Workstation Information Density">
+            <button class="mara-density-btn" data-density-set="compact" title="Compact Density">CMP</button>
+            <button class="mara-density-btn active" data-density-set="normal" title="Normal Density">NRM</button>
+            <button class="mara-density-btn" data-density-set="focus" title="Focus Density">FOC</button>
+          </div>
 
-      <!-- Global Asset Search -->
-      <div class="nav-search">
-        <div class="search-input-wrapper">
-          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            id="global-search-input"
-            aria-label="Search stocks, indices, currencies, and digital assets"
-            role="combobox"
-            aria-expanded="false"
-            aria-autocomplete="list"
-            aria-controls="search-dropdown"
-            placeholder="Search ticker, company, or index..."
-            autocomplete="off"
-          />
-          <kbd class="search-kbd" id="search-kbd-hint">⌘K</kbd>
+          <!-- Watchlist Drawer Button -->
+          <button class="mara-header-btn" id="watchlist-drawer-toggle" type="button" title="Toggle Watchlist Drawer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></svg>
+            <span>Watchlist</span><span class="nav-count" id="watchlist-nav-count">5</span>
+          </button>
+
+          <!-- Alerts Modal Button -->
+          <button class="mara-header-btn" id="alerts-modal-toggle" type="button" title="Toggle Alerts Panel">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 20h4"/></svg>
+            <span>Alerts</span><span class="nav-count" id="alerts-nav-count">0</span>
+          </button>
+
+          <!-- Context Inspector Panel Toggle -->
+          <button class="mara-header-btn active" id="mara-context-toggle" type="button" title="Toggle Context Inspector Panel (⌥C)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+            <span>Inspector ◨</span>
+          </button>
+
+          <!-- Auth Account -->
+          <div class="auth-account" id="auth-account" hidden>
+            <img id="auth-avatar" alt="" hidden />
+            <span id="auth-account-name"></span>
+            <button id="auth-signout" type="button" title="Sign out of your Mara account">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>
+            </button>
+          </div>
         </div>
-        <div id="search-dropdown" class="search-dropdown" role="listbox" aria-label="Asset search results" aria-live="polite" aria-busy="false"></div>
-      </div>
+      </header>
 
-      <!-- System Status / Action -->
-      <div class="nav-actions">
-        <button class="watchlist-nav-toggle-btn nav-utility-btn" id="watchlist-drawer-toggle" type="button" aria-label="Open watchlist" title="Open watchlist">
-          <svg class="nav-utility-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></svg>
-          <span>Watchlist</span><span class="nav-count" id="watchlist-nav-count">0</span>
-        </button>
-        <button class="watchlist-nav-toggle-btn nav-utility-btn" id="alerts-modal-toggle" type="button" aria-label="Open alerts" title="Open alerts">
-          <svg class="nav-utility-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 20h4"/></svg>
-          <span>Alerts</span><span class="nav-count" id="alerts-nav-count">0</span>
-        </button>
-        <div class="live-pulse" title="Market Data Connected">
-          <span style="color: var(--text-dim); font-size: 11px;">Live</span>
-        </div>
-        <div class="auth-account" id="auth-account" hidden>
-          <img id="auth-avatar" alt="" hidden />
-          <span id="auth-account-name"></span>
-          <button id="auth-signout" type="button" title="Sign out of your Mara account">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>
-            <span>Sign out</span>
+      <!-- 2. WORKSPACE NAVIGATION LAYER (42px) -->
+      <nav id="mara-workspace-bar" class="mara-workspace-bar" role="navigation" aria-label="Workstation Modes">
+        <div class="mara-ws-tabs" id="top-nav-workspaces" role="tablist">
+          <button class="mara-ws-tab-btn active top-ws-btn" id="ws-btn-markets" data-workspace="markets" role="tab" aria-selected="true" title="Markets: Benchmarks, Sectors & Macro">
+            <span>Markets</span>
+          </button>
+          <button class="mara-ws-tab-btn top-ws-btn" id="ws-btn-discover" data-workspace="discover" role="tab" aria-selected="false" title="Discover: Screener & Asset Finder">
+            <span>Discover</span>
+          </button>
+          <button class="mara-ws-tab-btn top-ws-btn" id="ws-btn-analyze" data-workspace="analyze" role="tab" aria-selected="false" title="Analyze: Chart & Technical Inspection">
+            <span>Analyze</span>
+          </button>
+          <button class="mara-ws-tab-btn top-ws-btn" id="ws-btn-compare" data-workspace="compare" role="tab" aria-selected="false" title="Compare: Valuation Multiples & Correlation">
+            <span>Compare</span>
+          </button>
+          <button class="mara-ws-tab-btn top-ws-btn" id="ws-btn-research" data-workspace="research" role="tab" aria-selected="false" title="Research: Events & Fundamental Dossiers">
+            <span>Research</span>
+          </button>
+          <button class="mara-ws-tab-btn top-ws-btn" id="ws-btn-monitor" data-workspace="monitor" role="tab" aria-selected="false" title="Monitor: Watchlists & Quantitative Rules">
+            <span>Monitor</span>
           </button>
         </div>
-      </div>
-    </header>
 
-    <!-- Main Content Workstation: 6 Institutional Workspaces -->
-    <main class="main-layout" id="main-layout" data-workspace="analyze" data-active-view="terminal">
+        <!-- Multi-Representation View Switcher (Same dataset -> Table / Chart / Heatmap) -->
+        <div class="mara-view-switcher" id="mara-view-switcher" title="Dataset Representation">
+          <span style="font-size: 9.5px; color: var(--text-dim); padding: 0 4px; font-family: var(--font-mono);">VIEW:</span>
+          <button class="mara-view-btn active" data-view-set="table">TABLE</button>
+          <button class="mara-view-btn" data-view-set="chart">CHART</button>
+          <button class="mara-view-btn" data-view-set="heatmap">HEATMAP</button>
+          <button class="mara-view-btn" data-view-set="metrics">METRICS</button>
+        </div>
+      </nav>
+
+      <!-- 3. MAIN BODY CONTAINER (Rail + Main Canvas + Context Panel) -->
+      <div id="mara-body-container" class="mara-body-container">
+        <!-- 3A. LEFT NAVIGATION RAIL (60px) -->
+        <aside id="mara-nav-rail" class="mara-nav-rail" aria-label="Quick Access Rail">
+          <!-- Primary Workspace Icons -->
+          <button class="mara-rail-btn active" data-workspace-rail="markets" title="Markets Workspace (1)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </button>
+          <button class="mara-rail-btn" data-workspace-rail="discover" title="Discover & Screener (2)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          </button>
+          <button class="mara-rail-btn" data-workspace-rail="analyze" title="Analyze & Chart (3)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          </button>
+          <button class="mara-rail-btn" data-workspace-rail="compare" title="Compare & Multiples (4)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM7 21h10M12 3v18"/></svg>
+          </button>
+          <button class="mara-rail-btn" data-workspace-rail="research" title="Research Dossiers (5)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </button>
+          <button class="mara-rail-btn" data-workspace-rail="monitor" title="Monitor & Alerts (6)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+
+          <div class="mara-rail-divider"></div>
+
+          <!-- Quick Tools -->
+          <button class="mara-rail-btn" id="rail-star-btn" title="Open Watchlist Drawer (W)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+          <button class="mara-rail-btn" id="rail-alert-btn" title="Open Alerts Panel (A)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 20h4"/></svg>
+          </button>
+          <button class="mara-rail-btn" id="rail-cmd-btn" title="Launch Command Palette (⌘K)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </button>
+
+          <div class="mara-rail-spacer"></div>
+
+          <!-- Bottom Utility Icons -->
+          <button class="mara-rail-btn" id="rail-context-btn" title="Toggle Context Panel (⌥C)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+          </button>
+        </aside>
+
+        <!-- 3B. MAIN CANVAS -->
+        <main id="mara-main-canvas" class="mara-main-canvas">
+          <!-- Canvas Top Control Toolbar -->
+          <div class="mara-canvas-toolbar" id="mara-canvas-toolbar">
+            <div class="canvas-breadcrumb">
+              <span>WORKSTATION:</span>
+              <strong id="canvas-active-mode-label">MARKETS</strong>
+              <span style="color: var(--border);">/</span>
+              <span id="canvas-active-view-label">PHYSICAL STAGE</span>
+              <span style="color: var(--border);">·</span>
+              <span style="color: var(--gain);">READY</span>
+            </div>
+            <div class="canvas-toolbar-actions">
+              <!-- Mode Toggle: Empty Shell State vs Mounted Workspaces -->
+              <button class="canvas-tool-btn active" id="canvas-view-mode-empty" title="View pristine empty physical shell">
+                <span>STAGE WIREFRAME</span>
+              </button>
+              <button class="canvas-tool-btn" id="canvas-view-mode-mounted" title="Preview mounted workspace contents">
+                <span>MOUNTED WORKSPACE</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- PHASE 0: PHYSICAL WORKSTATION STAGE FRAMEWORK (EMPTY STATE) -->
+          <div id="canvas-empty-state" class="canvas-stage-wrapper">
+            <div class="workstation-spatial-grid">
+              <!-- Primary Analytical Stage -->
+              <div class="workstation-stage-card" id="canvas-primary-stage">
+                <!-- Precision Corner Cross Marks -->
+                <span class="cross-mark cross-tl">+</span>
+                <span class="cross-mark cross-tr">+</span>
+                <span class="cross-mark cross-bl">+</span>
+                <span class="cross-mark cross-br">+</span>
+
+                <div class="stage-card-header">
+                  <div class="stage-card-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>PRIMARY ANALYTICAL SURFACE [MAIN VIEWPORT]</span>
+                  </div>
+                  <div class="stage-card-telemetry">1440 × 900 REFERENCE GRID · FPS: 60</div>
+                </div>
+
+                <div class="stage-card-content">
+                  <div class="workstation-hud">
+                    <div class="hud-icon-wrap">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+                    </div>
+                    <h2 class="hud-title">MARA FINANCIAL RESEARCH WORKSTATION</h2>
+                    <p class="hud-caption">Physical Interface Architecture Initialized. The global application shell provides a persistent 5-region spatial container for multi-workspace financial analysis.</p>
+                    <div class="hud-shortcut-row">
+                      <span class="hud-pill"><kbd>⌘K</kbd> Global Command Search</span>
+                      <span class="hud-pill"><kbd>1 – 6</kbd> Switch Workspaces</span>
+                      <span class="hud-pill"><kbd>⌥C</kbd> Toggle Context Panel</span>
+                      <span class="hud-pill"><kbd>D</kbd> Cycle Density</span>
+                      <span class="hud-pill"><kbd>V</kbd> View Representation</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Secondary Telemetry Stage -->
+              <div class="workstation-stage-card" id="canvas-depth-stage">
+                <!-- Precision Corner Cross Marks -->
+                <span class="cross-mark cross-tl">+</span>
+                <span class="cross-mark cross-tr">+</span>
+                <span class="cross-mark cross-bl">+</span>
+                <span class="cross-mark cross-br">+</span>
+
+                <div class="stage-card-header">
+                  <div class="stage-card-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    <span>SPATIAL TELEMETRY</span>
+                  </div>
+                  <div class="stage-card-telemetry">LIVE STREAM</div>
+                </div>
+
+                <div class="stage-card-content">
+                  <div class="stage-secondary-rows">
+                    <div class="stage-row-item">
+                      <span class="label">Physical Shell Structure</span>
+                      <span class="val" style="color: var(--gain);">5-Region Strict</span>
+                    </div>
+                    <div class="stage-row-item">
+                      <span class="label">Global Header Height</span>
+                      <span class="val">52px</span>
+                    </div>
+                    <div class="stage-row-item">
+                      <span class="label">Workspace Bar Height</span>
+                      <span class="val">42px</span>
+                    </div>
+                    <div class="stage-row-item">
+                      <span class="label">Navigation Rail Width</span>
+                      <span class="val">60px</span>
+                    </div>
+                    <div class="stage-row-item">
+                      <span class="label">Context Panel Width</span>
+                      <span class="val">340px</span>
+                    </div>
+                    <div class="stage-row-item">
+                      <span class="label">Status Bar Height</span>
+                      <span class="val">26px</span>
+                    </div>
+                    <div class="stage-row-item">
+                      <span class="label">Primary Exchange Pipeline</span>
+                      <span class="val" style="color: var(--accent);">Direct NSE + YF</span>
+                    </div>
+                    <div class="stage-row-item">
+                      <span class="label">Workstation Density</span>
+                      <span class="val" id="telemetry-density-label">Normal (32px Row)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PRESERVED WORKSPACE MOUNT WRAPPER (Dormant during Phase 0 Shell Inspection) -->
+          <div id="canvas-mounted-content" class="canvas-mounted-wrapper" style="display: none; height: 100%; width: 100%;">
+            <main class="main-layout" id="main-layout" data-workspace="markets" data-active-view="terminal">
+              <!-- Preserved Workspaces Mounted Here -->
       <!-- =====================================================================
            WORKSPACE 1: MARKETS
            ===================================================================== -->
@@ -961,6 +1154,135 @@
         </div>
       </section>
     </main>
+  </div> <!-- end #canvas-mounted-content -->
+</main> <!-- end #mara-main-canvas -->
+
+<!-- 3C. OPTIONAL CONTEXT INSPECTOR PANEL (340px) -->
+<aside id="mara-context-panel" class="mara-context-panel" aria-label="Context Inspector">
+  <div class="context-panel-header">
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+      <span class="context-panel-title">Context Inspector</span>
+    </div>
+    <button class="context-panel-close-btn" id="close-context-panel-btn" title="Close Panel (⌥C)">✕</button>
+  </div>
+  <div class="context-panel-body">
+    <!-- Active Asset Dossier Card -->
+    <div class="inspector-block">
+      <div class="inspector-block-title">Active Instrument</div>
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;">
+        <div>
+          <span style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: #ffffff;" id="inspector-sym">TCS.NS</span>
+          <span style="font-size: 11px; color: var(--text-dim); margin-left: 6px;" id="inspector-exchange">NSE India</span>
+        </div>
+        <span class="mara-asset-badge chg-up" id="inspector-chg">+0.77%</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" id="inspector-company">Tata Consultancy Services Ltd</div>
+      <div class="inspector-grid">
+        <div class="inspector-stat">
+          <span class="label">Last Price</span>
+          <span class="val" id="inspector-price">₹4,250.00</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">Market Cap</span>
+          <span class="val">₹14.2T</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">P/E Ratio</span>
+          <span class="val">31.4x</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">RSI (14)</span>
+          <span class="val" style="color: var(--gain);">56.4</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Watchlist Peek -->
+    <div class="inspector-block">
+      <div class="inspector-block-title">Fast Watchlist</div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 4px 6px; background: #181b24; border-radius: 3px;">
+          <span style="font-family: var(--font-mono); font-weight: 600; color: #fff;">RELIANCE.NS</span>
+          <span style="font-family: var(--font-mono); color: var(--gain);">₹2,980 (+1.2%)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 4px 6px; background: #181b24; border-radius: 3px;">
+          <span style="font-family: var(--font-mono); font-weight: 600; color: #fff;">INFY.NS</span>
+          <span style="font-family: var(--font-mono); color: var(--loss);">₹1,840 (-0.5%)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 4px 6px; background: #181b24; border-radius: 3px;">
+          <span style="font-family: var(--font-mono); font-weight: 600; color: #fff;">HDFCBANK.NS</span>
+          <span style="font-family: var(--font-mono); color: var(--gain);">₹1,690 (+0.8%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telemetry Status -->
+    <div class="inspector-block">
+      <div class="inspector-block-title">Pipeline Diagnostics</div>
+      <div class="inspector-grid">
+        <div class="inspector-stat">
+          <span class="label">Data Handshake</span>
+          <span class="val" style="color: var(--gain);">Direct NSE</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">L1 TTLCache</span>
+          <span class="val">HIT (0.4ms)</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">Fallback Feeder</span>
+          <span class="val">Yahoo Finance</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">WebSocket</span>
+          <span class="val" style="color: var(--gain);">STANDBY</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+</div> <!-- end #mara-body-container -->
+
+<!-- 4. SYSTEM STATUS BAR (26px) -->
+<footer id="mara-status-bar" class="mara-status-bar">
+  <div class="status-bar-left">
+    <div class="status-bar-item live">
+      <span class="mara-live-dot"></span>
+      <span>NSE OPEN</span>
+    </div>
+    <span class="sep">·</span>
+    <div class="status-bar-item">
+      <span>DATA: CONNECTED</span>
+    </div>
+    <span class="sep">·</span>
+    <div class="status-bar-item">
+      <span>PIPELINE: DIRECT NSE</span>
+    </div>
+  </div>
+
+  <div class="status-bar-center">
+    <div class="status-bar-item">
+      <span>CACHE: <strong style="color: #ffffff;">180ms</strong> (L1/L2 HYBRID)</span>
+    </div>
+    <span class="sep">·</span>
+    <div class="status-bar-item">
+      <span>ACTIVE WORKSTATION: <strong id="status-active-ws" style="color: var(--accent);">MARKETS</strong></span>
+    </div>
+  </div>
+
+  <div class="status-bar-right">
+    <div class="status-bar-item">
+      <span id="status-bar-clock">UTC 12:41:03</span>
+    </div>
+    <span class="sep">·</span>
+    <div class="status-bar-item">
+      <kbd style="font-family: var(--font-mono); font-size: 9px; padding: 1px 4px; background: rgba(255,255,255,0.08); border-radius: 2px;">⌘K</kbd>
+      <span>COMMANDS</span>
+    </div>
+  </div>
+</footer>
+</div> <!-- end #mara-app -->
 
     <!-- Local Watchlist & Alerts Right Sidebar Drawer -->
     <div id="watchlist-backdrop" class="watchlist-backdrop"></div>
@@ -1129,13 +1451,6 @@
       </div>
     </aside>
 
-    <!-- Footer -->
-    <footer class="terminal-footer">
-      <p>Mara | Market intelligence platform</p>
-      <p style="margin-top: 4px; color: var(--text-dim); font-size: 11px;">
-        Direct NSE India Handshake | Fallback Yahoo Finance Pipeline
-      </p>
-    </footer>
 
     <!-- Technical Indicator Picker Modal -->
     <div class="tv-modal-backdrop" id="tv-indicator-picker-backdrop"></div>

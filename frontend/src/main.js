@@ -107,6 +107,7 @@ async function startApp() {
 
   setupEventListeners();
   setupWorkspaceControls();
+  setupMaraShellControls();
   setupTradingViewChromeControls();
   syncChartControlsToPreferences();
   setupIndicatorControls();
@@ -171,6 +172,18 @@ export function setWorkspace(workspaceName, subTab = null) {
     btn.classList.toggle('active', isTarget);
     btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
   });
+
+  // 1b. Left Navigation Rail buttons
+  document.querySelectorAll('#mara-nav-rail .mara-rail-btn[data-workspace-rail]').forEach((btn) => {
+    const isTarget = btn.getAttribute('data-workspace-rail') === workspaceName;
+    btn.classList.toggle('active', isTarget);
+  });
+
+  // 1c. Header & Status Bar workspace label telemetry
+  const activeModeLabel = document.getElementById('canvas-active-mode-label');
+  if (activeModeLabel) activeModeLabel.textContent = workspaceName.toUpperCase();
+  const statusWsLabel = document.getElementById('status-active-ws');
+  if (statusWsLabel) statusWsLabel.textContent = workspaceName.toUpperCase();
 
   // 2. Main layout & body attributes
   const mainLayout = document.getElementById('main-layout');
@@ -376,7 +389,260 @@ function setupWorkspaceControls() {
       if (clearBtn) clearBtn.click();
     });
   }
+
+  // Left Navigation Rail Workspace buttons
+  document.querySelectorAll('#mara-nav-rail .mara-rail-btn[data-workspace-rail]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const ws = btn.getAttribute('data-workspace-rail');
+      if (ws === 'analyze') {
+        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentAnalyzeTab || 'chart'));
+      } else if (ws === 'discover') {
+        router.navigate('/discover');
+      } else if (ws === 'markets') {
+        router.navigate('/markets');
+      } else if (ws === 'compare') {
+        router.navigate(router.formatWorkspaceRoute('compare', currentSymbol || 'TCS.NS'));
+      } else if (ws === 'research') {
+        router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', currentResearchTab || 'news'));
+      } else if (ws === 'monitor') {
+        router.navigate(router.formatWorkspaceRoute('monitor', null, currentMonitorTab || 'watchlist'));
+      }
+    });
+  });
 }
+
+// ============================================================================
+// Phase 0: Physical Interface Architecture Controller
+// Context Panel, Information Density, View Switching, and Telemetry Clock
+// ============================================================================
+function setupMaraShellControls() {
+  const maraApp = document.getElementById('mara-app');
+  if (!maraApp) return;
+
+  // 1. Context Inspector Panel Toggle
+  const contextToggle = document.getElementById('mara-context-toggle');
+  const railContextBtn = document.getElementById('rail-context-btn');
+  const closeContextBtn = document.getElementById('close-context-panel-btn');
+
+  function toggleContextPanel() {
+    const isOpen = maraApp.classList.toggle('context-panel-open');
+    if (contextToggle) {
+      contextToggle.classList.toggle('active', isOpen);
+      const span = contextToggle.querySelector('span');
+      if (span) span.textContent = isOpen ? 'Inspector ◨' : 'Inspector ◻';
+    }
+    if (railContextBtn) {
+      railContextBtn.classList.toggle('active', isOpen);
+    }
+    // Resize chart if analyze workspace is open
+    if (chartInstance && currentActiveWorkspace === 'analyze') {
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+        if (chartInstance.resize) chartInstance.resize();
+      }, 220);
+    }
+  }
+
+  if (contextToggle) contextToggle.addEventListener('click', toggleContextPanel);
+  if (railContextBtn) railContextBtn.addEventListener('click', toggleContextPanel);
+  if (closeContextBtn) closeContextBtn.addEventListener('click', toggleContextPanel);
+
+  // On tablet and mobile (< 1024px), default context panel to closed to prioritize canvas
+  if (window.innerWidth < 1024) {
+    maraApp.classList.remove('context-panel-open');
+    if (contextToggle) {
+      contextToggle.classList.remove('active');
+      const span = contextToggle.querySelector('span');
+      if (span) span.textContent = 'Inspector ◻';
+    }
+    if (railContextBtn) railContextBtn.classList.remove('active');
+  }
+
+  // 2. Information Density Modes (Compact / Normal / Focus)
+  const densityBtns = document.querySelectorAll('.mara-density-btn[data-density-set]');
+  const densityTelemetry = document.getElementById('telemetry-density-label');
+
+  function setDensity(mode) {
+    if (!['compact', 'normal', 'focus'].includes(mode)) mode = 'normal';
+    maraApp.setAttribute('data-density', mode);
+    localStorage.setItem('mara-density', mode);
+    densityBtns.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-density-set') === mode);
+    });
+    if (densityTelemetry) {
+      const labels = {
+        compact: 'Compact (26px Row)',
+        normal: 'Normal (32px Row)',
+        focus: 'Focus (38px Row)',
+      };
+      densityTelemetry.textContent = labels[mode] || mode;
+    }
+    if (chartInstance && chartInstance.resize) chartInstance.resize();
+  }
+
+  densityBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setDensity(btn.getAttribute('data-density-set'));
+    });
+  });
+
+  // Restore saved density
+  const savedDensity = localStorage.getItem('mara-density') || 'normal';
+  setDensity(savedDensity);
+
+  // 3. Stage View Mode Switcher (Empty Wireframe Stage vs Mounted Workspace)
+  const btnEmptyMode = document.getElementById('canvas-view-mode-empty');
+  const btnMountedMode = document.getElementById('canvas-view-mode-mounted');
+  const stageEmpty = document.getElementById('canvas-empty-state');
+  const stageMounted = document.getElementById('canvas-mounted-content');
+  const activeViewLabel = document.getElementById('canvas-active-view-label');
+
+  function setStageMode(mode) {
+    if (mode === 'empty') {
+      if (stageEmpty) stageEmpty.style.display = 'flex';
+      if (stageMounted) stageMounted.style.display = 'none';
+      if (btnEmptyMode) btnEmptyMode.classList.add('active');
+      if (btnMountedMode) btnMountedMode.classList.remove('active');
+      if (activeViewLabel) activeViewLabel.textContent = 'PHYSICAL STAGE';
+    } else {
+      if (stageEmpty) stageEmpty.style.display = 'none';
+      if (stageMounted) stageMounted.style.display = 'block';
+      if (btnMountedMode) btnMountedMode.classList.add('active');
+      if (btnEmptyMode) btnEmptyMode.classList.remove('active');
+      if (activeViewLabel) activeViewLabel.textContent = 'MOUNTED CONTENT';
+      if (chartInstance && currentActiveWorkspace === 'analyze') {
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+          if (chartInstance.resize) chartInstance.resize();
+        }, 50);
+      }
+    }
+  }
+
+  if (btnEmptyMode) btnEmptyMode.addEventListener('click', () => setStageMode('empty'));
+  if (btnMountedMode) btnMountedMode.addEventListener('click', () => setStageMode('mounted'));
+
+  // 4. View Switcher Representation (Table / Chart / Heatmap / Metrics)
+  const viewBtns = document.querySelectorAll('.mara-view-btn[data-view-set]');
+  const mainCanvas = document.getElementById('mara-main-canvas');
+  viewBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const rep = btn.getAttribute('data-view-set');
+      viewBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      if (mainCanvas) mainCanvas.setAttribute('data-representation', rep);
+      showToast(`View Representation: ${rep.toUpperCase()}`, 'info');
+    });
+  });
+
+  // 5. Global Command Input & Keyboard Shortcuts
+  const globalSearchInput = document.getElementById('global-search-input');
+  const kbdHint = document.getElementById('search-kbd-hint');
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  if (kbdHint) kbdHint.textContent = isMac ? '⌘K' : 'Ctrl+K';
+
+  // Left rail utility buttons
+  const railStarBtn = document.getElementById('rail-star-btn');
+  const railAlertBtn = document.getElementById('rail-alert-btn');
+  const railCmdBtn = document.getElementById('rail-cmd-btn');
+  const brandHomeBtn = document.getElementById('brand-home-btn');
+
+  if (railStarBtn) {
+    railStarBtn.addEventListener('click', () => {
+      const wlToggle = document.getElementById('watchlist-drawer-toggle');
+      if (wlToggle) wlToggle.click();
+    });
+  }
+  if (railAlertBtn) {
+    railAlertBtn.addEventListener('click', () => {
+      const altToggle = document.getElementById('alerts-modal-toggle');
+      if (altToggle) altToggle.click();
+    });
+  }
+  if (railCmdBtn) {
+    railCmdBtn.addEventListener('click', () => {
+      if (globalSearchInput) {
+        globalSearchInput.focus();
+        globalSearchInput.select();
+      }
+    });
+  }
+  if (brandHomeBtn) {
+    brandHomeBtn.addEventListener('click', () => {
+      router.navigate('/markets');
+    });
+  }
+
+  // Global Keyboard Shortcuts (⌘K, ⌥C, D, 1-6)
+  window.addEventListener('keydown', (e) => {
+    const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+
+    // Alt+C or Option+C -> Toggle Context Panel
+    if (e.altKey && (e.key === 'c' || e.key === 'C' || e.code === 'KeyC')) {
+      e.preventDefault();
+      toggleContextPanel();
+      return;
+    }
+
+    if (isInput) return;
+
+    // Keys 1 to 6 -> Quick Workspace Switching
+    const wsMap = {
+      '1': 'markets',
+      '2': 'discover',
+      '3': 'analyze',
+      '4': 'compare',
+      '5': 'research',
+      '6': 'monitor',
+    };
+    if (wsMap[e.key]) {
+      e.preventDefault();
+      const targetWs = wsMap[e.key];
+      if (targetWs === 'analyze') {
+        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentAnalyzeTab || 'chart'));
+      } else {
+        router.navigate(`/${targetWs}`);
+      }
+      return;
+    }
+
+    // Key 'D' or 'd' -> Cycle Density
+    if (e.key === 'd' || e.key === 'D') {
+      e.preventDefault();
+      const currentDensity = maraApp.getAttribute('data-density') || 'normal';
+      const cycle = { compact: 'normal', normal: 'focus', focus: 'compact' };
+      const nextDensity = cycle[currentDensity] || 'normal';
+      setDensity(nextDensity);
+      showToast(`Density: ${nextDensity.toUpperCase()}`, 'info');
+      return;
+    }
+
+    // Key 'V' or 'v' -> Cycle Representation View
+    if (e.key === 'v' || e.key === 'V') {
+      e.preventDefault();
+      const currentRep = mainCanvas?.getAttribute('data-representation') || 'table';
+      const repList = ['table', 'chart', 'heatmap', 'metrics'];
+      const nextIdx = (repList.indexOf(currentRep) + 1) % repList.length;
+      const nextRep = repList[nextIdx];
+      const targetBtn = document.querySelector(`.mara-view-btn[data-view-set="${nextRep}"]`);
+      if (targetBtn) targetBtn.click();
+      return;
+    }
+  });
+
+  // 6. Live Status Bar Clock (UTC HH:MM:SS)
+  const clockEl = document.getElementById('status-bar-clock');
+  function updateClock() {
+    if (!clockEl) return;
+    const now = new Date();
+    const utcHours = String(now.getUTCHours()).padStart(2, '0');
+    const utcMins = String(now.getUTCMinutes()).padStart(2, '0');
+    const utcSecs = String(now.getUTCSeconds()).padStart(2, '0');
+    clockEl.textContent = `UTC ${utcHours}:${utcMins}:${utcSecs}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
 
 // Backward Compatibility Bridges
 export function setTopLevelView(viewName) {
@@ -1470,9 +1736,9 @@ function setupWatchlistControls() {
     });
   }
 
-  // Open by default on desktop (>= 1024px) unless explicitly closed by user
+  // Keep legacy drawer closed by default; context panel is the primary right inspector
   const savedState = localStorage.getItem(getAccountStorageKey('apex_watchlist_drawer_open'));
-  if (savedState === 'true' || (savedState === null && window.innerWidth >= 1024)) {
+  if (savedState === 'true') {
     openDrawer();
   }
 
@@ -2228,6 +2494,21 @@ function renderStockOverview(data) {
     tvLegInterval.textContent = activeInt === 'W' ? '1W' : (activeInt === 'M' ? '1M' : '1D');
   }
   if (alertFormSymbol) alertFormSymbol.textContent = data.symbol;
+
+  // Sync Mara Context Inspector Panel
+  const inspSym = document.getElementById('inspector-sym');
+  const inspCompany = document.getElementById('inspector-company');
+  const inspPrice = document.getElementById('inspector-price');
+  const inspChg = document.getElementById('inspector-chg');
+  if (inspSym) inspSym.textContent = data.symbol;
+  if (inspCompany) inspCompany.textContent = data.name || data.symbol;
+  if (inspPrice && stockPrice) inspPrice.textContent = stockPrice.textContent;
+  if (inspChg) {
+    const sign = isUp ? '+' : '−';
+    const chgPct = Math.abs(data.change_pct || 0).toFixed(2);
+    inspChg.textContent = `${sign}${chgPct}%`;
+    inspChg.className = `mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}`;
+  }
 
   updateStatusBar(data.data_source, data.exchange, data.exchange_timezone, data.last_updated);
 

@@ -39,3 +39,4 @@ frontend/playwright-report/
 scratch/
 claude-code-setup/
 free-claude-code/
+dist_screenshots/
