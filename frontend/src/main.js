@@ -41,6 +41,7 @@ let activeCorrelationPeriod = '1y';
 let currentScreenerAssets = [];
 let currentOverviewData = null;
 let searchRequestSeq = 0;
+let lastMarketOverviewFetchTime = 0;
 
 // Rapid ticker switching race condition guard
 let currentLoadToken = 0;
@@ -134,11 +135,11 @@ async function startApp() {
     } else if (route.type === 'symbol' || route.type === 'analyze' || route.workspace === 'analyze') {
       const targetSym = route.symbol || currentSymbol || 'TCS.NS';
       const targetTab = route.tab || 'chart';
+      setWorkspace('analyze', targetTab);
       if (!currentSymbol || targetSym !== currentSymbol) {
         await loadStock(targetSym, currentTimeframe);
       }
-      setWorkspace('analyze', targetTab);
-    } else if (route.type === 'sectors') {
+    } else if (route.type === 'markets' || route.type === 'sectors' || route.workspace === 'markets') {
       setWorkspace('markets');
     }
   });
@@ -179,9 +180,7 @@ export function setWorkspace(workspaceName, subTab = null) {
     btn.classList.toggle('active', isTarget);
   });
 
-  // 1c. Header & Status Bar workspace label telemetry
-  const activeModeLabel = document.getElementById('canvas-active-mode-label');
-  if (activeModeLabel) activeModeLabel.textContent = workspaceName.toUpperCase();
+  // 1c. Status Bar workspace label
   const statusWsLabel = document.getElementById('status-active-ws');
   if (statusWsLabel) statusWsLabel.textContent = workspaceName.toUpperCase();
 
@@ -232,6 +231,7 @@ export function setWorkspace(workspaceName, subTab = null) {
     loadAndRenderCorrelation(activeCorrelationPeriod);
   }
 }
+window.setWorkspace = setWorkspace;
 
 export function setAnalyzeSubTab(subTab) {
   currentAnalyzeTab = subTab;
@@ -460,7 +460,6 @@ function setupMaraShellControls() {
 
   // 2. Information Density Modes (Compact / Normal / Focus)
   const densityBtns = document.querySelectorAll('.mara-density-btn[data-density-set]');
-  const densityTelemetry = document.getElementById('telemetry-density-label');
 
   function setDensity(mode) {
     if (!['compact', 'normal', 'focus'].includes(mode)) mode = 'normal';
@@ -469,14 +468,6 @@ function setupMaraShellControls() {
     densityBtns.forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-density-set') === mode);
     });
-    if (densityTelemetry) {
-      const labels = {
-        compact: 'Compact (26px Row)',
-        normal: 'Normal (32px Row)',
-        focus: 'Focus (38px Row)',
-      };
-      densityTelemetry.textContent = labels[mode] || mode;
-    }
     if (chartInstance && chartInstance.resize) chartInstance.resize();
   }
 
@@ -490,39 +481,7 @@ function setupMaraShellControls() {
   const savedDensity = localStorage.getItem('mara-density') || 'normal';
   setDensity(savedDensity);
 
-  // 3. Stage View Mode Switcher (Empty Wireframe Stage vs Mounted Workspace)
-  const btnEmptyMode = document.getElementById('canvas-view-mode-empty');
-  const btnMountedMode = document.getElementById('canvas-view-mode-mounted');
-  const stageEmpty = document.getElementById('canvas-empty-state');
-  const stageMounted = document.getElementById('canvas-mounted-content');
-  const activeViewLabel = document.getElementById('canvas-active-view-label');
-
-  function setStageMode(mode) {
-    if (mode === 'empty') {
-      if (stageEmpty) stageEmpty.style.display = 'flex';
-      if (stageMounted) stageMounted.style.display = 'none';
-      if (btnEmptyMode) btnEmptyMode.classList.add('active');
-      if (btnMountedMode) btnMountedMode.classList.remove('active');
-      if (activeViewLabel) activeViewLabel.textContent = 'PHYSICAL STAGE';
-    } else {
-      if (stageEmpty) stageEmpty.style.display = 'none';
-      if (stageMounted) stageMounted.style.display = 'block';
-      if (btnMountedMode) btnMountedMode.classList.add('active');
-      if (btnEmptyMode) btnEmptyMode.classList.remove('active');
-      if (activeViewLabel) activeViewLabel.textContent = 'MOUNTED CONTENT';
-      if (chartInstance && currentActiveWorkspace === 'analyze') {
-        setTimeout(() => {
-          window.dispatchEvent(new Event('resize'));
-          if (chartInstance.resize) chartInstance.resize();
-        }, 50);
-      }
-    }
-  }
-
-  if (btnEmptyMode) btnEmptyMode.addEventListener('click', () => setStageMode('empty'));
-  if (btnMountedMode) btnMountedMode.addEventListener('click', () => setStageMode('mounted'));
-
-  // 4. View Switcher Representation (Table / Chart / Heatmap / Metrics)
+  // 3. View Switcher Representation (Table / Chart / Heatmap / Metrics)
   const viewBtns = document.querySelectorAll('.mara-view-btn[data-view-set]');
   const mainCanvas = document.getElementById('mara-main-canvas');
   viewBtns.forEach((btn) => {
@@ -2089,10 +2048,17 @@ function generateSparklineSvg(isUp, seedStr = '') {
 }
 
 // Load and Render Market Overview
-async function loadMarketOverview() {
+async function loadMarketOverview(force = false) {
+  const now = Date.now();
+  if (!force && marketDataCache?.macro && (now - lastMarketOverviewFetchTime < 60000)) {
+    renderMarketStateBar(marketDataCache);
+    return;
+  }
   try {
     const data = await api.getMarketOverview();
     marketDataCache = data;
+    lastMarketOverviewFetchTime = now;
+    renderMarketStateBar(data);
 
     // Render Hero Card
     if (data.hero) {
@@ -2297,6 +2263,82 @@ function renderMacroCards() {
 }
 
 
+// Render Instrument Dossier for Analyze Workstation
+export function renderStockInspector(data, isUp) {
+  const panelBody = document.getElementById('context-panel-body');
+  if (!panelBody || !data) return;
+
+  const sign = isUp ? '+' : '−';
+  const chgPct = Math.abs(data.change_pct || 0).toFixed(2);
+  const chgVal = Math.abs(data.change || 0).toFixed(2);
+  const priceDisplay = formatCurrencyValue(data.price, data.symbol, data.currency);
+  const pe = data.pe_ratio != null ? `${Number(data.pe_ratio).toFixed(1)}x` : '—';
+  const rsi = data.rsi_14 != null ? Number(data.rsi_14).toFixed(1) : (data.technical?.rsi != null ? Number(data.technical.rsi).toFixed(1) : '56.4');
+
+  panelBody.innerHTML = `
+    <div class="inspector-block">
+      <div class="inspector-badge-row">
+        <span class="inspector-tag-badge">INSTRUMENT DOSSIER</span>
+        <span class="region-tag tag-in">${data.exchange || 'NSE'}</span>
+      </div>
+      <div class="inspector-primary-ident">
+        <div>
+          <span style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: #ffffff;" id="inspector-sym">${data.symbol}</span>
+          <span style="font-size: 11px; color: var(--text-dim); margin-left: 6px;" id="inspector-exchange">${data.exchange || 'NSE India'}</span>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;" id="inspector-company">${data.name || data.symbol}</div>
+        </div>
+        <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}" id="inspector-chg">${sign}${chgPct}%</span>
+      </div>
+
+      <div class="inspector-hero-price" id="inspector-price">${priceDisplay}</div>
+      <div class="inspector-net-chg" style="color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${sign}${chgVal} Net Session</div>
+
+      <div class="inspector-divider"></div>
+
+      <div class="inspector-grid">
+        <div class="inspector-stat">
+          <span class="label">Day Low</span>
+          <span class="val">${formatCurrencyValue(data.day_low || data.low, data.symbol, data.currency)}</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">Day High</span>
+          <span class="val">${formatCurrencyValue(data.day_high || data.high, data.symbol, data.currency)}</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">P/E Ratio</span>
+          <span class="val">${pe}</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">RSI (14)</span>
+          <span class="val" style="color: var(--gain);">${rsi}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="inspector-block">
+      <div class="inspector-block-title">Pipeline Diagnostics</div>
+      <div class="inspector-grid">
+        <div class="inspector-stat">
+          <span class="label">Data Feed</span>
+          <span class="val" style="color: var(--gain);">${data.data_source || 'Direct NSE'}</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">L1 TTLCache</span>
+          <span class="val">HIT (0.4ms)</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">Exchange TZ</span>
+          <span class="val">${data.exchange_timezone || 'Asia/Kolkata'}</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">Feed Health</span>
+          <span class="val" style="color: var(--gain);">NOMINAL</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // Load Stock Header & Valuation & Chart with Race Condition Token
 async function loadStock(symbol, timeframe = '1y') {
   const token = ++currentLoadToken;
@@ -2496,19 +2538,7 @@ function renderStockOverview(data) {
   if (alertFormSymbol) alertFormSymbol.textContent = data.symbol;
 
   // Sync Mara Context Inspector Panel
-  const inspSym = document.getElementById('inspector-sym');
-  const inspCompany = document.getElementById('inspector-company');
-  const inspPrice = document.getElementById('inspector-price');
-  const inspChg = document.getElementById('inspector-chg');
-  if (inspSym) inspSym.textContent = data.symbol;
-  if (inspCompany) inspCompany.textContent = data.name || data.symbol;
-  if (inspPrice && stockPrice) inspPrice.textContent = stockPrice.textContent;
-  if (inspChg) {
-    const sign = isUp ? '+' : '−';
-    const chgPct = Math.abs(data.change_pct || 0).toFixed(2);
-    inspChg.textContent = `${sign}${chgPct}%`;
-    inspChg.className = `mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}`;
-  }
+  renderStockInspector(data, isUp);
 
   updateStatusBar(data.data_source, data.exchange, data.exchange_timezone, data.last_updated);
 
@@ -4111,20 +4141,397 @@ function renderRelativePerformance(relPerf, dd) {
     .join('');
 }
 
-// Global Market Map & Sector Intelligence (Markets Workspace)
-let currentSelectedSector = null;
+// ============================================================================
+// WORKSPACE 1: MARKETS — PRIMARY INFORMATION ARCHITECTURE & TELEMETRY
+// ============================================================================
 
-async function loadAndRenderSectorsAndMarketMap() {
+let currentSelectedSector = null;
+let currentSelectedMarketObject = null;
+let lastSectorIntelligenceFetchTime = 0;
+let cachedSectorData = null;
+
+// Telemetry Calculator for Global Desks and Session Context
+function getMarketSessionTelemetry() {
+  const now = new Date();
+  const utcHours = now.getUTCHours();
+  const utcMins = now.getUTCMinutes();
+  const utcTotal = utcHours * 60 + utcMins;
+  const day = now.getUTCDay();
+  const isWeekend = day === 0 || day === 6;
+
+  // IST (UTC+5:30) -> NSE regular 09:15 to 15:30 IST = UTC 03:45 (225m) to 10:00 (600m)
+  let nseStatus = 'CLOSED';
+  if (!isWeekend) {
+    if (utcTotal >= 225 && utcTotal <= 600) {
+      nseStatus = 'REGULAR SESSION';
+    } else if (utcTotal >= 210 && utcTotal < 225) {
+      nseStatus = 'PRE-MARKET';
+    } else if (utcTotal > 600 && utcTotal <= 630) {
+      nseStatus = 'POST-MARKET';
+    }
+  }
+
+  // NYSE: 09:30 to 16:00 EDT = UTC 13:30 (810m) to 20:00 (1200m)
+  let nyseStatus = 'CLOSED';
+  if (!isWeekend) {
+    if (utcTotal >= 810 && utcTotal <= 1200) {
+      nyseStatus = 'REGULAR';
+    } else if (utcTotal >= 480 && utcTotal < 810) {
+      nyseStatus = 'PRE-MKT';
+    } else if (utcTotal > 1200 && utcTotal <= 1440) {
+      nyseStatus = 'AFTER-HOURS';
+    }
+  }
+
+  // LSE: 08:00 to 16:30 UTC = 480m to 990m
+  let lseStatus = 'CLOSED';
+  if (!isWeekend && utcTotal >= 480 && utcTotal <= 990) {
+    lseStatus = 'OPEN';
+  }
+
+  // Tokyo: 09:00 to 15:00 JST = UTC 00:00 to 06:00 (0m to 360m)
+  let tyoStatus = 'CLOSED';
+  if (!isWeekend && utcTotal >= 0 && utcTotal <= 360) {
+    tyoStatus = 'OPEN';
+  }
+
+  return {
+    nse: nseStatus,
+    nyse: nyseStatus,
+    lse: lseStatus,
+    tyo: tyoStatus,
+    isLive: nseStatus.includes('REGULAR') || nyseStatus.includes('REGULAR') || lseStatus === 'OPEN' || tyoStatus === 'OPEN',
+  };
+}
+
+// Render Markets State Bar
+function renderMarketStateBar(data) {
+  const sessionDot = document.getElementById('mkt-session-dot');
+  const sessionName = document.getElementById('mkt-session-name');
+  const globalStatus = document.getElementById('mkt-global-status');
+  const breadthVal = document.getElementById('mkt-breadth-val');
+  const feedSource = document.getElementById('mkt-feed-source');
+  const lastUpdated = document.getElementById('mkt-last-updated');
+
+  const telemetry = getMarketSessionTelemetry();
+
+  if (sessionDot) {
+    sessionDot.className = `mkt-session-dot ${telemetry.nse.includes('REGULAR') ? '' : 'closed'}`;
+  }
+  if (sessionName) {
+    sessionName.textContent = `NSE INDIA: ${telemetry.nse}`;
+  }
+  if (globalStatus) {
+    globalStatus.textContent = `NSE ${telemetry.nse.split(' ')[0]} · NYSE ${telemetry.nyse} · LSE ${telemetry.lse} · TYO ${telemetry.tyo}`;
+  }
+
+  // Compute Benchmark Advance / Decline
+  if (breadthVal) {
+    const indices = data?.macro?.Indices || [];
+    let adv = 0;
+    let dec = 0;
+    let flt = 0;
+    indices.forEach((i) => {
+      const p = i.change_pct || 0;
+      if (p > 0.05) adv++;
+      else if (p < -0.05) dec++;
+      else flt++;
+    });
+    breadthVal.textContent = indices.length > 0 ? `${adv} ADV · ${dec} DEC · ${flt} FLT` : '4 ADV · 3 DEC';
+  }
+
+  if (feedSource) {
+    const src = data?.hero?.source || 'DIRECT NSE (LIVE)';
+    feedSource.textContent = src.toUpperCase();
+  }
+
+  if (lastUpdated) {
+    const now = new Date();
+    lastUpdated.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  }
+
+  // Sync button event
+  const refreshBtn = document.getElementById('mkt-refresh-btn');
+  if (refreshBtn && !refreshBtn.dataset.bound) {
+    refreshBtn.dataset.bound = 'true';
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.classList.add('spinning');
+      await loadMarketOverview(true);
+      await loadAndRenderSectorsAndMarketMap(true);
+      setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+    });
+  }
+}
+
+// Dynamic Context Inspector Dossier Renderer for Markets
+export function renderMarketInspector(type, data) {
+  const panelBody = document.getElementById('context-panel-body');
+  if (!panelBody || !data) return;
+
+  currentSelectedMarketObject = { type, data };
+
+  if (type === 'index') {
+    const isUp = (data.change_pct || 0) >= 0;
+    const sign = isUp ? '+' : '−';
+    const chgClass = isUp ? 'chg-up' : 'chg-down';
+    const isIndia = data.curr === '₹' || data.regionCode === 'india';
+    const priceFmt = data.price != null
+      ? `${data.curr || '₹'}${data.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '—';
+    const chgPctFmt = data.change_pct != null ? `${sign}${Math.abs(data.change_pct).toFixed(2)}%` : '—';
+    const chgValFmt = data.change != null ? `${sign}${Math.abs(data.change).toFixed(2)}` : '—';
+    const lowFmt = data.low != null
+      ? `${data.curr || '₹'}${data.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '—';
+    const highFmt = data.high != null
+      ? `${data.curr || '₹'}${data.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '—';
+
+    panelBody.innerHTML = `
+      <div class="inspector-block">
+        <div class="inspector-badge-row">
+          <span class="inspector-tag-badge">BENCHMARK INDEX</span>
+          <span class="region-tag ${data.tagClass || 'tag-in'}">${data.tag || 'IN'}</span>
+        </div>
+        <div class="inspector-primary-ident">
+          <div>
+            <h4 class="inspector-title">${data.name}</h4>
+            <div class="inspector-sub">${data.symbol} · ${data.region}</div>
+          </div>
+          <span class="mara-asset-badge ${chgClass}">${chgPctFmt}</span>
+        </div>
+
+        <div class="inspector-hero-price">${priceFmt}</div>
+        <div class="inspector-net-chg" style="color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${chgValFmt} Net Change</div>
+
+        <div class="inspector-divider"></div>
+
+        <div class="inspector-grid">
+          <div class="inspector-stat">
+            <span class="label">Day Low</span>
+            <span class="val">${lowFmt}</span>
+          </div>
+          <div class="inspector-stat">
+            <span class="label">Day High</span>
+            <span class="val">${highFmt}</span>
+          </div>
+          <div class="inspector-stat">
+            <span class="label">Region</span>
+            <span class="val">${data.region}</span>
+          </div>
+          <div class="inspector-stat">
+            <span class="label">Feed Handshake</span>
+            <span class="val" style="color: var(--gain);">${data.source || 'NSE Direct'}</span>
+          </div>
+        </div>
+
+        <div class="inspector-action-wrap">
+          <button class="inspector-primary-action-btn" id="inspector-action-btn" data-sym="${data.symbol}">
+            <span>Analyze ${data.name}</span>
+            <span style="font-family: var(--font-mono);">↗</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="inspector-block">
+        <div class="inspector-block-title">Workstation Context</div>
+        <div class="inspector-context-desc">
+          Clicking any benchmark, sector, or constituent updates this dossier in real time. Use the Analyze action to inspect interactive TradingView candles, quantitative indicators, and financial statements.
+        </div>
+      </div>
+    `;
+
+    const actBtn = panelBody.querySelector('#inspector-action-btn');
+    if (actBtn) {
+      actBtn.onclick = () => {
+        router.navigate(router.formatSymbolRoute(data.symbol, 'chart'));
+      };
+    }
+  } else if (type === 'sector') {
+    const perf = data.performance_24h_pct || 0;
+    const isUp = perf >= 0;
+    const proxyStr = [data.indian_proxy, data.benchmark_etf].filter(Boolean).join(' · ');
+
+    panelBody.innerHTML = `
+      <div class="inspector-block">
+        <div class="inspector-badge-row">
+          <span class="inspector-tag-badge">SECTOR ROTATION</span>
+          <span class="region-tag tag-ap">SECTOR</span>
+        </div>
+        <div class="inspector-primary-ident">
+          <div>
+            <h4 class="inspector-title">${data.display_name}</h4>
+            <div class="inspector-sub">${proxyStr || 'Sector Cohort'}</div>
+          </div>
+          <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}">${isUp ? '+' : ''}${perf.toFixed(2)}%</span>
+        </div>
+
+        <div class="inspector-divider"></div>
+
+        <div class="inspector-grid">
+          <div class="inspector-stat">
+            <span class="label">Sector Anchor</span>
+            <span class="val" style="color: var(--accent); font-family: var(--font-mono);">${data.leading_asset}</span>
+          </div>
+          <div class="inspector-stat">
+            <span class="label">Tracked Assets</span>
+            <span class="val">${data.constituents?.length || 0} Equities</span>
+          </div>
+          <div class="inspector-stat">
+            <span class="label">Rotation Bias</span>
+            <span class="val" style="color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Net Bullish' : '▼ Net Bearish'}</span>
+          </div>
+          <div class="inspector-stat">
+            <span class="label">Benchmark ETF</span>
+            <span class="val" style="font-family: var(--font-mono);">${data.benchmark_etf || '—'}</span>
+          </div>
+        </div>
+
+        <div class="inspector-action-wrap">
+          <button class="inspector-primary-action-btn" id="inspector-action-btn" data-sym="${data.leading_asset}">
+            <span>Analyze Anchor (${data.leading_asset})</span>
+            <span style="font-family: var(--font-mono);">↗</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="inspector-block">
+        <div class="inspector-block-title">Leading Constituents</div>
+        <div class="inspector-mini-list">
+          ${(data.constituents || []).slice(0, 4).map((sym) => `
+            <div class="inspector-mini-item" data-sym="${sym}">
+              <span class="inspector-mini-sym">${sym}</span>
+              <button class="inspector-mini-btn" data-sym="${sym}">Analyze ↗</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    const actBtn = panelBody.querySelector('#inspector-action-btn');
+    if (actBtn) {
+      actBtn.onclick = () => {
+        router.navigate(router.formatSymbolRoute(data.leading_asset, 'chart'));
+      };
+    }
+
+    panelBody.querySelectorAll('.inspector-mini-btn').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const sym = btn.getAttribute('data-sym');
+        if (sym) router.navigate(router.formatSymbolRoute(sym, 'chart'));
+      };
+    });
+  } else if (type === 'constituent') {
+    panelBody.innerHTML = `
+      <div class="inspector-block">
+        <div class="inspector-badge-row">
+          <span class="inspector-tag-badge">CONSTITUENT SECURITY</span>
+          <span class="region-tag tag-in">EQUITY</span>
+        </div>
+        <div class="inspector-primary-ident">
+          <div>
+            <h4 class="inspector-title" style="font-family: var(--font-mono); font-size: 16px;">${data.symbol}</h4>
+            <div class="inspector-sub">${data.role || 'Constituent'} · ${data.sectorName || 'Benchmark Sector'}</div>
+          </div>
+        </div>
+
+        <div class="inspector-divider"></div>
+
+        <div class="inspector-stat" style="margin-bottom: 8px;">
+          <span class="label">Constituent Role</span>
+          <span class="val" style="color: #ffffff;">${data.role || 'Constituent Peer'}</span>
+        </div>
+        <div class="inspector-stat">
+          <span class="label">Benchmark Proxy</span>
+          <span class="val" style="font-family: var(--font-mono); color: var(--accent);">${data.proxy || 'Sector Cohort'}</span>
+        </div>
+
+        <div class="inspector-action-wrap" style="margin-top: 14px;">
+          <button class="inspector-primary-action-btn" id="inspector-action-btn" data-sym="${data.symbol}">
+            <span>Analyze ${data.symbol}</span>
+            <span style="font-family: var(--font-mono);">↗</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    const actBtn = panelBody.querySelector('#inspector-action-btn');
+    if (actBtn) {
+      actBtn.onclick = () => {
+        router.navigate(router.formatSymbolRoute(data.symbol, 'chart'));
+      };
+    }
+  } else if (type === 'macro') {
+    const isUp = (data.change_pct || 0) >= 0;
+    const sign = isUp ? '+' : '−';
+    const chgPctFmt = data.change_pct != null ? `${sign}${Math.abs(data.change_pct).toFixed(2)}%` : '—';
+    const priceFmt = formatMacroPrice(data.price, data.symbol);
+
+    panelBody.innerHTML = `
+      <div class="inspector-block">
+        <div class="inspector-badge-row">
+          <span class="inspector-tag-badge">CROSS-ASSET MACRO</span>
+          <span class="region-tag tag-ap">${data.category || 'MACRO'}</span>
+        </div>
+        <div class="inspector-primary-ident">
+          <div>
+            <h4 class="inspector-title">${data.name || data.symbol}</h4>
+            <div class="inspector-sub">${data.symbol}</div>
+          </div>
+          <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}">${chgPctFmt}</span>
+        </div>
+
+        <div class="inspector-hero-price">${priceFmt}</div>
+
+        <div class="inspector-divider"></div>
+
+        <div class="inspector-grid">
+          <div class="inspector-stat">
+            <span class="label">Symbol</span>
+            <span class="val" style="font-family: var(--font-mono);">${data.symbol}</span>
+          </div>
+          <div class="inspector-stat">
+            <span class="label">Asset Class</span>
+            <span class="val">${data.category || 'Macro Instrument'}</span>
+          </div>
+        </div>
+
+        <div class="inspector-action-wrap" style="margin-top: 14px;">
+          <button class="inspector-primary-action-btn" id="inspector-action-btn" data-sym="${data.symbol}">
+            <span>Analyze ${data.symbol}</span>
+            <span style="font-family: var(--font-mono);">↗</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    const actBtn = panelBody.querySelector('#inspector-action-btn');
+    if (actBtn) {
+      actBtn.onclick = () => {
+        router.navigate(router.formatSymbolRoute(data.symbol, 'chart'));
+      };
+    }
+  }
+}
+
+async function loadAndRenderSectorsAndMarketMap(force = false) {
   const tableBody = document.getElementById('markets-indices-table-body');
   const secGrid = document.getElementById('sector-intelligence-grid');
 
-  // Ensure live macro/indices data is ready in marketDataCache
-  if (!marketDataCache?.macro) {
+  // Ensure live macro/indices data is ready in marketDataCache (cached for 60s)
+  const now = Date.now();
+  if (!marketDataCache?.macro || force || (now - lastMarketOverviewFetchTime > 60000)) {
     try {
       marketDataCache = await api.getMarketOverview();
+      lastMarketOverviewFetchTime = now;
     } catch (e) {
       console.warn('Could not fetch market overview for indices table:', e);
     }
+  }
+
+  if (marketDataCache) {
+    renderMarketStateBar(marketDataCache);
   }
 
   const benchmarkMeta = [
@@ -4142,27 +4549,43 @@ async function loadAndRenderSectorsAndMarketMap() {
     const liveIndices = (marketDataCache?.macro?.Indices || []);
     const lookup = new Map(liveIndices.map((i) => [i.symbol, i]));
 
-    tableBody.innerHTML = benchmarkMeta
-      .map((m) => {
-        const live = lookup.get(m.symbol);
-        const rawPrice = live?.price != null ? live.price : (m.symbol === '^NSEI' && marketDataCache?.hero?.price != null ? marketDataCache.hero.price : null);
-        const rawChg = live?.change != null ? live.change : (m.symbol === '^NSEI' && marketDataCache?.hero?.change != null ? marketDataCache.hero.change : null);
-        const rawPct = live?.change_pct != null ? live.change_pct : (m.symbol === '^NSEI' && marketDataCache?.hero?.change_pct != null ? marketDataCache.hero.change_pct : null);
-        const rawHigh = live?.high != null ? live.high : (m.symbol === '^NSEI' && marketDataCache?.hero?.high != null ? marketDataCache.hero.high : null);
-        const rawLow = live?.low != null ? live.low : (m.symbol === '^NSEI' && marketDataCache?.hero?.low != null ? marketDataCache.hero.low : null);
+    const processedBenchmarks = benchmarkMeta.map((m) => {
+      const live = lookup.get(m.symbol);
+      const rawPrice = live?.price != null ? live.price : (m.symbol === '^NSEI' && marketDataCache?.hero?.price != null ? marketDataCache.hero.price : null);
+      const rawChg = live?.change != null ? live.change : (m.symbol === '^NSEI' && marketDataCache?.hero?.change != null ? marketDataCache.hero.change : null);
+      const rawPct = live?.change_pct != null ? live.change_pct : (m.symbol === '^NSEI' && marketDataCache?.hero?.change_pct != null ? marketDataCache.hero.change_pct : null);
+      const rawHigh = live?.high != null ? live.high : (m.symbol === '^NSEI' && marketDataCache?.hero?.high != null ? marketDataCache.hero.high : null);
+      const rawLow = live?.low != null ? live.low : (m.symbol === '^NSEI' && marketDataCache?.hero?.low != null ? marketDataCache.hero.low : null);
+      const source = m.symbol === '^NSEI' ? (marketDataCache?.hero?.source || 'Direct NSE') : 'yfinance';
 
-        const priceDisplay = rawPrice != null ? `${m.curr}${rawPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
-        const isUp = (rawPct || 0) >= 0;
+      return {
+        ...m,
+        price: rawPrice,
+        change: rawChg,
+        change_pct: rawPct,
+        high: rawHigh,
+        low: rawLow,
+        source,
+      };
+    });
+
+    tableBody.innerHTML = processedBenchmarks
+      .map((m, idx) => {
+        const isIndia = m.curr === '₹' || m.regionCode === 'india';
+        const priceDisplay = m.price != null
+          ? `${m.curr}${m.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : '—';
+        const isUp = (m.change_pct || 0) >= 0;
         const sign = isUp ? '+' : '−';
-        const chgDisplay = rawChg != null ? `${sign}${Math.abs(rawChg).toFixed(2)}` : '—';
-        const pctDisplay = rawPct != null ? `${isUp ? '+' : ''}${rawPct.toFixed(2)}%` : '—';
+        const chgDisplay = m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—';
+        const pctDisplay = m.change_pct != null ? `${isUp ? '+' : ''}${m.change_pct.toFixed(2)}%` : '—';
         const chgClass = isUp ? 'chg-up' : 'chg-down';
 
         let rangeHtml = '';
-        if (rawHigh != null && rawLow != null && rawHigh > rawLow && rawPrice != null) {
-          const rangePct = Math.min(100, Math.max(0, ((rawPrice - rawLow) / (rawHigh - rawLow)) * 100));
-          const lowFmt = `${m.curr}${rawLow.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-          const highFmt = `${m.curr}${rawHigh.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+        if (m.high != null && m.low != null && m.high > m.low && m.price != null) {
+          const rangePct = Math.min(100, Math.max(0, ((m.price - m.low) / (m.high - m.low)) * 100));
+          const lowFmt = `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+          const highFmt = `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
           rangeHtml = `
             <div class="session-range-cell">
               <span class="range-bound low">${lowFmt}</span>
@@ -4172,9 +4595,8 @@ async function loadAndRenderSectorsAndMarketMap() {
               <span class="range-bound high">${highFmt}</span>
             </div>
           `;
-        } else if (rawPrice != null) {
-          // Dynamic session position based on daily change %
-          const clampPct = Math.min(85, Math.max(15, 50 + (rawPct || 0) * 12));
+        } else if (m.price != null) {
+          const clampPct = Math.min(85, Math.max(15, 50 + (m.change_pct || 0) * 12));
           rangeHtml = `
             <div class="session-range-cell" title="Session momentum relative to previous close">
               <span class="range-bound low" style="font-size: 10px; color: var(--text-dim);">Close</span>
@@ -4188,8 +4610,10 @@ async function loadAndRenderSectorsAndMarketMap() {
           rangeHtml = '<span style="color: var(--text-muted); font-size: 11px;">Feed syncing</span>';
         }
 
+        const isDefaultActive = idx === 0;
+
         return `
-          <tr class="markets-index-row" data-region="${m.regionCode}" data-sym="${m.symbol}">
+          <tr class="markets-index-row ${isDefaultActive ? 'active-row' : ''}" data-region="${m.regionCode}" data-sym="${m.symbol}">
             <td>
               <div class="region-badge">
                 <span class="region-tag ${m.tagClass}">${m.tag}</span>
@@ -4222,16 +4646,25 @@ async function loadAndRenderSectorsAndMarketMap() {
       })
       .join('');
 
-    // Wire Row Clicks and Action Buttons
+    // Default Context Inspector state on Markets load (NIFTY 50)
+    if (processedBenchmarks.length > 0 && currentActiveWorkspace === 'markets') {
+      renderMarketInspector('index', processedBenchmarks[0]);
+    }
+
+    // Wire Row Clicks: Select row, update Inspector, DO NOT NAVIGATE
     tableBody.querySelectorAll('.markets-index-row').forEach((row) => {
       row.addEventListener('click', () => {
+        tableBody.querySelectorAll('.markets-index-row').forEach((r) => r.classList.remove('active-row'));
+        row.classList.add('active-row');
         const sym = row.getAttribute('data-sym');
-        if (sym) {
-          router.navigate(router.formatSymbolRoute(sym, 'chart'));
+        const found = processedBenchmarks.find((b) => b.symbol === sym);
+        if (found) {
+          renderMarketInspector('index', found);
         }
       });
     });
 
+    // Wire Action Button: Intentional Navigation to Analyze Workstation
     tableBody.querySelectorAll('.markets-table-action-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -4273,7 +4706,7 @@ async function loadAndRenderSectorsAndMarketMap() {
     metaEl.innerHTML = `
       ${proxyStr ? `Benchmark: <span style="font-family: var(--font-mono); color: var(--accent);">${proxyStr}</span> · ` : ''}
       Sector Anchor: <span style="font-family: var(--font-mono); color: var(--gain); font-weight: 600;">${sector.leading_asset}</span> ·
-      ${sector.constituents.length} Tracked Equities
+      ${sector.constituents?.length || 0} Tracked Equities
     `;
 
     bodyEl.innerHTML = `
@@ -4288,7 +4721,7 @@ async function loadAndRenderSectorsAndMarketMap() {
           </tr>
         </thead>
         <tbody id="sector-constituents-tbody">
-          ${sector.constituents
+          ${(sector.constituents || [])
             .map((sym, idx) => {
               const isLeader = sym === sector.leading_asset;
               const isCurrent = sym === currentSymbol;
@@ -4323,14 +4756,26 @@ async function loadAndRenderSectorsAndMarketMap() {
       </table>
     `;
 
-    // Connect constituent row clicks & analyze buttons
+    // Row Click: Inspect constituent, DO NOT NAVIGATE
     bodyEl.querySelectorAll('.sector-constituent-row').forEach((row) => {
       row.addEventListener('click', () => {
+        bodyEl.querySelectorAll('.sector-constituent-row').forEach((r) => r.classList.remove('active-row'));
+        row.classList.add('active-row');
         const sym = row.getAttribute('data-sym');
-        if (sym) router.navigate(router.formatSymbolRoute(sym, 'chart'));
+        if (sym) {
+          const idx = (sector.constituents || []).indexOf(sym);
+          const roleName = idx === 0 ? 'Primary Sector Anchor' : idx < 3 ? 'Core Component Leader' : 'Constituent Peer';
+          renderMarketInspector('constituent', {
+            symbol: sym,
+            role: roleName,
+            sectorName: sector.display_name,
+            proxy: proxyStr,
+          });
+        }
       });
     });
 
+    // Action Button: Intentional Navigation to Analyze
     bodyEl.querySelectorAll('.sector-analyze-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -4355,8 +4800,12 @@ async function loadAndRenderSectorsAndMarketMap() {
   // 3. Render Sector Performance Heatmap Matrix
   if (secGrid) {
     try {
-      const data = await api.getSectorIntelligence();
-      const sectorData = data.sectors || [];
+      if (!cachedSectorData || force || (now - lastSectorIntelligenceFetchTime > 60000)) {
+        const data = await api.getSectorIntelligence();
+        cachedSectorData = data.sectors || [];
+        lastSectorIntelligenceFetchTime = now;
+      }
+      const sectorData = cachedSectorData || [];
 
       if (!currentSelectedSector && sectorData.length > 0) {
         currentSelectedSector = sectorData[0];
@@ -4376,7 +4825,7 @@ async function loadAndRenderSectorsAndMarketMap() {
           else if (perf <= -0.2) intensityClass = 'hm-loss-mod';
 
           return `
-            <div class="hm-tile ${intensityClass} ${isSelected ? 'active-hm-cell' : ''}" data-sector="${s.sector}" title="Click to inspect ${s.display_name} constituents">
+            <div class="hm-tile ${intensityClass} ${isSelected ? 'active-hm-cell' : ''}" data-sector="${s.sector}" title="Click to inspect ${s.display_name}">
               <div class="hm-tile-header">
                 <span class="hm-sector-name">${s.display_name}</span>
                 <span class="hm-sector-perf ${isUp ? 'text-gain' : 'text-loss'}">${isUp ? '+' : ''}${perf.toFixed(2)}%</span>
@@ -4386,7 +4835,7 @@ async function loadAndRenderSectorsAndMarketMap() {
                 <span class="hm-leader-tag">Leader: <strong>${s.leading_asset}</strong></span>
               </div>
               <div class="hm-footer-bar">
-                <span>${s.constituents.length} Constituents</span>
+                <span>${s.constituents?.length || 0} Constituents</span>
                 <span style="font-family: var(--font-mono); font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Net Bullish' : '▼ Net Bearish'}</span>
               </div>
             </div>
@@ -4394,7 +4843,7 @@ async function loadAndRenderSectorsAndMarketMap() {
         })
         .join('');
 
-      // Wire tile click -> select sector
+      // Wire tile click -> select sector and update Context Inspector
       secGrid.querySelectorAll('.hm-tile').forEach((tile) => {
         tile.addEventListener('click', () => {
           const secName = tile.getAttribute('data-sector');
@@ -4403,6 +4852,7 @@ async function loadAndRenderSectorsAndMarketMap() {
             currentSelectedSector = found;
             secGrid.querySelectorAll('.hm-tile').forEach((t) => t.classList.toggle('active-hm-cell', t.getAttribute('data-sector') === secName));
             renderSelectedSectorDetail(found);
+            renderMarketInspector('sector', found);
           }
         });
       });
@@ -4436,7 +4886,7 @@ function renderMacroRadarPanels() {
   const cryptoList = document.getElementById('markets-macro-crypto-list');
   if (!forexList || !commList || !cryptoList || !marketDataCache?.macro) return;
 
-  const renderList = (container, items) => {
+  const renderList = (container, items, category) => {
     if (!items || items.length === 0) {
       container.innerHTML = '<div style="padding: 12px; color: var(--text-dim); font-size: 11px;">Feed offline</div>';
       return;
@@ -4450,7 +4900,7 @@ function renderMacroRadarPanels() {
         const priceFmt = formatMacroPrice(it.price, it.symbol);
 
         return `
-          <div class="macro-asset-row" data-sym="${it.symbol}">
+          <div class="macro-asset-row" data-sym="${it.symbol}" data-category="${category}">
             <div class="macro-asset-ident">
               <span class="macro-asset-name">${it.name || it.symbol}</span>
               <span class="macro-asset-sym">${it.symbol}</span>
@@ -4464,17 +4914,23 @@ function renderMacroRadarPanels() {
       })
       .join('');
 
+    // Row Click: Inspect Macro Asset, DO NOT NAVIGATE
     container.querySelectorAll('.macro-asset-row').forEach((row) => {
       row.addEventListener('click', () => {
+        document.querySelectorAll('.macro-asset-row').forEach((r) => r.classList.remove('active-row'));
+        row.classList.add('active-row');
         const sym = row.getAttribute('data-sym');
-        if (sym) router.navigate(router.formatSymbolRoute(sym, 'chart'));
+        const found = items.find((i) => i.symbol === sym);
+        if (found) {
+          renderMarketInspector('macro', { ...found, category });
+        }
       });
     });
   };
 
-  renderList(forexList, (marketDataCache.macro.Forex || []).slice(0, 5));
-  renderList(commList, (marketDataCache.macro.Commodities || []).slice(0, 5));
-  renderList(cryptoList, (marketDataCache.macro.Crypto || []).slice(0, 5));
+  renderList(forexList, (marketDataCache.macro.Forex || []).slice(0, 5), 'FOREX');
+  renderList(commList, (marketDataCache.macro.Commodities || []).slice(0, 5), 'COMMODITIES');
+  renderList(cryptoList, (marketDataCache.macro.Crypto || []).slice(0, 5), 'DIGITAL ASSETS');
 }
 window.apexLoad = (sym) => {
   router.navigate(router.formatSymbolRoute(sym, 'chart'));

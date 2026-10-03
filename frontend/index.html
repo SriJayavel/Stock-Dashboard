@@ -245,142 +245,45 @@
 
         <!-- 3B. MAIN CANVAS -->
         <main id="mara-main-canvas" class="mara-main-canvas">
-          <!-- Canvas Top Control Toolbar -->
-          <div class="mara-canvas-toolbar" id="mara-canvas-toolbar">
-            <div class="canvas-breadcrumb">
-              <span>WORKSTATION:</span>
-              <strong id="canvas-active-mode-label">MARKETS</strong>
-              <span style="color: var(--border);">/</span>
-              <span id="canvas-active-view-label">PHYSICAL STAGE</span>
-              <span style="color: var(--border);">·</span>
-              <span style="color: var(--gain);">READY</span>
-            </div>
-            <div class="canvas-toolbar-actions">
-              <!-- Mode Toggle: Empty Shell State vs Mounted Workspaces -->
-              <button class="canvas-tool-btn active" id="canvas-view-mode-empty" title="View pristine empty physical shell">
-                <span>STAGE WIREFRAME</span>
-              </button>
-              <button class="canvas-tool-btn" id="canvas-view-mode-mounted" title="Preview mounted workspace contents">
-                <span>MOUNTED WORKSPACE</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- PHASE 0: PHYSICAL WORKSTATION STAGE FRAMEWORK (EMPTY STATE) -->
-          <div id="canvas-empty-state" class="canvas-stage-wrapper">
-            <div class="workstation-spatial-grid">
-              <!-- Primary Analytical Stage -->
-              <div class="workstation-stage-card" id="canvas-primary-stage">
-                <!-- Precision Corner Cross Marks -->
-                <span class="cross-mark cross-tl">+</span>
-                <span class="cross-mark cross-tr">+</span>
-                <span class="cross-mark cross-bl">+</span>
-                <span class="cross-mark cross-br">+</span>
-
-                <div class="stage-card-header">
-                  <div class="stage-card-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                    <span>PRIMARY ANALYTICAL SURFACE [MAIN VIEWPORT]</span>
-                  </div>
-                  <div class="stage-card-telemetry">1440 × 900 REFERENCE GRID · FPS: 60</div>
-                </div>
-
-                <div class="stage-card-content">
-                  <div class="workstation-hud">
-                    <div class="hud-icon-wrap">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
-                    </div>
-                    <h2 class="hud-title">MARA FINANCIAL RESEARCH WORKSTATION</h2>
-                    <p class="hud-caption">Physical Interface Architecture Initialized. The global application shell provides a persistent 5-region spatial container for multi-workspace financial analysis.</p>
-                    <div class="hud-shortcut-row">
-                      <span class="hud-pill"><kbd>⌘K</kbd> Global Command Search</span>
-                      <span class="hud-pill"><kbd>1 – 6</kbd> Switch Workspaces</span>
-                      <span class="hud-pill"><kbd>⌥C</kbd> Toggle Context Panel</span>
-                      <span class="hud-pill"><kbd>D</kbd> Cycle Density</span>
-                      <span class="hud-pill"><kbd>V</kbd> View Representation</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Secondary Telemetry Stage -->
-              <div class="workstation-stage-card" id="canvas-depth-stage">
-                <!-- Precision Corner Cross Marks -->
-                <span class="cross-mark cross-tl">+</span>
-                <span class="cross-mark cross-tr">+</span>
-                <span class="cross-mark cross-bl">+</span>
-                <span class="cross-mark cross-br">+</span>
-
-                <div class="stage-card-header">
-                  <div class="stage-card-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                    <span>SPATIAL TELEMETRY</span>
-                  </div>
-                  <div class="stage-card-telemetry">LIVE STREAM</div>
-                </div>
-
-                <div class="stage-card-content">
-                  <div class="stage-secondary-rows">
-                    <div class="stage-row-item">
-                      <span class="label">Physical Shell Structure</span>
-                      <span class="val" style="color: var(--gain);">5-Region Strict</span>
-                    </div>
-                    <div class="stage-row-item">
-                      <span class="label">Global Header Height</span>
-                      <span class="val">52px</span>
-                    </div>
-                    <div class="stage-row-item">
-                      <span class="label">Workspace Bar Height</span>
-                      <span class="val">42px</span>
-                    </div>
-                    <div class="stage-row-item">
-                      <span class="label">Navigation Rail Width</span>
-                      <span class="val">60px</span>
-                    </div>
-                    <div class="stage-row-item">
-                      <span class="label">Context Panel Width</span>
-                      <span class="val">340px</span>
-                    </div>
-                    <div class="stage-row-item">
-                      <span class="label">Status Bar Height</span>
-                      <span class="val">26px</span>
-                    </div>
-                    <div class="stage-row-item">
-                      <span class="label">Primary Exchange Pipeline</span>
-                      <span class="val" style="color: var(--accent);">Direct NSE + YF</span>
-                    </div>
-                    <div class="stage-row-item">
-                      <span class="label">Workstation Density</span>
-                      <span class="val" id="telemetry-density-label">Normal (32px Row)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- PRESERVED WORKSPACE MOUNT WRAPPER (Dormant during Phase 0 Shell Inspection) -->
-          <div id="canvas-mounted-content" class="canvas-mounted-wrapper" style="display: none; height: 100%; width: 100%;">
-            <main class="main-layout" id="main-layout" data-workspace="markets" data-active-view="terminal">
-              <!-- Preserved Workspaces Mounted Here -->
+          <div id="main-layout" class="main-layout" data-workspace="markets" data-active-view="terminal">
       <!-- =====================================================================
            WORKSPACE 1: MARKETS
            ===================================================================== -->
       <section class="workspace-view" id="workspace-markets" role="tabpanel" aria-labelledby="ws-btn-markets">
         <div class="workspace-scroll-wrap">
-          <!-- Markets Master Header -->
-          <div class="workspace-header">
-            <div class="workspace-title-row">
-              <div class="workspace-title-group">
-                <h2 class="workspace-title">Markets Overview</h2>
-                <span class="workspace-badge">Multi-Asset Intelligence</span>
+          <!-- MARKETS STATE / SESSION CONTEXT BAR -->
+          <div class="markets-state-bar" id="markets-state-bar">
+            <div class="markets-state-left">
+              <div class="markets-state-item">
+                <span class="mkt-session-dot" id="mkt-session-dot"></span>
+                <span class="mkt-state-title" id="mkt-session-name">NSE INDIA: REGULAR SESSION</span>
               </div>
-              <div class="markets-status-pill" id="markets-session-status">
-                <span class="markets-pulse-dot"></span>
-                <span class="markets-status-text">Global Feeds Active</span>
+              <div class="markets-state-sep"></div>
+              <div class="markets-state-item">
+                <span class="mkt-state-label">GLOBAL DESKS</span>
+                <span class="mkt-state-val" id="mkt-global-status">NSE OPEN · NYSE PRE · LSE OPEN · TYO CLOSED</span>
+              </div>
+              <div class="markets-state-sep"></div>
+              <div class="markets-state-item">
+                <span class="mkt-state-label">BENCHMARK BREADTH</span>
+                <span class="mkt-state-val" id="mkt-breadth-val">-- ADV · -- DEC</span>
               </div>
             </div>
-            <p class="workspace-desc">Cross-regional equity benchmarks, sector rotation heatmaps, constituent breadth, and multi-asset macro radar.</p>
+            <div class="markets-state-right">
+              <div class="markets-state-item">
+                <span class="mkt-state-label">FEED</span>
+                <span class="mkt-state-val-mono" id="mkt-feed-source">DIRECT NSE (LIVE)</span>
+              </div>
+              <div class="markets-state-sep"></div>
+              <div class="markets-state-item">
+                <span class="mkt-state-label">UPDATED</span>
+                <span class="mkt-state-val-mono" id="mkt-last-updated">SYNCED</span>
+              </div>
+              <button class="markets-sync-btn" id="mkt-refresh-btn" type="button" title="Synchronize Live Market Data">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                <span>SYNC</span>
+              </button>
+            </div>
           </div>
 
           <!-- SECTION 1: GLOBAL BENCHMARK INDICES (COMPACT FINANCIAL DATA TABLE) -->
@@ -1153,8 +1056,7 @@
           </div>
         </div>
       </section>
-    </main>
-  </div> <!-- end #canvas-mounted-content -->
+    </div> <!-- end #main-layout -->
 </main> <!-- end #mara-main-canvas -->
 
 <!-- 3C. OPTIONAL CONTEXT INSPECTOR PANEL (340px) -->
@@ -1166,7 +1068,7 @@
     </div>
     <button class="context-panel-close-btn" id="close-context-panel-btn" title="Close Panel (⌥C)">✕</button>
   </div>
-  <div class="context-panel-body">
+  <div class="context-panel-body" id="context-panel-body">
     <!-- Active Asset Dossier Card -->
     <div class="inspector-block">
       <div class="inspector-block-title">Active Instrument</div>
