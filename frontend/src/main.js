@@ -182,7 +182,7 @@ export function setWorkspace(workspaceName, subTab = null) {
 
   // 1c. Status Bar workspace label
   const statusWsLabel = document.getElementById('status-active-ws');
-  if (statusWsLabel) statusWsLabel.textContent = workspaceName.toUpperCase();
+  if (statusWsLabel && workspaceName) statusWsLabel.textContent = workspaceName.toUpperCase();
 
   // 2. Main layout & body attributes
   const mainLayout = document.getElementById('main-layout');
@@ -220,7 +220,7 @@ export function setWorkspace(workspaceName, subTab = null) {
         tabBtn.classList.add('active');
       }
       loadScreener(subTab);
-    } else if (!screenerItemsCache || screenerItemsCache.length === 0) {
+    } else if (!currentScreenerAssets || currentScreenerAssets.length === 0) {
       loadScreener('indian_leaders');
     }
   } else if (workspaceName === 'compare') {
@@ -289,7 +289,7 @@ export function setMonitorSubTab(subTab) {
   if (subTab === 'watchlist') {
     refreshWatchlistUI();
   } else if (subTab === 'alerts') {
-    alertsManager.renderAlerts();
+    refreshAlertsUI();
   }
 }
 
@@ -355,10 +355,15 @@ function setupWorkspaceControls() {
         showToast('Please enter a valid symbol and numeric threshold', 'warning');
         return;
       }
-      alertsManager.addAlert(sym, metric, op, target);
+      alertsManager.addAlert({
+        symbol: sym,
+        metric,
+        operator: op,
+        target,
+      });
       showToast(`Alert set for ${sym} ${metric} ${op} ${target}`, 'success');
       if (targetInput) targetInput.value = '';
-      alertsManager.renderAlerts();
+      refreshAlertsUI();
     });
   }
 
@@ -468,6 +473,7 @@ function setupMaraShellControls() {
     densityBtns.forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-density-set') === mode);
     });
+    window.dispatchEvent(new Event('resize'));
     if (chartInstance && chartInstance.resize) chartInstance.resize();
   }
 
@@ -484,12 +490,50 @@ function setupMaraShellControls() {
   // 3. View Switcher Representation (Table / Chart / Heatmap / Metrics)
   const viewBtns = document.querySelectorAll('.mara-view-btn[data-view-set]');
   const mainCanvas = document.getElementById('mara-main-canvas');
+
+  function handleViewRepresentationChange(rep) {
+    if (currentActiveWorkspace === 'markets') {
+      if (rep === 'table') {
+        document.getElementById('markets-indices-table')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (rep === 'heatmap') {
+        document.getElementById('sector-intelligence-grid')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (rep === 'metrics') {
+        document.getElementById('macro-radar-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (rep === 'chart') {
+        showToast('Full Candlestick Chart available in Analyze workspace (Alt+3)', 'info');
+      }
+    } else if (currentActiveWorkspace === 'analyze') {
+      if (rep === 'chart') {
+        setAnalyzeSubTab('chart');
+      } else if (rep === 'table') {
+        setAnalyzeSubTab('fundamentals');
+      } else if (rep === 'metrics') {
+        setAnalyzeSubTab('valuation');
+      } else if (rep === 'heatmap') {
+        setAnalyzeSubTab('overview');
+      }
+    } else if (currentActiveWorkspace === 'discover') {
+      if (rep === 'table') {
+        document.getElementById('screener-table-body')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (rep === 'metrics') {
+        const wrap = document.getElementById('screener-builder-wrap');
+        if (wrap) wrap.style.display = 'block';
+      }
+    } else if (currentActiveWorkspace === 'compare') {
+      if (rep === 'table') {
+        document.getElementById('peers-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (rep === 'metrics' || rep === 'heatmap') {
+        document.getElementById('correlation-matrix-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }
+
   viewBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       const rep = btn.getAttribute('data-view-set');
       viewBtns.forEach((b) => b.classList.toggle('active', b === btn));
       if (mainCanvas) mainCanvas.setAttribute('data-representation', rep);
-      showToast(`View Representation: ${rep.toUpperCase()}`, 'info');
+      handleViewRepresentationChange(rep);
     });
   });
 
@@ -531,7 +575,7 @@ function setupMaraShellControls() {
     });
   }
 
-  // Global Keyboard Shortcuts (⌘K, ⌥C, D, 1-6)
+  // Global Keyboard Shortcuts (⌘K, ⌥C, D, Alt+1..6)
   window.addEventListener('keydown', (e) => {
     const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
 
@@ -542,9 +586,14 @@ function setupMaraShellControls() {
       return;
     }
 
-    if (isInput) return;
+    // Keys Alt+1 to Alt+6 or 1 to 6 (when outside text inputs) -> Quick Workspace Switching
+    const isAltDigit = e.altKey && !e.ctrlKey && !e.metaKey && (
+      (e.key >= '1' && e.key <= '6') || (e.code >= 'Digit1' && e.code <= 'Digit6')
+    );
+    const isPlainDigit = !isInput && !e.altKey && !e.ctrlKey && !e.metaKey && (
+      (e.key >= '1' && e.key <= '6') || (e.code >= 'Digit1' && e.code <= 'Digit6')
+    );
 
-    // Keys 1 to 6 -> Quick Workspace Switching
     const wsMap = {
       '1': 'markets',
       '2': 'discover',
@@ -553,13 +602,23 @@ function setupMaraShellControls() {
       '5': 'research',
       '6': 'monitor',
     };
-    if (wsMap[e.key]) {
-      e.preventDefault();
-      const targetWs = wsMap[e.key];
-      if (targetWs === 'analyze') {
-        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentAnalyzeTab || 'chart'));
-      } else {
-        router.navigate(`/${targetWs}`);
+
+    if (isAltDigit || isPlainDigit) {
+      const digit = (e.key >= '1' && e.key <= '6') ? e.key : e.code.replace('Digit', '');
+      const targetWs = wsMap[digit];
+      if (targetWs) {
+        e.preventDefault();
+        if (targetWs === 'analyze') {
+          router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentAnalyzeTab || 'chart'));
+        } else if (targetWs === 'compare') {
+          router.navigate(router.formatWorkspaceRoute('compare', currentSymbol || 'TCS.NS'));
+        } else if (targetWs === 'research') {
+          router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', currentResearchTab || 'news'));
+        } else if (targetWs === 'monitor') {
+          router.navigate(router.formatWorkspaceRoute('monitor', null, currentMonitorTab || 'watchlist'));
+        } else {
+          router.navigate(`/${targetWs}`);
+        }
       }
       return;
     }
@@ -785,6 +844,44 @@ function setupEventListeners() {
         searchInput.setAttribute('aria-expanded', 'false');
       }
     });
+
+    // Keyboard navigation (ArrowDown, ArrowUp, Enter, Escape) within search results
+    searchInput.addEventListener('keydown', (e) => {
+      const items = Array.from(searchDropdown.querySelectorAll('.search-item'));
+      if (!items.length || !searchDropdown.classList.contains('open')) {
+        if (e.key === 'Escape') {
+          searchDropdown.classList.remove('open');
+          searchInput.setAttribute('aria-expanded', 'false');
+          searchInput.blur();
+        }
+        return;
+      }
+
+      const activeIndex = items.findIndex((el) => el.classList.contains('active-search-item'));
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
+        items.forEach((it, idx) => it.classList.toggle('active-search-item', idx === nextIndex));
+        items[nextIndex].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
+        items.forEach((it, idx) => it.classList.toggle('active-search-item', idx === prevIndex));
+        items[prevIndex].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const target = activeIndex >= 0 ? items[activeIndex] : items[0];
+        if (target) {
+          target.click();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        searchDropdown.classList.remove('open');
+        searchInput.setAttribute('aria-expanded', 'false');
+        searchInput.blur();
+      }
+    });
   }
 
 
@@ -884,22 +981,17 @@ function setupEventListeners() {
       }
     }
 
-    // 4. Quick tab switching: 1..9 (when not editing text)
-    if (!isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const tabMap = {
+    // 4. Quick Analyze sub-tab switching: 1..4 (only when inside Analyze workspace)
+    if (!isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey && currentActiveWorkspace === 'analyze') {
+      const analyzeTabMap = {
         '1': 'chart',
         '2': 'overview',
         '3': 'fundamentals',
         '4': 'valuation',
-        '5': 'peers',
-        '6': 'correlation',
-        '7': 'sectors',
-        '8': 'news',
-        '9': 'notebook',
       };
-      if (tabMap[e.key]) {
+      if (analyzeTabMap[e.key]) {
         e.preventDefault();
-        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', tabMap[e.key]));
+        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', analyzeTabMap[e.key]));
       }
     }
   });
@@ -2019,7 +2111,13 @@ function renderSearchDropdown(items) {
         searchInput.value = '';
         searchInput.setAttribute('aria-expanded', 'false');
       }
-      router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
+      if (currentActiveWorkspace === 'compare') {
+        router.navigate(router.formatWorkspaceRoute('compare', sym));
+      } else if (currentActiveWorkspace === 'research') {
+        router.navigate(router.formatWorkspaceRoute('research', sym, currentResearchTab || 'news'));
+      } else {
+        router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
+      }
     });
   });
 }
@@ -3183,7 +3281,11 @@ function renderPeerIntelligence(data) {
     row.addEventListener('click', () => {
       const sym = row.getAttribute('data-symbol');
       if (sym) {
-        loadStock(sym, currentTimeframe);
+        if (currentActiveWorkspace === 'compare') {
+          router.navigate(router.formatWorkspaceRoute('compare', sym));
+        } else {
+          router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
+        }
       }
     });
   });

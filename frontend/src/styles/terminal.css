@@ -1271,7 +1271,7 @@ body {
   cursor: pointer;
   transition: background-color 0.12s;
 }
-.search-item:hover, .search-item:focus-visible {
+.search-item:hover, .search-item:focus-visible, .search-item.active-search-item {
   background: var(--surface-hover);
 }
 .search-item-symbol {
