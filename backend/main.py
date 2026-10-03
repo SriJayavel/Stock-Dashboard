@@ -24,6 +24,7 @@ from backend.services.data_pipeline import (
     get_stock_overview,
     get_batch_stock_overview,
     get_stock_history,
+    get_market_candles,
     search_assets,
     warm_all_caches,
     resolve_symbol,
@@ -176,19 +177,40 @@ def api_stock_overview(symbol: str):
 @app.get("/api/stocks/{symbol:path}/history")
 def api_stock_history(
     symbol: str,
-    timeframe: str = Query("max", pattern="^(1mo|3mo|6mo|1y|2y|5y|max)$"),
-    interval: str = Query("1d", pattern="^(1d|1wk|1mo)$"),
+    timeframe: str = Query("max", pattern="(?i)^(1d|5d|1mo|3mo|6mo|1y|2y|5y|max|ytd|all)$"),
+    interval: str = Query("1d", pattern="(?i)^(1m|2m|5m|15m|30m|60m|90m|1h|1d|1wk|1mo)$"),
 ):
     """
     Get OHLCV candlestick bars, volume, calculated indicators (EMA, SMA, BB, RSI, MACD),
     and rule-based technical observations. Formatted for TradingView Lightweight Charts.
     """
     try:
-        data = get_stock_history(symbol, timeframe=timeframe, interval=interval)
+        clean_tf = (timeframe or "max").lower().replace("all", "max")
+        clean_int = (interval or "1d").lower()
+        data = get_stock_history(symbol, timeframe=clean_tf, interval=clean_int)
         return data
     except Exception as e:
         logger.error(f"Error serving stock history for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch history for {symbol}.")
+
+
+@app.get("/api/market/candles")
+def api_market_candles(
+    symbol: str = Query(..., description="Asset ticker symbol (e.g. TCS.NS, AAPL, BTC-USD)"),
+    interval: str = Query("1m", pattern="(?i)^(1m|2m|5m|15m|30m|60m|90m|1h|1d|1wk|1mo)$"),
+    range: str = Query("1d", pattern="(?i)^(1d|5d|1mo|3mo|6mo|1y|2y|5y|max|ytd|all)$"),
+):
+    """
+    Get canonical market candles (OHLCV + volume + indicators) with genuine intraday support.
+    """
+    try:
+        clean_int = (interval or "1m").lower()
+        clean_range = (range or "1d").lower().replace("all", "max")
+        data = get_market_candles(symbol=symbol, interval=clean_int, range_param=clean_range)
+        return data
+    except Exception as e:
+        logger.error(f"Error serving candles for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch market candles for {symbol}.")
 
 
 @app.get("/api/stocks/{symbol:path}/research")

@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 # Vercel serverless filesystem is read-only except /tmp
 try:
@@ -538,9 +539,82 @@ def get_stock_overview(symbol: str) -> dict:
     return overview
 
 
+def get_instrument_market_status(sym: str) -> dict:
+    """
+    Determine market status (OPEN, PRE-MARKET, CLOSED) and exchange metadata.
+    """
+    is_in = sym.endswith(".NS") or sym.endswith(".BO") or sym in ["^NSEI", "^BSESN", "^NSEBANK"]
+    is_crypto = "-USD" in sym or "-INR" in sym
+    is_forex = "=X" in sym
+
+    if is_crypto:
+        return {
+            "exchange": "Crypto",
+            "timezone": "UTC",
+            "currency": "USD" if "-USD" in sym else "INR",
+            "market_status": "OPEN",
+            "freshness": "delayed",
+        }
+
+    if is_forex:
+        now_utc = datetime.datetime.now(ZoneInfo("UTC"))
+        is_weekend = (now_utc.weekday() == 4 and now_utc.hour >= 22) or (now_utc.weekday() == 5) or (now_utc.weekday() == 6 and now_utc.hour < 21)
+        return {
+            "exchange": "Forex",
+            "timezone": "UTC",
+            "currency": sym.replace("=X", "")[-3:],
+            "market_status": "CLOSED" if is_weekend else "OPEN",
+            "freshness": "delayed",
+        }
+
+    if is_in:
+        now_ist = datetime.datetime.now(ZoneInfo("Asia/Kolkata"))
+        is_weekday = now_ist.weekday() < 5
+        curr_time = now_ist.time()
+        if is_weekday:
+            if datetime.time(9, 15) <= curr_time <= datetime.time(15, 30):
+                status = "OPEN"
+            elif datetime.time(9, 0) <= curr_time < datetime.time(9, 15):
+                status = "PRE-MARKET"
+            else:
+                status = "CLOSED"
+        else:
+            status = "CLOSED"
+
+        return {
+            "exchange": "BSE" if sym.endswith(".BO") or sym == "^BSESN" else "NSE",
+            "timezone": "Asia/Kolkata",
+            "currency": "INR",
+            "market_status": status,
+            "freshness": "delayed",
+        }
+
+    now_ny = datetime.datetime.now(ZoneInfo("America/New_York"))
+    is_weekday = now_ny.weekday() < 5
+    curr_time = now_ny.time()
+    if is_weekday:
+        if datetime.time(9, 30) <= curr_time <= datetime.time(16, 0):
+            status = "OPEN"
+        elif datetime.time(4, 0) <= curr_time < datetime.time(9, 30):
+            status = "PRE-MARKET"
+        else:
+            status = "CLOSED"
+    else:
+        status = "CLOSED"
+
+    return {
+        "exchange": "US",
+        "timezone": "America/New_York",
+        "currency": "USD",
+        "market_status": status,
+        "freshness": "delayed",
+    }
+
+
 def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d") -> dict:
     """
     Fetch historical OHLCV, compute technical indicators, and return Lightweight Charts payload.
+    Supports genuine 1m, 5m, 15m, 30m, 1h intraday bars as well as daily/weekly/monthly history.
     """
     sym = resolve_symbol(symbol)
     cache_key = f"{sym}_{timeframe}_{interval}"
@@ -548,18 +622,27 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
     if cached:
         return cached
 
+    is_intraday = interval in ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"]
+
     # Map timeframe to yfinance period
-    # To compute 200 EMA without gaps, we fetch extra historical padding
-    fetch_period_map = {
-        "1mo": "6mo",
-        "3mo": "1y",
-        "6mo": "2y",
-        "1y": "2y",
-        "2y": "5y",
-        "5y": "max",
-        "max": "max",
-    }
-    fetch_period = fetch_period_map.get(timeframe, "max")
+    if is_intraday:
+        if interval == "1m":
+            fetch_period = "5d"
+        elif interval in ["2m", "5m"]:
+            fetch_period = "5d" if timeframe in ["1d", "5d"] else "1mo"
+        else:
+            fetch_period = "1mo" if timeframe in ["1d", "5d", "1mo"] else "3mo"
+    else:
+        fetch_period_map = {
+            "1mo": "6mo",
+            "3mo": "1y",
+            "6mo": "2y",
+            "1y": "2y",
+            "2y": "5y",
+            "5y": "max",
+            "max": "max",
+        }
+        fetch_period = fetch_period_map.get(timeframe, "max")
 
     t = yf.Ticker(sym, session=_yf_session)
     df = t.history(period=fetch_period, interval=interval, auto_adjust=True)
@@ -568,12 +651,26 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
         alt_t = yf.Ticker(f"{sym}.NS", session=_yf_session)
         df = alt_t.history(period=fetch_period, interval=interval, auto_adjust=True)
 
+    status_info = get_instrument_market_status(sym)
+
     if df.empty:
         return {
             "symbol": sym,
+            "timeframe": timeframe,
+            "interval": interval,
             "candles": [],
+            "volume": [],
             "indicators": {},
             "observations": [],
+            "technical_snapshot": {},
+            "exchange": status_info["exchange"],
+            "exchange_timezone": status_info["timezone"],
+            "currency": status_info["currency"],
+            "market_status": status_info["market_status"],
+            "freshness": "unavailable",
+            "data_source": "Yahoo Finance",
+            "message": f"{interval} intraday data unavailable for {sym}",
+            "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
         }
 
     # Reset index and sanitize datetime
@@ -585,9 +682,6 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
     df = apply_all_indicators(df)
     observations = generate_technical_observations(df)
 
-    # Compact, auditable price context for the terminal header. This uses the
-    # same history request and calculated series as the chart; it makes no
-    # additional provider calls and does not encode a buy/sell recommendation.
     latest = df.iloc[-1]
     close = float(latest["Close"]) if pd.notna(latest.get("Close")) else None
 
@@ -613,7 +707,7 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
         trend_basis = "Close and available 50/200 day averages are not fully aligned"
 
     return_windows = {"1d": (21, 63, 252), "1wk": (4, 13, 52), "1mo": (1, 3, 12)}
-    one_month_bars, three_month_bars, one_year_bars = return_windows.get(interval, return_windows["1d"])
+    one_month_bars, three_month_bars, one_year_bars = return_windows.get(interval, return_windows.get("1d", (21, 63, 252)))
     trailing = df.tail(one_year_bars)["Close"].astype(float)
     drawdown = ((trailing / trailing.cummax()) - 1).min() * 100 if not trailing.empty else None
     technical_snapshot = {
@@ -623,26 +717,38 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
         "return_3m_pct": _snapshot_return(three_month_bars),
         "rsi_14": round(float(latest["RSI"]), 2) if pd.notna(latest.get("RSI")) else None,
         "max_drawdown_1y_pct": round(float(drawdown), 2) if drawdown is not None else None,
-        "methodology": f"Close-to-close returns use {one_month_bars} and {three_month_bars} {interval} observations. Trend context compares the latest close with 50 and 200 observation simple moving averages. Drawdown is the minimum close-to-prior-peak decline across up to {one_year_bars} observations. Historical context only; not a forecast.",
+        "methodology": f"Calculations use available {interval} observations. Trend context compares the latest close with moving averages. Historical context only; not a forecast.",
     }
 
     # Filter to requested timeframe window for client display
-    now = datetime.datetime.now()
-    days_map = {
-        "1mo": 31,
-        "3mo": 92,
-        "6mo": 183,
-        "1y": 365,
-        "2y": 730,
-        "5y": 1825,
-    }
-    if timeframe in days_map:
-        cutoff = now - datetime.timedelta(days=days_map[timeframe])
-        df_display = df[df["Date"] >= cutoff].copy()
-        if len(df_display) < 10:
-            df_display = df.tail(30).copy()
+    if is_intraday:
+        if timeframe in ["1d", "1D"]:
+            df_norm = df["Date"].dt.normalize()
+            latest_day = df_norm.max()
+            df_display = df[df_norm == latest_day].copy()
+            if len(df_display) < 5:
+                df_display = df.tail(390).copy()
+        elif timeframe in ["5d", "5D"]:
+            df_display = df.copy()
+        else:
+            df_display = df.copy()
     else:
-        df_display = df.copy()
+        now = datetime.datetime.now()
+        days_map = {
+            "1mo": 31,
+            "3mo": 92,
+            "6mo": 183,
+            "1y": 365,
+            "2y": 730,
+            "5y": 1825,
+        }
+        if timeframe in days_map:
+            cutoff = now - datetime.timedelta(days=days_map[timeframe])
+            df_display = df[df["Date"] >= cutoff].copy()
+            if len(df_display) < 10:
+                df_display = df.tail(30).copy()
+        else:
+            df_display = df.copy()
 
     candles = []
     volume_series = []
@@ -658,8 +764,14 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
     macd_series = []
 
     for _, row in df_display.iterrows():
-        # Lightweight Charts format: date string "YYYY-MM-DD"
-        time_str = row["Date"].strftime("%Y-%m-%d")
+        raw_dt = row["Date"]
+        if is_intraday:
+            time_val = int(raw_dt.timestamp())
+            time_str = raw_dt.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            time_val = raw_dt.strftime("%Y-%m-%d")
+            time_str = time_val
+
         c_open = round(float(row["Open"]), 4 if "=X" in sym else 2)
         c_high = round(float(row["High"]), 4 if "=X" in sym else 2)
         c_low = round(float(row["Low"]), 4 if "=X" in sym else 2)
@@ -667,7 +779,8 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
         c_vol = int(row.get("Volume", 0))
 
         candles.append({
-            "time": time_str,
+            "time": time_val,
+            "time_str": time_str,
             "open": c_open,
             "high": c_high,
             "low": c_low,
@@ -677,35 +790,35 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
 
         is_up = c_close >= c_open
         volume_series.append({
-            "time": time_str,
+            "time": time_val,
             "value": c_vol,
             "color": "rgba(16, 185, 129, 0.45)" if is_up else "rgba(239, 68, 68, 0.45)",
         })
 
         # Indicator series
         if not np.isnan(row.get("SMA_20", np.nan)):
-            sma_20.append({"time": time_str, "value": round(float(row["SMA_20"]), 2)})
+            sma_20.append({"time": time_val, "value": round(float(row["SMA_20"]), 2)})
         if not np.isnan(row.get("SMA_50", np.nan)):
-            sma_50.append({"time": time_str, "value": round(float(row["SMA_50"]), 2)})
+            sma_50.append({"time": time_val, "value": round(float(row["SMA_50"]), 2)})
         if not np.isnan(row.get("SMA_200", np.nan)):
-            sma_200.append({"time": time_str, "value": round(float(row["SMA_200"]), 2)})
+            sma_200.append({"time": time_val, "value": round(float(row["SMA_200"]), 2)})
 
         if not np.isnan(row.get("EMA_50", np.nan)):
-            ema_50.append({"time": time_str, "value": round(float(row["EMA_50"]), 2)})
+            ema_50.append({"time": time_val, "value": round(float(row["EMA_50"]), 2)})
         if not np.isnan(row.get("EMA_200", np.nan)):
-            ema_200.append({"time": time_str, "value": round(float(row["EMA_200"]), 2)})
+            ema_200.append({"time": time_val, "value": round(float(row["EMA_200"]), 2)})
 
         if not np.isnan(row.get("BB_Upper", np.nan)):
-            bb_upper.append({"time": time_str, "value": round(float(row["BB_Upper"]), 2)})
-            bb_middle.append({"time": time_str, "value": round(float(row["BB_Middle"]), 2)})
-            bb_lower.append({"time": time_str, "value": round(float(row["BB_Lower"]), 2)})
+            bb_upper.append({"time": time_val, "value": round(float(row["BB_Upper"]), 2)})
+            bb_middle.append({"time": time_val, "value": round(float(row["BB_Middle"]), 2)})
+            bb_lower.append({"time": time_val, "value": round(float(row["BB_Lower"]), 2)})
 
         if not np.isnan(row.get("RSI", np.nan)):
-            rsi_series.append({"time": time_str, "value": round(float(row["RSI"]), 2)})
+            rsi_series.append({"time": time_val, "value": round(float(row["RSI"]), 2)})
 
         if not np.isnan(row.get("MACD", np.nan)) and not np.isnan(row.get("MACD_Signal", np.nan)):
             macd_series.append({
-                "time": time_str,
+                "time": time_val,
                 "macd": round(float(row["MACD"]), 2),
                 "signal": round(float(row["MACD_Signal"]), 2),
                 "hist": round(float(row["MACD_Hist"]), 2),
@@ -714,6 +827,7 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
     result = {
         "symbol": sym,
         "timeframe": timeframe,
+        "interval": interval,
         "candles": candles,
         "volume": volume_series,
         "indicators": {
@@ -730,22 +844,26 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
         },
         "observations": observations,
         "technical_snapshot": technical_snapshot,
-        "exchange": (
-            "NSE" if sym.endswith(".NS") or sym in ["^NSEI", "^NSEBANK"] else
-            "BSE" if sym.endswith(".BO") or sym == "^BSESN" else
-            ("CCY" if "=X" in sym else "Crypto" if "-USD" in sym else "US")
-        ),
-        "exchange_timezone": (
-            "IST (UTC+5:30)" if sym.endswith(".NS") or sym.endswith(".BO") or sym in ["^NSEI", "^BSESN", "^NSEBANK"] else
-            "UTC" if "=X" in sym or "-USD" in sym else
-            "EDT (America/New_York)"
-        ),
+        "exchange": status_info["exchange"],
+        "exchange_timezone": status_info["timezone"],
+        "currency": status_info["currency"],
+        "market_status": status_info["market_status"],
+        "freshness": status_info["freshness"],
         "data_source": "Yahoo Finance",
         "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
     }
 
-    cache.set("history", cache_key, result, ttl=settings.L1_STOCK_HISTORY_TTL)
+    # Dynamic cache TTL: 15s when market is open for intraday, 300s when closed, 1800s for daily
+    ttl = 15 if (is_intraday and status_info["market_status"] == "OPEN") else (300 if is_intraday else settings.L1_STOCK_HISTORY_TTL)
+    cache.set("history", cache_key, result, ttl=ttl)
     return result
+
+
+def get_market_candles(symbol: str, interval: str = "1m", range_param: str = "1d") -> dict:
+    """
+    Direct canonical endpoint for intraday and historical market candles.
+    """
+    return get_stock_history(symbol=symbol, timeframe=range_param, interval=interval)
 
 
 def get_market_overview() -> dict:

@@ -503,19 +503,31 @@
                 <span class="tv-chevron" style="color: var(--text-dim); font-size: 10px;">▾</span>
               </button>
 
-              <div class="tv-tb-divider"></div>
-
-              <!-- Interval Segmented Control (D / W / M Client-Side Resampling) -->
-              <div class="interval-segmented-control" id="interval-group">
-                <button class="interval-btn active" data-interval="D" title="Daily Bars (1D)">D</button>
-                <button class="interval-btn" data-interval="W" title="Weekly Bars (1W)">W</button>
-                <button class="interval-btn" data-interval="M" title="Monthly Bars (1M)">M</button>
+              <!-- Chart Telemetry Badges (Freshness & Market State) -->
+              <div class="tv-telemetry-strip" id="tv-telemetry-strip">
+                <span class="tv-data-badge" id="tv-data-badge">DATA: DELAYED</span>
+                <span class="tv-market-badge" id="tv-market-badge">MARKET CLOSED</span>
               </div>
 
               <div class="tv-tb-divider"></div>
 
-              <!-- Range Segmented Control (Client-Side setVisibleRange Zoom) -->
+              <!-- Interval Segmented Control (1m / 5m / 15m / 1h / 1D / 1W / 1M) -->
+              <div class="interval-segmented-control" id="interval-group">
+                <button class="interval-btn" data-interval="1m" title="1-Minute Intraday Bars">1m</button>
+                <button class="interval-btn" data-interval="5m" title="5-Minute Intraday Bars">5m</button>
+                <button class="interval-btn" data-interval="15m" title="15-Minute Intraday Bars">15m</button>
+                <button class="interval-btn" data-interval="1h" title="1-Hour Intraday Bars">1h</button>
+                <button class="interval-btn active" data-interval="1d" title="Daily Bars (1D)">1D</button>
+                <button class="interval-btn" data-interval="1wk" title="Weekly Bars (1W)">1W</button>
+                <button class="interval-btn" data-interval="1mo" title="Monthly Bars (1M)">1M</button>
+              </div>
+
+              <div class="tv-tb-divider"></div>
+
+              <!-- Range Segmented Control (1D / 5D / 1M / 3M / 6M / YTD / 1Y / 5Y / All) -->
               <div class="range-segmented-control" id="range-group">
+                <button class="range-btn" data-range="1D" title="1 Day Range">1D</button>
+                <button class="range-btn" data-range="5D" title="5 Days Range">5D</button>
                 <button class="range-btn" data-range="1M" title="1 Month Range">1M</button>
                 <button class="range-btn" data-range="3M" title="3 Months Range">3M</button>
                 <button class="range-btn" data-range="6M" title="6 Months Range">6M</button>

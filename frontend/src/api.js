@@ -103,6 +103,13 @@ class ApiClient {
     );
   }
 
+  async getMarketCandles(symbol, interval = '1m', range = '1d') {
+    const sym = (symbol || '').trim().replace(/\//g, '');
+    return this.fetchWithRetry(
+      `/api/market/candles?symbol=${encodeURIComponent(sym)}&interval=${interval}&range=${range}`
+    );
+  }
+
   async getStockResearch(symbol) {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(`/api/stocks/${encodeURIComponent(sym)}/research`);

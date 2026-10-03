@@ -7,12 +7,12 @@ import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition } from './i
 import { getAccountStorageKey } from './auth.js';
 
 export function resampleCandles(candles = [], interval = 'D') {
-  if (interval === 'D' || interval === '1d') return candles || [];
+  if (['1m', '2m', '5m', '15m', '30m', '60m', '1h', 'D', '1d'].includes(interval)) return candles || [];
   const groups = new Map();
   for (const bar of candles || []) {
-    const t = typeof bar.time === 'string' ? bar.time : `${bar.time.year}-${String(bar.time.month).padStart(2,'0')}-${String(bar.time.day).padStart(2,'0')}`;
-    const date = new Date(`${t}T00:00:00Z`);
-    let key = t;
+    const t = typeof bar.time === 'string' ? bar.time : (typeof bar.time === 'number' ? new Date(bar.time < 1e11 ? bar.time * 1000 : bar.time).toISOString().slice(0, 10) : `${bar.time?.year}-${String(bar.time?.month).padStart(2,'0')}-${String(bar.time?.day).padStart(2,'0')}`);
+    const date = new Date(`${t.slice(0,10)}T00:00:00Z`);
+    let key = t.slice(0,10);
     if (interval === 'W' || interval === '1wk') {
       date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7)); key = date.toISOString().slice(0,10);
     } else if (interval === 'M' || interval === '1mo') key = t.slice(0,7);
@@ -23,7 +23,53 @@ export function resampleCandles(candles = [], interval = 'D') {
   return [...groups.values()];
 }
 
-const dateString = (time) => typeof time === 'string' ? time : `${time.year}-${String(time.month).padStart(2,'0')}-${String(time.day).padStart(2,'0')}`;
+export const dateString = (time) => {
+  if (typeof time === 'string') return time.slice(0, 10);
+  if (typeof time === 'number') return new Date(time < 1e11 ? time * 1000 : time).toISOString().slice(0, 10);
+  if (time && time.year) return `${time.year}-${String(time.month).padStart(2,'0')}-${String(time.day).padStart(2,'0')}`;
+  return String(time || '');
+};
+
+export const formatTickTime = (time, isIntraday = false) => {
+  if (typeof time === 'number') {
+    const d = new Date(time < 1e11 ? time * 1000 : time);
+    if (isIntraday) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    return d.toISOString().slice(0, 7);
+  }
+  if (typeof time === 'string') {
+    if (isIntraday) {
+      if (time.includes('T') || time.includes(' ') || time.includes(':')) {
+        const parts = time.split(/[T ]/);
+        if (parts[1]) return parts[1].slice(0, 5);
+      }
+      return time.slice(5, 10);
+    }
+    return time.slice(0, 7);
+  }
+  if (time && time.year) return `${time.year}-${String(time.month).padStart(2,'0')}`;
+  return String(time || '');
+};
+
+export const formatFullTime = (time) => {
+  if (typeof time === 'number') {
+    const d = new Date(time < 1e11 ? time * 1000 : time);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+  }
+  if (typeof time === 'string') {
+    return time.replace('T', ' ').slice(0, 19);
+  }
+  return dateString(time);
+};
 
 export class TerminalChart {
   constructor(container, tooltip, onStateChange = null) {
@@ -68,35 +114,302 @@ export class TerminalChart {
   rebalancePanes() { const count=this.subPanes.size;this.mainRatio=count?this.mainRatio:1;this.container.style.height=count?`${Math.max(500,360+count*120)}px`:'100%';this.resize(); }
   renderPaneSplitters(){this.splittersContainer.replaceChildren();if(!this.subPanes.size)return;const s=document.createElement('div');s.className='tv-pane-splitter';s.style.top=`${this.height*this.mainRatio-4}px`;s.title='Drag to resize price pane';s.onpointerdown=e=>{e.preventDefault();const y=e.clientY,ratio=this.mainRatio;const move=m=>{this.mainRatio=Math.max(.42,Math.min(.86,ratio+(m.clientY-y)/this.height));this.renderPaneSplitters();this.render();};const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);};this.splittersContainer.appendChild(s);this.subPanes.forEach((id,p)=>{const i=this.activeIndicators.get(id);if(i?.headerElement){i.headerElement.style.top=`${this.height*this.mainRatio+(p-1)*120+6}px`;i.headerElement.style.left='14px';}});}
   resize(width,height) { const r=this.container.getBoundingClientRect();this.width=Math.max(320,width||r.width||800);this.height=Math.max(320,height||r.height||460);const dpr=window.devicePixelRatio||1;this.canvas.width=Math.round(this.width*dpr);this.canvas.height=Math.round(this.height*dpr);this.canvas.style.width=`${this.width}px`;this.canvas.style.height=`${this.height}px`;this.ctx.setTransform(dpr,0,0,dpr,0,0);this.renderPaneSplitters();this.render(); }
-  setData(data,preserveRange=false){if(!data?.candles?.length)return;this.rawDailyCandles=data.candles;this.currentData=data;this.applyInterval(this.activeInterval,preserveRange);}
-  applyInterval(interval,preserveRange=false){this.activeInterval=interval;try{localStorage.setItem(getAccountStorageKey('apex_chart_interval'),interval);}catch{}this.currentCandles=resampleCandles(this.rawDailyCandles,interval);this.activeIndicators.forEach(i=>this.computeAndApplyIndicator(i,this.currentCandles));const int=document.getElementById('tv-leg-interval');if(int)int.textContent=interval==='W'?'1W':interval==='M'?'1M':'1D';if(!preserveRange)this.setVisibleRangeByName(this.activeRange);else this.render();const last=this.currentCandles.at(-1);if(last){this.lastBar=last;this.renderTooltip(last);this.renderCornerLegend(last);}}
-  setVisibleRangeByName(name){this.activeRange=name;try{localStorage.setItem(getAccountStorageKey('apex_chart_range'),name);}catch{}const bars=this.currentCandles;if(!bars?.length)return;const lastDate=new Date(`${dateString(bars.at(-1).time)}T00:00:00Z`);const date=new Date(lastDate);if(name==='1M')date.setUTCMonth(date.getUTCMonth()-1);else if(name==='3M')date.setUTCMonth(date.getUTCMonth()-3);else if(name==='6M')date.setUTCMonth(date.getUTCMonth()-6);else if(name==='YTD')date.setUTCFullYear(date.getUTCFullYear(),0,1);else if(name==='1Y')date.setUTCFullYear(date.getUTCFullYear()-1);else if(name==='5Y')date.setUTCFullYear(date.getUTCFullYear()-5);const from=bars.findIndex(b=>new Date(`${dateString(b.time)}T00:00:00Z`)>=date);this.endIndex=bars.length;this.visibleCount=name==='All'?bars.length:Math.max(20,bars.length-Math.max(0,from));this.render();}
-  scrollToLatest(){this.endIndex=this.currentCandles.length;this.render();}
-  resetView(){this.setScaleMode('normal');this.setVisibleRangeByName(this.activeRange||'1Y');}
-  patchLatestBar(quote){const b=this.rawDailyCandles.at(-1);if(!b||quote?.current_price==null)return;b.close=Number(quote.current_price);b.high=Math.max(b.high,Number(quote.high||quote.day_high||b.close));b.low=Math.min(b.low,Number(quote.low||quote.day_low||b.close));if(quote.volume)b.volume=Math.max(b.volume||0,Number(quote.volume));this.applyInterval(this.activeInterval,true);}
-  setChartType(type){this.chartType=type;try{localStorage.setItem(getAccountStorageKey('apex_chart_type'),type);}catch{}this.render();}
-  toggleCrosshair(){this.crosshairEnabled=!this.crosshairEnabled;this.render();return this.crosshairEnabled;}
-  setScaleMode(mode){this.scaleMode=mode;try{localStorage.setItem(getAccountStorageKey('apex_chart_scale'),mode);}catch{}this.render();return mode;}
-  setEventMarkers(markers=[]){this.markers=markers||[];this.render();}
-  bindInteraction(){this.pointer=null;this.canvas.addEventListener('pointermove',e=>{const r=this.canvas.getBoundingClientRect(),x=e.clientX-r.left; if(this.drag){const delta=Math.round((this.drag.x-e.clientX)/(this.barWidth||8));this.endIndex=Math.max(this.visibleCount,Math.min(this.currentCandles.length,this.drag.end+delta));this.render();return;}this.pointer={x,y:e.clientY-r.top};const idx=this.indexAt(x);if(idx>=0&&this.currentCandles[idx]){this.renderTooltip(this.currentCandles[idx]);this.renderCornerLegend(this.currentCandles[idx]);}this.render();});this.canvas.addEventListener('pointerdown',e=>{this.drag={x:e.clientX,end:this.endIndex};this.canvas.setPointerCapture(e.pointerId);});this.canvas.addEventListener('pointerup',()=>{this.drag=null;});this.canvas.addEventListener('pointerleave',()=>{this.pointer=null;this.render();});this.canvas.addEventListener('wheel',e=>{e.preventDefault();const step=Math.max(1,Math.round(this.visibleCount*.12));this.visibleCount=Math.max(20,Math.min(this.currentCandles.length,this.visibleCount+(e.deltaY>0?step:-step)));this.endIndex=this.currentCandles.length;this.render();},{passive:false});}
-  indexAt(x){const start=Math.max(0,this.endIndex-this.visibleCount);const plotW=this.width-78;return Math.max(start,Math.min(this.endIndex-1,start+Math.floor((x-12)/plotW*this.visibleCount)));}
-  render(){if(!this.ctx||!this.width)return;const c=this.ctx,w=this.width,h=this.height,bg='#131722',grid='rgba(152,161,178,0.14)',muted='#9598a1';c.clearRect(0,0,w,h);c.fillStyle=bg;c.fillRect(0,0,w,h);const bars=this.currentCandles||[];if(!bars.length){c.fillStyle=muted;c.font='13px sans-serif';c.fillText('Load a symbol to view price history',20,32);return;}const panes=[...this.subPanes.keys()].length,mainH=panes?Math.max(180,h*this.mainRatio):h-28, plot={left:12,right:w-76,top:26,bottom:mainH-26};const start=Math.max(0,this.endIndex-this.visibleCount),end=Math.min(bars.length,this.endIndex||bars.length),visible=bars.slice(start,end);if(!visible.length)return;this.barWidth=(plot.right-plot.left)/Math.max(visible.length,1);const base=visible[0]?.close||1,scaled=v=>this.scaleMode==='pct'?(v/base-1)*100:v;let min=Math.min(...visible.map(b=>scaled(b.low))),max=Math.max(...visible.map(b=>scaled(b.high)));const pad=(max-min)*.08||Math.abs(max||1)*.02;min-=pad;max+=pad;if(this.scaleMode==='log')min=Math.max(Number.MIN_VALUE,min);const y=v=>{const value=scaled(v),t=this.scaleMode==='log'?(Math.log(value)-Math.log(min))/(Math.log(max)-Math.log(min)):(value-min)/(max-min);return plot.bottom-t*(plot.bottom-plot.top);};
-    c.font='11px ui-monospace,monospace';c.textBaseline='middle';for(let n=0;n<=5;n++){const yy=plot.top+(plot.bottom-plot.top)*n/5;c.strokeStyle=grid;c.beginPath();c.moveTo(plot.left,yy);c.lineTo(w-4,yy);c.stroke();const value=max-(max-min)*n/5;c.fillStyle=muted;c.textAlign='right';c.fillText(this.scaleMode==='pct'?`${value.toFixed(1)}%`:this.formatPrice(value),w-8,yy);}
-    for(let n=0;n<=6;n++){const xx=plot.left+(plot.right-plot.left)*n/6;c.strokeStyle=grid;c.beginPath();c.moveTo(xx,plot.top);c.lineTo(xx,plot.bottom);c.stroke();const idx=Math.min(visible.length-1,Math.floor(n/6*(visible.length-1)));c.fillStyle=muted;c.textAlign='center';if(visible[idx])c.fillText(dateString(visible[idx].time).slice(0,7),xx,h-11);}
-    if(this.chartType==='candles'){visible.forEach((b,j)=>{const x=plot.left+(j+.5)*this.barWidth,up=b.close>=b.open,color=up?'#22ab94':'#f23645';c.strokeStyle=color;c.fillStyle=color;c.lineWidth=1;c.beginPath();c.moveTo(x,y(b.high));c.lineTo(x,y(b.low));c.stroke();const top=y(Math.max(b.open,b.close)),bottom=y(Math.min(b.open,b.close)),cw=Math.max(1,Math.min(12,this.barWidth*.66));c.fillRect(x-cw/2,top,cw,Math.max(1,bottom-top));});}else{c.beginPath();visible.forEach((b,j)=>{const x=plot.left+(j+.5)*this.barWidth,yy=y(b.close);j?c.lineTo(x,yy):c.moveTo(x,yy);});c.strokeStyle='#2962ff';c.lineWidth=2;c.stroke();if(this.chartType==='area'){const last=visible.length-1;c.lineTo(plot.left+(last+.5)*this.barWidth,plot.bottom);c.lineTo(plot.left+this.barWidth/2,plot.bottom);c.closePath();const g=c.createLinearGradient(0,plot.top,0,plot.bottom);g.addColorStop(0,'rgba(41,98,255,.2)');g.addColorStop(1,'rgba(41,98,255,0)');c.fillStyle=g;c.fill();}}
-    // Volume is drawn inside a dedicated lower strip of the price pane.
-    const vTop=plot.bottom-(plot.bottom-plot.top)*.19,vmax=Math.max(1,...visible.map(b=>b.volume||0));visible.forEach((b,j)=>{const x=plot.left+(j+.5)*this.barWidth,hh=((b.volume||0)/vmax)*(plot.bottom-vTop),up=b.close>=b.open;c.fillStyle=up?'rgba(34,171,148,.34)':'rgba(242,54,69,.34)';c.fillRect(x-Math.max(1,this.barWidth*.32),plot.bottom-hh,Math.max(1,this.barWidth*.64),hh);});
-    // Overlay indicators share the price scale; oscillator indicators get their own chart panes.
-    this.activeIndicators.forEach(inst=>{if(!inst.visible||inst.unavailable)return;const pane=inst.paneIndex,area=pane?{left:plot.left,right:plot.right,top:mainH+(pane-1)*(h-mainH)/panes+26,bottom:mainH+pane*(h-mainH)/panes-20}:plot;const series=Object.entries(inst.values||{});series.forEach(([key,points],si)=>{const color=inst.def.render?.[si]?.color||inst.color;c.beginPath();let begun=false;points.forEach((point,idx)=>{if(!point||point.value==null||idx<start||idx>=end)return;const xx=plot.left+(idx-start+.5)*this.barWidth,val=point.value;let yy;if(pane){const valid=points.slice(start,end).map(q=>q?.value).filter(Number.isFinite),lo=Math.min(...valid),hi=Math.max(...valid);yy=area.bottom-(val-lo)/(hi-lo||1)*(area.bottom-area.top);}else yy=y(val);if(!begun){c.moveTo(xx,yy);begun=true;}else c.lineTo(xx,yy);});c.strokeStyle=color;c.lineWidth=1.4;c.stroke();});if(pane){c.strokeStyle=grid;c.beginPath();c.moveTo(area.left,area.top);c.lineTo(w-4,area.top);c.stroke();}});
-    this.markers.forEach(m=>{const idx=bars.findIndex(b=>dateString(b.time)===String(m.time));if(idx<start||idx>=end)return;const xx=plot.left+(idx-start+.5)*this.barWidth,yy=plot.top+12;c.fillStyle=m.color||'#5b9cf6';c.beginPath();c.arc(xx,yy,4,0,Math.PI*2);c.fill();});
-    if(this.pointer&&this.crosshairEnabled){const xx=this.pointer.x,idx=this.indexAt(xx),b=bars[idx];if(b){c.strokeStyle='rgba(41,98,255,.55)';c.setLineDash([4,4]);c.beginPath();c.moveTo(xx,plot.top);c.lineTo(xx,panes?h:plot.bottom);c.stroke();c.beginPath();c.moveTo(plot.left,this.pointer.y);c.lineTo(w-3,this.pointer.y);c.stroke();c.setLineDash([]);}}
-    if(this.subPanes.size)this.renderPaneSplitters();
+  isIntraday() {
+    return ['1m', '2m', '5m', '15m', '30m', '60m', '1h'].includes(this.activeInterval);
   }
-  formatPrice(value){return Math.abs(value)>=1000?value.toLocaleString('en-IN',{maximumFractionDigits:2}):value.toFixed(2);}
-  updateTooltip(param){this.renderTooltip(param);}
-  renderTooltip(bar){if(!this.tooltip||!bar)return;const o=bar.open??bar.value??0,c=bar.close??bar.value??0,up=c>=o,color=up?'#22ab94':'#f23645';this.tooltip.innerHTML=`<div class="chart-legend-row"><span class="legend-time">${dateString(bar.time)}</span><span class="legend-item"><span class="lbl">O:</span> <span class="val">${o.toFixed(2)}</span></span><span class="legend-item"><span class="lbl">H:</span> <span class="val">${(bar.high??o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">L:</span> <span class="val">${(bar.low??o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">C:</span> <span class="val" style="color:${color};font-weight:600">${c.toFixed(2)}</span></span><span class="legend-item" style="color:${color};font-weight:600">${up?'▲ +':'▼ '}${(o?(c-o)/o*100:0).toFixed(2)}%</span></div>`;}
+  setData(data, preserveRange = false) {
+    if (!data?.candles?.length) {
+      this.currentCandles = [];
+      this.rawDailyCandles = [];
+      this.unavailableMessage = data?.message || '1m intraday data unavailable';
+      this.render();
+      return;
+    }
+    this.unavailableMessage = null;
+    this.rawDailyCandles = data.candles;
+    this.currentData = data;
+    if (data.interval) this.activeInterval = data.interval;
+    this.applyInterval(this.activeInterval, preserveRange);
+  }
+  applyInterval(interval, preserveRange = false) {
+    this.activeInterval = interval;
+    try { localStorage.setItem(getAccountStorageKey('apex_chart_interval'), interval); } catch {}
+    this.currentCandles = resampleCandles(this.rawDailyCandles, interval);
+    this.activeIndicators.forEach((i) => this.computeAndApplyIndicator(i, this.currentCandles));
+    const int = document.getElementById('tv-leg-interval');
+    if (int) int.textContent = interval.toUpperCase();
+    if (!preserveRange) this.setVisibleRangeByName(this.activeRange);
+    else this.render();
+    const last = this.currentCandles.at(-1);
+    if (last) {
+      this.lastBar = last;
+      this.renderTooltip(last);
+      this.renderCornerLegend(last);
+    }
+  }
+  setVisibleRangeByName(name) {
+    this.activeRange = name;
+    try { localStorage.setItem(getAccountStorageKey('apex_chart_range'), name); } catch {}
+    const bars = this.currentCandles;
+    if (!bars?.length) return;
+    if (this.isIntraday()) {
+      this.endIndex = bars.length;
+      this.visibleCount = name === '1D' ? Math.min(bars.length, 390) : bars.length;
+      this.render();
+      return;
+    }
+    const lastDate = new Date(`${dateString(bars.at(-1).time)}T00:00:00Z`);
+    const date = new Date(lastDate);
+    if (name === '1M') date.setUTCMonth(date.getUTCMonth() - 1);
+    else if (name === '3M') date.setUTCMonth(date.getUTCMonth() - 3);
+    else if (name === '6M') date.setUTCMonth(date.getUTCMonth() - 6);
+    else if (name === 'YTD') date.setUTCFullYear(date.getUTCFullYear(), 0, 1);
+    else if (name === '1Y') date.setUTCFullYear(date.getUTCFullYear() - 1);
+    else if (name === '5Y') date.setUTCFullYear(date.getUTCFullYear() - 5);
+    const from = bars.findIndex((b) => new Date(`${dateString(b.time)}T00:00:00Z`) >= date);
+    this.endIndex = bars.length;
+    this.visibleCount = name === 'All' ? bars.length : Math.max(20, bars.length - Math.max(0, from));
+    this.render();
+  }
+  scrollToLatest() { this.endIndex = this.currentCandles.length; this.render(); }
+  resetView() { this.setScaleMode('normal'); this.setVisibleRangeByName(this.activeRange || '1Y'); }
+  updateCandle(candle) {
+    if (!candle || candle.close == null) return;
+    const bars = this.currentCandles;
+    if (!bars.length) {
+      this.currentCandles = [candle];
+      this.rawDailyCandles = [candle];
+      this.render();
+      return;
+    }
+    const lastBar = bars.at(-1);
+    const cTime = candle.time;
+    const lTime = lastBar.time;
+    const isSameTime = (
+      cTime === lTime ||
+      (typeof cTime === 'number' && typeof lTime === 'number' && Math.floor(cTime / 60) === Math.floor(lTime / 60)) ||
+      (typeof cTime === 'string' && typeof lTime === 'string' && cTime.slice(0, 16) === lTime.slice(0, 16))
+    );
+    if (isSameTime) {
+      lastBar.high = Math.max(Number(lastBar.high ?? lastBar.open), Number(candle.high ?? candle.close));
+      lastBar.low = Math.min(Number(lastBar.low ?? lastBar.open), Number(candle.low ?? candle.close));
+      lastBar.close = Number(candle.close);
+      if (candle.volume != null) {
+        lastBar.volume = Math.max(Number(lastBar.volume || 0), Number(candle.volume));
+      }
+    } else if (cTime > lTime) {
+      bars.push({ ...candle });
+      if (this.rawDailyCandles) this.rawDailyCandles.push({ ...candle });
+      this.endIndex = bars.length;
+      this.visibleCount = Math.min(bars.length, this.visibleCount + 1);
+    } else {
+      return;
+    }
+    this.activeIndicators.forEach((i) => this.computeAndApplyIndicator(i, this.currentCandles));
+    const latest = bars.at(-1);
+    this.lastBar = latest;
+    this.renderCornerLegend(latest);
+    this.renderTooltip(latest);
+    this.render();
+  }
+  update(candle) { this.updateCandle(candle); }
+  patchLatestBar(quote) {
+    if (this.isIntraday()) {
+      if (quote?.current_price != null) {
+        this.updateCandle({
+          time: Math.floor(Date.now() / 1000),
+          open: Number(quote.current_price),
+          high: Number(quote.day_high || quote.current_price),
+          low: Number(quote.day_low || quote.current_price),
+          close: Number(quote.current_price),
+          volume: Number(quote.volume || 0),
+        });
+      }
+      return;
+    }
+    const b = this.rawDailyCandles.at(-1);
+    if (!b || quote?.current_price == null) return;
+    b.close = Number(quote.current_price);
+    b.high = Math.max(b.high, Number(quote.high || quote.day_high || b.close));
+    b.low = Math.min(b.low, Number(quote.low || quote.day_low || b.close));
+    if (quote.volume) b.volume = Math.max(b.volume || 0, Number(quote.volume));
+    this.applyInterval(this.activeInterval, true);
+  }
+  setChartType(type) { this.chartType = type; try { localStorage.setItem(getAccountStorageKey('apex_chart_type'), type); } catch {} this.render(); }
+  toggleCrosshair() { this.crosshairEnabled = !this.crosshairEnabled; this.render(); return this.crosshairEnabled; }
+  setScaleMode(mode) { this.scaleMode = mode; try { localStorage.setItem(getAccountStorageKey('apex_chart_scale'), mode); } catch {} this.render(); return mode; }
+  setEventMarkers(markers = []) { this.markers = markers || []; this.render(); }
+  bindInteraction() {
+    this.pointer = null;
+    this.canvas.addEventListener('pointermove', (e) => {
+      const r = this.canvas.getBoundingClientRect(), x = e.clientX - r.left;
+      if (this.drag) {
+        const delta = Math.round((this.drag.x - e.clientX) / (this.barWidth || 8));
+        this.endIndex = Math.max(this.visibleCount, Math.min(this.currentCandles.length, this.drag.end + delta));
+        this.render();
+        return;
+      }
+      this.pointer = { x, y: e.clientY - r.top };
+      const idx = this.indexAt(x);
+      if (idx >= 0 && this.currentCandles[idx]) {
+        this.renderTooltip(this.currentCandles[idx]);
+        this.renderCornerLegend(this.currentCandles[idx]);
+      }
+      this.render();
+    });
+    this.canvas.addEventListener('pointerdown', (e) => {
+      this.drag = { x: e.clientX, end: this.endIndex };
+      this.canvas.setPointerCapture(e.pointerId);
+    });
+    this.canvas.addEventListener('pointerup', () => { this.drag = null; });
+    this.canvas.addEventListener('pointerleave', () => { this.pointer = null; this.render(); });
+    this.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const step = Math.max(1, Math.round(this.visibleCount * 0.12));
+      this.visibleCount = Math.max(20, Math.min(this.currentCandles.length, this.visibleCount + (e.deltaY > 0 ? step : -step)));
+      this.endIndex = this.currentCandles.length;
+      this.render();
+    }, { passive: false });
+  }
+  indexAt(x) {
+    const start = Math.max(0, this.endIndex - this.visibleCount);
+    const plotW = this.width - 78;
+    return Math.max(start, Math.min(this.endIndex - 1, start + Math.floor((x - 12) / plotW * this.visibleCount)));
+  }
+  render() {
+    if (!this.ctx || !this.width) return;
+    const c = this.ctx, w = this.width, h = this.height, bg = '#131722', grid = 'rgba(152,161,178,0.14)', muted = '#9598a1';
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = bg;
+    c.fillRect(0, 0, w, h);
+    const bars = this.currentCandles || [];
+    if (!bars.length) {
+      c.fillStyle = muted;
+      c.font = '13px sans-serif';
+      c.fillText(this.unavailableMessage || 'Load a symbol to view price history', 20, 32);
+      return;
+    }
+    const panes = [...this.subPanes.keys()].length, mainH = panes ? Math.max(180, h * this.mainRatio) : h - 28, plot = { left: 12, right: w - 76, top: 26, bottom: mainH - 26 };
+    const start = Math.max(0, this.endIndex - this.visibleCount), end = Math.min(bars.length, this.endIndex || bars.length), visible = bars.slice(start, end);
+    if (!visible.length) return;
+    this.barWidth = (plot.right - plot.left) / Math.max(visible.length, 1);
+    const base = visible[0]?.close || 1, scaled = (v) => this.scaleMode === 'pct' ? (v / base - 1) * 100 : v;
+    let min = Math.min(...visible.map((b) => scaled(b.low))), max = Math.max(...visible.map((b) => scaled(b.high)));
+    const pad = (max - min) * 0.08 || Math.abs(max || 1) * 0.02;
+    min -= pad; max += pad;
+    if (this.scaleMode === 'log') min = Math.max(Number.MIN_VALUE, min);
+    const y = (v) => {
+      const value = scaled(v), t = this.scaleMode === 'log' ? (Math.log(value) - Math.log(min)) / (Math.log(max) - Math.log(min)) : (value - min) / (max - min);
+      return plot.bottom - t * (plot.bottom - plot.top);
+    };
+    c.font = '11px ui-monospace,monospace';
+    c.textBaseline = 'middle';
+    for (let n = 0; n <= 5; n++) {
+      const yy = plot.top + (plot.bottom - plot.top) * n / 5;
+      c.strokeStyle = grid;
+      c.beginPath();
+      c.moveTo(plot.left, yy);
+      c.lineTo(w - 4, yy);
+      c.stroke();
+      const value = max - (max - min) * n / 5;
+      c.fillStyle = muted;
+      c.textAlign = 'right';
+      c.fillText(this.scaleMode === 'pct' ? `${value.toFixed(1)}%` : this.formatPrice(value), w - 8, yy);
+    }
+    for (let n = 0; n <= 6; n++) {
+      const xx = plot.left + (plot.right - plot.left) * n / 6;
+      c.strokeStyle = grid;
+      c.beginPath();
+      c.moveTo(xx, plot.top);
+      c.lineTo(xx, plot.bottom);
+      c.stroke();
+      const idx = Math.min(visible.length - 1, Math.floor(n / 6 * (visible.length - 1)));
+      c.fillStyle = muted;
+      c.textAlign = 'center';
+      if (visible[idx]) c.fillText(formatTickTime(visible[idx].time, this.isIntraday()), xx, h - 11);
+    }
+    if (this.chartType === 'candles') {
+      visible.forEach((b, j) => {
+        const x = plot.left + (j + 0.5) * this.barWidth, up = b.close >= b.open, color = up ? '#22ab94' : '#f23645';
+        c.strokeStyle = color; c.fillStyle = color; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(x, y(b.high)); c.lineTo(x, y(b.low)); c.stroke();
+        const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
+        c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
+      });
+    } else {
+      c.beginPath();
+      visible.forEach((b, j) => {
+        const x = plot.left + (j + 0.5) * this.barWidth, yy = y(b.close);
+        j ? c.lineTo(x, yy) : c.moveTo(x, yy);
+      });
+      c.strokeStyle = '#2962ff'; c.lineWidth = 2; c.stroke();
+      if (this.chartType === 'area') {
+        const last = visible.length - 1;
+        c.lineTo(plot.left + (last + 0.5) * this.barWidth, plot.bottom);
+        c.lineTo(plot.left + this.barWidth / 2, plot.bottom);
+        c.closePath();
+        const g = c.createLinearGradient(0, plot.top, 0, plot.bottom);
+        g.addColorStop(0, 'rgba(41,98,255,.2)'); g.addColorStop(1, 'rgba(41,98,255,0)');
+        c.fillStyle = g; c.fill();
+      }
+    }
+    const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...visible.map((b) => b.volume || 0));
+    visible.forEach((b, j) => {
+      const x = plot.left + (j + 0.5) * this.barWidth, hh = ((b.volume || 0) / vmax) * (plot.bottom - vTop), up = b.close >= b.open;
+      c.fillStyle = up ? 'rgba(34,171,148,.34)' : 'rgba(242,54,69,.34)';
+      c.fillRect(x - Math.max(1, this.barWidth * 0.32), plot.bottom - hh, Math.max(1, this.barWidth * 0.64), hh);
+    });
+    this.activeIndicators.forEach((inst) => {
+      if (!inst.visible || inst.unavailable) return;
+      const pane = inst.paneIndex, area = pane ? { left: plot.left, right: plot.right, top: mainH + (pane - 1) * (h - mainH) / panes + 26, bottom: mainH + pane * (h - mainH) / panes - 20 } : plot;
+      const series = Object.entries(inst.values || {});
+      series.forEach(([key, points], si) => {
+        const color = inst.def.render?.[si]?.color || inst.color;
+        c.beginPath();
+        let begun = false;
+        points.forEach((point, idx) => {
+          if (!point || point.value == null || idx < start || idx >= end) return;
+          const xx = plot.left + (idx - start + 0.5) * this.barWidth, val = point.value;
+          let yy;
+          if (pane) {
+            const valid = points.slice(start, end).map((q) => q?.value).filter(Number.isFinite), lo = Math.min(...valid), hi = Math.max(...valid);
+            yy = area.bottom - (val - lo) / (hi - lo || 1) * (area.bottom - area.top);
+          } else yy = y(val);
+          if (!begun) { c.moveTo(xx, yy); begun = true; } else c.lineTo(xx, yy);
+        });
+        c.strokeStyle = color; c.lineWidth = 1.4; c.stroke();
+      });
+      if (pane) {
+        c.strokeStyle = grid; c.beginPath(); c.moveTo(area.left, area.top); c.lineTo(w - 4, area.top); c.stroke();
+      }
+    });
+    this.markers.forEach((m) => {
+      const idx = bars.findIndex((b) => dateString(b.time) === String(m.time));
+      if (idx < start || idx >= end) return;
+      const xx = plot.left + (idx - start + 0.5) * this.barWidth, yy = plot.top + 12;
+      c.fillStyle = m.color || '#5b9cf6'; c.beginPath(); c.arc(xx, yy, 4, 0, Math.PI * 2); c.fill();
+    });
+    if (this.pointer && this.crosshairEnabled) {
+      const xx = this.pointer.x, idx = this.indexAt(xx), b = bars[idx];
+      if (b) {
+        c.strokeStyle = 'rgba(41,98,255,.55)'; c.setLineDash([4, 4]);
+        c.beginPath(); c.moveTo(xx, plot.top); c.lineTo(xx, panes ? h : plot.bottom); c.stroke();
+        c.beginPath(); c.moveTo(plot.left, this.pointer.y); c.lineTo(w - 3, this.pointer.y); c.stroke();
+        c.setLineDash([]);
+      }
+    }
+    if (this.subPanes.size) this.renderPaneSplitters();
+  }
+  formatPrice(value) { return Math.abs(value) >= 1000 ? value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : value.toFixed(2); }
+  updateTooltip(param) { this.renderTooltip(param); }
+  renderTooltip(bar) {
+    if (!this.tooltip || !bar) return;
+    const o = bar.open ?? bar.value ?? 0, c = bar.close ?? bar.value ?? 0, up = c >= o, color = up ? '#22ab94' : '#f23645';
+    const timeDisplay = this.isIntraday() ? formatFullTime(bar.time) : dateString(bar.time);
+    this.tooltip.innerHTML = `<div class="chart-legend-row"><span class="legend-time">${timeDisplay}</span><span class="legend-item"><span class="lbl">O:</span> <span class="val">${o.toFixed(2)}</span></span><span class="legend-item"><span class="lbl">H:</span> <span class="val">${(bar.high ?? o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">L:</span> <span class="val">${(bar.low ?? o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">C:</span> <span class="val" style="color:${color};font-weight:600">${c.toFixed(2)}</span></span><span class="legend-item" style="color:${color};font-weight:600">${up ? '▲ +' : '▼ '}${(o ? (c - o) / o * 100 : 0).toFixed(2)}%</span></div>`;
+  }
   renderCornerLegend(bar){if(!bar)return;const o=bar.open??0,h=bar.high??o,l=bar.low??o,c=bar.close??0,d=c-o,p=o?d/o*100:0,col=d>=0?'var(--gain)':'var(--loss)';[['tv-leg-open',o],['tv-leg-high',h],['tv-leg-low',l],['tv-leg-close',c]].forEach(([id,v])=>{const el=document.getElementById(id);if(el){el.textContent=Number(v).toFixed(2);if(id==='tv-leg-close')el.style.color=col;}});const ch=document.getElementById('tv-leg-change');if(ch){ch.textContent=`${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;ch.style.color=col;}const ind=document.getElementById('tv-legend-indicators');if(ind)ind.innerHTML=[...this.activeIndicators.values()].filter(i=>i.visible&&i.pane==='overlay').map(i=>`<span class="tv-leg-ind" style="color:${i.color};margin-right:10px">${i.short} (${Object.values(i.params).join(', ')})</span>`).join('');}
   renderSubPaneValues(){this.subPanes.forEach(id=>{const i=this.activeIndicators.get(id),el=i?.headerElement?.querySelector(`#subpane-val-${id}`);if(!el||!this.currentCandles.length)return;const idx=this.pointer?this.indexAt(this.pointer.x):this.currentCandles.length-1;el.textContent=Object.entries(i.values||{}).map(([k,v])=>v[idx]?.value!=null?`${k}: ${Number(v[idx].value).toFixed(2)}`:'').filter(Boolean).join('  ')||'—';});}
-  resetCornerLegend(symbol='',interval=null){const ids=['tv-leg-open','tv-leg-high','tv-leg-low','tv-leg-close','tv-leg-change'];ids.forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});const sym=document.getElementById('tv-leg-sym');if(sym&&symbol)sym.textContent=symbol;this.lastBar=null;if(this.tooltip)this.tooltip.innerHTML='';}
+  resetCornerLegend(symbol='',interval=null){const ids=['tv-leg-open','tv-leg-high','tv-leg-low','tv-leg-close','tv-leg-change'];ids.forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});const sym=document.getElementById('tv-leg-sym');if(sym&&symbol)sym.textContent=symbol;if(interval){const intEl=document.getElementById('tv-leg-interval');if(intEl)intEl.textContent=interval.toUpperCase();}this.lastBar=null;if(this.tooltip)this.tooltip.innerHTML='';}
   notifyUser(msg){if(typeof window.apexToast==='function')window.apexToast(msg);else console.warn(msg);}
 }

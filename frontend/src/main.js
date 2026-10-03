@@ -45,6 +45,21 @@ let lastMarketOverviewFetchTime = 0;
 
 // Rapid ticker switching race condition guard
 let currentLoadToken = 0;
+let currentChartInterval = (() => {
+  try {
+    return localStorage.getItem(getAccountStorageKey('apex_chart_interval')) || '1m';
+  } catch {
+    return '1m';
+  }
+})();
+let currentChartRange = (() => {
+  try {
+    return localStorage.getItem(getAccountStorageKey('apex_chart_range')) || '1d';
+  } catch {
+    return '1d';
+  }
+})();
+let currentMarketStatus = 'CLOSED';
 
 // Centralized Financial Currency Formatter
 export function getCurrencySymbol(symbol = '', currency = '') {
@@ -685,14 +700,19 @@ export function activateWorkspaceTab(targetTab) {
 export function syncChartControlsToPreferences() {
   if (!chartInstance) return;
 
-  // 1. Sync Interval buttons (D, W, M)
-  const int = chartInstance.activeInterval || 'D';
+  // 1. Sync Interval buttons (1m, 5m, 15m, 1h, 1d, 1wk, 1mo)
+  const int = currentChartInterval || chartInstance.activeInterval || '1m';
   document.querySelectorAll('#interval-group .interval-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.getAttribute('data-interval') === int);
+    const bInt = btn.getAttribute('data-interval');
+    const matches = bInt === int ||
+      (bInt === '1d' && (int === 'D' || int === '1d')) ||
+      (bInt === '1wk' && (int === 'W' || int === '1wk')) ||
+      (bInt === '1mo' && (int === 'M' || int === '1mo'));
+    btn.classList.toggle('active', matches);
   });
 
-  // 2. Sync Range buttons (1M .. All)
-  const range = chartInstance.activeRange || '1Y';
+  // 2. Sync Range buttons (1D, 5D, 1M .. All)
+  const range = currentChartRange || chartInstance.activeRange || (int === '1m' ? '1D' : '1Y');
   document.querySelectorAll('#range-group .range-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.getAttribute('data-range') === range);
   });
@@ -711,6 +731,61 @@ export function syncChartControlsToPreferences() {
   const pctBtn = document.getElementById('tv-scale-pct-btn');
   if (logBtn) logBtn.classList.toggle('active', scale === 'log');
   if (pctBtn) pctBtn.classList.toggle('active', scale === 'pct');
+}
+
+export async function switchChartInterval(interval) {
+  currentChartInterval = interval;
+  try {
+    localStorage.setItem(getAccountStorageKey('apex_chart_interval'), interval);
+  } catch {}
+
+  const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(interval);
+  if (isIntraday) {
+    if (interval === '1m') {
+      currentChartRange = '1d';
+    } else {
+      currentChartRange = '5d';
+    }
+  } else {
+    if (['1D', '5D'].includes(currentChartRange)) {
+      currentChartRange = '1Y';
+    }
+  }
+  syncChartControlsToPreferences();
+  await loadStockChart(currentSymbol || 'TCS.NS', null, currentChartInterval, currentChartRange);
+}
+
+export async function switchChartRange(range) {
+  currentChartRange = range;
+  try {
+    localStorage.setItem(getAccountStorageKey('apex_chart_range'), range);
+  } catch {}
+
+  if (range === '1D') {
+    currentChartInterval = '1m';
+    syncChartControlsToPreferences();
+    await loadStockChart(currentSymbol || 'TCS.NS', null, '1m', '1d');
+    return;
+  }
+  if (range === '5D') {
+    currentChartInterval = '5m';
+    syncChartControlsToPreferences();
+    await loadStockChart(currentSymbol || 'TCS.NS', null, '5m', '5d');
+    return;
+  }
+
+  // Longer ranges: 1M, 3M, 6M, YTD, 1Y, 5Y, All
+  const isCurrentlyIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(currentChartInterval);
+  if (isCurrentlyIntraday) {
+    currentChartInterval = '1d';
+    syncChartControlsToPreferences();
+    await loadStockChart(currentSymbol || 'TCS.NS', null, '1d', range);
+  } else {
+    syncChartControlsToPreferences();
+    if (chartInstance) {
+      chartInstance.setVisibleRangeByName(range);
+    }
+  }
 }
 
 // Setup DOM Event Listeners
@@ -746,33 +821,29 @@ function setupEventListeners() {
     });
   });
 
-  // Interval Buttons (Client-Side OHLCV Resampling: D / W / M)
+  // Interval Buttons (Intraday & Historical)
   const intervalButtons = document.querySelectorAll('#interval-group .interval-btn');
   intervalButtons.forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       const targetBtn = e.currentTarget || e.target;
       const interval = targetBtn.getAttribute('data-interval');
       if (!interval) return;
       intervalButtons.forEach((b) => b.classList.remove('active'));
       targetBtn.classList.add('active');
-      if (chartInstance) {
-        chartInstance.applyInterval(interval);
-      }
+      await switchChartInterval(interval);
     });
   });
 
-  // Range Buttons (Client-Side setVisibleRange Zoom: 1M 3M 6M YTD 1Y 5Y All)
+  // Range Buttons
   const rangeButtons = document.querySelectorAll('#range-group .range-btn');
   rangeButtons.forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       const targetBtn = e.currentTarget || e.target;
       const range = targetBtn.getAttribute('data-range');
       if (!range) return;
       rangeButtons.forEach((b) => b.classList.remove('active'));
       targetBtn.classList.add('active');
-      if (chartInstance) {
-        chartInstance.setVisibleRangeByName(range);
-      }
+      await switchChartRange(range);
     });
   });
 
@@ -1635,28 +1706,188 @@ function setupTradingViewChromeControls() {
   }
 }
 
-// 60-Second Real-Time Last-Bar Quote Patching Worker
-let quotePatchInterval = null;
+// Intraday Real-Time Incremental Market Chart Worker & Telemetry
+let chartUpdateInterval = null;
+let isChartUpdateBusy = false;
 
-function startQuotePatchWorker() {
-  if (quotePatchInterval) clearInterval(quotePatchInterval);
-  quotePatchInterval = setInterval(async () => {
-    if (!chartInstance || !currentSymbol) return;
-    if (document.hidden) return;
+export function updateChartTelemetry(meta) {
+  if (!meta) return;
+
+  const dataBadge = document.getElementById('tv-data-badge');
+  const marketBadge = document.getElementById('tv-market-badge');
+  const bbStatus = document.getElementById('tv-bb-status');
+  const bbTz = document.getElementById('tv-bb-tz');
+  const bbAge = document.getElementById('tv-bb-age');
+  const provSource = document.getElementById('provenance-source');
+  const provStatus = document.getElementById('provenance-status');
+  const provTime = document.getElementById('provenance-timestamp');
+
+  const freshness = (meta.freshness || 'delayed').toLowerCase();
+  const marketStatus = (meta.market_status || currentMarketStatus || 'CLOSED').toUpperCase();
+  const timezone = meta.timezone || meta.exchange_timezone || 'Asia/Kolkata';
+  const exchange = meta.exchange || 'NSE';
+  const lastUpdated = meta.last_updated || new Date().toISOString();
+
+  if (dataBadge) {
+    if (freshness === 'live') {
+      dataBadge.textContent = 'DATA: LIVE';
+      dataBadge.className = 'tv-data-badge live';
+    } else {
+      dataBadge.textContent = 'DATA: DELAYED';
+      dataBadge.className = 'tv-data-badge delayed';
+    }
+  }
+
+  if (marketBadge) {
+    if (marketStatus === 'OPEN') {
+      marketBadge.textContent = 'MARKET OPEN';
+      marketBadge.className = 'tv-market-badge open';
+    } else if (marketStatus === 'PRE-MARKET') {
+      marketBadge.textContent = 'PRE-MARKET';
+      marketBadge.className = 'tv-market-badge pre-market';
+    } else {
+      marketBadge.textContent = 'MARKET CLOSED';
+      marketBadge.className = 'tv-market-badge closed';
+    }
+  }
+
+  if (bbStatus) {
+    if (marketStatus === 'CLOSED') {
+      bbStatus.textContent = `MARKET CLOSED · ${exchange}`;
+    } else {
+      bbStatus.textContent = `${marketStatus} · ${exchange}`;
+    }
+  }
+  if (bbTz) {
+    bbTz.textContent = timezone;
+  }
+  if (bbAge && lastUpdated) {
     try {
-      const overview = await api.getStockOverview(currentSymbol);
-      if (overview && (overview.symbol === currentSymbol || !overview.symbol)) {
-        currentOverviewData = overview;
-        chartInstance.patchLatestBar(overview);
-        const provTime = document.getElementById('provenance-timestamp');
-        if (provTime) {
-          provTime.textContent = new Date().toLocaleTimeString();
+      const timeFormatted = new Date(lastUpdated).toLocaleTimeString('en-US', {
+        timeZone: timezone,
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      bbAge.textContent = marketStatus === 'CLOSED' ? `Last update ${timeFormatted}` : `Updated ${timeFormatted}`;
+    } catch {
+      bbAge.textContent = `Updated ${new Date(lastUpdated).toLocaleTimeString()}`;
+    }
+  }
+  if (provSource) {
+    provSource.textContent = `${meta.source || 'yfinance'} (${exchange})`;
+  }
+  if (provStatus) {
+    provStatus.textContent = freshness === 'live' ? 'Real-Time Feed' : 'Delayed / Cached';
+  }
+  if (provTime && lastUpdated) {
+    provTime.textContent = new Date(lastUpdated).toLocaleTimeString();
+  }
+}
+
+export function syncHeaderPriceFromQuote(quote, currSym = '₹') {
+  if (!quote || quote.current_price == null) return;
+  const stockPrice = document.getElementById('stock-current-price');
+  const stockChangePct = document.getElementById('stock-change-pct');
+  const stockChangeBadge = document.getElementById('stock-change-badge');
+  const inspectorPrice = document.getElementById('inspector-price');
+  const decimals = currentSymbol?.includes('=X') ? 4 : 2;
+
+  const isUp = (quote.change || 0) >= 0;
+  const sign = isUp ? '+' : '−';
+  const chgVal = Math.abs(quote.change || 0).toFixed(decimals);
+  const chgPct = Math.abs(quote.change_pct || 0).toFixed(2);
+  const formattedPrice = `${currSym}${quote.current_price.toFixed(decimals)}`;
+
+  if (stockPrice) {
+    if (lastStockPrice !== null && quote.current_price !== lastStockPrice) {
+      const flashClass = quote.current_price > lastStockPrice ? 'price-flash-up' : 'price-flash-down';
+      stockPrice.classList.remove('price-flash-up', 'price-flash-down');
+      void stockPrice.offsetWidth;
+      stockPrice.classList.add(flashClass);
+      setTimeout(() => stockPrice.classList.remove(flashClass), 300);
+    }
+    stockPrice.textContent = formattedPrice;
+    lastStockPrice = quote.current_price;
+  }
+  if (stockChangePct) {
+    stockChangePct.textContent = `${sign}${chgVal} (${sign}${chgPct}%)`;
+  }
+  if (stockChangeBadge) {
+    stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
+  }
+  if (inspectorPrice) {
+    inspectorPrice.textContent = formattedPrice;
+  }
+}
+
+export function startIntradayChartWorker(symbol, interval) {
+  if (chartUpdateInterval) {
+    clearInterval(chartUpdateInterval);
+    chartUpdateInterval = null;
+  }
+
+  const activeInt = interval || currentChartInterval || '1m';
+  const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(activeInt);
+  const pollIntervalMs = currentMarketStatus === 'OPEN' ? (isIntraday ? 15000 : 30000) : 300000;
+
+  const pollFn = async () => {
+    if (!chartInstance || !currentSymbol || currentSymbol !== symbol || document.hidden || isChartUpdateBusy) return;
+    isChartUpdateBusy = true;
+    try {
+      if (isIntraday) {
+        const data = await api.getMarketCandles(symbol, activeInt, currentChartRange || '1d');
+        if (currentSymbol !== symbol) return;
+        if (data) {
+          const prevStatus = currentMarketStatus;
+          currentMarketStatus = data.market_status || 'CLOSED';
+          updateChartTelemetry(data);
+
+          if (data.candles && data.candles.length > 0) {
+            const latestCandle = data.candles[data.candles.length - 1];
+            chartInstance.updateCandle(latestCandle);
+            if (data.latest_quote?.current_price != null) {
+              syncHeaderPriceFromQuote(data.latest_quote, data.currency_symbol || getCurrencySymbol(symbol, data.currency));
+            }
+          }
+
+          if (prevStatus !== currentMarketStatus) {
+            startIntradayChartWorker(symbol, activeInt);
+          }
+        }
+      } else {
+        const overview = await api.getStockOverview(symbol);
+        if (currentSymbol !== symbol) return;
+        if (overview && (overview.symbol === symbol || !overview.symbol)) {
+          currentOverviewData = overview;
+          chartInstance.patchLatestBar(overview);
+          if (overview.current_price != null) {
+            syncHeaderPriceFromQuote({
+              current_price: overview.current_price,
+              change: overview.change,
+              change_pct: overview.change_pct,
+              high: overview.day_high || overview.high,
+              low: overview.day_low || overview.low,
+              volume: overview.volume
+            }, overview.currency_symbol || getCurrencySymbol(symbol, overview.currency));
+          }
+          const provTime = document.getElementById('provenance-timestamp');
+          if (provTime) provTime.textContent = new Date().toLocaleTimeString();
         }
       }
     } catch (e) {
-      console.warn('Quote patch poll skipped:', e);
+      console.warn('Chart update poll skipped:', e);
+    } finally {
+      isChartUpdateBusy = false;
     }
-  }, 60000);
+  };
+
+  chartUpdateInterval = setInterval(pollFn, pollIntervalMs);
+}
+
+export function startQuotePatchWorker() {
+  startIntradayChartWorker(currentSymbol || 'TCS.NS', currentChartInterval || '1m');
 }
 
 // Mara Lightweight Stackable Toast System
@@ -2454,8 +2685,8 @@ async function loadStock(symbol, timeframe = '1y') {
   if (tvNameText) tvNameText.textContent = 'Loading...';
   const tvLegSym = document.getElementById('tv-leg-sym');
   if (tvLegSym) tvLegSym.textContent = symbol;
-  const activeInt = chartInstance?.activeInterval || 'D';
-  const intLabel = activeInt === 'W' ? '1W' : (activeInt === 'M' ? '1M' : '1D');
+  const activeInt = currentChartInterval || chartInstance?.activeInterval || '1m';
+  const intLabel = (activeInt === '1d' || activeInt === 'D') ? '1D' : ((activeInt === '1wk' || activeInt === 'W') ? '1W' : ((activeInt === '1mo' || activeInt === 'M') ? '1M' : activeInt.toUpperCase()));
   const tvLegInterval = document.getElementById('tv-leg-interval');
   if (tvLegInterval) tvLegInterval.textContent = intLabel;
 
@@ -2466,7 +2697,7 @@ async function loadStock(symbol, timeframe = '1y') {
   try {
     // 1 & 2. Fetch Overview Fundamentals and Chart History in parallel
     const overviewPromise = api.getStockOverview(symbol);
-    const chartPromise = loadStockChart(symbol, token);
+    const chartPromise = loadStockChart(symbol, token, activeInt, currentChartRange);
 
     const overview = await overviewPromise;
     if (token !== currentLoadToken) return; // Discard stale click response
@@ -2493,13 +2724,13 @@ async function loadStock(symbol, timeframe = '1y') {
 }
 
 // Load Only Chart Data with Race Condition Token and Skeleton Shimmer
-async function loadStockChart(symbol, parentToken = null) {
+async function loadStockChart(symbol, parentToken = null, interval = currentChartInterval, range = currentChartRange) {
   const token = parentToken || ++currentLoadToken;
   const shimmer = document.getElementById('chart-skeleton-shimmer');
   if (shimmer) shimmer.classList.add('active');
 
-  const activeInt = chartInstance?.activeInterval || 'D';
-  const intLabel = activeInt === 'W' ? '1W' : (activeInt === 'M' ? '1M' : '1D');
+  const activeInt = interval || currentChartInterval || '1m';
+  const intLabel = (activeInt === '1d' || activeInt === 'D') ? '1D' : ((activeInt === '1wk' || activeInt === 'W') ? '1W' : ((activeInt === '1mo' || activeInt === 'M') ? '1M' : activeInt.toUpperCase()));
   const tvLegInterval = document.getElementById('tv-leg-interval');
   if (tvLegInterval) tvLegInterval.textContent = intLabel;
 
@@ -2507,22 +2738,61 @@ async function loadStockChart(symbol, parentToken = null) {
     chartInstance.resetCornerLegend(symbol, intLabel);
   }
 
+  const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(activeInt);
+
   try {
-    const historyData = await api.getStockHistory(symbol, 'max');
+    let historyData;
+    if (isIntraday) {
+      historyData = await api.getMarketCandles(symbol, activeInt, range || '1d');
+    } else {
+      const yfInterval = (activeInt === '1wk' || activeInt === 'W') ? '1wk' : ((activeInt === '1mo' || activeInt === 'M') ? '1mo' : '1d');
+      historyData = await api.getStockHistory(symbol, range || 'max', yfInterval);
+    }
     if (token !== currentLoadToken) return; // Discard stale chart response
-    currentCandles = historyData.candles || [];
-    renderTechnicalSnapshot(historyData.technical_snapshot);
+    currentCandles = historyData?.candles || [];
+    currentMarketStatus = historyData?.market_status || 'CLOSED';
+
     if (chartInstance) {
       chartInstance.setData(historyData);
       updateChartEventMarkers();
     }
-    if (historyData.last_updated) {
+    updateChartTelemetry(historyData);
+    if (historyData?.technical_snapshot) {
+      renderTechnicalSnapshot(historyData.technical_snapshot);
+    }
+    if (historyData?.observations) {
+      renderObservations(historyData.observations);
+    }
+    if (historyData?.last_updated) {
       updateStatusBar(historyData.data_source, historyData.exchange, historyData.exchange_timezone, historyData.last_updated);
     }
-    renderObservations(historyData.observations || []);
+
+    if (historyData?.latest_quote?.current_price != null) {
+      syncHeaderPriceFromQuote(historyData.latest_quote, historyData.currency_symbol || getCurrencySymbol(symbol, historyData.currency));
+    } else if (currentCandles.length > 0) {
+      const last = currentCandles[currentCandles.length - 1];
+      syncHeaderPriceFromQuote({
+        current_price: last.close,
+        open: last.open,
+        high: last.high,
+        low: last.low,
+        volume: last.volume,
+        change: currentOverviewData?.change,
+        change_pct: currentOverviewData?.change_pct,
+      }, historyData?.currency_symbol || getCurrencySymbol(symbol, historyData?.currency));
+    }
+
+    startIntradayChartWorker(symbol, activeInt);
+
   } catch (err) {
     if (token !== currentLoadToken) return;
     console.error(`Failed to load history for ${symbol}:`, err);
+    if (chartInstance) {
+      chartInstance.setData({
+        candles: [],
+        message: err.message?.includes('404') ? 'Symbol not found' : '1m intraday data unavailable'
+      });
+    }
   } finally {
     if (token === currentLoadToken && shimmer) {
       shimmer.classList.remove('active');
