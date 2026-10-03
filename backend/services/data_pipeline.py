@@ -29,6 +29,7 @@ from backend.config import settings
 from backend.services.cache_manager import cache
 from backend.services.nse_fetcher import nse_client
 from backend.services.indicators import apply_all_indicators, generate_technical_observations
+from backend.services.market_calendar import get_calendar_for_symbol
 
 logger = logging.getLogger("data_pipeline")
 
@@ -541,73 +542,34 @@ def get_stock_overview(symbol: str) -> dict:
 
 def get_instrument_market_status(sym: str) -> dict:
     """
-    Determine market status (OPEN, PRE-MARKET, CLOSED) and exchange metadata.
+    Determine formal market session state (OPEN, PRE_MARKET, POST_MARKET, CLOSED, HOLIDAY)
+    and epistemologically honest data freshness (DELAYED, CACHED).
     """
-    is_in = sym.endswith(".NS") or sym.endswith(".BO") or sym in ["^NSEI", "^BSESN", "^NSEBANK"]
-    is_crypto = "-USD" in sym or "-INR" in sym
-    is_forex = "=X" in sym
+    cal = get_calendar_for_symbol(sym)
+    session_info = cal.get_session_state()
+    session = session_info["session"]
 
-    if is_crypto:
-        return {
-            "exchange": "Crypto",
-            "timezone": "UTC",
-            "currency": "USD" if "-USD" in sym else "INR",
-            "market_status": "OPEN",
-            "freshness": "delayed",
-        }
-
-    if is_forex:
-        now_utc = datetime.datetime.now(ZoneInfo("UTC"))
-        is_weekend = (now_utc.weekday() == 4 and now_utc.hour >= 22) or (now_utc.weekday() == 5) or (now_utc.weekday() == 6 and now_utc.hour < 21)
-        return {
-            "exchange": "Forex",
-            "timezone": "UTC",
-            "currency": sym.replace("=X", "")[-3:],
-            "market_status": "CLOSED" if is_weekend else "OPEN",
-            "freshness": "delayed",
-        }
-
-    if is_in:
-        now_ist = datetime.datetime.now(ZoneInfo("Asia/Kolkata"))
-        is_weekday = now_ist.weekday() < 5
-        curr_time = now_ist.time()
-        if is_weekday:
-            if datetime.time(9, 15) <= curr_time <= datetime.time(15, 30):
-                status = "OPEN"
-            elif datetime.time(9, 0) <= curr_time < datetime.time(9, 15):
-                status = "PRE-MARKET"
-            else:
-                status = "CLOSED"
-        else:
-            status = "CLOSED"
-
-        return {
-            "exchange": "BSE" if sym.endswith(".BO") or sym == "^BSESN" else "NSE",
-            "timezone": "Asia/Kolkata",
-            "currency": "INR",
-            "market_status": status,
-            "freshness": "delayed",
-        }
-
-    now_ny = datetime.datetime.now(ZoneInfo("America/New_York"))
-    is_weekday = now_ny.weekday() < 5
-    curr_time = now_ny.time()
-    if is_weekday:
-        if datetime.time(9, 30) <= curr_time <= datetime.time(16, 0):
-            status = "OPEN"
-        elif datetime.time(4, 0) <= curr_time < datetime.time(9, 30):
-            status = "PRE-MARKET"
-        else:
-            status = "CLOSED"
+    # Market session state != Data freshness state
+    # yfinance equity feeds are DELAYED during active trading hours,
+    # and CACHED when the exchange is closed or on holiday.
+    # Crypto trades 24/7.
+    if session in ["OPEN", "PRE_MARKET", "POST_MARKET"]:
+        freshness = "DELAYED"
+    elif session in ["CLOSED", "HOLIDAY"]:
+        freshness = "CACHED"
     else:
-        status = "CLOSED"
+        freshness = "UNAVAILABLE"
 
     return {
-        "exchange": "US",
-        "timezone": "America/New_York",
-        "currency": "USD",
-        "market_status": status,
-        "freshness": "delayed",
+        "exchange": session_info["exchange"],
+        "timezone": session_info["timezone"],
+        "currency": session_info["currency"],
+        "session": session,
+        "market_status": session,  # Backward compatible alias
+        "freshness": freshness,
+        "reason": session_info.get("reason"),
+        "session_start": session_info.get("session_start"),
+        "session_end": session_info.get("session_end"),
     }
 
 
@@ -824,6 +786,24 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
                 "hist": round(float(row["MACD_Hist"]), 2),
             })
 
+    latest_quote = None
+    if candles:
+        latest_c = candles[-1]
+        prev_close = candles[-2]["close"] if len(candles) > 1 else latest_c["open"]
+        chg = round(latest_c["close"] - prev_close, 2)
+        chg_pct = round((chg / prev_close) * 100, 2) if prev_close else 0.0
+        latest_quote = {
+            "current_price": latest_c["close"],
+            "change": chg,
+            "change_pct": chg_pct,
+            "high": latest_c["high"],
+            "low": latest_c["low"],
+            "open": latest_c["open"],
+            "volume": latest_c["volume"],
+            "time": latest_c["time"],
+            "time_str": latest_c.get("time_str"),
+        }
+
     result = {
         "symbol": sym,
         "timeframe": timeframe,
@@ -847,14 +827,18 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
         "exchange": status_info["exchange"],
         "exchange_timezone": status_info["timezone"],
         "currency": status_info["currency"],
-        "market_status": status_info["market_status"],
+        "session": status_info["session"],
+        "market_status": status_info["session"],
         "freshness": status_info["freshness"],
+        "source": "Yahoo Finance",
         "data_source": "Yahoo Finance",
-        "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
+        "last_updated": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "range_note": "1m history limited to 7-day provider retention window" if interval == "1m" else None,
+        "latest_quote": latest_quote,
     }
 
     # Dynamic cache TTL: 15s when market is open for intraday, 300s when closed, 1800s for daily
-    ttl = 15 if (is_intraday and status_info["market_status"] == "OPEN") else (300 if is_intraday else settings.L1_STOCK_HISTORY_TTL)
+    ttl = 15 if (is_intraday and status_info["session"] in ["OPEN", "PRE_MARKET"]) else (300 if is_intraday else settings.L1_STOCK_HISTORY_TTL)
     cache.set("history", cache_key, result, ttl=ttl)
     return result
 

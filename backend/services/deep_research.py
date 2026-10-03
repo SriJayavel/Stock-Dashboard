@@ -30,6 +30,18 @@ from backend.services.data_pipeline import (
 
 logger = logging.getLogger("deep_research")
 
+
+def _has_row(df: Any, row_name: str) -> bool:
+    if df is None:
+        return False
+    idx = getattr(df, "index", None)
+    if idx is None:
+        return False
+    try:
+        return row_name in idx
+    except Exception:
+        return False
+
 BENCHMARK_SECTORS = {
     "Technology": {
         "benchmark_etf": "XLK",
@@ -205,9 +217,9 @@ def get_quarterly_earnings_trend(ticker_obj: yf.Ticker, currency: str) -> List[D
 
         if qf is not None and not getattr(qf, "empty", True):
             dates = [col.strftime("%Y-%m-%d") if hasattr(col, "strftime") else str(col)[:10] for col in qf.columns]
-            rev_row = qf.loc["Total Revenue"].values if "Total Revenue" in qf.index else []
-            op_row = qf.loc["Operating Income"].values if "Operating Income" in qf.index else []
-            ni_row = qf.loc["Net Income"].values if "Net Income" in qf.index else []
+            rev_row = qf.loc["Total Revenue"].values if _has_row(qf, "Total Revenue") else []
+            op_row = qf.loc["Operating Income"].values if _has_row(qf, "Operating Income") else []
+            ni_row = qf.loc["Net Income"].values if _has_row(qf, "Net Income") else []
 
             for i in range(min(5, len(dates)) - 1, -1, -1):
                 d = dates[i]
@@ -253,11 +265,11 @@ def get_advanced_financial_ratios(ticker_obj: yf.Ticker, info: Dict[str, Any], c
         capex = None
         fcf = None
         if cf is not None and not getattr(cf, "empty", True):
-            if "Operating Cash Flow" in cf.index:
+            if _has_row(cf, "Operating Cash Flow"):
                 ocf = _safe_float(cf.loc["Operating Cash Flow"].iloc[0])
-            if "Capital Expenditure" in cf.index:
+            if _has_row(cf, "Capital Expenditure"):
                 capex = _safe_float(cf.loc["Capital Expenditure"].iloc[0])
-            if "Free Cash Flow" in cf.index:
+            if _has_row(cf, "Free Cash Flow"):
                 fcf = _safe_float(cf.loc["Free Cash Flow"].iloc[0])
             elif ocf is not None and capex is not None:
                 fcf = ocf - abs(capex)
@@ -265,9 +277,9 @@ def get_advanced_financial_ratios(ticker_obj: yf.Ticker, info: Dict[str, Any], c
         rev = _safe_float(info.get("totalRevenue"))
         ni = _safe_float(info.get("netIncomeToCommon"))
         if not rev and fin is not None and not getattr(fin, "empty", True):
-            if "Total Revenue" in fin.index:
+            if _has_row(fin, "Total Revenue"):
                 rev = _safe_float(fin.loc["Total Revenue"].iloc[0])
-            if "Net Income" in fin.index:
+            if _has_row(fin, "Net Income"):
                 ni = _safe_float(fin.loc["Net Income"].iloc[0])
 
         fcf_margin = round((fcf / rev * 100), 2) if fcf and rev and rev > 0 else None
@@ -293,25 +305,25 @@ def get_advanced_financial_ratios(ticker_obj: yf.Ticker, info: Dict[str, Any], c
         ebit = None
 
         if bs is not None and not getattr(bs, "empty", True):
-            if not total_debt and "Total Debt" in bs.index:
+            if not total_debt and _has_row(bs, "Total Debt"):
                 total_debt = _safe_float(bs.loc["Total Debt"].iloc[0])
-            if not total_cash and "Cash And Cash Equivalents" in bs.index:
+            if not total_cash and _has_row(bs, "Cash And Cash Equivalents"):
                 total_cash = _safe_float(bs.loc["Cash And Cash Equivalents"].iloc[0])
-            if "Total Assets" in bs.index:
+            if _has_row(bs, "Total Assets"):
                 total_assets = _safe_float(bs.loc["Total Assets"].iloc[0])
-            if "Current Liabilities" in bs.index:
+            if _has_row(bs, "Current Liabilities"):
                 current_liabilities = _safe_float(bs.loc["Current Liabilities"].iloc[0])
 
         net_debt = (total_debt - total_cash) if total_debt is not None and total_cash is not None else None
 
         if fin is not None and not getattr(fin, "empty", True):
-            if "Operating Income" in fin.index:
+            if _has_row(fin, "Operating Income"):
                 ebit = _safe_float(fin.loc["Operating Income"].iloc[0])
-            elif "EBIT" in fin.index:
+            elif _has_row(fin, "EBIT"):
                 ebit = _safe_float(fin.loc["EBIT"].iloc[0])
 
         interest_exp = None
-        if fin is not None and not getattr(fin, "empty", True) and "Interest Expense" in fin.index:
+        if fin is not None and not getattr(fin, "empty", True) and _has_row(fin, "Interest Expense"):
             interest_exp = abs(_safe_float(fin.loc["Interest Expense"].iloc[0]) or 0)
 
         interest_coverage = round(ebit / interest_exp, 2) if ebit and interest_exp and interest_exp > 0 else (
@@ -880,7 +892,11 @@ def get_deep_stock_research(symbol: str) -> Dict[str, Any]:
 
     fetch_start = datetime.datetime.utcnow()
     t = yf.Ticker(sym, session=_yf_session)
-    info = getattr(t, "info", {}) or {}
+    try:
+        info = getattr(t, "info", {}) or {}
+    except Exception as e:
+        logger.warning(f"Failed to fetch info for {sym}: {e}")
+        info = {}
     fast = getattr(t, "fast_info", {})
 
     currency = "INR" if sym.endswith(".NS") or sym in ["^NSEI", "^BSESN"] else (info.get("currency") or "USD")

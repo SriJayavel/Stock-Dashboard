@@ -121,7 +121,10 @@ def _extract_peer_summary(peer_sym: str) -> dict:
     # Fetch minimal fast info
     try:
         t = yf.Ticker(peer_sym, session=_yf_session)
-        info = t.info or {}
+        try:
+            info = t.info or {}
+        except Exception:
+            info = {}
         fast = getattr(t, "fast_info", None)
         price = info.get("currentPrice") or info.get("regularMarketPrice") or _get_fast_info_val(fast, "last_price", "lastPrice") or 0.0
         prev = info.get("regularMarketPreviousClose") or _get_fast_info_val(fast, "previous_close", "previousClose") or price
@@ -176,7 +179,11 @@ def get_stock_research(symbol: str) -> dict:
 
     fetch_start = datetime.datetime.utcnow()
     t = yf.Ticker(sym, session=_yf_session)
-    info = t.info or {}
+    try:
+        info = t.info or {}
+    except Exception as e:
+        logger.warning(f"Failed to fetch info for {sym}: {e}")
+        info = {}
     fast = getattr(t, "fast_info", None)
 
     # 1. Identity & Asset Classification
@@ -231,7 +238,7 @@ def get_stock_research(symbol: str) -> dict:
             fin = getattr(t, "financials", None)
             if fin is not None and hasattr(fin, "empty") and not fin.empty and getattr(fin, "index", None) is not None and getattr(fin, "columns", None) is not None:
                 years = [col.strftime("%Y") if hasattr(col, "strftime") else str(col)[:4] for col in fin.columns]
-                fin_idx = fin.index if fin.index is not None else []
+                fin_idx = [str(x) for x in fin.index] if fin.index is not None else []
                 rev_row = fin.loc["Total Revenue"].values if "Total Revenue" in fin_idx else []
                 ni_row = fin.loc["Net Income"].values if "Net Income" in fin_idx else []
                 op_row = fin.loc["Operating Income"].values if "Operating Income" in fin_idx else []

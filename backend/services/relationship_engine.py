@@ -48,6 +48,10 @@ def _safe_float(val: Any) -> Optional[float]:
         return None
 
 
+def _has_row(df: Any, row_name: str) -> bool:
+    return df is not None and getattr(df, "index", None) is not None and row_name in df.index
+
+
 # 1. Fundamental Relationship Engine
 def analyze_fundamental_relationships(financial_timeline: List[Dict[str, Any]], info: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -191,12 +195,12 @@ def analyze_statement_quality(t: yf.Ticker, info: Dict[str, Any], currency: str)
     try:
         if cf_df is not None and not cf_df.empty:
             for k in ["Operating Cash Flow", "Total Cash From Operating Activities"]:
-                if k in cf_df.index:
+                if _has_row(cf_df, k):
                     cfo_val = _safe_float(cf_df.loc[k].dropna().iloc[0])
                     break
         if is_df is not None and not is_df.empty:
             for k in ["Net Income", "Net Income Common Stockholders"]:
-                if k in is_df.index:
+                if _has_row(is_df, k):
                     ni_val = _safe_float(is_df.loc[k].dropna().iloc[0])
                     break
 
@@ -240,12 +244,12 @@ def analyze_statement_quality(t: yf.Ticker, info: Dict[str, Any], currency: str)
             # Receivables
             rec_series = None
             for k in ["Receivables", "Accounts Receivable", "Net Receivables"]:
-                if k in bs_df.index:
+                if _has_row(bs_df, k):
                     rec_series = bs_df.loc[k].dropna()
                     break
             rev_series = None
             for k in ["Total Revenue", "Operating Revenue"]:
-                if k in is_df.index:
+                if _has_row(is_df, k):
                     rev_series = is_df.loc[k].dropna()
                     break
 
@@ -283,7 +287,7 @@ def analyze_statement_quality(t: yf.Ticker, info: Dict[str, Any], currency: str)
         if bs_df is not None and not bs_df.empty and rev_growth is not None:
             inv_series = None
             for k in ["Inventory", "Total Inventory"]:
-                if k in bs_df.index:
+                if _has_row(bs_df, k):
                     inv_series = bs_df.loc[k].dropna()
                     break
             if inv_series is not None and len(inv_series) >= 2:
@@ -317,7 +321,7 @@ def analyze_statement_quality(t: yf.Ticker, info: Dict[str, Any], currency: str)
     try:
         if cf_df is not None and not cf_df.empty and cfo_val and cfo_val > 0:
             for k in ["Capital Expenditure", "Capital Expenditures"]:
-                if k in cf_df.index:
+                if _has_row(cf_df, k):
                     cx = _safe_float(cf_df.loc[k].dropna().iloc[0])
                     if cx:
                         capex_reinvestment = round((abs(cx) / cfo_val) * 100, 1)
@@ -383,7 +387,7 @@ def detect_anomalies(symbol: str, t: yf.Ticker, info: Dict[str, Any], hist_val: 
             debt_keys = ["Total Debt", "Long Term Debt"]
             d_series = None
             for k in debt_keys:
-                if k in bs_df.index:
+                if _has_row(bs_df, k):
                     d_series = bs_df.loc[k].dropna()
                     break
             if d_series is not None and len(d_series) >= 2:
@@ -593,7 +597,7 @@ def get_filing_intelligence_and_diff(symbol: str, t: yf.Ticker, info: Dict[str, 
             p_prev = str(cols[1])[:10]
 
             def _compare_row(df, row_name, display_title, format_type="currency"):
-                if df is not None and row_name in df.index:
+                if _has_row(df, row_name):
                     v_curr = _safe_float(df.loc[row_name].iloc[0])
                     v_prev = _safe_float(df.loc[row_name].iloc[1])
                     if v_curr is not None and v_prev is not None and v_prev != 0:
@@ -787,7 +791,11 @@ def get_v4_intelligence(symbol: str) -> Dict[str, Any]:
         return cached
 
     t = yf.Ticker(sym, session=_yf_session)
-    info = getattr(t, "info", {}) or {}
+    try:
+        info = getattr(t, "info", {}) or {}
+    except Exception as e:
+        logger.warning(f"Failed to fetch info for {sym}: {e}")
+        info = {}
     currency = "INR" if sym.endswith(".NS") or sym in ["^NSEI", "^BSESN"] else (info.get("currency") or "USD")
 
     # 1. Fetch research pipeline baseline data

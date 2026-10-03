@@ -60,6 +60,14 @@ let currentChartRange = (() => {
   }
 })();
 let currentMarketStatus = 'CLOSED';
+let currentMarketSession = 'CLOSED';
+let currentDataFreshness = 'CACHED';
+let lastDataArrivalTimestamp = 0;
+let lastServerDataTimestamp = null;
+let lastKnownDataSource = 'Yahoo Finance';
+let lastKnownExchange = 'NSE';
+let lastKnownTimezone = 'Asia/Kolkata';
+let staleCheckTimer = null;
 
 // Centralized Financial Currency Formatter
 export function getCurrencySymbol(symbol = '', currency = '') {
@@ -118,6 +126,7 @@ async function startApp() {
     window.apexChartInstance = chartInstance;
     window.apexPatchLatestBar = (data) => chartInstance?.patchLatestBar(data);
     window.apexWatchlist = watchlist;
+    window.updateChartTelemetry = updateChartTelemetry;
     updateIndicatorsBadge(chartInstance.getActiveIndicatorsList());
   }
 
@@ -171,6 +180,7 @@ async function startApp() {
   ]);
 
   startQuotePatchWorker();
+  initStaleProtection();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1710,6 +1720,29 @@ function setupTradingViewChromeControls() {
 let chartUpdateInterval = null;
 let isChartUpdateBusy = false;
 
+function getTzAbbr(tz) {
+  if (!tz) return 'IST';
+  if (tz === 'Asia/Kolkata') return 'IST';
+  if (tz === 'America/New_York') return 'ET';
+  if (tz === 'UTC') return 'UTC';
+  if (tz.includes('/')) return tz.split('/')[1].replace(/_/g, ' ');
+  return tz;
+}
+
+function formatTimeInZone(isoStr, tz) {
+  try {
+    return new Date(isoStr).toLocaleTimeString('en-US', {
+      timeZone: tz || 'Asia/Kolkata',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return new Date(isoStr).toLocaleTimeString();
+  }
+}
+
 export function updateChartTelemetry(meta) {
   if (!meta) return;
 
@@ -1722,68 +1755,134 @@ export function updateChartTelemetry(meta) {
   const provStatus = document.getElementById('provenance-status');
   const provTime = document.getElementById('provenance-timestamp');
 
-  const freshness = (meta.freshness || 'delayed').toLowerCase();
-  const marketStatus = (meta.market_status || currentMarketStatus || 'CLOSED').toUpperCase();
-  const timezone = meta.timezone || meta.exchange_timezone || 'Asia/Kolkata';
-  const exchange = meta.exchange || 'NSE';
-  const lastUpdated = meta.last_updated || new Date().toISOString();
+  // Track timestamps
+  lastDataArrivalTimestamp = Date.now();
+  if (meta.last_updated) lastServerDataTimestamp = meta.last_updated;
+  if (meta.source || meta.data_source) lastKnownDataSource = meta.source || meta.data_source;
+  if (meta.exchange) lastKnownExchange = meta.exchange;
+  if (meta.timezone || meta.exchange_timezone) lastKnownTimezone = meta.timezone || meta.exchange_timezone;
 
+  // Formal State Model
+  currentMarketSession = (meta.session || meta.market_status || 'CLOSED').toUpperCase();
+  currentDataFreshness = (meta.freshness || (currentMarketSession === 'OPEN' ? 'DELAYED' : 'CACHED')).toUpperCase();
+
+  // Epistemological safety: Never allow Yahoo Finance equity feeds to claim "LIVE"
+  if (currentDataFreshness === 'LIVE' && lastKnownDataSource.toLowerCase().includes('yahoo')) {
+    currentDataFreshness = 'DELAYED';
+  }
+
+  const activeInt = currentChartInterval || '1m';
+  const tzAbbr = getTzAbbr(lastKnownTimezone);
+  const timeFormatted = formatTimeInZone(lastServerDataTimestamp || new Date().toISOString(), lastKnownTimezone);
+
+  // 1. Data Freshness Badge: Compact Terminal Style
   if (dataBadge) {
-    if (freshness === 'live') {
-      dataBadge.textContent = 'DATA: LIVE';
+    if (currentDataFreshness === 'STALE') {
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-stale"></span>STALE · ${activeInt}`;
+      dataBadge.className = 'tv-data-badge stale';
+      dataBadge.title = `Data updates stopped. Last update: ${timeFormatted} ${tzAbbr}`;
+    } else if (currentDataFreshness === 'LIVE') {
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-live"></span>LIVE · ${activeInt}`;
       dataBadge.className = 'tv-data-badge live';
+      dataBadge.title = `Direct Real-Time Exchange Feed (${lastKnownDataSource})`;
+    } else if (currentDataFreshness === 'CACHED') {
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-cached"></span>CACHED · ${activeInt}`;
+      dataBadge.className = 'tv-data-badge cached';
+      dataBadge.title = `Latest session close cached (${lastKnownDataSource})`;
     } else {
-      dataBadge.textContent = 'DATA: DELAYED';
+      // DELAYED
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-delayed"></span>DELAYED · ${activeInt}`;
       dataBadge.className = 'tv-data-badge delayed';
+      dataBadge.title = `Delayed exchange feed (15m upstream delay) (${lastKnownDataSource})`;
     }
   }
 
+  // 2. Market Session Badge
   if (marketBadge) {
-    if (marketStatus === 'OPEN') {
+    if (currentMarketSession === 'OPEN') {
       marketBadge.textContent = 'MARKET OPEN';
       marketBadge.className = 'tv-market-badge open';
-    } else if (marketStatus === 'PRE-MARKET') {
+    } else if (currentMarketSession === 'PRE_MARKET' || currentMarketSession === 'PRE-MARKET') {
       marketBadge.textContent = 'PRE-MARKET';
       marketBadge.className = 'tv-market-badge pre-market';
+    } else if (currentMarketSession === 'POST_MARKET' || currentMarketSession === 'POST-MARKET') {
+      marketBadge.textContent = 'POST-MARKET';
+      marketBadge.className = 'tv-market-badge post-market';
+    } else if (currentMarketSession === 'HOLIDAY') {
+      marketBadge.textContent = 'HOLIDAY';
+      marketBadge.className = 'tv-market-badge holiday';
+    } else if (currentMarketSession === 'HALTED') {
+      marketBadge.textContent = 'HALTED';
+      marketBadge.className = 'tv-market-badge halted';
     } else {
       marketBadge.textContent = 'MARKET CLOSED';
       marketBadge.className = 'tv-market-badge closed';
     }
   }
 
+  // 3. Status Bar Telemetry
   if (bbStatus) {
-    if (marketStatus === 'CLOSED') {
-      bbStatus.textContent = `MARKET CLOSED · ${exchange}`;
+    if (currentMarketSession === 'CLOSED') {
+      bbStatus.textContent = `${lastKnownExchange} · Market Closed`;
+    } else if (currentMarketSession === 'HOLIDAY') {
+      bbStatus.textContent = `${lastKnownExchange} · Trading Holiday`;
     } else {
-      bbStatus.textContent = `${marketStatus} · ${exchange}`;
+      bbStatus.textContent = `${lastKnownExchange} · ${currentMarketSession}`;
     }
   }
   if (bbTz) {
-    bbTz.textContent = timezone;
+    bbTz.textContent = `${lastKnownTimezone} (${tzAbbr})`;
   }
-  if (bbAge && lastUpdated) {
-    try {
-      const timeFormatted = new Date(lastUpdated).toLocaleTimeString('en-US', {
-        timeZone: timezone,
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-      bbAge.textContent = marketStatus === 'CLOSED' ? `Last update ${timeFormatted}` : `Updated ${timeFormatted}`;
-    } catch {
-      bbAge.textContent = `Updated ${new Date(lastUpdated).toLocaleTimeString()}`;
+  if (bbAge) {
+    if (currentDataFreshness === 'STALE') {
+      bbAge.textContent = `Stale · Last update ${timeFormatted} ${tzAbbr}`;
+    } else if (currentMarketSession === 'CLOSED') {
+      bbAge.textContent = `Last session ${timeFormatted} ${tzAbbr}`;
+    } else {
+      bbAge.textContent = `Updated ${timeFormatted} ${tzAbbr}`;
     }
   }
+
   if (provSource) {
-    provSource.textContent = `${meta.source || 'yfinance'} (${exchange})`;
+    provSource.textContent = `Source: ${lastKnownDataSource} (${lastKnownExchange})`;
   }
   if (provStatus) {
-    provStatus.textContent = freshness === 'live' ? 'Real-Time Feed' : 'Delayed / Cached';
+    provStatus.textContent = currentDataFreshness === 'LIVE' ? 'Real-Time Feed' : (currentDataFreshness === 'STALE' ? 'Stale Feed' : (currentDataFreshness === 'CACHED' ? 'Cached Session' : 'Delayed (15m)'));
   }
-  if (provTime && lastUpdated) {
-    provTime.textContent = new Date(lastUpdated).toLocaleTimeString();
+  if (provTime) {
+    provTime.textContent = `${timeFormatted} ${tzAbbr}`;
   }
+}
+
+export function initStaleProtection() {
+  if (staleCheckTimer) clearInterval(staleCheckTimer);
+  staleCheckTimer = setInterval(() => {
+    if (!lastDataArrivalTimestamp || document.hidden) return;
+    const elapsedMs = Date.now() - lastDataArrivalTimestamp;
+
+    // During active sessions (OPEN / PRE_MARKET), if expected updates stop arriving
+    // (>45s without an arrival, i.e. 3 missing 15s intervals):
+    // transition freshness to STALE without wiping or clearing the chart.
+    if (currentMarketSession === 'OPEN' || currentMarketSession === 'PRE_MARKET') {
+      if (elapsedMs > 45000 && currentDataFreshness !== 'STALE') {
+        currentDataFreshness = 'STALE';
+        const dataBadge = document.getElementById('tv-data-badge');
+        const bbAge = document.getElementById('tv-bb-age');
+        const activeInt = currentChartInterval || '1m';
+        const tzAbbr = getTzAbbr(lastKnownTimezone);
+        const timeFormatted = formatTimeInZone(lastServerDataTimestamp || new Date().toISOString(), lastKnownTimezone);
+
+        if (dataBadge) {
+          dataBadge.innerHTML = `<span class="telemetry-dot dot-stale"></span>STALE · ${activeInt}`;
+          dataBadge.className = 'tv-data-badge stale';
+          dataBadge.title = `Data updates stopped. Last update: ${timeFormatted} ${tzAbbr}`;
+        }
+        if (bbAge) {
+          bbAge.textContent = `Stale · Last update ${timeFormatted} ${tzAbbr}`;
+        }
+      }
+    }
+  }, 5000);
 }
 
 export function syncHeaderPriceFromQuote(quote, currSym = '₹') {
@@ -1827,10 +1926,20 @@ export function startIntradayChartWorker(symbol, interval) {
     clearInterval(chartUpdateInterval);
     chartUpdateInterval = null;
   }
+  window.stopChartWorker = () => {
+    if (chartUpdateInterval) {
+      clearInterval(chartUpdateInterval);
+      chartUpdateInterval = null;
+    }
+  };
+  window.startIntradayChartWorker = startIntradayChartWorker;
 
   const activeInt = interval || currentChartInterval || '1m';
   const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(activeInt);
-  const pollIntervalMs = currentMarketStatus === 'OPEN' ? (isIntraday ? 15000 : 30000) : 300000;
+  // Cadence: 15s during active market (matching backend 15s L1 TTL), 300s when closed/holiday
+  const pollIntervalMs = (currentMarketSession === 'OPEN' || currentMarketSession === 'PRE_MARKET')
+    ? (isIntraday ? 15000 : 30000)
+    : 300000;
 
   const pollFn = async () => {
     if (!chartInstance || !currentSymbol || currentSymbol !== symbol || document.hidden || isChartUpdateBusy) return;
@@ -1838,10 +1947,11 @@ export function startIntradayChartWorker(symbol, interval) {
     try {
       if (isIntraday) {
         const data = await api.getMarketCandles(symbol, activeInt, currentChartRange || '1d');
-        if (currentSymbol !== symbol) return;
+        if (currentSymbol !== symbol) return; // Drop stale ticker ticks
         if (data) {
-          const prevStatus = currentMarketStatus;
-          currentMarketStatus = data.market_status || 'CLOSED';
+          const prevSession = currentMarketSession;
+          currentMarketSession = (data.session || data.market_status || 'CLOSED').toUpperCase();
+          currentMarketStatus = currentMarketSession;
           updateChartTelemetry(data);
 
           if (data.candles && data.candles.length > 0) {
@@ -1852,7 +1962,7 @@ export function startIntradayChartWorker(symbol, interval) {
             }
           }
 
-          if (prevStatus !== currentMarketStatus) {
+          if (prevSession !== currentMarketSession) {
             startIntradayChartWorker(symbol, activeInt);
           }
         }
@@ -1862,6 +1972,7 @@ export function startIntradayChartWorker(symbol, interval) {
         if (overview && (overview.symbol === symbol || !overview.symbol)) {
           currentOverviewData = overview;
           chartInstance.patchLatestBar(overview);
+          lastDataArrivalTimestamp = Date.now();
           if (overview.current_price != null) {
             syncHeaderPriceFromQuote({
               current_price: overview.current_price,
@@ -1889,6 +2000,47 @@ export function startIntradayChartWorker(symbol, interval) {
 export function startQuotePatchWorker() {
   startIntradayChartWorker(currentSymbol || 'TCS.NS', currentChartInterval || '1m');
 }
+
+// Tab Visibility Engine (Section 10)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (chartUpdateInterval) {
+      clearInterval(chartUpdateInterval);
+      chartUpdateInterval = null;
+    }
+  } else {
+    // When returning to tab: evaluate freshness and trigger immediate refresh if needed
+    const elapsedMs = Date.now() - (lastDataArrivalTimestamp || 0);
+    const activeInt = currentChartInterval || '1m';
+    const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(activeInt);
+
+    if (currentSymbol && (currentMarketSession === 'OPEN' || currentMarketSession === 'PRE_MARKET' || elapsedMs > 30000)) {
+      if (isIntraday) {
+        api.getMarketCandles(currentSymbol, activeInt, currentChartRange || '1d').then((data) => {
+          if (data && currentSymbol === data.symbol) {
+            updateChartTelemetry(data);
+            if (data.candles && data.candles.length > 0) {
+              chartInstance?.updateCandle(data.candles[data.candles.length - 1]);
+              if (data.latest_quote?.current_price != null) {
+                syncHeaderPriceFromQuote(data.latest_quote, data.currency_symbol || getCurrencySymbol(currentSymbol, data.currency));
+              }
+            }
+          }
+        }).catch(err => console.warn('Visibility resume refresh error:', err));
+      } else {
+        api.getStockOverview(currentSymbol).then((overview) => {
+          if (overview && currentSymbol === overview.symbol) {
+            chartInstance?.patchLatestBar(overview);
+            if (overview.current_price != null) {
+              syncHeaderPriceFromQuote(overview, overview.currency_symbol || getCurrencySymbol(currentSymbol, overview.currency));
+            }
+          }
+        }).catch(err => console.warn('Visibility resume quote error:', err));
+      }
+    }
+    startIntradayChartWorker(currentSymbol || 'TCS.NS', activeInt);
+  }
+});
 
 // Mara Lightweight Stackable Toast System
 export function showToast(message, type = 'info', duration = 3000) {

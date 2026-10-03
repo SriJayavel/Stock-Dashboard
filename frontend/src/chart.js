@@ -121,12 +121,13 @@ export class TerminalChart {
     if (!data?.candles?.length) {
       this.currentCandles = [];
       this.rawDailyCandles = [];
-      this.unavailableMessage = data?.message || '1m intraday data unavailable';
+      this.unavailableMessage = data?.message || (data?.range_note ? `${data.range_note}` : `${this.activeInterval || '1m'} data unavailable for selected range`);
       this.render();
       return;
     }
     this.unavailableMessage = null;
-    this.rawDailyCandles = data.candles;
+    this.rangeNote = data?.range_note || null;
+    this.rawDailyCandles = [...(data.candles || [])];
     this.currentData = data;
     if (data.interval) this.activeInterval = data.interval;
     this.applyInterval(this.activeInterval, preserveRange);
@@ -134,7 +135,7 @@ export class TerminalChart {
   applyInterval(interval, preserveRange = false) {
     this.activeInterval = interval;
     try { localStorage.setItem(getAccountStorageKey('apex_chart_interval'), interval); } catch {}
-    this.currentCandles = resampleCandles(this.rawDailyCandles, interval);
+    this.currentCandles = [...resampleCandles(this.rawDailyCandles, interval)];
     this.activeIndicators.forEach((i) => this.computeAndApplyIndicator(i, this.currentCandles));
     const int = document.getElementById('tv-leg-interval');
     if (int) int.textContent = interval.toUpperCase();
@@ -185,9 +186,12 @@ export class TerminalChart {
     const lastBar = bars.at(-1);
     const cTime = candle.time;
     const lTime = lastBar.time;
+    const intervalSec = this.activeInterval === '5m' ? 300 : (this.activeInterval === '15m' ? 900 : (this.activeInterval === '1h' ? 3600 : 60));
+    const cNum = typeof cTime === 'number' ? cTime : Math.floor(new Date(cTime).getTime() / 1000);
+    const lNum = typeof lTime === 'number' ? lTime : Math.floor(new Date(lTime).getTime() / 1000);
     const isSameTime = (
       cTime === lTime ||
-      (typeof cTime === 'number' && typeof lTime === 'number' && Math.floor(cTime / 60) === Math.floor(lTime / 60)) ||
+      (!isNaN(cNum) && !isNaN(lNum) && Math.floor(cNum / intervalSec) === Math.floor(lNum / intervalSec)) ||
       (typeof cTime === 'string' && typeof lTime === 'string' && cTime.slice(0, 16) === lTime.slice(0, 16))
     );
     if (isSameTime) {
@@ -197,9 +201,9 @@ export class TerminalChart {
       if (candle.volume != null) {
         lastBar.volume = Math.max(Number(lastBar.volume || 0), Number(candle.volume));
       }
-    } else if (cTime > lTime) {
+    } else if ((!isNaN(cNum) && !isNaN(lNum) ? cNum > lNum : cTime > lTime) && (!bars.length || bars.at(-1).time !== candle.time)) {
       bars.push({ ...candle });
-      if (this.rawDailyCandles) this.rawDailyCandles.push({ ...candle });
+      if (this.rawDailyCandles && this.rawDailyCandles !== bars) this.rawDailyCandles.push({ ...candle });
       this.endIndex = bars.length;
       this.visibleCount = Math.min(bars.length, this.visibleCount + 1);
     } else {
