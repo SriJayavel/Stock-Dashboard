@@ -2357,6 +2357,28 @@ async function refreshWatchlistUI() {
     )
     .join('');
 
+  // Add event listeners for alert buttons in loading state
+  listContainer.querySelectorAll('.wl-item-alert-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sym = btn.getAttribute('data-symbol');
+      if (sym) {
+        alertsManager.addAlert({
+          symbol: sym,
+          metric: 'price',
+          operator: '>',
+          target: 4000,
+          note: 'Quick alert set from watchlist'
+        });
+        showToast(`Alert set for ${sym} > 4000`, 'success');
+        // Refresh the alerts UI if the alerts panel is open
+        if (document.getElementById('alerts-modal-toggle')?.classList.contains('active')) {
+          refreshAlertsUI();
+        }
+      }
+    });
+  });
+
   // Call cache-only batch API endpoint
   try {
     const quotes = await api.getBatchStockOverview(symbols);
@@ -2408,6 +2430,24 @@ function renderWatchlistRows(quotes) {
         `;
       })
       .join('');
+
+    // Add event listeners for alert buttons in rendered state
+    listContainer.querySelectorAll('.wl-item-alert-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sym = btn.getAttribute('data-symbol');
+        if (sym) {
+          alertsManager.addAlert({
+            symbol: sym,
+            metric: 'price',
+            operator: '>',
+            target: 4000,
+            note: 'Quick alert set from watchlist'
+          });
+          showToast(`Alert set for ${sym} > 4000`, 'success');
+        }
+      });
+    });
 
     // Click row to switch stock
     listContainer.querySelectorAll('.wl-item-row').forEach((row) => {
