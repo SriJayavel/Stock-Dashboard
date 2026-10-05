@@ -4897,8 +4897,8 @@ function renderMarketStateBar(data) {
   }
 
   if (feedSource) {
-    const src = data?.hero?.source || 'DIRECT NSE (LIVE)';
-    feedSource.textContent = src.toUpperCase();
+    const src = data?.hero?.source;
+    feedSource.textContent = src ? src.toUpperCase() : '';
   }
 
   if (lastUpdated) {
