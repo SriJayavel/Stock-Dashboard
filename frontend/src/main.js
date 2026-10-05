@@ -1775,25 +1775,41 @@ export function updateChartTelemetry(meta) {
   const tzAbbr = getTzAbbr(lastKnownTimezone);
   const timeFormatted = formatTimeInZone(lastServerDataTimestamp || new Date().toISOString(), lastKnownTimezone);
 
-  // 1. Data Freshness Badge: Compact Terminal Style
+  // 1. Data Freshness Badge: Compact Terminal Style with actual latency
   if (dataBadge) {
+    // Calculate actual latency if we have both timestamps
+    let latencyText = '';
+    if (lastDataArrivalTimestamp && lastServerDataTimestamp) {
+      const latencyMs = lastDataArrivalTimestamp - lastServerDataTimestamp;
+      if (latencyMs >= 0) {
+        // Format latency appropriately
+        if (latencyMs < 1000) {
+          latencyText = `${latencyMs}ms`;
+        } else if (latencyMs < 60000) {
+          latencyText = `${(latencyMs / 1000).toFixed(1)}s`;
+        } else {
+          latencyText = `${(latencyMs / 60000).toFixed(1)}m`;
+        }
+      }
+    }
+
     if (currentDataFreshness === 'STALE') {
-      dataBadge.innerHTML = `<span class="telemetry-dot dot-stale"></span>STALE · ${activeInt}`;
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-stale"></span>STALE${latencyText ? ` · ${latencyText}` : ''} · ${activeInt}`;
       dataBadge.className = 'tv-data-badge stale';
       dataBadge.title = `Data updates stopped. Last update: ${timeFormatted} ${tzAbbr}`;
     } else if (currentDataFreshness === 'LIVE') {
-      dataBadge.innerHTML = `<span class="telemetry-dot dot-live"></span>LIVE · ${activeInt}`;
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-live"></span>LIVE${latencyText ? ` · ${latencyText}` : ''} · ${activeInt}`;
       dataBadge.className = 'tv-data-badge live';
-      dataBadge.title = `Direct Real-Time Exchange Feed (${lastKnownDataSource})`;
+      dataBadge.title = `Direct Real-Time Exchange Feed (${lastKnownDataSource})${latencyText ? ` (latency: ${latencyText})` : ''}`;
     } else if (currentDataFreshness === 'CACHED') {
-      dataBadge.innerHTML = `<span class="telemetry-dot dot-cached"></span>CACHED · ${activeInt}`;
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-cached"></span>CACHED${latencyText ? ` · ${latencyText}` : ''} · ${activeInt}`;
       dataBadge.className = 'tv-data-badge cached';
-      dataBadge.title = `Latest session close cached (${lastKnownDataSource})`;
+      dataBadge.title = `Latest session close cached (${lastKnownDataSource})${latencyText ? ` (latency: ${latencyText})` : ''}`;
     } else {
       // DELAYED
-      dataBadge.innerHTML = `<span class="telemetry-dot dot-delayed"></span>DELAYED · ${activeInt}`;
+      dataBadge.innerHTML = `<span class="telemetry-dot dot-delayed"></span>DELAYED${latencyText ? ` · ${latencyText}` : ''} · ${activeInt}`;
       dataBadge.className = 'tv-data-badge delayed';
-      dataBadge.title = `Delayed exchange feed (15m upstream delay) (${lastKnownDataSource})`;
+      dataBadge.title = `Delayed exchange feed (15m upstream delay) (${lastKnownDataSource})${latencyText ? ` (latency: ${latencyText})` : ''}`;
     }
   }
 
@@ -1873,12 +1889,44 @@ export function initStaleProtection() {
         const timeFormatted = formatTimeInZone(lastServerDataTimestamp || new Date().toISOString(), lastKnownTimezone);
 
         if (dataBadge) {
-          dataBadge.innerHTML = `<span class="telemetry-dot dot-stale"></span>STALE · ${activeInt}`;
+          // Calculate actual latency for stale state as well
+          let latencyText = '';
+          if (lastDataArrivalTimestamp && lastServerDataTimestamp) {
+            const latencyMs = lastDataArrivalTimestamp - lastServerDataTimestamp;
+            if (latencyMs >= 0) {
+              // Format latency appropriately
+              if (latencyMs < 1000) {
+                latencyText = `${latencyMs}ms`;
+              } else if (latencyMs < 60000) {
+                latencyText = `${(latencyMs / 1000).toFixed(1)}s`;
+              } else {
+                latencyText = `${(latencyMs / 60000).toFixed(1)}m`;
+              }
+            }
+          }
+
+          dataBadge.innerHTML = `<span class="telemetry-dot dot-stale"></span>STALE${latencyText ? ` · ${latencyText}` : ''} · ${activeInt}`;
           dataBadge.className = 'tv-data-badge stale';
-          dataBadge.title = `Data updates stopped. Last update: ${timeFormatted} ${tzAbbr}`;
+          dataBadge.title = `Data updates stopped. Last update: ${timeFormatted} ${tzAbbr}${latencyText ? ` (latency: ${latencyText})` : ''}`;
         }
         if (bbAge) {
-          bbAge.textContent = `Stale · Last update ${timeFormatted} ${tzAbbr}`;
+          // Calculate actual latency for stale state as well
+          let latencyText = '';
+          if (lastDataArrivalTimestamp && lastServerDataTimestamp) {
+            const latencyMs = lastDataArrivalTimestamp - lastServerDataTimestamp;
+            if (latencyMs >= 0) {
+              // Format latency appropriately
+              if (latencyMs < 1000) {
+                latencyText = `${latencyMs}ms`;
+              } else if (latencyMs < 60000) {
+                latencyText = `${(latencyMs / 1000).toFixed(1)}s`;
+              } else {
+                latencyText = `${(latencyMs / 60000).toFixed(1)}m`;
+              }
+            }
+          }
+
+          bbAge.textContent = `Stale${latencyText ? ` · ${latencyText}` : ''} · Last update ${timeFormatted} ${tzAbbr}`;
         }
       }
     }
