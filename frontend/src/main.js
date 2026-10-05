@@ -2349,6 +2349,7 @@ async function refreshWatchlistUI() {
         </div>
         <div class="wl-item-stats">
           <span style="font-size: 11px; color: var(--text-muted);">Fetching...</span>
+          <button class="wl-item-alert-btn" data-symbol="${sym}" style="padding: 2px 6px; font-size: 10px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 4px;">Alert</button>
           <button class="wl-item-del-btn" data-del="${sym}" title="Remove">✕</button>
         </div>
       </div>
@@ -2400,6 +2401,7 @@ function renderWatchlistRows(quotes) {
                        <span class="tape-chg ${chgClass}" style="font-size:10px;">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>`
                 }
               </div>
+              <button class="wl-item-alert-btn" data-symbol="${sym}" style="padding: 2px 6px; font-size: 10px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 4px;">Alert</button>
               <button class="wl-item-del-btn" data-del="${sym}" title="Remove">✕</button>
             </div>
           </div>
@@ -2429,6 +2431,25 @@ function renderWatchlistRows(quotes) {
         showToast(`Removed ${sym} from Watchlist`, 'info');
         updateStarBtn();
         refreshWatchlistUI();
+      });
+    });
+
+    // Alert buttons for regular watchlist
+    listContainer.querySelectorAll('.wl-item-alert-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sym = btn.getAttribute('data-symbol');
+        if (sym) {
+          // Set a default alert for price > 4000 (can be modified by user later in alerts drawer)
+          alertsManager.addAlert({
+            symbol: sym,
+            metric: 'price',
+            operator: '>',
+            target: 4000,
+            note: 'Quick alert set from watchlist'
+          });
+          showToast(`Alert set for ${sym} > 4000`, 'success');
+        }
       });
     });
   }
@@ -2465,6 +2486,7 @@ function renderWatchlistRows(quotes) {
                 <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
                 <td>
                   <button class="wl-btn ws-inspect-btn" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px;">Analyze ↗</button>
+                  <button class="wl-btn wl-btn-alert" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
                   <button class="wl-btn wl-btn-danger ws-remove-btn" data-del="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px;">Remove</button>
                 </td>
               </tr>
@@ -2487,6 +2509,28 @@ function renderWatchlistRows(quotes) {
           showToast(`Removed ${sym} from Watchlist`, 'info');
           updateStarBtn();
           refreshWatchlistUI();
+        }
+      });
+    });
+
+    // Set alert buttons for monitor workspace watchlist
+    wsContainer.querySelectorAll('.wl-btn.wl-btn-alert').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sym = btn.getAttribute('data-symbol');
+        if (sym) {
+          // Set a default alert for price > 4000 (can be modified by user later in alerts drawer)
+          alertsManager.addAlert({
+            symbol: sym,
+            metric: 'price',
+            operator: '>',
+            target: 4000,
+            note: 'Quick alert set from watchlist'
+          });
+          showToast(`Alert set for ${sym} > 4000`, 'success');
+          // Refresh the alerts UI if the alerts panel is open in monitor workspace
+          if (currentMonitorTab === 'alerts') {
+            refreshAlertsUI();
+          }
         }
       });
     });
