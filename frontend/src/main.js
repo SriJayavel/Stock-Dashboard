@@ -749,18 +749,7 @@ export async function switchChartInterval(interval) {
     localStorage.setItem(getAccountStorageKey('apex_chart_interval'), interval);
   } catch {}
 
-  const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(interval);
-  if (isIntraday) {
-    if (interval === '1m') {
-      currentChartRange = '1d';
-    } else {
-      currentChartRange = '5d';
-    }
-  } else {
-    if (['1D', '5D'].includes(currentChartRange)) {
-      currentChartRange = '1Y';
-    }
-  }
+  // Removed automatic range reset to make interval and range independent
   syncChartControlsToPreferences();
   await loadStockChart(currentSymbol || 'TCS.NS', null, currentChartInterval, currentChartRange);
 }
@@ -771,31 +760,12 @@ export async function switchChartRange(range) {
     localStorage.setItem(getAccountStorageKey('apex_chart_range'), range);
   } catch {}
 
-  if (range === '1D') {
-    currentChartInterval = '1m';
-    syncChartControlsToPreferences();
-    await loadStockChart(currentSymbol || 'TCS.NS', null, '1m', '1d');
-    return;
+  // Removed automatic interval reset to make interval and range independent
+  syncChartControlsToPreferences();
+  if (chartInstance) {
+    chartInstance.setVisibleRangeByName(range);
   }
-  if (range === '5D') {
-    currentChartInterval = '5m';
-    syncChartControlsToPreferences();
-    await loadStockChart(currentSymbol || 'TCS.NS', null, '5m', '5d');
-    return;
-  }
-
-  // Longer ranges: 1M, 3M, 6M, YTD, 1Y, 5Y, All
-  const isCurrentlyIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(currentChartInterval);
-  if (isCurrentlyIntraday) {
-    currentChartInterval = '1d';
-    syncChartControlsToPreferences();
-    await loadStockChart(currentSymbol || 'TCS.NS', null, '1d', range);
-  } else {
-    syncChartControlsToPreferences();
-    if (chartInstance) {
-      chartInstance.setVisibleRangeByName(range);
-    }
-  }
+  await loadStockChart(currentSymbol || 'TCS.NS', null, currentChartInterval, currentChartRange);
 }
 
 // Setup DOM Event Listeners
@@ -1691,9 +1661,39 @@ function setupTradingViewChromeControls() {
     });
   }
 
-  // 8. Bottom Status Bar: Scale Mode Toggles
+  // 8. Interval Buttons: Handle manual interval selection
+  const intervalButtons = document.querySelectorAll('#interval-group .interval-btn');
+  intervalButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const interval = btn.getAttribute('data-interval');
+      if (interval) {
+        // Update active button state
+        document.querySelectorAll('#interval-group .interval-btn').forEach(b => {
+          b.classList.toggle('active', b === btn);
+        });
+        switchChartInterval(interval);
+      }
+    });
+  });
+
+  // 9. Bottom Status Bar: Scale Mode Toggles
   const logBtn = document.getElementById('tv-scale-log-btn');
   const pctBtn = document.getElementById('tv-scale-pct-btn');
+
+  // 10. Range Buttons: Handle manual range selection
+  const rangeButtons = document.querySelectorAll('#range-group .range-btn');
+  rangeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const range = btn.getAttribute('data-range');
+      if (range) {
+        // Update active button state
+        document.querySelectorAll('#range-group .range-btn').forEach(b => {
+          b.classList.toggle('active', b === btn);
+        });
+        switchChartRange(range);
+      }
+    });
+  });
 
   if (logBtn) {
     logBtn.addEventListener('click', () => {
@@ -2974,6 +2974,23 @@ async function loadStock(symbol, timeframe = '1y') {
   const tvLegInterval = document.getElementById('tv-leg-interval');
   if (tvLegInterval) tvLegInterval.textContent = intLabel;
 
+  // Update range legend
+  const activeRange = currentChartRange || chartInstance?.activeRange || '1d';
+  let rangeLabel;
+  if (activeRange === '1d') rangeLabel = '1D';
+  else if (activeRange === '5d') rangeLabel = '5D';
+  else if (activeRange === '1mo') rangeLabel = '1M';
+  else if (activeRange === '3mo') rangeLabel = '3M';
+  else if (activeRange === '6mo') rangeLabel = '6M';
+  else if (activeRange === '1y') rangeLabel = '1Y';
+  else if (activeRange === '2y') rangeLabel = '2Y';
+  else if (activeRange === '5y') rangeLabel = '5Y';
+  else if (activeRange === 'all') rangeLabel = 'All';
+  else rangeLabel = activeRange.toUpperCase();
+
+  const tvLegRange = document.getElementById('tv-leg-range');
+  if (tvLegRange) tvLegRange.textContent = rangeLabel;
+
   if (chartInstance) {
     chartInstance.resetCornerLegend(symbol, intLabel);
   }
@@ -3017,6 +3034,23 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
   const intLabel = (activeInt === '1d' || activeInt === 'D') ? '1D' : ((activeInt === '1wk' || activeInt === 'W') ? '1W' : ((activeInt === '1mo' || activeInt === 'M') ? '1M' : activeInt.toUpperCase()));
   const tvLegInterval = document.getElementById('tv-leg-interval');
   if (tvLegInterval) tvLegInterval.textContent = intLabel;
+
+  // Update range legend
+  const activeRange = range || currentChartRange || '1d';
+  let rangeLabel;
+  if (activeRange === '1d') rangeLabel = '1D';
+  else if (activeRange === '5d') rangeLabel = '5D';
+  else if (activeRange === '1mo') rangeLabel = '1M';
+  else if (activeRange === '3mo') rangeLabel = '3M';
+  else if (activeRange === '6mo') rangeLabel = '6M';
+  else if (activeRange === '1y') rangeLabel = '1Y';
+  else if (activeRange === '2y') rangeLabel = '2Y';
+  else if (activeRange === '5y') rangeLabel = '5Y';
+  else if (activeRange === 'all') rangeLabel = 'All';
+  else rangeLabel = activeRange.toUpperCase();
+
+  const tvLegRange = document.getElementById('tv-leg-range');
+  if (tvLegRange) tvLegRange.textContent = rangeLabel;
 
   if (chartInstance) {
     chartInstance.resetCornerLegend(symbol, intLabel);
