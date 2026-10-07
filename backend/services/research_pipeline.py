@@ -123,7 +123,7 @@ def _extract_peer_summary(peer_sym: str) -> dict:
         t = yf.Ticker(peer_sym, session=_yf_session)
         try:
             info = t.info or {}
-        except Exception:
+        except (AttributeError, KeyError):
             info = {}
         fast = getattr(t, "fast_info", None)
         price = info.get("currentPrice") or info.get("regularMarketPrice") or _get_fast_info_val(fast, "last_price", "lastPrice") or 0.0
@@ -144,7 +144,7 @@ def _extract_peer_summary(peer_sym: str) -> dict:
             "debt_to_equity": _parse_debt_to_equity(info, sym=peer_sym),
             "dividend_yield": _parse_dividend_yield(info, price=price, sym=peer_sym),
         }
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, RuntimeError) as e:
         logger.debug(f"Failed extracting peer summary for {peer_sym}: {e}")
         return {
             "symbol": peer_sym,
@@ -181,7 +181,7 @@ def get_stock_research(symbol: str) -> dict:
     t = yf.Ticker(sym, session=_yf_session)
     try:
         info = t.info or {}
-    except Exception as e:
+    except (AttributeError, KeyError, RuntimeError) as e:
         logger.warning(f"Failed to fetch info for {sym}: {e}")
         info = {}
     fast = getattr(t, "fast_info", None)
@@ -291,7 +291,7 @@ def get_stock_research(symbol: str) -> dict:
                         cagr_3y = round(((last_r / first_r) ** (1 / 3) - 1) * 100, 2)
 
                 financial_timeline = timeline_items
-        except Exception as e:
+        except (AttributeError, KeyError, IndexError, ValueError) as e:
             logger.warning(f"Financial timeline extraction notice for {sym}: {e}")
 
     # 3. Peer Intelligence Dataset
