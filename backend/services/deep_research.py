@@ -39,7 +39,7 @@ def _has_row(df: Any, row_name: str) -> bool:
         return False
     try:
         return row_name in idx
-    except Exception:
+    except (TypeError, AttributeError):
         return False
 
 BENCHMARK_SECTORS = {

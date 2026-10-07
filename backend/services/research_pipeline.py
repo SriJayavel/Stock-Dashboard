@@ -310,7 +310,7 @@ def get_stock_research(symbol: str) -> dict:
 
         valid_roes = [p["roe"] for p in peer_datasets if p.get("roe") is not None]
         peer_median_roe = round(sorted(valid_roes)[len(valid_roes) // 2], 2) if valid_roes else None
-    except Exception as e:
+    except (AttributeError, KeyError, IndexError, ValueError, RuntimeError) as e:
         logger.warning(f"Peer extraction notice for {sym}: {e}")
 
     # 4. Context-Classified News & Events
@@ -352,7 +352,7 @@ def get_stock_research(symbol: str) -> dict:
                     "impact_area": impact,
                     "provenance": "Yahoo News Telemetry",
                 })
-    except Exception as e:
+    except (AttributeError, KeyError, IndexError, ValueError, RuntimeError) as e:
         logger.warning(f"News extraction notice for {sym}: {e}")
 
     # 5. Attributed Context & Structural Observations (Math & Facts Only)

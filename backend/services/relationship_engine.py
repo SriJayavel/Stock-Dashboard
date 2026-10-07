@@ -233,7 +233,7 @@ def analyze_statement_quality(t: yf.Ticker, info: Dict[str, Any], currency: str)
                     "detail": "Operating cash flow covers less than 75% of reported net income, indicating earnings may be tied up in working capital or non-cash accruals.",
                     "tone": "caution",
                 })
-    except Exception as e:
+    except (AttributeError, KeyError, ValueError, ZeroDivisionError) as e:
         logger.debug(f"CFO/NI calc error: {e}")
 
     # 2. Receivables Growth vs Revenue Growth
