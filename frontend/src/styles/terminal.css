@@ -165,47 +165,47 @@
   --color-deep-blue-500: #673ab7;
 
   /* Terminal Semantic Mapping - Refined for better visual hierarchy */
-  --bg: #11141d; /* Slightly darker for better contrast */
-  --bg-deep: #0d0d0d;
-  --bg-canvas: #11141d;
-  --bg-surface: #1a1d27; /* Refined surface color */
-  --bg-card: #1a1d27;
-  --bg-elevated: #202430;
-  --bg-void: #11141d;
+  --bg: #000000;
+  --bg-deep: #000000;
+  --bg-canvas: #000000;
+  --bg-surface: #0a0a0a;
+  --bg-card: #0a0a0a;
+  --bg-elevated: #111111;
+  --bg-void: #000000;
 
-  --surface: #1a1d27;
-  --surface-solid: #1a1d27;
-  --surface-card: #1a1d27;
-  --surface-elevated: #202430;
-  --surface-hover: #252936; /* Refined hover state */
-  --surface-active: #252936;
+  --surface: #0a0a0a;
+  --surface-solid: #0a0a0a;
+  --surface-card: #0a0a0a;
+  --surface-elevated: #111111;
+  --surface-hover: #1a1a1a;
+  --surface-active: #1a1a1a;
 
-  --border: rgba(152, 161, 178, 0.15); /* Slightly reduced opacity for less visual noise */
-  --border-strong: rgba(152, 161, 178, 0.25);
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.12);
+  --border-subtle: rgba(255,255,255,0.04);
 
-  --text: #d1d4dc;
+  --text: #e0e0e0;
   --text-heading: #ffffff;
-  --text-dim: #8a8d96; /* Slightly refined for better readability */
-  --text-muted: #686f7d;
-  --text-primary: #d1d4dc;
-  --text-secondary: #8a8d96;
+  --text-dim: #b0b0b0;
+  --text-muted: #888888;
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
 
-  --accent: #2962ff;
-  --accent-hover: #1e53e5;
-  --accent-active: #1848cc;
-  --accent-blue: #2962ff;
-  --accent-purple: #9575cd;
-  --accent-orange: #ff9800;
-  --accent-amber: #ff9800;
-  --accent-gold: #ff9800;
+  --accent: #D4AF37;
+  --accent-hover: #E6B842;
+  --accent-active: #B88F2B;
+  --accent-blue: #D4AF37;
+  --accent-purple: #D4AF37;
+  --accent-orange: #D4AF37;
+  --accent-amber: #D4AF37;
+  --accent-gold: #D4AF37;
 
-  --gain: #22ab94;
-  --gain-bg: rgba(34, 171, 148, 0.12); /* Reduced opacity for subtlety */
-  --gain-glow: rgba(34, 171, 148, 0.20);
-  --loss: #f23645;
-  --loss-bg: rgba(242, 54, 69, 0.12);
-  --loss-glow: rgba(242, 54, 69, 0.20);
+  --gain: #00FF00;
+  --gain-bg: rgba(0,255,0,0.12);
+  --gain-glow: rgba(0,255,0,0.20);
+  --loss: #FF0000;
+  --loss-bg: rgba(255,0,0,0.12);
+  --loss-glow: rgba(255,0,0,0.20);
   --accent-emerald: var(--gain);
   --accent-green: var(--gain);
   --accent-rose: var(--loss);
