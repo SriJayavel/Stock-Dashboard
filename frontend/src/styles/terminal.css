@@ -72,6 +72,8 @@
 .auth-gate-footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-dim); font: 9px var(--font-mono); letter-spacing: .55px; }
 .auth-account { display: flex; align-items: center; gap: 9px; color: var(--text-dim); font-size: var(--font-size-xs); }
 .auth-account img { width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 50%; object-fit: cover; }
+#auth-avatar { display: block; }
+#auth-account-name { display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
 .auth-account button { padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; cursor: pointer; }
 .auth-account button:hover { border-color: var(--text-dim); }
 .auth-account[hidden], .auth-account img[hidden] { display: none; }
