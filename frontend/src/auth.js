@@ -28,7 +28,7 @@ class MaraAccount {
     this.bindForm();
 
     if (!supabase) {
-      this.session = { user: { id: 'guest_analyst', email: 'Guest Analyst' }, access_token: '' };
+      this.setSession({ user: { id: 'guest_analyst', email: 'Guest Analyst' }, access_token: '' });
       this.enterApp();
       return true;
     }
@@ -201,9 +201,22 @@ class MaraAccount {
     document.body.classList.remove('auth-required');
     document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
     const account = document.getElementById('auth-account');
+    const avatar = document.getElementById('auth-avatar');
     const name = document.getElementById('auth-account-name');
+    const signout = document.getElementById('auth-signout');
     if (account) account.hidden = false;
+    if (avatar) {
+      avatar.hidden = false;
+      // Set avatar image source - try user avatar data first, then fallback to favicon
+      const userAvatarUrl = this.user?.user_metadata?.avatar_url ||
+                           this.user?.avatar_url ||
+                           '/favicon.svg';
+      avatar.src = userAvatarUrl;
+      // Set alt text for accessibility
+      avatar.alt = this.user?.email?.split('@')[0] || 'Mara account';
+    }
     if (name) name.textContent = this.user?.email || 'Mara account';
+    if (signout) signout.hidden = false;
   }
 
   async signOut() {
