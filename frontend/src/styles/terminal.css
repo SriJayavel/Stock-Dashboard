@@ -219,12 +219,12 @@
   --accent-amber: #D4AF37;
   --accent-gold: #D4AF37;
 
-  --gain: #00FF00;
-  --gain-bg: rgba(0,255,0,0.12);
-  --gain-glow: rgba(0,255,0,0.20);
-  --loss: #FF0000;
-  --loss-bg: rgba(255,0,0,0.12);
-  --loss-glow: rgba(255,0,0,0.20);
+  --gain: #10b981;
+  --gain-bg: rgba(16, 185, 129, 0.12);
+  --gain-glow: rgba(16, 185, 129, 0.20);
+  --loss: #f43f5e;
+  --loss-bg: rgba(244, 63, 94, 0.12);
+  --loss-glow: rgba(244, 63, 94, 0.20);
   --accent-emerald: var(--gain);
   --accent-green: var(--gain);
   --accent-rose: var(--loss);
@@ -391,11 +391,11 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #181b24;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: #0f1117;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
   padding: 0 10px;
-  height: 32px;
+  height: 30px;
   transition: all 0.15s ease;
 }
 .mara-cmd-input-wrap:focus-within {
@@ -441,10 +441,10 @@ body {
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  height: 32px;
-  background: #181b24;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  height: 30px;
+  background: #0f1117;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
   flex-shrink: 0;
 }
 .mara-asset-sym {
@@ -501,9 +501,9 @@ body {
 .mara-density-selector {
   display: inline-flex;
   align-items: center;
-  background: #181b24;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
   padding: 2px;
   gap: 2px;
 }
@@ -525,8 +525,9 @@ body {
   color: #ffffff;
 }
 .mara-density-btn.active {
-  background: #252a36;
+  background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
 }
 .mara-header-btn {
   height: 28px;
@@ -1222,11 +1223,12 @@ body {
 
 .top-ws-btn.active,
 .top-nav-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
+  border-bottom: 2px solid var(--accent);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: none;
 }
 
 /* Global Search Bar */
@@ -1860,11 +1862,11 @@ body[data-workspace="monitor"] .watchlist-drawer {
   vertical-align: middle;
 }
 .markets-data-table tbody tr {
-  transition: background-color 0.1s ease;
+  transition: background 0.15s ease;
   cursor: pointer;
 }
 .markets-data-table tbody tr:hover {
-  background: rgba(41, 98, 255, 0.05);
+  background: rgba(255, 255, 255, 0.025);
 }
 .markets-data-table tbody tr.active-row,
 .macro-asset-row.active-row {
@@ -1895,37 +1897,41 @@ body[data-workspace="monitor"] .watchlist-drawer {
 }
 .region-tag {
   display: inline-block;
-  padding: 1px 5px;
-  border-radius: 2px;
+  padding: 1px 6px;
+  border-radius: 3px;
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  line-height: 1.2;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
 }
-.tag-in { background: rgba(232, 179, 78, 0.18); color: #e8b34e; border: 1px solid rgba(232, 179, 78, 0.35); }
-.tag-us { background: rgba(41, 98, 255, 0.18); color: #82b1ff; border: 1px solid rgba(41, 98, 255, 0.35); }
-.tag-eu { background: rgba(149, 117, 205, 0.18); color: #b39ddb; border: 1px solid rgba(149, 117, 205, 0.35); }
-.tag-ap { background: rgba(34, 171, 148, 0.18); color: #4db6ac; border: 1px solid rgba(34, 171, 148, 0.35); }
+.tag-in { background: rgba(232, 179, 78, 0.08); color: #d4af37; border: 1px solid rgba(232, 179, 78, 0.2); }
+.tag-us { background: rgba(56, 189, 248, 0.08); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.2); }
+.tag-eu { background: rgba(167, 139, 250, 0.08); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.2); }
+.tag-ap { background: rgba(52, 211, 153, 0.08); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.2); }
 
 /* Table Action Button */
 .markets-table-action-btn {
   height: 24px;
-  padding: 0 9px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-dim);
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: #94a3b8;
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 .markets-table-action-btn:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.markets-data-table td {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Day Session Range Bar Cell */
@@ -1944,9 +1950,9 @@ body[data-workspace="monitor"] .watchlist-drawer {
 .range-bound.low { text-align: right; }
 .range-bound.high { text-align: left; }
 .mini-range-track {
-  flex: 1;
+  width: 64px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
   position: relative;
 }
@@ -2911,6 +2917,21 @@ body[data-workspace="monitor"] .watchlist-drawer {
 .tv-tb-btn:hover {
   background: #1c1c1c;
   color: var(--text);
+}
+
+/* Analyze Action Button - Ghost Button Style */
+#tv-tb-analyze-btn {
+  color: #94a3b8;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: transparent;
+}
+
+#tv-tb-analyze-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .tv-symbol-btn {
@@ -5953,7 +5974,7 @@ html:root {
 html body { background: #131722; color: var(--text); font-family: var(--font-sans); }
 html .navbar { background: rgba(19, 23, 34, 0.98); border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
 html .top-nav-workspaces, html .top-nav-views, html .search-input-wrapper, html .workspace-nav-bar { background: #1e222d; }
-html .top-ws-btn.active, html .top-nav-btn.active { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+html .top-ws-btn.active, html .top-nav-btn.active { background: rgba(255, 255, 255, 0.08); border-color: transparent; border-bottom: 2px solid var(--accent); color: #ffffff; font-weight: 600; box-shadow: none; }
 html .ws-tab-btn.active, html .ws-sub-btn.active { background: rgba(41, 98, 255, 0.14); border-color: rgba(41, 98, 255, 0.36); color: #8db1ff; }
 html .search-input-wrapper:focus-within { box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.25); }
 html .glass, html .terminal-card, html .hero-card, html .macro-panel, html .screener-card { background: #1e222d; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); backdrop-filter: none; }

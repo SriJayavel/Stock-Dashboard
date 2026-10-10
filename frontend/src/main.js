@@ -1778,6 +1778,30 @@ function setupTradingViewChromeControls() {
       }
     });
   }
+
+  // Analyze Button: Cycle through analyze workspace tabs
+  const analyzeBtn = document.getElementById('tv-tb-analyze-btn');
+  if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', () => {
+      // Cycle through analyze tabs: chart → overview → fundamentals → valuation → chart
+      const analyzeTabs = ['chart', 'overview', 'fundamentals', 'valuation'];
+      let currentTab = 'chart'; // default
+
+      // Get current active tab from the subnav
+      const activeTabBtn = document.querySelector('#analyze-subnav .ws-sub-btn.active');
+      if (activeTabBtn) {
+        currentTab = activeTabBtn.getAttribute('data-analyze-tab') || 'chart';
+      }
+
+      // Find next tab in cycle
+      const currentIndex = analyzeTabs.indexOf(currentTab);
+      const nextIndex = (currentIndex + 1) % analyzeTabs.length;
+      const nextTab = analyzeTabs[nextIndex];
+
+      // Switch to the next analyze tab
+      router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', nextTab));
+    });
+  }
 }
 
 // Intraday Real-Time Incremental Market Chart Worker & Telemetry
