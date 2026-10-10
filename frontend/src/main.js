@@ -2258,6 +2258,33 @@ function setupWatchlistControls() {
     });
   }
 
+  // Theme Toggle Button
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  const sunIcon = themeToggleBtn?.querySelector('.theme-icon-sun');
+  const moonIcon = themeToggleBtn?.querySelector('.theme-icon-moon');
+
+  const applyTheme = (theme) => {
+    const isLight = theme === 'light';
+    document.documentElement.classList.toggle('light-theme', isLight);
+    document.body.classList.toggle('light-theme', isLight);
+    if (sunIcon) sunIcon.style.display = isLight ? 'none' : 'block';
+    if (moonIcon) moonIcon.style.display = isLight ? 'block' : 'none';
+    if (themeToggleBtn) {
+      themeToggleBtn.title = isLight ? 'Switch to Dark Theme' : 'Switch to Light Theme';
+    }
+    localStorage.setItem('mara-theme', theme);
+  };
+
+  const initialTheme = localStorage.getItem('mara-theme') || 'dark';
+  applyTheme(initialTheme);
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const isCurrentlyLight = document.documentElement.classList.contains('light-theme');
+      applyTheme(isCurrentlyLight ? 'dark' : 'light');
+    });
+  }
+
   // TradingView Right Sidebar Toggle Button from chart toolbar
   if (tvSidebarToggle) {
     tvSidebarToggle.addEventListener('click', () => {

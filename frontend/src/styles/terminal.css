@@ -1426,13 +1426,6 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   margin-right: 0 !important;
 }
 
-body[data-workspace="markets"] .watchlist-drawer,
-body[data-workspace="discover"] .watchlist-drawer,
-body[data-workspace="compare"] .watchlist-drawer,
-body[data-workspace="research"] .watchlist-drawer,
-body[data-workspace="monitor"] .watchlist-drawer {
-  display: none !important;
-}
 
 /* ============================================================================
    INSTITUTIONAL WORKSPACES ARCHITECTURE (6 WORKSPACES)
@@ -6089,4 +6082,105 @@ body.chart-fullscreen-active .navbar:focus-within {
 
 .search-dropdown::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Light Theme Overrides */
+html.light-theme,
+html.light-theme body,
+body.light-theme {
+  --bg: #f8fafc;
+  --bg-deep: #ffffff;
+  --bg-canvas: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --surface: #ffffff;
+  --surface-solid: #f8fafc;
+  --surface-card: #ffffff;
+  --surface-hover: #f1f5f9;
+  --surface-active: #e2e8f0;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-subtle: #f1f5f9;
+  --text: #0f172a;
+  --text-heading: #020817;
+  --text-dim: #64748b;
+  --text-muted: #94a3b8;
+  --accent: #2563eb;
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light-theme .mara-global-header,
+html.light-theme .navbar,
+html.light-theme .mara-workspace-bar {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light-theme .mara-cmd-input-wrap,
+html.light-theme .mara-active-asset-strip {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light-theme .mara-cmd-input {
+  color: #0f172a !important;
+}
+
+html.light-theme .mara-brand-title {
+  color: #0f172a !important;
+}
+
+html.light-theme .glass,
+html.light-theme .terminal-card,
+html.light-theme .hero-card,
+html.light-theme .macro-panel,
+html.light-theme .screener-card,
+html.light-theme .markets-data-table {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light-theme .watchlist-drawer {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light-theme .watchlist-drawer-header {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light-theme .drawer-tab-btn {
+  color: #64748b !important;
+}
+
+html.light-theme .drawer-tab-btn.active {
+  color: #0f172a !important;
+  border-bottom-color: var(--accent) !important;
+}
+
+html.light-theme .status-bar,
+html.light-theme footer {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+html.light-theme .top-ws-btn.active,
+html.light-theme .top-nav-btn.active {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-bottom: 2px solid var(--accent) !important;
+  color: #0f172a !important;
+}
+
+html.light-theme .mara-ws-tab-btn {
+  color: #64748b;
+}
+
+html.light-theme .mara-ws-tab-btn:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.04);
 }
