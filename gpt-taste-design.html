@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mara Terminal — Institutional Grade Market Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0a0a0a',
+                        text: '#f8fafc',
+                        text-dim: '#94a3b8',
+                        accent: '#e8b34e',
+                        gain: '#4ade80',
+                        loss: '#f87171',
+                        border: '#27272a',
+                        surface: '#111111'
+                    },
+                    fontFamily {
+                        sans: ['Geist', 'system-ui', 'sans-serif'],
+                        mono: ['Geist Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-bg text-text antialiased">
+    <div class="overflow-x-hidden w-full">
+
+        <!-- NAVIGATION -->
+        <nav class="bg-bg/80 backdrop-blur-sm border-b border-border py-6">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <div class="flex flex-items-center space-x-4">
+                    <img src="/favicon.svg" alt="Mara Logo" class="h-8 w-8 rounded-sm border border-accent/20">
+                    <div>
+                        <p class="text-text-xs tracking-wider text-text-dim">MARA</p>
+                        <p class="font-medium text-text">TERMINAL v2.5</p>
+                    </div>
+                </div>
+
+                <div class="hidden md:flex space-x-8">
+                    <a href="#" class="text-text-dim hover:text-text transition-colors">Markets</a>
+                    <a href="#" class="text-text-dim hover:text-text transition-colors">Discover</a>
+                    <a href="#" class="text-text-dim hover:text-text transition-colors">Analyze</a>
+                    <a href="#" class="text-text-dim hover:text-text transition-colors">Research</a>
+                    <a href="#" class="text-text-dim hover:text-text transition-colors">Monitor</a>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <button class="p-2 rounded-sm hover:bg-surface transition-colors">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158v1.5a2.032 2.032 0 01-2 2v1.5a2.032 2.032 0 01-1.405.595l-1.295-1.295A2.032 2.032 0 0113 18h-2"></path></svg>
+                    </button>
+                    <button class="p-2 rounded-sm hover:bg-surface transition-colors">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m2 0a2 2 0 100-4 2 2 0 000 4zM5 6a2 2 0 110-4 2 2 0 010 4z"></path></svg>
+                    </button>
+                </div>
+
+                <button class="md:hidden p-2 rounded-sm hover:bg-surface transition-colors" id="mobile-menu-btn">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+            </div>
+        </nav>
+
+        <!-- HERO: ARTISTIC ASYMMETRY -->
+        <section class="relative pt-20 pb-24">
+            <div class="max-w-6xl mx-auto px-4">
+                <div class="grid grid-cols-12 gap-6">
+                    <!-- TEXT COLUMN -->
+                    <div class="col-span-7 md:col-span-6 lg:col-span-5">
+                        <h1 class="clamp(3rem,5vw,5.5rem) font-bold text-text mb-6 leading-tight">
+                            Institutional Grade
+                            <span class="bg-accent/20 px-2 rounded-md">Market Intelligence</span>
+                            <br/>
+                            That Actually Moves Markets
+                        </h1>
+                        <p class="text-text-lg text-text-dim mb-8 max-w-xl">
+                            Professional-grade equities intelligence platform featuring real-time NSE data,
+                            advanced technical analytics, and institutional research tools — all engineered
+                            for serious market participants who demand precision and depth.
+                        </p>
+                        <div class="flex space-x-4 mb-10">
+                            <button class="bg-accent text-bg px-6 py-3 rounded-md font-medium hover:bg-accent/90 transition-colors flex items-center space-x-2">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm0 12c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm6-8v3H9v-3H5l7-8 7 8h-3z"></path></svg>
+                                Start Free Trial
+                            </button>
+                            <button class="border border-accent/30 text-accent px-6 py-3 rounded-md font-medium hover:bg-accent/10 transition-colors flex items-center space-x-2">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H3m8 4H3m-4 8h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2m2 4h6a2 2 0 002-2v-2a2 2 0 00-2-2h-2m2 2v4a2 2 0 01-2 2h-5.172a2.343 2.343 0 01-1.656-.678l-.678-1.656a2.343 2.343 0 01-.678-1.656A2.343 2.343 0 015 11V9a2 2 0 012-2h4a2 2 0 012 2v1.172a2.343 2.343 0 01-.678 1.656l-.678 1.656a2.343 2.343 0 01-1.656.678z"></path></svg>
+                                Watch Demo
+                            </button>
+                        </div>
+
+                        <!-- STATS GRID -->
+                        <div class="grid grid-cols-2 gap-4 mb-12">
+                            <div class="bg-surface/30 border border-border rounded-lg p-4">
+                                <p class="text-text-sm text-text-dim">ACTIVE USERS</p>
+                                <p class="text-text font-mono">12,480+</p>
+                            </div>
+                            <div class="bg-surface/30 border border-border rounded-lg p-4">
+                                <p class="text-text-sm text-text-dim">DATA POINTS/SEC</p>
+                                <p class="text-text font-mono">2.4M+</p>
+                            </div>
+                            <div class="bg-surface/30 border border-border rounded-lg p-4">
+                                <p class="text-text-sm text-text-dim">YEARS OF DATA</p>
+                                <p class="text-text font-mono">15+</p>
+                            </div>
+                            <div class="bg-surface/30 border border-border rounded-lg p-4">
+                                <p class="text-text-sm text-text-dim">AVG. SESSION</p>
+                                <p class="text-text font-mono">42min</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- IMAGE COLUMN (ARTISTIC ASYMMETRY) -->
+                    <div class="col-span-5 md:col-span-6 lg:col-span-7 flex items-end">
+                        <div class="relative w-full h-96 md:h-120 lg:h-140">
+                            <!-- Main Image -->
+                            <img src="https://picsum.photos/seed/mara-terminal/800/600"
+                                 alt="Mara Terminal Interface"
+                                 class="w-full h-full object-cover rounded-2xl shadow-2xl
+                                        transform rotate-2 duration-2000 ease-in-out
+                                        group-hover:rotate-0"
+                                 loading="lazy">
+                            <!-- Overlay Gradient -->
+                            <div class="absolute inset-0 bg-gradient-to-r from-accent/10 to-transparent
+                                          pointer-events-none"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FLOATING DECORATIVE ELEMENTS -->
+            <div class="absolute inset-0 pointer-events-none">
+                <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-accent/10 rounded-full
+                           animate-[pulse_4s_ease-in_out_infinite]"></div>
+                <div class="absolute bottom-16 right-20 w-12 h-12 bg-accent/20 rounded-full
+                           animate-[float_6s_ease-in_out_infinite]"></div>
+            </div>
+        </section>
+
+        <!-- INTEREST: BENTO GRID WITH INLINE TYPOGRAPHY & HORIZONTAL ACCORDIONS -->
+        <section class="pt-24 pb-28">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="space-y-16">
+
+                    <!-- SECTION TITLE -->
+                    <div class="text-center mb-12">
+                        <p class="text-text-xs text-text-dim tracking-wider font-mono">PLATFORM CAPABILITIES</p>
+                        <h2 class="clamp(2rem,4vw,3rem) font-bold text-text mb-4">
+                            Engineered for Market Professionals
+                        </h2>
+                        <p class="text-text-lg text-text-dim max-w-2xl mx-auto">
+                            Every component is meticulously crafted to deliver institutional-grade
+                            performance without compromising usability or aesthetic excellence.
+                        </p>
+                    </div>
+
+                    <!-- BENTO GRID -->
+                    <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4
+                              gap-6 sm:gap-8 lg:gap-10 grid-flow-dense">
+
+                        <!-- CARD 1: REAL-TIME DATA (Wide) -->
+                        <article class="row-span-2 col-span-2 bg-surface/30 border border-border rounded-2xl p-6
+                                   group hover:bg-surface/40 transition-colors hover:-translate-y-1
+                                   shadow-md hover:shadow-xl">
+                            <div class="flex items-center mb-4">
+                                <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                    <svg class="h-4 w-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" data-src="/favicon.svg"></path></svg>
+                                </div>
+                                <h3 class="ml-4 font-semibold text-text">Real-Time NSE Data Feed</h3>
+                            </div>
+                            <p class="text-text-sm text-text-dim mb-4">
+                                Direct exchange connectivity with sub-second latency,
+                                comprehensive market depth, and tick-by-tick precision.
+                            </p>
+                            <div class="flex items-center space-x-2 text-text-sm">
+                                <span class="bg-accent/20 text-accent px-2 py-1 rounded">Live</span>
+                                <span class="bg-accent/20 text-accent px-2 py-1 rounded">Level 2</span>
+                                <span class="bg-accent/20 text-accent px-2 py-1 rounded">Pre/Post</span>
+                            </div>
+                        </article>
+
+                        <!-- CARD 2: TECHNICAL ANALYTICS (Tall) -->
+                        <article class="row-span-3 col-span-2 bg-surface/30 border border-border rounded-2xl p-6
+                                   group hover:bg-surface/40 transition-colors hover:-translate-y-1
+                                   shadow-md hover:shadow-xl">
+                            <div class="flex items-center mb-4">
+                                <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                    <svg class="h-4 w-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm0 12c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm6-8v3H9v-3H5l7-8 7 8h-3z"></path></svg>
+                                </div>
+                                <h3 class="ml-4 font-semibold text-text">Advanced Technical Analytics</h3>
+                            </div>
+                            <p class="text-text-sm text-text-dim mb-4">
+                                37+ institutional-grade indicators including proprietary
+                                algorithms, multi-timeframe analysis, and pattern recognition.
+                            </p>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <span class="bg-surface/50 border border-border rounded px-2 py-1 text-text-xs">RSI</span>
+                                <span class="bg-surface/50 border border-border rounded px-2 py-1 text-text-xs">MACD</span>
+                                <span class="bg-surface/50 border border-border rounded px-2 py-1 text-text-xs">BB</span>
+                                <span class="bg-surface/50 border border-border rounded px-2 py-1 text-text-xs">Volume Profile</span>
+                            </div>
+                            <div class="h-0.5 bg-accent/20 my-4"></div>
+                            <p class="text-text-sm text-text-dim">
+                                Customizable alerts, strategy backtesting, and real-time
+                                signal generation across all timeframes.
+                            </p>
+                        </article>
+
+                        <!-- CARD 3: RESEARCH TOOLS (Wide) -->
+                        <article class="row-span-1 col-span-2 bg-surface/30 border border-border rounded-2xl p-6
+                                   group hover:bg-surface/40 transition-colors hover:-translate-y-1
+                                   shadow-md hover:shadow-xl">
+                            <div class="flex items-center mb-4">
+                                <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                    <svg class="h-4 w-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m2 0a2 2 0 100-4 2 2 0 000 4zM5 6a2 2 0 110-4 2 2 0 010 4z"></path></svg>
+                                </div>
+                                <h3 class="ml-4 font-semibold text-text">Institutional Research Suite</h3>
+                            </div>
+                            <p class="text-text-sm text-text-dim mb-4">
+                                Fundamental analysis, earnings estimates, insider trading
+                                data, and corporate action tracking with source attribution.
+                            </p>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 bg-accent rounded-full"></div>
+                                <span class="text-text-sm">Fundamental Data</span>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-2">
+                                <div class="w-3 h-3 bg-accent rounded-full"></div>
+                                <span class="text-text-sm">Earnings Calendar</span>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-2">
+                                <div class="w-3 h-3 bg-accent rounded-full"></div>
+                                <span class="text-text-sm">Insider Tracking</span>
+                            </div>
+                        </article>
+
+                        <!-- CARD 4: ALERT SYSTEM (Tall) -->
+                        <article class="row-span-3 col-span-1 bg-surface/30 border border-border rounded-2xl p-6
+                                   group hover:bg-surface/40 transition-colors hover:-translate-y-1
+                                   shadow-md hover:shadow-xl">
+                            <div class="flex items-center mb-4">
+                                <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                    <svg class="h-4 w-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8a4 4 0 100 8 4 4 0 000-8zm0 12c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2-2z"/></path></svg>
+                                </div>
+                                <h3 class="ml-4 font-semibold text-text">Client-Side Alert Engine</h3>
+                            </div>
+                            <p class="text-text-sm text-text-dim mb-4">
+                                Zero-latency, browser-based alerting with customizable
+                                conditions across price, volume, indicators, and fundamentals.
+                            </p>
+                            <div class="space-y-2">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-accent rounded-full"></div>
+                                    <span class="text-text-sm">Price Alerts</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-accent rounded-full"></div>
+                                    <span class="text-text-sm">Indicator Crosses</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-accent rounded-full"></div>
+                                    <span class="text-text-sm">Volume Spikes</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-accent rounded-full"></div>
+                                    <span class="text-text-sm">Fundamental Shifts</span>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- CARD 5: HORIZONTAL ACCORDION (from Component Arsenal) -->
+                        <article class="row-span-2 col-span-2 bg-surface/30 border border-border rounded-2xl p-6
+                                   group hover:bg-surface/40 transition-colors hover:-translate-y-1
+                                   shadow-md hover:shadow-xl">
+                            <div class="flex items-center mb-4">
+                                <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                    <svg class="h-4 w-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h16M9 16l3-3 3 3"></path></svg>
+                                </div>
+                                <h3 class="ml-4 font-semibold text-text">Dynamic Workspace Layouts</h3>
+                            </div>
+                            <p class="text-text-sm text-text-dim mb-4">
+                                Six specialized workspaces that adapt to your workflow,
+                                from market scanning to deep research and strategy development.
+                            </p>
+                            <!-- Horizontal Accordion Trigger -->
+                            <div class="mt-4 space-x-3">
+                                <button class="px-4 py-2 bg-accent/20 text-accent rounded hover:bg-accent/30 transition-colors">
+                                    Markets View
+                                </button>
+                                <button class="px-4 py-2 bg-accent/20 text-accent rounded hover:bg-accent/30 transition-colors">
+                                    Research View
+                                </button>
+                                <button class="px-4 py-2 bg-accent/20 text-accent rounded hover:bg-accent/30 transition-colors">
+                                    Analyze View
+                                </button>
+                            </div>
+                        </article>
+                    </div>
+
+                    <!-- FEEDBACK CAROUSEL (from Component Arsenal) -->
+                    <div class="mt-16">
+                        <p class="text-text-xs text-text-dim tracking-wider font-mono mb-4">USER FEEDBACK</p>
+                        <h2 class="clamp(1.75rem,3.5vw,2.5rem) font-bold text-text text-center mb-8">
+                            What Professionals Are Saying
+                        </h2>
+
+                        <div class="relative overflow-hidden">
+                            <!-- Carousel Track -->
+                            <div class="flex space-x-6 transition-transform duration-1000" id="carousel-track">
+                                <!-- Slide 1 -->
+                                <div class="min-w-[320px] bg-surface/30 border border-border rounded-2xl p-6 flex-shrink-0">
+                                    <div class="flex items-start space-x-4">
+                                        <div class="relative w-10 h-10 flex-shrink-0">
+                                            <img src="https://picsum.photos/seed/user1/400/400"
+                                                 alt="User 1"
+                                                 class="w-full h-full object-cover rounded-full border-2 border-accent">
+                                            <div class="absolute -top-2 -right-2 w-4 h-4 bg-accent rounded-full
+                                                   animate-[pulse_2s_ease_in_out_infinite]"></div>
+                                        </div>
+                                        <div>
+                                            <p class="text-text-sm text-text-dim font-mono mb-1">Senior Portfolio Manager</p>
+                                            <p class="text-text font-medium">"The depth of fundamental data and real-time execution capabilities have transformed our research workflow. Sub-second latency on NSE data is unmatched in retail platforms."</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Slide 2 -->
+                                <div class="min-w-[320px] bg-surface/30 border border-border rounded-2xl p-6 flex-shrink-0">
+                                    <div class="flex items-start space-x-4">
+                                        <div class="relative w-10 h-10 flex-shrink-0">
+                                            <img src="https://picsum.photos/seed/user2/400/400"
+                                                 alt="User 2"
+                                                 class="w-full h-full object-cover rounded-full border-2 border-accent">
+                                            <div class="absolute -top-2 -right-2 w-4 h-4 bg-accent rounded-full
+                                                   animate-[pulse_2s_ease_in_out_infinite]"></div>
+                                        </div>
+                                        <div>
+                                            <p class="text-text-sm text-text-dim font-mono mb-1">Quantitative Analyst</p>
+                                            <p class="text-text font-medium">"The technical analytics suite includes institutional-grade indicators we previously only accessed through expensive terminal platforms. The backtesting engine is particularly impressive."</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Slide 3 -->
+                                <div class="min-w-[320px] bg-surface/30 border border-border rounded-2xl p-6 flex-shrink-0">
+                                    <div class="flex items-start space-x-4">
+                                        <div class="relative w-10 h-10 flex-shrink-0">
+                                            <img src="https://picsum.photos/seed/user3/400/400"
+                                                 alt="User 3"
+                                                 class="w-full h-full object-cover rounded-full border-2 border-accent">
+                                            <div class="absolute -top-2 -right-2 w-4 h-4 bg-accent rounded-full
+                                                   animate-[pulse_2s_ease_in_out_infinite]"></div>
+                                        </div>
+                                        <div>
+                                            <p class="text-text-sm text-text-dim font-mono mb-1">Independent Trader</p>
+                                            <p class="text-text font-medium">"Finally, a platform that combines professional-grade data with intuitive interface design. The alert system has helped me catch multiple breakout opportunities I would have otherwise missed."</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Carousel Navigation -->
+                            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2" id="carousel-nav">
+                                <button class="w-3 h-3 bg-border/50 rounded-full hover:bg-accent/30 transition-colors" data-slide="0"></button>
+                                <button class="w-3 h-3 bg-border/50 rounded-full hover:bg-accent/30 transition-colors" data-slide="1"></button>
+                                <button class="w-3 h-3 bg-border/50 rounded-full hover:bg-accent/30 transition-colors" data-slide="2"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DESIRE: GSAP SECTIONS -->
+        <section class="pt-24 pb-28">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="space-y-20">
+
+                    <!-- SCROLL PINNING SECTION -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                        <!-- PINNED TITLE -->
+                        <div class="lg:sticky lg:top-16">
+                            <div class="w-12 h-12 bg-accent/20 rounded-xl flex items-center justify-center mb-4">
+                                <svg class="h-6 w-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm0 12c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm6-8v3H9v-3H5l7-8 7 8h-3z"></path></svg>
+                            </div>
+                            <h2 class="clamp(1.75rem,3.5vw,2.5rem) font-bold text-text mb-4">
+                                Real-Time Market Intelligence
+                            </h2>
+                            <p class="text-text-lg text-text-dim max-w-xl">
+                                Experience market data as it happens with direct exchange
+                                connectivity, sub-second latency, and comprehensive depth
+                                visualization that reveals the true market microstructure.
+                            </p>
+                        </div>
+
+                        <!-- SCROLLING IMAGE GALLERY -->
+                        <div class="relative h-96 lg:h-120">
+                            <div class="absolute inset-0 overflow-hidden">
+                                <!-- Image Gallery -->
+                                <div class="flex space-x-4 transition-transform duration-1000 ease-out" id="image-gallery">
+                                    <!-- Image 1 -->
+                                    <div class="min-w-[280px] flex-shrink-0">
+                                        <img src="https://picsum.photos/seed/market1/600/400"
+                                             alt="Market Data 1"
+                                             class="w-full h-full object-cover rounded-2xl
+                                                transform scale-80 opacity-20
+                                                transition-transform duration-1000 ease-out
+                                                transition-opacity duration-1000 ease-out"
+                                             data-index="0">
+                                    </div>
+                                    <!-- Image 2 -->
+                                    <div class="min-w-[280px] flex-shrink-0">
+                                        <img src="https://picsum.photos/seed/market2/600/400"
+                                             alt="Market Data 2"
+                                             class="w-full h-full object-cover rounded-2xl
+                                                transform scale-80 opacity-20
+                                                transition-transform duration-1000 ease-out
+                                                transition-opacity duration-1000 ease-out"
+                                             data-index="1">
+                                    </div>
+                                    <!-- Image 3 -->
+                                    <div class="min-w-[280px] flex-shrink-0">
+                                        <img src="https://picsum.photos/seed/market3/600/400"
+                                             alt="Market Data 3"
+                                             class="w-full h-full object-cover rounded-2xl
+                                                transform scale-80 opacity-20
+                                                transition-transform duration-1000 ease-out
+                                                transition-opacity duration-1000 ease-out"
+                                             data-index="2">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SCRUBBING TEXT REVEAL -->
+                    <div class="text-center">
+                        <p class="text-text-xs text-text-dim tracking-wider font-mono mb-4">TECHNOLOGY STACK</p>
+                        <h2 class="clamp(1.75rem,3.5vw,2.5rem) font-bold text-text mb-6">
+                            Built for Performance and Reliability
+                        </h2>
+                        <div class="max-w-2xl mx-auto text-center">
+                            <p class="text-text-lg text-text-dim leading-relaxed" id="scrubbing-text">
+                                <span class="opacity-10">Our </span><span class="opacity-10">platform </span><span class="opacity-10">combines </span><span class="opacity-10">direct </span><span class="opacity-10">NSE </span><span class="opacity-10">connectivity, </span><span class="opacity-10">advanced </span><span class="opacity-10">caching </span><span class="opacity-10">architecture, </span><span class="opacity-10">and </span><span class="opacity-10">institutional </span><span class="opacity-10">grade </span><span class="opacity-10">analytics </span><span class="opacity-10">into </span><span class="opacity-10">a </span><span class="opacity-10">seamless </span><span class="opacity-10">experience </span><span class="opacity-10">that </span><span class="opacity-10">delivers </span><span class="opacity-10">professional </span><span class="opacity-10">results </span><span class="opacity-10">without </span><span class="opacity-10">the </span><span class="opacity-10">complexity </span><span class="opacity-10">of </span><span class="opacity-10">traditional </span><span class="opacity-10">terminals.</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ACTION: CTA & FOOTER -->
+        <section class="bg-surface/30 border-t border-border pt-28 pb-24">
+            <div class="max-w-7xl mx-auto px-4">
+                <!-- CTA SECTION -->
+                <div class="text-center mb-16">
+                    <h2 class="clamp(2rem,4vw,3rem) font-bold text-text mb-6">
+                        Ready to Elevate Your Market Research?
+                    </h2>
+                    <p class="text-text-lg text-text-dim max-w-2xl mx-auto mb-8">
+                        Join thousands of professionals who rely on Mara Terminal for
+                        institutional-grade market intelligence without the complexity
+                        or cost of traditional platforms.
+                    </p>
+                    <div class="flex flex-col sm:flex-row items-center justify-center space-x-4 sm:space-x-6">
+                        <a href="#" class="bg-accent text-bg px-8 py-4 rounded-md font-medium hover:bg-accent/90 transition-colors flex-1 sm:flex-none sm:px-6">
+                            Start Free Trial →
+                        </a>
+                        <a href="#" class="border border-accent text-accent px-8 py-4 rounded-md font-medium hover:bg-accent/10 transition-colors flex-1 sm:flex-none sm:px-6">
+                            Schedule Demo →
+                        </a>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <footer class="border-t border-border pt-12">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        <!-- BRAND -->
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-3">
+                                <img src="/favicon.svg" alt="Mara Logo" class="h-8 w-8 rounded-sm border border-accent/20">
+                                <div>
+                                    <p class="text-text-xs tracking-wider text-text-dim">MARA</p>
+                                    <p class="font-medium text-text">TERMINAL</p>
+                                </div>
+                            </div>
+                            <p class="text-text-sm text-text-dim">
+                                Professional equities intelligence platform featuring
+                                real-time NSE data, advanced analytics, and institutional
+                                research tools.
+                            </p>
+                            <div class="flex space-x-4 mt-4 text-text-xs">
+                                <a href="#" class="hover:text-text transition-colors">Terms</a>
+                                <a href="#" class="hover:text-text transition-colors">Privacy</a>
+                                <a href="#" class="hover:text-text transition-colors">Security</a>
+                            </div>
+                        </div>
+
+                        <!-- NAVIGATION -->
+                        <div class="space-y-2">
+                            <p class="font-medium text-text mb-4">Platform</p>
+                            <nav class="space-y-1">
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Markets Workspace</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Discover Workspace</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Analyze Workspace</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Research Workspace</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Monitor Workspace</a>
+                            </nav>
+                        </div>
+
+                        <!-- FEATURES -->
+                        <div class="space-y-2">
+                            <p class="font-medium text-text mb-4">Features</p>
+                            <nav class="space-y-1">
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Real-Time Data</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Technical Analytics</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Fundamental Research</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Alert Engine</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Strategy Backtesting</a>
+                            </nav>
+                        </div>
+
+                        <!-- CONTACT -->
+                        <div class="space-y-2">
+                            <p class="font-medium text-text mb-4">Resources</p>
+                            <nav class="space-y-1">
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Documentation</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Webinars</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Case Studies</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">API Access</a>
+                                <a href="#" class="text-text-dim hover:text-text transition-colors">Community Forum</a>
+                            </nav>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 pt-10 border-t border-border flex flex-col items-center justify-between sm:flex-row">
+                        <p class="text-text-xs text-text-dim">
+                            © 2026 Mara Terminal. All rights reserved. Market data for research purposes only.
+                        </p>
+                        <div class="flex space-x-4 mt-2 sm:mt-0">
+                            <a href="#" class="text-text-dim hover:text-text transition-colors">Twitter</a>
+                            <a href="#" class="text-text-dim hover:text-text transition-colors">LinkedIn</a>
+                            <a href="#" class="text-text-dim hover:text-text transition-colors">GitHub</a>
+                        </div>
+                    </div>
+                </footer>
+            </div>
+        </section>
+    </div>
+
+    <!-- GSAP SCRIPTS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize GSAP animations
+
+            // Image Scale & Fade Scroll
+            const images = document.querySelectorAll('#image-gallery img');
+            images.forEach((img, index) => {
+                gsap.fromTo(img,
+                    {
+                        scale: 0.8,
+                        opacity: 0.2,
+                        x: () => (index - 1) * 80 // Staggered start position
+                    },
+                    {
+                        scale: 1,
+                        opacity: 1,
+                        x: 0,
+                        scrollTrigger: {
+                            trigger: img,
+                            start: 'top 80%',
+                            end: 'bottom 20%',
+                            scrub: true
+                        }
+                    }
+                );
+            });
+
+            // Scroll Pinning - already handled by CSS sticky
+
+            // Scrubbing Text Reveal
+            const text = document.getElementById('scrubbing-text');
+            if (text) {
+                const chars = text.textContent.trim().split('');
+                text.innerHTML = chars.map((char, i) =>
+                    `<span class="inline-block" style="opacity: 0.1; display: none;">${char === ' ' ? '&nbsp;' : char}</span>`
+                ).join('');
+
+                const spans = text.querySelectorAll('span');
+                spans.forEach((span, i) => {
+                    gsap.to(span, {
+                        opacity: 1,
+                        display: 'inline-block',
+                        scrollTrigger: {
+                            trigger: text,
+                            start: 'top center',
+                            end: 'bottom center',
+                            scrub: i * 0.05 // Staggered reveal
+                        }
+                    });
+                });
+            }
+
+            // Mobile Menu Toggle (basic functionality)
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            // In a real implementation, this would toggle a mobile menu
+
+            // Carousel functionality (basic)
+            let currentSlide = 0;
+            const slides = document.querySelectorAll('#carousel-track > div');
+            const navButtons = document.querySelectorAll('#carousel-nav button');
+
+            function updateCarousel() {
+                const offset = -currentSlide * 33.3333; // Approximate for 3 slides
+                document.getElementById('carousel-track').style.transform = `translateX(${offset}%)`;
+                navButtons.forEach((btn, i) => {
+                    btn.classList.toggle('bg-accent/30', i === currentSlide);
+                    btn.classList.toggle('bg-border/50', i !== currentSlide);
+                });
+            }
+
+            navButtons.forEach((button, index) => {
+                button.addEventListener('click', () => {
+                    currentSlide = index;
+                    updateCarousel();
+                });
+            });
+
+            // Initialize carousel
+            updateCarousel();
+        });
+    </script>
+</body>
+</html>
