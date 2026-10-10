@@ -340,6 +340,7 @@ body {
   padding: 0 var(--density-cell-pad-x);
   gap: var(--density-cell-pad-x);
   flex-shrink: 0;
+  position: relative;
   z-index: 100;
   box-sizing: border-box;
 }
@@ -2114,11 +2115,6 @@ body[data-workspace="monitor"] .watchlist-drawer {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
-.markets-table-search:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
 /* Cross-Asset Macro Radar Matrix (3 Column Clean Board) */
 .macro-radar-matrix {
   display: grid;
@@ -4642,11 +4638,6 @@ body[data-workspace="monitor"] .watchlist-drawer {
   outline-offset: 3px;
 }
 
-.notebook-textarea:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
 /* Scenario Analysis Box */
 .scenario-input-group {
   display: grid;
@@ -4689,11 +4680,6 @@ body[data-workspace="monitor"] .watchlist-drawer {
   padding: 5px 8px;
   font-size: 12px;
 }
-.screener-select:focus-visible, .screener-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
 .screener-select:focus-visible, .screener-input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
