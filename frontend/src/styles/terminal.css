@@ -1,5 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+/* Skip to content link - only visible when focused */
+.skip-to-content-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 16px;
+  z-index: 1000;
+  border-radius: var(--radius-sm);
+  transition: top 0.2s ease-out;
+}
+.skip-to-content-link:focus {
+  top: 0;
+}
+
 /* Mara email account entry: uses the existing terminal color tokens. */
 .auth-required { overflow: hidden; }
 .auth-required > :not(#auth-gate) { visibility: hidden; }
@@ -38,7 +54,7 @@
 .auth-field-label { display: block; margin: 14px 0 7px; color: var(--text-dim); font-size: var(--font-size-xs); font-weight: 500; }
 .auth-field-input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font: 13px var(--font-sans); }
 .auth-field-input::placeholder { color: var(--text-dim); opacity: .72; }
-.auth-field-input:focus { border-color: var(--accent); outline: 2px solid rgba(232, 179, 78, .14); }
+.auth-field-input:focus-visible { border-color: var(--accent); outline: 2px solid var(--accent); }
 .auth-password-wrap { position: relative; }
 .auth-password-wrap .auth-field-input { padding-right: 58px; }
 .auth-password-wrap button { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); border: 0; background: transparent; color: var(--text-dim); font: 11px var(--font-sans); cursor: pointer; }
@@ -391,10 +407,13 @@ body {
   flex: 1;
   background: transparent;
   border: none;
-  outline: none;
   color: #ffffff;
   font-size: var(--font-size-sm);
   font-family: var(--font-sans);
+}
+.mara-cmd-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .mara-cmd-input::placeholder {
   color: var(--text-dim);
@@ -1229,11 +1248,14 @@ body {
   flex: 1;
   background: transparent;
   border: none;
-  outline: none;
   color: #ffffff;
   font-size: 12px;
   font-family: inherit;
   padding-right: 48px;
+}
+.search-input-wrapper > input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .search-input-wrapper > input::placeholder {
   color: var(--text-muted);
@@ -2086,11 +2108,15 @@ body[data-workspace="monitor"] .watchlist-drawer {
   border-radius: var(--radius-sm);
   color: var(--text);
   font-size: 11px;
-  outline: none;
   transition: border-color 0.12s;
 }
-.markets-table-search:focus {
-  border-color: var(--accent);
+.markets-table-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.markets-table-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 /* Cross-Asset Macro Radar Matrix (3 Column Clean Board) */
@@ -2376,9 +2402,9 @@ body[data-workspace="monitor"] .watchlist-drawer {
   resize: vertical;
   box-sizing: border-box;
 }
-.notebook-textarea:focus {
-  outline: none;
-  border-color: var(--accent);
+.notebook-textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .glass, .screener-card, .auth-card {
@@ -3100,12 +3126,12 @@ body[data-workspace="monitor"] .watchlist-drawer {
 }
 
 .tv-rail-btn:hover {
-  background: #1c1c1c;
+  background: var(--surface-hover);
   color: var(--text);
 }
 
 .tv-rail-btn.active {
-  background: #242424;
+  background: var(--surface-solid);
   color: var(--accent);
 }
 
@@ -3156,7 +3182,7 @@ body[data-workspace="monitor"] .watchlist-drawer {
 
 .tv-pane-splitter:hover,
 .tv-pane-splitter.dragging {
-  background: rgba(232, 179, 78, 0.08);
+  background: rgba(41, 98, 255, 0.08);
 }
 
 .tv-pane-splitter:hover::after,
@@ -4122,7 +4148,7 @@ body[data-workspace="monitor"] .watchlist-drawer {
   width: 100%;
   box-sizing: border-box;
   display: none;
-  animation: fadeIn 0.15s ease-in-out;
+  animation: fadeIn 0.09s ease-in-out;
 }
 
 .research-view-panel.active {
@@ -4609,12 +4635,16 @@ body[data-workspace="monitor"] .watchlist-drawer {
   padding: 10px 12px;
   resize: vertical;
   min-height: 80px;
-  outline: none;
   transition: border-color 0.15s ease;
 }
+.notebook-textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 
-.notebook-textarea:focus {
-  border-color: var(--accent);
+.notebook-textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 /* Scenario Analysis Box */
@@ -4658,11 +4688,15 @@ body[data-workspace="monitor"] .watchlist-drawer {
   color: var(--text);
   padding: 5px 8px;
   font-size: 12px;
-  outline: none;
+}
+.screener-select:focus-visible, .screener-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
-.screener-select:focus, .screener-input:focus {
-  border-color: var(--accent);
+.screener-select:focus-visible, .screener-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 /* Screener & Sectors Dedicated Views */
@@ -5098,11 +5132,11 @@ body[data-workspace="monitor"] .watchlist-drawer {
 
 /* Live Price Flash Animations (Only Allowed Animation) */
 .price-flash-up {
-  animation: flash-green 300ms ease-out forwards;
+  animation: flash-green 90ms ease-out forwards;
 }
 
 .price-flash-down {
-  animation: flash-red 300ms ease-out forwards;
+  animation: flash-red 90ms ease-out forwards;
 }
 
 @keyframes flash-green {
@@ -5144,8 +5178,8 @@ body[data-workspace="monitor"] .watchlist-drawer {
   color: var(--text);
   opacity: 0;
   transform: translateY(8px);
-  animation: toast-in 0.15s ease-out forwards;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  animation: toast-in 0.09s ease-out forwards;
+  transition: opacity 0.09s ease, transform 0.09s ease;
 }
 
 .apex-toast.toast-hiding {
@@ -5177,7 +5211,7 @@ body[data-workspace="monitor"] .watchlist-drawer {
 
 
 button, input, select { font: inherit; }
-button:active { transform: translateY(1px); }
+button:active { transform: scale(0.99); }
 
 /* Watchlist Drawer Empty State */
 .watchlist-empty-state {
@@ -5556,11 +5590,14 @@ button:active { transform: translateY(1px); }
   flex: 1;
   background: transparent;
   border: none;
-  outline: none;
   padding: 8px 0;
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--text);
+}
+.tv-ind-search-box input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .tv-ind-clear-search-btn {

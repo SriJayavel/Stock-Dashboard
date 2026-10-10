@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/src/styles/terminal.css" />
   </head>
   <body class="auth-required">
+    <a href="#mara-main-canvas" class="skip-to-content-link">Skip to content</a>
     <section class="auth-gate" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <div class="auth-gate-shell">
         <div class="auth-gate-brand"><img src="/favicon.svg" alt="Mara Logo" width="26" height="26" style="border-radius:6px;vertical-align:middle;margin-right:8px;" /><span>Mara Stock Dashboard</span></div>
@@ -158,7 +159,7 @@
           <div class="auth-account" id="auth-account" hidden>
             <img id="auth-avatar" alt="" hidden />
             <span id="auth-account-name"></span>
-            <button id="auth-signout" type="button" title="Sign out of your Mara account">
+            <button id="auth-signout" type="button" aria-label="Sign out of your Mara account">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>
             </button>
           </div>
@@ -203,19 +204,19 @@
         <!-- 3A. LEFT NAVIGATION RAIL (60px) -->
         <aside id="mara-nav-rail" class="mara-nav-rail" aria-label="Quick Access Rail">
           <!-- Primary Workspace Icons -->
-          <button class="mara-rail-btn active" data-workspace-rail="markets" title="Markets Workspace (1)">
+          <button class="mara-rail-btn active" data-workspace-rail="markets" aria-label="Markets Workspace (1)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           </button>
-          <button class="mara-rail-btn" data-workspace-rail="discover" title="Discover & Screener (2)">
+          <button class="mara-rail-btn" data-workspace-rail="discover" aria-label="Discover & Screener (2)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
           </button>
-          <button class="mara-rail-btn" data-workspace-rail="analyze" title="Analyze & Chart (3)">
+          <button class="mara-rail-btn" data-workspace-rail="analyze" aria-label="Analyze & Chart (3)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
           </button>
-          <button class="mara-rail-btn" data-workspace-rail="compare" title="Compare & Multiples (4)">
+          <button class="mara-rail-btn" data-workspace-rail="compare" aria-label="Compare & Multiples (4)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM7 21h10M12 3v18"/></svg>
           </button>
-          <button class="mara-rail-btn" data-workspace-rail="research" title="Research Dossiers (5)">
+          <button class="mara-rail-btn" data-workspace-rail="research" aria-label="Research Dossiers (5)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           </button>
           <button class="mara-rail-btn" data-workspace-rail="monitor" title="Monitor & Alerts (6)">
@@ -356,6 +357,7 @@
                 <span class="section-sub-caption" id="sector-detail-meta">Loading constituent telemetry...</span>
               </div>
               <div class="table-quick-search-wrap">
+                <label for="sector-constituent-search" class="auth-field-label">Filter Constituents</label>
                 <input type="text" id="sector-constituent-search" class="markets-table-search" placeholder="Filter constituents..." autocomplete="off" />
               </div>
             </div>
@@ -540,7 +542,7 @@
               <div class="tv-tb-divider"></div>
 
               <!-- Indicators Button Trigger -->
-              <button class="tv-tb-btn" id="tv-indicators-menu-btn" title="Technical Indicators">
+              <button class="tv-tb-btn" id="tv-indicators-menu-btn" aria-label="Technical Indicators">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
@@ -548,7 +550,7 @@
                 <span class="tv-ind-badge" id="tv-ind-count">0</span>
               </button>
 
-              <button class="tv-tb-btn active" id="tv-toggle-events-btn" title="Toggle Corporate Event Markers">
+              <button class="tv-tb-btn active" id="tv-toggle-events-btn" aria-label="Toggle Corporate Event Markers">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"/>
                   <polyline points="12 6 12 12 16 14"/>
@@ -559,7 +561,7 @@
               <div class="tv-tb-divider"></div>
 
               <!-- Alert Button -->
-              <button class="tv-tb-btn" id="tv-tb-alert-btn" title="Create Alert">
+              <button class="tv-tb-btn" id="tv-tb-alert-btn" aria-label="Create Alert">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -570,14 +572,14 @@
 
             <div class="tv-tb-right">
               <!-- Fullscreen Button -->
-              <button class="tv-tb-icon-btn" id="tv-fullscreen-btn" title="Toggle Fullscreen">
+              <button class="tv-tb-icon-btn" id="tv-fullscreen-btn" aria-label="Toggle Fullscreen">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                 </svg>
               </button>
 
               <!-- Sidebar Toggle Button -->
-              <button class="tv-tb-icon-btn" id="tv-sidebar-toggle-btn" title="Toggle Watchlist Sidebar">
+              <button class="tv-tb-icon-btn" id="tv-sidebar-toggle-btn" aria-label="Toggle Watchlist Sidebar">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <line x1="15" y1="3" x2="15" y2="21"/>
@@ -590,14 +592,14 @@
           <div class="tv-workspace-body" id="tv-workspace-body">
             <!-- 1. Left Icon Rail (44px wide) -->
             <aside class="tv-left-rail" id="tv-left-rail">
-              <button class="tv-rail-btn active" id="tv-rail-crosshair" title="Crosshair Mode">
+              <button class="tv-rail-btn active" id="tv-rail-crosshair" aria-label="Crosshair Mode">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <circle cx="12" cy="12" r="8"/>
                   <line x1="12" y1="2" x2="12" y2="22"/>
                   <line x1="2" y1="12" x2="22" y2="12"/>
                 </svg>
               </button>
-              <button class="tv-rail-btn" id="tv-rail-chart-type" title="Chart Type: Candles / Line / Area" data-type="candles">
+              <button class="tv-rail-btn" id="tv-rail-chart-type" aria-label="Chart Type: Candles / Line / Area" data-type="candles">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <line x1="8" y1="3" x2="8" y2="21"/>
                   <rect x="6" y="7" width="4" height="9" fill="currentColor"/>
@@ -605,12 +607,12 @@
                   <rect x="14" y="9" width="4" height="6" fill="currentColor"/>
                 </svg>
               </button>
-              <button class="tv-rail-btn" id="tv-rail-indicators" title="Toggle Indicators Menu">
+              <button class="tv-rail-btn" id="tv-rail-indicators" aria-label="Toggle Indicators Menu">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
               </button>
-              <button class="tv-rail-btn" id="tv-rail-fit" title="Reset View & Fit Content">
+              <button class="tv-rail-btn" id="tv-rail-fit" aria-label="Reset View & Fit Content">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <polyline points="1 4 1 10 7 10"/>
                   <polyline points="23 20 23 14 17 14"/>
@@ -879,28 +881,19 @@
             <div class="lab-card-shell">
               <div class="scenario-input-group">
                 <div class="scenario-control">
-                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
-                    <span>Expected Revenue Growth</span>
-                    <span id="scenario-rev-val" style="color: var(--accent);">+8%</span>
-                  </div>
+                  <label for="scenario-rev-slider" class="auth-field-label" style="margin: 0 0 4px;">Expected Revenue Growth</label>
                   <input type="range" id="scenario-rev-slider" min="-10" max="35" value="8" step="1" class="scenario-slider" />
                   <div style="font-size: 10px; color: var(--text-dim);">Annual top-line expansion estimate</div>
                 </div>
 
                 <div class="scenario-control">
-                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
-                    <span>Target Operating Margin</span>
-                    <span id="scenario-margin-val" style="color: var(--accent);">24%</span>
-                  </div>
+                  <label for="scenario-margin-slider" class="auth-field-label" style="margin: 0 0 4px;">Target Operating Margin</label>
                   <input type="range" id="scenario-margin-slider" min="5" max="45" value="24" step="1" class="scenario-slider" />
                   <div style="font-size: 10px; color: var(--text-dim);">Operating profit margin</div>
                 </div>
 
                 <div class="scenario-control">
-                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
-                    <span>Target Exit P/E Multiple</span>
-                    <span id="scenario-pe-val" style="color: var(--accent);">26x</span>
-                  </div>
+                  <label for="scenario-pe-slider" class="auth-field-label" style="margin: 0 0 4px;">Target Exit P/E Multiple</label>
                   <input type="range" id="scenario-pe-slider" min="10" max="60" value="26" step="1" class="scenario-slider" />
                   <div style="font-size: 10px; color: var(--text-dim);">Valuation multiple at exit</div>
                 </div>
@@ -1381,6 +1374,7 @@
           <button class="tv-modal-close-btn" id="close-indicator-picker-btn" title="Close">✕</button>
         </div>
         <div class="tv-ind-search-box">
+          <label for="tv-ind-search-input" class="auth-field-label" style="margin: 0 0 4px;">Search Indicators</label>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
