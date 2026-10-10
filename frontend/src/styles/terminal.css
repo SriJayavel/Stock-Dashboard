@@ -6085,29 +6085,29 @@ body.chart-fullscreen-active .navbar:focus-within {
 }
 
 /* Light Theme Overrides */
-html.light-theme,
-html.light-theme body,
-body.light-theme {
-  --bg: #f8fafc;
-  --bg-deep: #ffffff;
-  --bg-canvas: #f1f5f9;
-  --bg-surface: #ffffff;
-  --bg-card: #ffffff;
-  --surface: #ffffff;
-  --surface-solid: #f8fafc;
-  --surface-card: #ffffff;
-  --surface-hover: #f1f5f9;
-  --surface-active: #e2e8f0;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --border-subtle: #f1f5f9;
+html.light-theme {
+  --bg: #ffffff;
+  --surface: #f8fafc;
   --text: #0f172a;
-  --text-heading: #020817;
   --text-dim: #64748b;
   --text-muted: #94a3b8;
-  --accent: #2563eb;
-  background: #f8fafc !important;
-  color: #0f172a !important;
+  --border: #e2e8f0;
+  --accent: #3b82f6;
+  --gain: #10b981;
+  --loss: #f43f5e;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --font-size-xxs: 10px;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 18px;
+  --font-size-3xl: 20px;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 html.light-theme .mara-global-header,
@@ -6183,4 +6183,105 @@ html.light-theme .mara-ws-tab-btn {
 html.light-theme .mara-ws-tab-btn:hover {
   color: #0f172a;
   background: rgba(0, 0, 0, 0.04);
+}
+
+/* Header Utility Buttons in Light Theme */
+html.light-theme .mara-header-btn {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html.light-theme .mara-header-btn:hover {
+  background: #e2e8f0 !important;
+  color: #000000 !important;
+}
+html.light-theme .mara-header-btn.active {
+  background: #e0e7ff !important;
+  border-color: #818cf8 !important;
+  color: #3730a3 !important;
+}
+html.light-theme .mara-header-btn svg {
+  stroke: #0f172a !important;
+}
+html.light-theme .nav-count {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* Benchmark Table in Light Theme */
+html.light-theme .markets-data-table th {
+  background: #f1f5f9 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+html.light-theme .markets-data-table td {
+  border-bottom: 1px solid #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html.light-theme .markets-data-table tbody tr:hover {
+  background: #f8fafc !important;
+}
+html.light-theme .markets-data-table tbody tr.active-row {
+  background: #eff6ff !important;
+  border-left-color: #2563eb !important;
+}
+html.light-theme .markets-data-table tbody tr.active-row td {
+  color: #0f172a !important;
+}
+
+/* View Switcher (TABLE / CHART / HEATMAP) */
+html.light-theme .mara-view-switcher {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+html.light-theme .mara-view-btn {
+  color: #64748b !important;
+}
+html.light-theme .mara-view-btn.active {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Secondary Tape & Filter Buttons */
+html.light-theme .markets-sub-header,
+html.light-theme .tape-strip,
+html.light-theme .filter-pill,
+html.light-theme .benchmark-filter-btn {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+html.light-theme .filter-pill.active,
+html.light-theme .benchmark-filter-btn.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* Left Navigation Rail */
+html.light-theme .left-rail,
+html.light-theme .mara-left-rail {
+  background: #ffffff !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+html.light-theme .rail-btn {
+  color: #64748b !important;
+}
+html.light-theme .rail-btn:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html.light-theme .rail-btn.active {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border-color: #bfdbfe !important;
+}
+
+/* Status Bar */
+html.light-theme .mara-status-bar,
+html.light-theme .terminal-status-bar {
+  background: #ffffff !important;
+  border-top: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
 }

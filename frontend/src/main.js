@@ -600,6 +600,8 @@ function setupMaraShellControls() {
     });
   }
 
+
+
   // Global Keyboard Shortcuts (⌘K, ⌥C, D, Alt+1..6)
   window.addEventListener('keydown', (e) => {
     const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
@@ -5426,12 +5428,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               </div>
             </td>
             <td>
-              <strong style="color: #ffffff; font-weight: 600;">${m.name}</strong>
+              <strong style="color: var(--text); font-weight: 600;">${m.name}</strong>
             </td>
             <td>
               <span style="font-family: var(--font-mono); color: var(--accent); font-size: 11.5px; font-weight: 600;">${m.symbol}</span>
             </td>
-            <td class="text-right" style="font-family: var(--font-mono); font-weight: 700; color: #ffffff;">
+            <td class="text-right" style="font-family: var(--font-mono); font-weight: 700; color: var(--text);">
               ${priceDisplay}
             </td>
             <td class="text-right" style="font-family: var(--font-mono); color: var(--text-dim);">
