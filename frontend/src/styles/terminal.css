@@ -70,7 +70,7 @@
 .auth-divider small { font: 9px var(--font-mono); letter-spacing: .65px; }
 .auth-privacy { color: var(--text-dim); font-size: var(--font-size-xs); line-height: 1.7; }
 .auth-gate-footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-dim); font: 9px var(--font-mono); letter-spacing: .55px; }
-.auth-account { display: flex; align-items: center; gap: 9px; color: var(--text-dim); font-size: var(--font-size-xs); }
+.auth-account { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: var(--font-size-xs); flex-shrink: 1; min-width: 0; }
 .auth-account img { width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 50%; object-fit: cover; }
 #auth-avatar:not([hidden]) { display: block; }
 #auth-account-name { display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
@@ -543,6 +543,11 @@ body {
   cursor: pointer;
   transition: all 0.12s ease;
   user-select: none;
+}
+
+/* Hide verbose text labels in header utility buttons */
+.mara-header-btn span:not(.nav-count) {
+  display: none;
 }
 .mara-header-btn:hover {
   background: var(--surface-hover);
@@ -1056,7 +1061,7 @@ body {
     padding: 0 8px;
     gap: 8px;
   }
-  .mara-header-btn span {
+  .mara-header-btn span:not(.nav-count) {
     display: none;
   }
   .mara-header-btn {

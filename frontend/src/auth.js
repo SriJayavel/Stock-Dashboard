@@ -215,7 +215,11 @@ class MaraAccount {
       // Set alt text for accessibility
       avatar.alt = this.user?.email?.split('@')[0] || 'Mara account';
     }
-    if (name) name.textContent = this.user?.email || 'Mara account';
+    const displayName = this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'Mara account';
+    if (name) {
+      name.textContent = displayName;
+      name.title = this.user?.email || '';
+    }
     if (signout) signout.hidden = false;
   }
 
