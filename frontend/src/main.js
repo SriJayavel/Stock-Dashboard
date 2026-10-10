@@ -843,6 +843,108 @@ function setupEventListeners() {
   const searchDropdown = document.getElementById('search-dropdown');
   let searchDebounceTimer = null;
 
+  // Function to render search results in the dropdown
+  function renderSearchDropdown(results) {
+    if (!results || results.length === 0) {
+      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true">No results found</div>';
+      return;
+    }
+
+    searchDropdown.innerHTML = results
+      .map(
+        (item, index) => `
+          <div class="search-item" data-index="${index}" role="option" aria-selected="false">
+            <div class="search-item-info">
+              <div class="search-item-symbol">${item.symbol}</div>
+              <div class="search-item-name">${item.name}</div>
+              ${item.exchange ? `<div class="search-item-exchange">${item.exchange}</div>` : ''}
+              ${item.type ? `<div class="search-item-type">${item.type}</div>` : ''}
+            </div>
+          </div>
+        `
+      )
+      .join('');
+
+    // Add click handlers to search items
+    searchDropdown.querySelectorAll('.search-item').forEach((item, index) => {
+      item.addEventListener('click', () => {
+        const result = results[index];
+        if (result) {
+          // Navigate to the symbol's analyze workspace
+          router.navigate(router.formatSymbolRoute(result.symbol, 'chart'));
+          // Close the dropdown
+          searchDropdown.classList.remove('open');
+          searchInput.setAttribute('aria-expanded', 'false');
+          // Clear the search input
+          searchInput.value = '';
+          currentIndicatorSearch = '';
+        }
+      });
+    });
+
+    // Handle keyboard navigation
+    let activeIndex = 0;
+    const items = searchDropdown.querySelectorAll('.search-item');
+
+    // Set first item as active by default
+    if (items.length > 0) {
+      items[0].classList.add('active-search-item');
+      activeIndex = 0;
+    }
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (!searchDropdown.classList.contains('open')) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        searchDropdown.classList.remove('open');
+        searchInput.setAttribute('aria-expanded', 'false');
+        searchInput.blur();
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (activeIndex < items.length - 1) {
+          items[activeIndex].classList.remove('active-search-item');
+          activeIndex++;
+          items[activeIndex].classList.add('active-search-item');
+          items[activeIndex].scrollIntoView({ block: 'nearest' });
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (activeIndex > 0) {
+          items[activeIndex].classList.remove('active-search-item');
+          activeIndex--;
+          items[activeIndex].classList.add('active-search-item');
+          items[activeIndex].scrollIntoView({ block: 'nearest' });
+        }
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (items.length > 0 && activeIndex >= 0 && activeIndex < items.length) {
+          const result = results[activeIndex];
+          if (result) {
+            // Navigate to the symbol's analyze workspace
+            router.navigate(router.formatSymbolRoute(result.symbol, 'chart'));
+            // Close the dropdown
+            searchDropdown.classList.remove('open');
+            searchInput.setAttribute('aria-expanded', 'false');
+            // Clear the search input
+            searchInput.value = '';
+            currentIndicatorSearch = '';
+          }
+        }
+        return;
+      }
+    });
+  }
+
   if (searchInput && searchDropdown) {
     searchInput.addEventListener('input', (e) => {
       clearTimeout(searchDebounceTimer);
@@ -893,44 +995,6 @@ function setupEventListeners() {
         searchDropdown.classList.remove('open');
         searchDropdown.setAttribute('aria-busy', 'false');
         searchInput.setAttribute('aria-expanded', 'false');
-      }
-    });
-
-    // Keyboard navigation (ArrowDown, ArrowUp, Enter, Escape) within search results
-    searchInput.addEventListener('keydown', (e) => {
-      const items = Array.from(searchDropdown.querySelectorAll('.search-item'));
-      if (!items.length || !searchDropdown.classList.contains('open')) {
-        if (e.key === 'Escape') {
-          searchDropdown.classList.remove('open');
-          searchInput.setAttribute('aria-expanded', 'false');
-          searchInput.blur();
-        }
-        return;
-      }
-
-      const activeIndex = items.findIndex((el) => el.classList.contains('active-search-item'));
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const nextIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
-        items.forEach((it, idx) => it.classList.toggle('active-search-item', idx === nextIndex));
-        items[nextIndex].scrollIntoView({ block: 'nearest' });
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prevIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
-        items.forEach((it, idx) => it.classList.toggle('active-search-item', idx === prevIndex));
-        items[prevIndex].scrollIntoView({ block: 'nearest' });
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        const target = activeIndex >= 0 ? items[activeIndex] : items[0];
-        if (target) {
-          target.click();
-        }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        searchDropdown.classList.remove('open');
-        searchInput.setAttribute('aria-expanded', 'false');
-        searchInput.blur();
       }
     });
   }

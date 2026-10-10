@@ -111,7 +111,18 @@ export class TerminalChart {
   updateIndicatorParams(id,params) { const i=this.activeIndicators.get(id);if(!i)return;i.params={...i.params,...params};this.computeAndApplyIndicator(i,this.currentCandles);if(i.headerElement)i.headerElement.querySelector('.pane-hdr-title').textContent=this.formatIndicatorTitle(i);this.saveIndicatorsState();this.render();if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList()); }
   formatIndicatorTitle(i){return `${i.name} (${Object.values(i.params).join(', ')})`;}
   computeAndApplyIndicator(i,candles) { if(!candles?.length)return;const r=computeIndicator(i.id,candles,i.params);i.unavailable=!!r.unavailable;i.unavailableReason=r.reason||'';i.values=r.seriesData||{};const un=i.headerElement?.querySelector(`#subpane-unavail-${i.instanceId}`);if(un){un.textContent=i.unavailableReason;un.style.display=i.unavailable?'inline':'';} }
-  rebalancePanes() { const count=this.subPanes.size;this.mainRatio=count?this.mainRatio:1;this.container.style.height=count?`${Math.max(500,360+count*120)}px`:'100%';this.resize(); }
+  rebalancePanes() {
+    const count=this.subPanes.size;
+    if (count === 0) {
+      this.mainRatio = 0.9; // No subpanes: main chart takes 90% of space
+    } else {
+      // With subpanes: main chart gets fixed height of 360px
+      const containerHeight = Math.max(500, 360 + count * 120);
+      this.mainRatio = 360 / containerHeight;
+    }
+    this.container.style.height = count ? `${Math.max(500, 360 + count * 120)}px` : '100%';
+    this.render();
+  }
   renderPaneSplitters(){this.splittersContainer.replaceChildren();if(!this.subPanes.size)return;const s=document.createElement('div');s.className='tv-pane-splitter';s.style.top=`${this.height*this.mainRatio-4}px`;s.title='Drag to resize price pane';s.onpointerdown=e=>{e.preventDefault();const y=e.clientY,ratio=this.mainRatio;const move=m=>{this.mainRatio=Math.max(.42,Math.min(.86,ratio+(m.clientY-y)/this.height));this.renderPaneSplitters();this.render();};const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);};this.splittersContainer.appendChild(s);this.subPanes.forEach((id,p)=>{const i=this.activeIndicators.get(id);if(i?.headerElement){i.headerElement.style.top=`${this.height*this.mainRatio+(p-1)*120+6}px`;i.headerElement.style.left='14px';}});}
   resize(width,height) { const r=this.container.getBoundingClientRect();this.width=Math.max(320,width||r.width||800);this.height=Math.max(320,height||r.height||460);const dpr=window.devicePixelRatio||1;this.canvas.width=Math.round(this.width*dpr);this.canvas.height=Math.round(this.height*dpr);this.canvas.style.width=`${this.width}px`;this.canvas.style.height=`${this.height}px`;this.ctx.setTransform(dpr,0,0,dpr,0,0);this.renderPaneSplitters();this.render(); }
   isIntraday() {
