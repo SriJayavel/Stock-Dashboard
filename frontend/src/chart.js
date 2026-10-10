@@ -7,7 +7,7 @@ import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition } from './i
 import { getAccountStorageKey } from './auth.js';
 
 export function resampleCandles(candles = [], interval = 'D') {
-  if (['1m', '2m', '5m', '15m', '30m', '60m', '1h', 'D', '1d'].includes(interval)) return candles || [];
+  if (['1m', '2m', '5m', '15m', '30m', '60m', '1h', '1d'].includes(interval)) return candles || [];
   const groups = new Map();
   for (const bar of candles || []) {
     const t = typeof bar.time === 'string' ? bar.time : (typeof bar.time === 'number' ? new Date(bar.time < 1e11 ? bar.time * 1000 : bar.time).toISOString().slice(0, 10) : `${bar.time?.year}-${String(bar.time?.month).padStart(2,'0')}-${String(bar.time?.day).padStart(2,'0')}`);
