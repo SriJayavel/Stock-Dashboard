@@ -356,6 +356,8 @@ body {
   backdrop-filter: saturate(180%) blur(20px);
   background-blend-mode: overlay;
   border-image: linear-gradient(to right, transparent, var(--accent), transparent) 1;
+  /* More professional header - reduced blur for cleaner look */
+  backdrop-filter: saturate(150%) blur(16px);
 }
 
 .mara-brand-group {
@@ -367,27 +369,27 @@ body {
   flex-shrink: 0;
 }
 .mara-brand-logo {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
 }
 .mara-brand-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #ffffff;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.5px;
 }
 .mara-brand-badge {
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  padding: 1px 6px;
-  border-radius: 2px;
-  background: rgba(41, 98, 255, 0.12);
-  color: #82b1ff;
-  border: 1px solid rgba(41, 98, 255, 0.28);
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  text-transform: none;
 }
 
 /* Command Surface */
@@ -401,27 +403,29 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #0f1117;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  padding: 0 10px;
-  height: 30px;
-  transition: all 0.15s ease;
+  border-radius: 6px;
+  padding: 0 12px;
+  height: 34px;
+  transition: all 0.2s ease;
 }
 .mara-cmd-input-wrap:focus-within {
   border-color: var(--accent);
-  background: #1e222d;
-  box-shadow: 0 0 0 1px var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.2);
 }
 .mara-cmd-icon {
   color: var(--text-dim);
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
 }
 .mara-cmd-input {
   flex: 1;
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: var(--text);
   font-size: var(--font-size-sm);
   font-family: var(--font-sans);
 }
@@ -431,16 +435,17 @@ body {
 }
 .mara-cmd-input::placeholder {
   color: var(--text-dim);
-  font-size: 11.5px;
+  opacity: 0.7;
+  font-size: var(--font-size-sm);
 }
 .mara-cmd-kbd {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text-dim);
   line-height: 1.2;
 }
@@ -449,108 +454,116 @@ body {
 .mara-active-asset-strip {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  height: 30px;
-  background: #0f1117;
+  gap: 12px;
+  padding: 0 16px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 .mara-asset-sym {
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: #ffffff;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text);
 }
 .mara-asset-name {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--text-dim);
   white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .mara-asset-price {
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: #ffffff;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text);
 }
 .mara-asset-badge {
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 2px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 .mara-live-status {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
   color: var(--gain);
-  letter-spacing: 0.04em;
-  padding-left: 6px;
-  border-left: 1px solid var(--border);
+  letter-spacing: 0.2px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 .mara-live-dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--gain);
-  box-shadow: 0 0 5px rgba(34, 171, 148, 0.7);
+  box-shadow: 0 0 4px rgba(var(--gain-rgb), 0.5);
 }
 
 /* Header Utilities */
 .mara-header-utilities {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-shrink: 0;
 }
 .mara-density-selector {
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  padding: 2px;
-  gap: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 4px 8px;
+  gap: 4px;
 }
 .mara-density-btn {
-  height: 24px;
-  padding: 0 7px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
   background: transparent;
   border: none;
-  border-radius: 2px;
+  border-radius: 50%;
   color: var(--text-dim);
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.1s ease;
-  text-transform: uppercase;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .mara-density-btn:hover {
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
 }
 .mara-density-btn.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
 }
 .mara-header-btn {
-  height: 28px;
-  padding: 0 9px;
-  background: #181b24;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  height: 34px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
   color: var(--text);
-  font-size: 11.5px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
@@ -566,38 +579,28 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
 }
 
 .mara-header-btn:hover {
-  background: var(--surface-hover);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .mara-header-btn:hover::before {
-  opacity: 0.1;
+  opacity: 0.08;
 }
 
 .mara-header-btn.active {
-  background: rgba(41, 98, 255, 0.15);
-  border-color: var(--accent);
-  color: #ffffff;
+  background: rgba(var(--accent-rgb), 0.12);
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
 }
 
 /* Hide verbose text labels in header utility buttons */
 .mara-header-btn span:not(.nav-count) {
   display: none;
-}
-.mara-header-btn:hover {
-  background: var(--surface-hover);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.2);
-}
-.mara-header-btn.active {
-  background: rgba(41, 98, 255, 0.15);
-  border-color: var(--accent);
-  color: #ffffff;
 }
 
 /* 2. Workspace Navigation Bar (46px) */
@@ -620,16 +623,16 @@ body {
   gap: 4px;
 }
 .mara-ws-tab-btn {
-  height: 32px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 16px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border: none;
+  border-radius: 6px;
   color: var(--text-dim);
   font-size: var(--font-size-sm);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  text-transform: none;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
@@ -646,31 +649,29 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
 }
 
 .mara-ws-tab-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
 }
 
 .mara-ws-tab-btn:hover::before {
-  opacity: 0.1;
+  opacity: 0.08;
 }
 
 .mara-ws-tab-btn.active {
-  color: #ffffff;
-  background: #1e222d;
-  border-color: var(--border);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
 }
 
 .mara-ws-tab-btn.active::after {
   content: '';
   position: absolute;
-  bottom: -5px;
-  left: 10px;
-  right: 10px;
+  bottom: -4px;
+  left: 8px;
+  right: 8px;
   height: 2px;
   background: var(--accent);
   border-radius: 1px;
@@ -700,29 +701,28 @@ body {
 .mara-view-switcher {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: #131722;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 2px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 4px 10px;
 }
 .mara-view-btn {
-  height: 24px;
-  padding: 0 8px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
   background: transparent;
   border: none;
-  border-radius: 2px;
+  border-radius: 50%;
   color: var(--text-dim);
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  position: relative;
-  overflow: hidden;
+  justify-content: center;
 }
 
 .mara-view-btn::before {
@@ -733,27 +733,21 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
-  border-radius: 2px;
+  border-radius: 50%;
 }
 
 .mara-view-btn:hover {
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
 }
 
 .mara-view-btn:hover::before {
-  opacity: 0.1;
+  opacity: 0.08;
 }
 
 .mara-view-btn.active {
-  background: #252a36;
-  color: #ffffff;
-}
-.mara-view-btn:hover {
-  color: #ffffff;
-}
-.mara-view-btn.active {
-  background: #252a36;
-  color: #ffffff;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
 }
 
 /* 3. Main Body Container (Rail + Main Canvas + Context Panel) */
@@ -1782,44 +1776,47 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .workspace-subnav {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 0 16px;
-  background: #181b24;
-  border-bottom: 1px solid var(--border);
-  min-height: 36px;
-  height: 36px;
+  gap: 4px;
+  padding: 0 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 40px;
+  height: 40px;
   flex-shrink: 0;
   z-index: 10;
   overflow-x: auto;
   scrollbar-width: none;
+  border-radius: 8px;
+  margin: 0 12px 12px 12px;
 }
 .workspace-subnav::-webkit-scrollbar {
   display: none;
 }
 
 .ws-sub-btn {
-  height: 26px;
-  min-height: 26px;
-  padding: 0 12px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border: none;
+  border-radius: 50%;
   color: var(--text-dim);
-  font-size: 11.5px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s ease;
-  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .ws-sub-btn:hover {
-  background: var(--surface-hover);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
 }
 .ws-sub-btn.active {
-  background: rgba(41, 98, 255, 0.16);
-  color: #82b1ff;
-  border-color: rgba(41, 98, 255, 0.4);
-  font-weight: 600;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
 }
 
 /* Sub-Panels (Analyze, Research, Monitor) */
@@ -3125,21 +3122,23 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 40px;
-  min-height: 40px;
-  max-height: 40px;
-  padding: 0 10px;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0 16px;
   box-sizing: border-box;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px 10px 0 0;
+  gap: 12px;
   overflow: visible;
   user-select: none;
   position: relative;
   z-index: 25;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* More professional toolbar - subtle elevation */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .tv-top-toolbar::-webkit-scrollbar {
@@ -3151,7 +3150,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .tv-tb-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   flex: 1;
   overflow: visible;
@@ -3160,7 +3159,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .tv-tb-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
   overflow: visible;
 }
@@ -3176,20 +3175,22 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .tv-tb-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: transparent;
-  border: 1px solid transparent;
-  color: var(--text);
-  font-size: 12px;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
   font-weight: 500;
-  padding: 4px 8px;
-  height: 28px;
-  box-sizing: border-box;
-  border-radius: var(--radius-sm);
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tv-tb-btn:hover {
@@ -6749,9 +6750,9 @@ html:root {
   --text: #d1d4dc;
   --text-dim: #787b86;
   --text-muted: #50535e;
-  --accent: #2962ff;
-  --accent-cyan: #2962ff;
-  --accent-blue: #2962ff;
+  --accent: #5b9cf6;
+  --accent-cyan: #5b9cf6;
+  --accent-blue: #5b9cf6;
   --accent-purple: #9575cd;
   --gain: #22ab94;
   --loss: #f23645;
@@ -6767,7 +6768,7 @@ html body { background: #131722; color: var(--text); font-family: var(--font-san
 html .navbar { background: rgba(19, 23, 34, 0.98); border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
 html .top-nav-workspaces, html .top-nav-views, html .search-input-wrapper, html .workspace-nav-bar { background: #1e222d; }
 html .top-ws-btn.active, html .top-nav-btn.active { background: rgba(255, 255, 255, 0.08); border-color: transparent; border-bottom: 2px solid var(--accent); color: #ffffff; font-weight: 600; box-shadow: none; }
-html .ws-tab-btn.active, html .ws-sub-btn.active { background: rgba(41, 98, 255, 0.14); border-color: rgba(41, 98, 255, 0.36); color: #8db1ff; }
+html .ws-tab-btn.active, html .ws-sub-btn.active { background: rgba(41, 98, 255, 0.14); border-color: rgba(41, 98, 255, 0.36); color: #ffffff; }
 html .search-input-wrapper:focus-within { box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.25); }
 html .glass, html .terminal-card, html .hero-card, html .macro-panel, html .screener-card { background: #1e222d; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); backdrop-filter: none; }
 html .tv-top-toolbar, html .auth-card, html .auth-preview { background: #1e222d; }
@@ -6891,7 +6892,7 @@ html.light-theme {
   --text-dim: #64748b;
   --text-muted: #94a3b8;
   --border: #e2e8f0;
-  --accent: #3b82f6;
+  --accent: #5b9cf6;
   --gain: #10b981;
   --loss: #f43f5e;
   --radius-sm: 4px;
