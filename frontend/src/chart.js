@@ -293,7 +293,13 @@ export class TerminalChart {
   }
   render() {
     if (!this.ctx || !this.width) return;
-    const c = this.ctx, w = this.width, h = this.height, bg = '#131722', grid = 'rgba(152,161,178,0.14)', muted = '#9598a1';
+    const c = this.ctx, w = this.width, h = this.height;
+    const isLight = document.documentElement.classList.contains('light-theme');
+    const bg = isLight ? '#ffffff' : '#0f1117';
+    const grid = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.035)';
+    const muted = isLight ? '#64748b' : '#94a3b8';
+    const bullColor = '#10b981'; // Emerald
+    const bearColor = '#f43f5e'; // Rose
     c.clearRect(0, 0, w, h);
     c.fillStyle = bg;
     c.fillRect(0, 0, w, h);
@@ -345,7 +351,7 @@ export class TerminalChart {
     }
     if (this.chartType === 'candles') {
       visible.forEach((b, j) => {
-        const x = plot.left + (j + 0.5) * this.barWidth, up = b.close >= b.open, color = up ? '#22ab94' : '#f23645';
+        const x = plot.left + (j + 0.5) * this.barWidth, up = b.close >= b.open, color = up ? bullColor : bearColor;
         c.strokeStyle = color; c.fillStyle = color; c.lineWidth = 1;
         c.beginPath(); c.moveTo(x, y(b.high)); c.lineTo(x, y(b.low)); c.stroke();
         const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
@@ -357,21 +363,22 @@ export class TerminalChart {
         const x = plot.left + (j + 0.5) * this.barWidth, yy = y(b.close);
         j ? c.lineTo(x, yy) : c.moveTo(x, yy);
       });
-      c.strokeStyle = '#2962ff'; c.lineWidth = 2; c.stroke();
+      c.strokeStyle = isLight ? '#2563eb' : '#60a5fa'; c.lineWidth = 2; c.stroke();
       if (this.chartType === 'area') {
         const last = visible.length - 1;
         c.lineTo(plot.left + (last + 0.5) * this.barWidth, plot.bottom);
         c.lineTo(plot.left + this.barWidth / 2, plot.bottom);
         c.closePath();
         const g = c.createLinearGradient(0, plot.top, 0, plot.bottom);
-        g.addColorStop(0, 'rgba(41,98,255,.2)'); g.addColorStop(1, 'rgba(41,98,255,0)');
+        g.addColorStop(0, isLight ? 'rgba(37,99,235,.2)' : 'rgba(96,165,250,.2)');
+        g.addColorStop(1, isLight ? 'rgba(37,99,235,0)' : 'rgba(96,165,250,0)');
         c.fillStyle = g; c.fill();
       }
     }
     const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...visible.map((b) => b.volume || 0));
     visible.forEach((b, j) => {
       const x = plot.left + (j + 0.5) * this.barWidth, hh = ((b.volume || 0) / vmax) * (plot.bottom - vTop), up = b.close >= b.open;
-      c.fillStyle = up ? 'rgba(34,171,148,.34)' : 'rgba(242,54,69,.34)';
+      c.fillStyle = up ? `${bullColor}33` : `${bearColor}33`;
       c.fillRect(x - Math.max(1, this.barWidth * 0.32), plot.bottom - hh, Math.max(1, this.barWidth * 0.64), hh);
     });
     this.activeIndicators.forEach((inst) => {
@@ -407,7 +414,7 @@ export class TerminalChart {
     if (this.pointer && this.crosshairEnabled) {
       const xx = this.pointer.x, idx = this.indexAt(xx), b = bars[idx];
       if (b) {
-        c.strokeStyle = 'rgba(41,98,255,.55)'; c.setLineDash([4, 4]);
+        c.strokeStyle = isLight ? '#2563eb' : '#60a5fa'; c.setLineDash([4, 4]);
         c.beginPath(); c.moveTo(xx, plot.top); c.lineTo(xx, panes ? h : plot.bottom); c.stroke();
         c.beginPath(); c.moveTo(plot.left, this.pointer.y); c.lineTo(w - 3, this.pointer.y); c.stroke();
         c.setLineDash([]);
@@ -419,7 +426,7 @@ export class TerminalChart {
   updateTooltip(param) { this.renderTooltip(param); }
   renderTooltip(bar) {
     if (!this.tooltip || !bar) return;
-    const o = bar.open ?? bar.value ?? 0, c = bar.close ?? bar.value ?? 0, up = c >= o, color = up ? '#22ab94' : '#f23645';
+    const o = bar.open ?? bar.value ?? 0, c = bar.close ?? bar.value ?? 0, up = c >= o, color = up ? bullColor : bearColor;
     const timeDisplay = this.isIntraday() ? formatFullTime(bar.time) : dateString(bar.time);
     this.tooltip.innerHTML = `<div class="chart-legend-row"><span class="legend-time">${timeDisplay}</span><span class="legend-item"><span class="lbl">O:</span> <span class="val">${o.toFixed(2)}</span></span><span class="legend-item"><span class="lbl">H:</span> <span class="val">${(bar.high ?? o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">L:</span> <span class="val">${(bar.low ?? o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">C:</span> <span class="val" style="color:${color};font-weight:600">${c.toFixed(2)}</span></span><span class="legend-item" style="color:${color};font-weight:600">${up ? '▲ +' : '▼ '}${(o ? (c - o) / o * 100 : 0).toFixed(2)}%</span></div>`;
   }
