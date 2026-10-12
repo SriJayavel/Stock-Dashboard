@@ -893,6 +893,282 @@ export const INDICATOR_REGISTRY = {
   },
 
   // ==========================================
+  // PREMIUM VOLUME-RANGE INDICATORS
+  // ==========================================
+
+  vwap: {
+    id: 'vwap',
+    name: 'Volume Weighted Average Price',
+    short: 'VWAP',
+    group: 'volume',
+    pane: 'overlay',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'Typical Price * Volume / Cumulative Volume',
+    levels: [],
+    render: [{ key: 'vwap', type: 'line', title: 'VWAP', defaultColor: '#ffb400', lineWidth: 3 }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const vwap = new Array(bars.length).fill(null);
+      let cumulativeTypicalPriceVolume = 0;
+      let cumulativeVolume = 0;
+
+      for (let i = 0; i < bars.length; i++) {
+        const typicalPrice = (bars[i].high + bars[i].low + bars[i].close) / 3;
+        cumulativeTypicalPriceVolume += typicalPrice * (bars[i].volume || 0);
+        cumulativeVolume += bars[i].volume || 0;
+        vwap[i] = cumulativeVolume > 0 ? cumulativeTypicalPriceVolume / cumulativeVolume : null;
+      }
+
+      return {
+        vwap: bars.map((b, i) => ({ time: b.time, value: vwap[i] })),
+      };
+    },
+  },
+
+  pvt: {
+    id: 'pvt',
+    name: 'Price Volume Trend',
+    short: 'PVT',
+    group: 'volume',
+    pane: 'separate',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'Cumulative Volume * ((Close - PrevClose) / PrevClose)',
+    levels: [0],
+    render: [{ key: 'pvt', type: 'line', title: 'PVT', defaultColor: '#06b6d4' }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const pvt = new Array(bars.length).fill(0);
+      let currentPvt = 0;
+
+      for (let i = 1; i < bars.length; i++) {
+        const priceChangePct = bars[i].close > 0 && bars[i - 1].close > 0 ?
+          (bars[i].close - bars[i - 1].close) / bars[i - 1].close : 0;
+        currentPvt += (bars[i].volume || 0) * priceChangePct;
+        pvt[i] = currentPvt;
+      }
+
+      return {
+        pvt: bars.map((b, i) => ({ time: b.time, value: pvt[i] })),
+      };
+    },
+  },
+
+  nvi: {
+    id: 'nvi',
+    name: 'Negative Volume Index',
+    short: 'NVI',
+    group: 'volume',
+    pane: 'separate',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'If Volume[t] < Volume[t-1]: NVI = PrevNVI + ((Close[t] - Close[t-1]) / Close[t-1]) * PrevNVI; Else NVI = PrevNVI',
+    levels: [],
+    render: [{ key: 'nvi', type: 'line', title: 'NVI', defaultColor: '#fb7185' }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const nvi = new Array(bars.length).fill(1000); // Start at 1000 as per tradition
+      nvi[0] = 1000;
+
+      for (let i = 1; i < bars.length; i++) {
+        if (bars[i].volume && bars[i - 1].volume && bars[i].volume < bars[i - 1].volume) {
+          const priceChangePct = bars[i - 1].close > 0 ?
+            (bars[i].close - bars[i - 1].close) / bars[i - 1].close : 0;
+          nvi[i] = nvi[i - 1] + (priceChangePct * nvi[i - 1]);
+        } else {
+          nvi[i] = nvi[i - 1];
+        }
+      }
+
+      return {
+        nvi: bars.map((b, i) => ({ time: b.time, value: nvi[i] })),
+      };
+    },
+  },
+
+  pvi: {
+    id: 'pvi',
+    name: 'Positive Volume Index',
+    short: 'PVI',
+    group: 'volume',
+    pane: 'separate',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'If Volume[t] > Volume[t-1]: PVI = PrevPVI + ((Close[t] - Close[t-1]) / Close[t-1]) * PrevPVI; Else PVI = PrevPVI',
+    levels: [],
+    render: [{ key: 'pvi', type: 'line', title: 'PVI', defaultColor: '#38bdf8' }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const pvi = new Array(bars.length).fill(1000); // Start at 1000 as per tradition
+      pvi[0] = 1000;
+
+      for (let i = 1; i < bars.length; i++) {
+        if (bars[i].volume && bars[i - 1].volume && bars[i].volume > bars[i - 1].volume) {
+          const priceChangePct = bars[i - 1].close > 0 ?
+            (bars[i].close - bars[i - 1].close) / bars[i - 1].close : 0;
+          pvi[i] = pvi[i - 1] + (priceChangePct * pvi[i - 1]);
+        } else {
+          pvi[i] = pvi[i - 1];
+        }
+      }
+
+      return {
+        pvi: bars.map((b, i) => ({ time: b.time, value: pvi[i] })),
+      };
+    },
+  },
+
+  volume_oscillator: {
+    id: 'volume_oscillator',
+    name: 'Volume Oscillator',
+    short: 'Vol OSC',
+    group: 'volume',
+    pane: 'separate',
+    params: { shortPeriod: 12, longPeriod: 26 },
+    paramDefs: [
+      { key: 'shortPeriod', name: 'Short Period', type: 'number', min: 2, max: 50, default: 12 },
+      { key: 'longPeriod', name: 'Long Period', type: 'number', min: 5, max: 100, default: 26 },
+    ],
+    needsVolume: true,
+    warmup: (p) => p.longPeriod,
+    formula: '((ShortPeriod Volume SMA - LongPeriod Volume SMA) / LongPeriod Volume SMA) * 100',
+    levels: [0],
+    render: [{ key: 'volumeOscillator', type: 'line', title: 'Volume Oscillator', defaultColor: '#a855f7' }],
+    compute: (bars, p) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const volumes = bars.map((b) => b.volume || 0);
+      const shortSma = calculateSMAValues(volumes, p.shortPeriod);
+      const longSma = calculateSMAValues(volumes, p.longPeriod);
+      const oscillator = new Array(bars.length).fill(null);
+
+      for (let i = 0; i < bars.length; i++) {
+        if (shortSma[i] != null && longSma[i] != null && longSma[i] !== 0) {
+          oscillator[i] = ((shortSma[i] - longSma[i]) / longSma[i]) * 100;
+        }
+      }
+
+      return {
+        volumeOscillator: bars.map((b, i) => ({ time: b.time, value: oscillator[i] })),
+      };
+    },
+  },
+
+  klinger_oscillator: {
+    id: 'klinger_oscillator',
+    name: 'Klinger Volume Oscillator',
+    short: 'KVO',
+    group: 'volume',
+    pane: 'separate',
+    params: { fastPeriod: 34, slowPeriod: 55, signalPeriod: 13 },
+    paramDefs: [
+      { key: 'fastPeriod', name: 'Fast EMA Period', type: 'number', min: 2, max: 100, default: 34 },
+      { key: 'slowPeriod', name: 'Slow EMA Period', type: 'number', min: 2, max: 100, default: 55 },
+      { key: 'signalPeriod', name: 'Signal Period', type: 'number', min: 1, max: 50, default: 13 },
+    ],
+    needsVolume: true,
+    warmup: (p) => p.slowPeriod + p.signalPeriod,
+    formula: 'EMA(Volume Force, Fast) - EMA(Volume Force, Slow); Signal = EMA(KVO, Signal)',
+    levels: [0],
+    render: [
+      { key: 'kvo', type: 'line', title: 'KVO', defaultColor: '#6366f1' },
+      { key: 'kvoSignal', type: 'line', title: 'Signal', defaultColor: '#e8b34e' },
+      { key: 'kvoHist', type: 'histogram', title: 'Histogram', defaultColor: '#2dd4bf' },
+    ],
+    compute: (bars, p) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const typicalPrice = bars.map((b) => (b.high + b.low + b.close) / 3);
+      const volume = bars.map((b) => b.volume || 0);
+      const trend = new Array(bars.length).fill(0);
+      const volumeForce = new Array(bars.length).fill(0);
+      const kvo = new Array(bars.length).fill(null);
+      const kvoSignal = new Array(bars.length).fill(null);
+      const kvoHist = new Array(bars.length).fill(null);
+
+      // Calculate trend
+      for (let i = 1; i < bars.length; i++) {
+        if (typicalPrice[i] > typicalPrice[i - 1]) {
+          trend[i] = 1;
+        } else if (typicalPrice[i] < typicalPrice[i - 1]) {
+          trend[i] = -1;
+        } else {
+          trend[i] = trend[i - 1];
+        }
+      }
+
+      // Calculate volume force: volume * abs(2 * ((typicalPrice - low) / (high - low) - 0.5)) * trend
+      for (let i = 0; i < bars.length; i++) {
+        const highLowRange = bars[i].high - bars[i].low;
+        if (highLowRange !== 0) {
+          const cm = ((typicalPrice[i] - bars[i].low) / highLowRange - 0.5) * 2;
+          volumeForce[i] = volume[i] * Math.abs(cm) * trend[i];
+        } else {
+          volumeForce[i] = 0;
+        }
+      }
+
+      // Calculate EMAs
+      const fastEma = calculateEMAValues(volumeForce, p.fastPeriod);
+      const slowEma = calculateEMAValues(volumeForce, p.slowPeriod);
+      const kvoRaw = new Array(bars.length).fill(null);
+
+      for (let i = 0; i < bars.length; i++) {
+        if (fastEma[i] != null && slowEma[i] != null) {
+          kvoRaw[i] = fastEma[i] - slowEma[i];
+        }
+      }
+
+      const signalEma = calculateEMAValues(kvoRaw.filter(v => v != null), p.signalPeriod);
+      let signalIndex = 0;
+
+      for (let i = 0; i < bars.length; i++) {
+        if (kvoRaw[i] != null) {
+          kvo[i] = kvoRaw[i];
+          if (signalEma[signalIndex] != null) {
+            kvoSignal[i] = signalEma[signalIndex];
+            kvoHist[i] = kvoRaw[i] - signalEma[signalIndex];
+            signalIndex++;
+          }
+        }
+      }
+
+      return {
+        kvo: bars.map((b, i) => ({ time: b.time, value: kvo[i] })),
+        kvoSignal: bars.map((b, i) => ({ time: b.time, value: kvoSignal[i] })),
+        kvoHist: bars.map((b, i) => ({
+          time: b.time,
+          value: kvoHist[i],
+          color: (kvoHist[i] || 0) >= 0 ? '#3ecf8e' : '#f0655a',
+        })),
+      };
+    },
+  },
+
+  // ==========================================
+  // TIER 2: ADVANCED VOLUME
+  // ==========================================
+
+  // ==========================================
   // TIER 2: ADVANCED OVERLAYS
   // ==========================================
 
@@ -1810,6 +2086,279 @@ export const INDICATOR_REGISTRY = {
       };
     },
   },
+
+  // ==========================================
+  // PREMIUM VOLUME-RANGE INDICATORS
+  // ==========================================
+
+  vwap: {
+    id: 'vwap',
+    name: 'Volume Weighted Average Price',
+    short: 'VWAP',
+    group: 'volume',
+    pane: 'overlay',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'Typical Price * Volume / Cumulative Volume',
+    levels: [],
+    render: [{ key: 'vwap', type: 'line', title: 'VWAP', defaultColor: '#ffb400', lineWidth: 3 }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const vwap = new Array(bars.length).fill(null);
+      let cumulativeTypicalPriceVolume = 0;
+      let cumulativeVolume = 0;
+
+      for (let i = 0; i < bars.length; i++) {
+        const typicalPrice = (bars[i].high + bars[i].low + bars[i].close) / 3;
+        cumulativeTypicalPriceVolume += typicalPrice * (bars[i].volume || 0);
+        cumulativeVolume += bars[i].volume || 0;
+        vwap[i] = cumulativeVolume > 0 ? cumulativeTypicalPriceVolume / cumulativeVolume : null;
+      }
+
+      return {
+        vwap: bars.map((b, i) => ({ time: b.time, value: vwap[i] })),
+      };
+    },
+  },
+
+  pvt: {
+    id: 'pvt',
+    name: 'Price Volume Trend',
+    short: 'PVT',
+    group: 'volume',
+    pane: 'separate',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'Cumulative Volume * ((Close - PrevClose) / PrevClose)',
+    levels: [0],
+    render: [{ key: 'pvt', type: 'line', title: 'PVT', defaultColor: '#06b6d4' }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const pvt = new Array(bars.length).fill(0);
+      let currentPvt = 0;
+
+      for (let i = 1; i < bars.length; i++) {
+        const priceChangePct = bars[i].close > 0 && bars[i - 1].close > 0 ?
+          (bars[i].close - bars[i - 1].close) / bars[i - 1].close : 0;
+        currentPvt += (bars[i].volume || 0) * priceChangePct;
+        pvt[i] = currentPvt;
+      }
+
+      return {
+        pvt: bars.map((b, i) => ({ time: b.time, value: pvt[i] })),
+      };
+    },
+  },
+
+  nvi: {
+    id: 'nvi',
+    name: 'Negative Volume Index',
+    short: 'NVI',
+    group: 'volume',
+    pane: 'separate',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'If Volume[t] < Volume[t-1]: NVI = PrevNVI + ((Close[t] - Close[t-1]) / Close[t-1]) * PrevNVI; Else NVI = PrevNVI',
+    levels: [],
+    render: [{ key: 'nvi', type: 'line', title: 'NVI', defaultColor: '#fb7185' }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const nvi = new Array(bars.length).fill(1000); // Start at 1000 as per tradition
+      nvi[0] = 1000;
+
+      for (let i = 1; i < bars.length; i++) {
+        if (bars[i].volume && bars[i - 1].volume && bars[i].volume < bars[i - 1].volume) {
+          const priceChangePct = bars[i - 1].close > 0 ?
+            (bars[i].close - bars[i - 1].close) / bars[i - 1].close : 0;
+          nvi[i] = nvi[i - 1] + (priceChangePct * nvi[i - 1]);
+        } else {
+          nvi[i] = nvi[i - 1];
+        }
+      }
+
+      return {
+        nvi: bars.map((b, i) => ({ time: b.time, value: nvi[i] })),
+      };
+    },
+  },
+
+  pvi: {
+    id: 'pvi',
+    name: 'Positive Volume Index',
+    short: 'PVI',
+    group: 'volume',
+    pane: 'separate',
+    params: {},
+    paramDefs: [],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'If Volume[t] > Volume[t-1]: PVI = PrevPVI + ((Close[t] - Close[t-1]) / Close[t-1]) * PrevPVI; Else PVI = PrevPVI',
+    levels: [],
+    render: [{ key: 'pvi', type: 'line', title: 'PVI', defaultColor: '#38bdf8' }],
+    compute: (bars) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const pvi = new Array(bars.length).fill(1000); // Start at 1000 as per tradition
+      pvi[0] = 1000;
+
+      for (let i = 1; i < bars.length; i++) {
+        if (bars[i].volume && bars[i - 1].volume && bars[i].volume > bars[i - 1].volume) {
+          const priceChangePct = bars[i - 1].close > 0 ?
+            (bars[i].close - bars[i - 1].close) / bars[i - 1].close : 0;
+          pvi[i] = pvi[i - 1] + (priceChangePct * pvi[i - 1]);
+        } else {
+          pvi[i] = pvi[i - 1];
+        }
+      }
+
+      return {
+        pvi: bars.map((b, i) => ({ time: b.time, value: pvi[i] })),
+      };
+    },
+  },
+
+  volume_oscillator: {
+    id: 'volume_oscillator',
+    name: 'Volume Oscillator',
+    short: 'Vol OSC',
+    group: 'volume',
+    pane: 'separate',
+    params: { shortPeriod: 12, longPeriod: 26 },
+    paramDefs: [
+      { key: 'shortPeriod', name: 'Short Period', type: 'number', min: 2, max: 50, default: 12 },
+      { key: 'longPeriod', name: 'Long Period', type: 'number', min: 5, max: 100, default: 26 },
+    ],
+    needsVolume: true,
+    warmup: (p) => p.longPeriod,
+    formula: '((ShortPeriod Volume SMA - LongPeriod Volume SMA) / LongPeriod Volume SMA) * 100',
+    levels: [0],
+    render: [{ key: 'volumeOscillator', type: 'line', title: 'Volume Oscillator', defaultColor: '#a855f7' }],
+    compute: (bars, p) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const volumes = bars.map((b) => b.volume || 0);
+      const shortSma = calculateSMAValues(volumes, p.shortPeriod);
+      const longSma = calculateSMAValues(volumes, p.longPeriod);
+      const oscillator = new Array(bars.length).fill(null);
+
+      for (let i = 0; i < bars.length; i++) {
+        if (shortSma[i] != null && longSma[i] != null && longSma[i] !== 0) {
+          oscillator[i] = ((shortSma[i] - longSma[i]) / longSma[i]) * 100;
+        }
+      }
+
+      return {
+        volumeOscillator: bars.map((b, i) => ({ time: b.time, value: oscillator[i] })),
+      };
+    },
+  },
+
+  klinger_oscillator: {
+    id: 'klinger_oscillator',
+    name: 'Klinger Volume Oscillator',
+    short: 'KVO',
+    group: 'volume',
+    pane: 'separate',
+    params: { fastPeriod: 34, slowPeriod: 55, signalPeriod: 13 },
+    paramDefs: [
+      { key: 'fastPeriod', name: 'Fast EMA Period', type: 'number', min: 2, max: 100, default: 34 },
+      { key: 'slowPeriod', name: 'Slow EMA Period', type: 'number', min: 2, max: 100, default: 55 },
+      { key: 'signalPeriod', name: 'Signal Period', type: 'number', min: 1, max: 50, default: 13 },
+    ],
+    needsVolume: true,
+    warmup: (p) => p.slowPeriod + p.signalPeriod,
+    formula: 'EMA(Volume Force, Fast) - EMA(Volume Force, Slow); Signal = EMA(KVO, Signal)',
+    levels: [0],
+    render: [
+      { key: 'kvo', type: 'line', title: 'KVO', defaultColor: '#6366f1' },
+      { key: 'kvoSignal', type: 'line', title: 'Signal', defaultColor: '#e8b34e' },
+      { key: 'kvoHist', type: 'histogram', title: 'Histogram', defaultColor: '#2dd4bf' },
+    ],
+    compute: (bars, p) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+      const typicalPrice = bars.map((b) => (b.high + b.low + b.close) / 3);
+      const volume = bars.map((b) => b.volume || 0);
+      const trend = new Array(bars.length).fill(0);
+      const volumeForce = new Array(bars.length).fill(0);
+      const kvo = new Array(bars.length).fill(null);
+      const kvoSignal = new Array(bars.length).fill(null);
+      const kvoHist = new Array(bars.length).fill(null);
+
+      // Calculate trend
+      for (let i = 1; i < bars.length; i++) {
+        if (typicalPrice[i] > typicalPrice[i - 1]) {
+          trend[i] = 1;
+        } else if (typicalPrice[i] < typicalPrice[i - 1]) {
+          trend[i] = -1;
+        } else {
+          trend[i] = trend[i - 1];
+        }
+      }
+
+      // Calculate volume force: volume * abs(2 * ((typicalPrice - low) / (high - low) - 0.5)) * trend
+      for (let i = 0; i < bars.length; i++) {
+        const highLowRange = bars[i].high - bars[i].low;
+        if (highLowRange !== 0) {
+          const cm = ((typicalPrice[i] - bars[i].low) / highLowRange - 0.5) * 2;
+          volumeForce[i] = volume[i] * Math.abs(cm) * trend[i];
+        } else {
+          volumeForce[i] = 0;
+        }
+      }
+
+      // Calculate EMAs
+      const fastEma = calculateEMAValues(volumeForce, p.fastPeriod);
+      const slowEma = calculateEMAValues(volumeForce, p.slowPeriod);
+      const kvoRaw = new Array(bars.length).fill(null);
+
+      for (let i = 0; i < bars.length; i++) {
+        if (fastEma[i] != null && slowEma[i] != null) {
+          kvoRaw[i] = fastEma[i] - slowEma[i];
+        }
+      }
+
+      const signalEma = calculateEMAValues(kvoRaw.filter(v => v != null), p.signalPeriod);
+      let signalIndex = 0;
+
+      for (let i = 0; i < bars.length; i++) {
+        if (kvoRaw[i] != null) {
+          kvo[i] = kvoRaw[i];
+          if (signalEma[signalIndex] != null) {
+            kvoSignal[i] = signalEma[signalIndex];
+            kvoHist[i] = kvoRaw[i] - signalEma[signalIndex];
+            signalIndex++;
+          }
+        }
+      }
+
+      return {
+        kvo: bars.map((b, i) => ({ time: b.time, value: kvo[i] })),
+        kvoSignal: bars.map((b, i) => ({ time: b.time, value: kvoSignal[i] })),
+        kvoHist: bars.map((b, i) => ({
+          time: b.time,
+          value: kvoHist[i],
+          color: (kvoHist[i] || 0) >= 0 ? '#3ecf8e' : '#f0655a',
+        })),
+      };
+    },
+  },
+
 };
 
 // --------------------------------------------------------------------------

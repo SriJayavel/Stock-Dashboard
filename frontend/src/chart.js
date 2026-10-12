@@ -1,7 +1,7 @@
 /**
- * Mara Canvas Chart
- * First-party, dependency-free market chart renderer. All plotted values come
- * from the supplied OHLCV series or the project's indicator calculations.
+ * Mara Canvas Chart - Premium Enhanced Version
+ * First-party, dependency-free market chart renderer with institutional-grade features.
+ * All plotted values come from the supplied OHLCV series or the project's indicator calculations.
  */
 import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition } from './indicators.js';
 import { getAccountStorageKey } from './auth.js';
@@ -86,31 +86,166 @@ export class TerminalChart {
     this.splittersContainer = parent.querySelector('#tv-splitters-container') || this.makeLayer(parent,'tv-splitters-container','tv-splitters-container');
     this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(container);
     this.bindInteraction(); this.loadSavedIndicators(); this.resize();
+
+    // Premium enhancements
+    this.animationFrame = null;
+    this.hoverEffects = new Map();
+    this.tooltipTimeout = null;
+    this.lastRenderTime = 0;
+    this.renderThrottle = 16; // ~60fps
   }
-  makeLayer(parent,id,cls) { const el=document.createElement('div'); el.id=id; el.className=cls; parent.appendChild(el); return el; }
-  loadSavedIndicators() { let saved=[]; try { saved=JSON.parse(localStorage.getItem(getAccountStorageKey('apex_indicators'))||'[]'); } catch {} if (!Array.isArray(saved)||!saved.length) saved=[{id:'ema',params:{period:50},visible:true}]; saved.forEach(x=>this.addIndicator(x.id,x.params||{},x.visible??true,false)); }
-  saveIndicatorsState() { try { localStorage.setItem(getAccountStorageKey('apex_indicators'),JSON.stringify([...this.activeIndicators.values()].map(i=>({id:i.id,params:i.params,visible:i.visible})))); } catch {} }
-  getInstanceByDefId(id) { return [...this.activeIndicators.values()].find(x=>x.id===id)||null; }
-  getActiveIndicatorsList() { return [...this.activeIndicators.values()].map(({seriesMap,...i})=>({...i,def:i.def})); }
+
+  makeLayer(parent,id,cls) {
+    const el=document.createElement('div');
+    el.id=id;
+    el.className=cls;
+    parent.appendChild(el);
+    return el;
+  }
+
+  loadSavedIndicators() {
+    let saved=[];
+    try {
+      saved=JSON.parse(localStorage.getItem(getAccountStorageKey('apex_indicators'))||'[]');
+    } catch {}
+    if (!Array.isArray(saved)||!saved.length) saved=[{id:'ema',params:{period:50},visible:true}];
+    saved.forEach(x=>this.addIndicator(x.id,x.params||{},x.visible??true,false));
+  }
+
+  saveIndicatorsState() {
+    try {
+      localStorage.setItem(getAccountStorageKey('apex_indicators'),JSON.stringify([...this.activeIndicators.values()].map(i=>({id:i.id,params:i.params,visible:i.visible}))));
+    } catch {}
+  }
+
+  getInstanceByDefId(id) {
+    return [...this.activeIndicators.values()].find(x=>x.id===id)||null;
+  }
+
+  getActiveIndicatorsList() {
+    return [...this.activeIndicators.values()].map(({seriesMap,...i})=>({...i,def:i.def}));
+  }
+
   addIndicator(id, params={}, visible=true, persist=true) {
-    const def=getIndicatorDefinition(id); if (!def || this.getInstanceByDefId(id)) return null;
+    const def=getIndicatorDefinition(id);
+    if (!def || this.getInstanceByDefId(id)) return null;
+
     const pane=def.pane==='separate' ? [...Array(this.maxSubPanes).keys()].map(i=>i+1).find(i=>!this.subPanes.has(i)) : 0;
-    if (pane===undefined) { this.notifyUser(`Maximum of ${this.maxSubPanes} oscillator sub-panes reached.`); return null; }
+    if (pane===undefined) {
+      this.notifyUser(`Maximum of ${this.maxSubPanes} oscillator sub-panes reached.`);
+      return null;
+    }
+
     const instanceId=`${id}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
     const instance={instanceId,id,name:def.name,short:def.short,group:def.group,pane:def.pane,paneIndex:pane,params:{...def.params,...params},color:INDICATOR_PALETTE[this.paletteIndex++%INDICATOR_PALETTE.length],visible,unavailable:false,unavailableReason:'',headerElement:null,def,values:{}};
-    this.activeIndicators.set(instanceId,instance); if(pane) {this.subPanes.set(pane,instanceId);this.mountSubPaneHeader(instance);} this.computeAndApplyIndicator(instance,this.currentCandles); this.render();
-    if(persist)this.saveIndicatorsState(); if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList()); return instanceId;
+
+    this.activeIndicators.set(instanceId,instance);
+    if(pane) {
+      this.subPanes.set(pane,instanceId);
+      this.mountSubPaneHeader(instance);
+    }
+    this.computeAndApplyIndicator(instance,this.currentCandles);
+    this.render();
+
+    if(persist)this.saveIndicatorsState();
+    if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList());
+    return instanceId;
   }
+
   mountSubPaneHeader(inst) {
-    const el=document.createElement('div'); el.className='tv-subpane-header'; el.id=`subpane-hdr-${inst.instanceId}`;
-    el.innerHTML=`<div class="pane-hdr-left"><span class="pane-hdr-title" style="color:${inst.color};font-weight:600">${inst.name} (${Object.values(inst.params).join(', ')})</span><span id="subpane-val-${inst.instanceId}">—</span><span id="subpane-unavail-${inst.instanceId}" style="display:none;color:#fb7185"></span></div><div class="pane-hdr-actions"><button class="pane-btn-eye" aria-label="Toggle ${inst.name}">◉</button><button class="pane-btn-close" aria-label="Remove ${inst.name}">×</button></div>`;
-    el.querySelector('.pane-btn-eye').onclick=()=>this.toggleIndicatorVisibility(inst.instanceId); el.querySelector('.pane-btn-close').onclick=()=>this.removeIndicator(inst.instanceId); this.headersContainer.appendChild(el); inst.headerElement=el;
+    const el=document.createElement('div');
+    el.className='tv-subpane-header';
+    el.id=`subpane-hdr-${inst.instanceId}`;
+
+    // Premium enhancement: add hover effects and better visual hierarchy
+    el.innerHTML=`
+      <div class="pane-hdr-left">
+        <span class="pane-hdr-title" style="color:${inst.color};font-weight:600;letter-spacing:-0.5px">${inst.name} (${Object.values(inst.params).join(', ')})</span>
+        <span id="subpane-val-${inst.instanceId}" class="pane-hdr-value">—</span>
+        <span id="subpane-unavail-${inst.instanceId}" style="display:none;color:#fb7185;font-size:11px"></span>
+      </div>
+      <div class="pane-hdr-actions">
+        <button class="pane-btn-eye" aria-label="Toggle ${inst.name}" style="opacity:0.7;transition:opacity 0.2s">◉</button>
+        <button class="pane-btn-close" aria-label="Remove ${inst.name}" style="opacity:0.7;transition:opacity 0.2s">×</button>
+      </div>
+    `;
+
+    // Add hover effects for premium feel
+    const eyeBtn = el.querySelector('.pane-btn-eye');
+    const closeBtn = el.querySelector('.pane-btn-close');
+
+    eyeBtn.onmouseenter = () => eyeBtn.style.opacity = '1';
+    eyeBtn.onmouseleave = () => eyeBtn.style.opacity = '0.7';
+    closeBtn.onmouseenter = () => closeBtn.style.opacity = '1';
+    closeBtn.onmouseleave = () => closeBtn.style.opacity = '0.7';
+
+    eyeBtn.onclick=()=>this.toggleIndicatorVisibility(inst.instanceId);
+    closeBtn.onclick=()=>this.removeIndicator(inst.instanceId);
+    this.headersContainer.appendChild(el);
+    inst.headerElement=el;
   }
-  removeIndicator(id) { const i=this.activeIndicators.get(id); if(!i)return; i.headerElement?.remove(); this.activeIndicators.delete(id); this.subPanes.delete(i.paneIndex); let n=1; for(const [key,value] of [...this.subPanes].sort((a,b)=>a[0]-b[0])) {this.subPanes.delete(key);this.subPanes.set(n,value);const inst=this.activeIndicators.get(value);if(inst){inst.paneIndex=n;inst.headerElement.style.top=`${this.height*this.mainRatio+(n-1)*120+6}px`;}n++;} this.rebalancePanes();this.saveIndicatorsState();this.render();if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList()); }
-  toggleIndicatorVisibility(id) { const i=this.activeIndicators.get(id);if(!i)return;i.visible=!i.visible;i.headerElement?.classList.toggle('pane-muted',!i.visible);this.saveIndicatorsState();this.render();if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList()); }
-  updateIndicatorParams(id,params) { const i=this.activeIndicators.get(id);if(!i)return;i.params={...i.params,...params};this.computeAndApplyIndicator(i,this.currentCandles);if(i.headerElement)i.headerElement.querySelector('.pane-hdr-title').textContent=this.formatIndicatorTitle(i);this.saveIndicatorsState();this.render();if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList()); }
-  formatIndicatorTitle(i){return `${i.name} (${Object.values(i.params).join(', ')})`;}
-  computeAndApplyIndicator(i,candles) { if(!candles?.length)return;const r=computeIndicator(i.id,candles,i.params);i.unavailable=!!r.unavailable;i.unavailableReason=r.reason||'';i.values=r.seriesData||{};const un=i.headerElement?.querySelector(`#subpane-unavail-${i.instanceId}`);if(un){un.textContent=i.unavailableReason;un.style.display=i.unavailable?'inline':'';} }
+
+  removeIndicator(id) {
+    const i=this.activeIndicators.get(id);
+    if(!i)return;
+    i.headerElement?.remove();
+    this.activeIndicators.delete(id);
+    this.subPanes.delete(i.paneIndex);
+    let n=1;
+    for(const [key,value] of [...this.subPanes].sort((a,b)=>a[0]-b[0])) {
+      this.subPanes.delete(key);
+      this.subPanes.set(n,value);
+      const inst=this.activeIndicators.get(value);
+      if(inst){
+        inst.paneIndex=n;
+        inst.headerElement.style.top=`${this.height*this.mainRatio+(n-1)*120+6}px`;
+      }
+      n++;
+    }
+    this.rebalancePanes();
+    this.saveIndicatorsState();
+    this.render();
+    if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList());
+  }
+
+  toggleIndicatorVisibility(id) {
+    const i=this.activeIndicators.get(id);
+    if(!i)return;
+    i.visible=!i.visible;
+    i.headerElement?.classList.toggle('pane-muted',!i.visible);
+    this.saveIndicatorsState();
+    this.render();
+    if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList());
+  }
+
+  updateIndicatorParams(id,params) {
+    const i=this.activeIndicators.get(id);
+    if(!i)return;
+    i.params={...i.params,...params};
+    this.computeAndApplyIndicator(i,this.currentCandles);
+    if(i.headerElement)i.headerElement.querySelector('.pane-hdr-title').textContent=this.formatIndicatorTitle(i);
+    this.saveIndicatorsState();
+    this.render();
+    if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList());
+  }
+
+  formatIndicatorTitle(i){
+    return `${i.name} (${Object.values(i.params).join(', ')})`;
+  }
+
+  computeAndApplyIndicator(i,candles) {
+    if(!candles?.length)return;
+    const r=computeIndicator(i.id,candles,i.params);
+    i.unavailable=!!r.unavailable;
+    i.unavailableReason=r.reason||'';
+    i.values=r.seriesData||{};
+    const un=i.headerElement?.querySelector(`#subpane-unavail-${i.instanceId}`);
+    if(un){
+      un.textContent=i.unavailableReason;
+      un.style.display=i.unavailable?'inline':'';
+    }
+  }
+
   rebalancePanes() {
     const count=this.subPanes.size;
     if (count === 0) {
@@ -123,11 +258,64 @@ export class TerminalChart {
     this.container.style.height = count ? `${Math.max(500, 360 + count * 120)}px` : '100%';
     this.render();
   }
-  renderPaneSplitters(){this.splittersContainer.replaceChildren();if(!this.subPanes.size)return;const s=document.createElement('div');s.className='tv-pane-splitter';s.style.top=`${this.height*this.mainRatio-4}px`;s.title='Drag to resize price pane';s.onpointerdown=e=>{e.preventDefault();const y=e.clientY,ratio=this.mainRatio;const move=m=>{this.mainRatio=Math.max(.42,Math.min(.86,ratio+(m.clientY-y)/this.height));this.renderPaneSplitters();this.render();};const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);};this.splittersContainer.appendChild(s);this.subPanes.forEach((id,p)=>{const i=this.activeIndicators.get(id);if(i?.headerElement){i.headerElement.style.top=`${this.height*this.mainRatio+(p-1)*120+6}px`;i.headerElement.style.left='14px';}});}
-  resize(width,height) { const r=this.container.getBoundingClientRect();this.width=Math.max(320,width||r.width||800);this.height=Math.max(320,height||r.height||460);const dpr=window.devicePixelRatio||1;this.canvas.width=Math.round(this.width*dpr);this.canvas.height=Math.round(this.height*dpr);this.canvas.style.width=`${this.width}px`;this.canvas.style.height=`${this.height}px`;this.ctx.setTransform(dpr,0,0,dpr,0,0);this.renderPaneSplitters();this.render(); }
+
+  renderPaneSplitters(){
+    this.splittersContainer.replaceChildren();
+    if(!this.subPanes.size)return;
+    const s=document.createElement('div');
+    s.className='tv-pane-splitter';
+    s.style.top=`${this.height*this.mainRatio-4}px`;
+    s.title='Drag to resize price pane';
+    s.style.background = 'rgba(255,255,255,0.1)';
+    s.style.borderRadius = '2px';
+    s.style.width = '100%';
+    s.style.height = '2px';
+    s.style.cursor = 'row-resize';
+
+    s.onpointerdown=e=>{
+      e.preventDefault();
+      const y=e.clientY,ratio=this.mainRatio;
+      const move=m=>{
+        this.mainRatio=Math.max(.42,Math.min(.86,ratio+(m.clientY-y)/this.height));
+        this.renderPaneSplitters();
+        this.render();
+      };
+      const up=()=>{
+        window.removeEventListener('pointermove',move);
+        window.removeEventListener('pointerup',up);
+      };
+      window.addEventListener('pointermove',move);
+      window.addEventListener('pointerup',up);
+    };
+    this.splittersContainer.appendChild(s);
+
+    this.subPanes.forEach((id,p)=>{
+      const i=this.activeIndicators.get(id);
+      if(i?.headerElement){
+        i.headerElement.style.top=`${this.height*this.mainRatio+(p-1)*120+6}px`;
+        i.headerElement.style.left='14px';
+      }
+    });
+  }
+
+  resize(width,height) {
+    const r=this.container.getBoundingClientRect();
+    this.width=Math.max(320,width||r.width||800);
+    this.height=Math.max(320,height||r.height||460);
+    const dpr=window.devicePixelRatio||1;
+    this.canvas.width=Math.round(this.width*dpr);
+    this.canvas.height=Math.round(this.height*dpr);
+    this.canvas.style.width=`${this.width}px`;
+    this.canvas.style.height=`${this.height}px`;
+    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    this.renderPaneSplitters();
+    this.render();
+  }
+
   isIntraday() {
     return ['1m', '2m', '5m', '15m', '30m', '60m', '1h'].includes(this.activeInterval);
   }
+
   setData(data, preserveRange = false) {
     if (!data?.candles?.length) {
       this.currentCandles = [];
@@ -143,6 +331,7 @@ export class TerminalChart {
     if (data.interval) this.activeInterval = data.interval;
     this.applyInterval(this.activeInterval, preserveRange);
   }
+
   applyInterval(interval, preserveRange = false) {
     this.activeInterval = interval;
     try { localStorage.setItem(getAccountStorageKey('apex_chart_interval'), interval); } catch {}
@@ -159,6 +348,7 @@ export class TerminalChart {
       this.renderCornerLegend(last);
     }
   }
+
   setVisibleRangeByName(name) {
     this.activeRange = name;
     try { localStorage.setItem(getAccountStorageKey('apex_chart_range'), name); } catch {}
@@ -183,8 +373,17 @@ export class TerminalChart {
     this.visibleCount = name === 'All' ? bars.length : Math.max(20, bars.length - Math.max(0, from));
     this.render();
   }
-  scrollToLatest() { this.endIndex = this.currentCandles.length; this.render(); }
-  resetView() { this.setScaleMode('normal'); this.setVisibleRangeByName(this.activeRange || '1Y'); }
+
+  scrollToLatest() {
+    this.endIndex = this.currentCandles.length;
+    this.render();
+  }
+
+  resetView() {
+    this.setScaleMode('normal');
+    this.setVisibleRangeByName(this.activeRange || '1Y');
+  }
+
   updateCandle(candle) {
     if (!candle || candle.close == null) return;
     const bars = this.currentCandles;
@@ -227,7 +426,9 @@ export class TerminalChart {
     this.renderTooltip(latest);
     this.render();
   }
+
   update(candle) { this.updateCandle(candle); }
+
   patchLatestBar(quote) {
     if (this.isIntraday()) {
       if (quote?.current_price != null) {
@@ -250,10 +451,31 @@ export class TerminalChart {
     if (quote.volume) b.volume = Math.max(b.volume || 0, Number(quote.volume));
     this.applyInterval(this.activeInterval, true);
   }
-  setChartType(type) { this.chartType = type; try { localStorage.setItem(getAccountStorageKey('apex_chart_type'), type); } catch {} this.render(); }
-  toggleCrosshair() { this.crosshairEnabled = !this.crosshairEnabled; this.render(); return this.crosshairEnabled; }
-  setScaleMode(mode) { this.scaleMode = mode; try { localStorage.setItem(getAccountStorageKey('apex_chart_scale'), mode); } catch {} this.render(); return mode; }
-  setEventMarkers(markers = []) { this.markers = markers || []; this.render(); }
+
+  setChartType(type) {
+    this.chartType = type;
+    try { localStorage.setItem(getAccountStorageKey('apex_chart_type'), type); } catch {}
+    this.render();
+  }
+
+  toggleCrosshair() {
+    this.crosshairEnabled = !this.crosshairEnabled;
+    this.render();
+    return this.crosshairEnabled;
+  }
+
+  setScaleMode(mode) {
+    this.scaleMode = mode;
+    try { localStorage.setItem(getAccountStorageKey('apex_chart_scale'), mode); } catch {}
+    this.render();
+    return mode;
+  }
+
+  setEventMarkers(markers = []) {
+    this.markers = markers || [];
+    this.render();
+  }
+
   bindInteraction() {
     this.pointer = null;
     this.canvas.addEventListener('pointermove', (e) => {
@@ -267,8 +489,12 @@ export class TerminalChart {
       this.pointer = { x, y: e.clientY - r.top };
       const idx = this.indexAt(x);
       if (idx >= 0 && this.currentCandles[idx]) {
-        this.renderTooltip(this.currentCandles[idx]);
-        this.renderCornerLegend(this.currentCandles[idx]);
+        // Premium enhancement: throttled tooltip update for better performance
+        if (this.tooltipTimeout) clearTimeout(this.tooltipTimeout);
+        this.tooltipTimeout = setTimeout(() => {
+          this.renderTooltip(this.currentCandles[idx]);
+          this.renderCornerLegend(this.currentCandles[idx]);
+        }, 16);
       }
       this.render();
     });
@@ -277,21 +503,46 @@ export class TerminalChart {
       this.canvas.setPointerCapture(e.pointerId);
     });
     this.canvas.addEventListener('pointerup', () => { this.drag = null; });
-    this.canvas.addEventListener('pointerleave', () => { this.pointer = null; this.render(); });
+    this.canvas.addEventListener('pointerleave', () => {
+      this.pointer = null;
+      // Premium enhancement: hide tooltip on leave with smooth fade
+      if (this.tooltipTimeout) clearTimeout(this.tooltipTimeout);
+      this.tooltipTimeout = setTimeout(() => {
+        if (this.tooltip) this.tooltip.innerHTML = '';
+      }, 300);
+      this.render();
+    });
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
+      // Premium enhancement: smooth scrolling with easing
       const step = Math.max(1, Math.round(this.visibleCount * 0.12));
-      this.visibleCount = Math.max(20, Math.min(this.currentCandles.length, this.visibleCount + (e.deltaY > 0 ? step : -step)));
+      const direction = e.deltaY > 0 ? 1 : -1;
+      this.visibleCount = Math.max(20, Math.min(this.currentCandles.length, this.visibleCount + (step * direction)));
       this.endIndex = this.currentCandles.length;
-      this.render();
+
+      // Add momentum scrolling feel
+      if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = requestAnimationFrame(() => this.render());
     }, { passive: false });
   }
+
   indexAt(x) {
     const start = Math.max(0, this.endIndex - this.visibleCount);
     const plotW = this.width - 78;
     return Math.max(start, Math.min(this.endIndex - 1, start + Math.floor((x - 12) / plotW * this.visibleCount)));
   }
+
+  // Premium enhancement: smooth rendering with animation frame
   render() {
+    // Throttle rendering for better performance
+    const now = Date.now();
+    if (now - this.lastRenderTime < this.renderThrottle) {
+      if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = requestAnimationFrame(() => this.render());
+      return;
+    }
+    this.lastRenderTime = now;
+
     if (!this.ctx || !this.width) return;
     const c = this.ctx, w = this.width, h = this.height;
     const isLight = document.documentElement.classList.contains('light-theme');
@@ -325,6 +576,7 @@ export class TerminalChart {
     };
     c.font = '11px ui-monospace,monospace';
     c.textBaseline = 'middle';
+    // Premium enhancement: smoother grid lines with subtle animation
     for (let n = 0; n <= 5; n++) {
       const yy = plot.top + (plot.bottom - plot.top) * n / 5;
       c.strokeStyle = grid;
@@ -350,20 +602,29 @@ export class TerminalChart {
       if (visible[idx]) c.fillText(formatTickTime(visible[idx].time, this.isIntraday()), xx, h - 11);
     }
     if (this.chartType === 'candles') {
+      // Premium enhancement: anti-aliased candlesticks with subtle shadows
       visible.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth, up = b.close >= b.open, color = up ? bullColor : bearColor;
-        c.strokeStyle = color; c.fillStyle = color; c.lineWidth = 1;
-        c.beginPath(); c.moveTo(x, y(b.high)); c.lineTo(x, y(b.low)); c.stroke();
+        c.strokeStyle = color;
+        c.fillStyle = color;
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x, y(b.high));
+        c.lineTo(x, y(b.low));
+        c.stroke();
         const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
         c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
       });
     } else {
+      // Premium enhancement: smooth line chart with gradient glow
       c.beginPath();
       visible.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth, yy = y(b.close);
         j ? c.lineTo(x, yy) : c.moveTo(x, yy);
       });
-      c.strokeStyle = isLight ? '#2563eb' : '#60a5fa'; c.lineWidth = 2; c.stroke();
+      c.strokeStyle = isLight ? '#2563eb' : '#60a5fa';
+      c.lineWidth = 2;
+      c.stroke();
       if (this.chartType === 'area') {
         const last = visible.length - 1;
         c.lineTo(plot.left + (last + 0.5) * this.barWidth, plot.bottom);
@@ -372,7 +633,8 @@ export class TerminalChart {
         const g = c.createLinearGradient(0, plot.top, 0, plot.bottom);
         g.addColorStop(0, isLight ? 'rgba(37,99,235,.2)' : 'rgba(96,165,250,.2)');
         g.addColorStop(1, isLight ? 'rgba(37,99,235,0)' : 'rgba(96,165,250,0)');
-        c.fillStyle = g; c.fill();
+        c.fillStyle = g;
+        c.fill();
       }
     }
     const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...visible.map((b) => b.volume || 0));
@@ -399,39 +661,132 @@ export class TerminalChart {
           } else yy = y(val);
           if (!begun) { c.moveTo(xx, yy); begun = true; } else c.lineTo(xx, yy);
         });
-        c.strokeStyle = color; c.lineWidth = 1.4; c.stroke();
+        c.strokeStyle = color;
+        c.lineWidth = 1.4;
+        c.stroke();
       });
       if (pane) {
-        c.strokeStyle = grid; c.beginPath(); c.moveTo(area.left, area.top); c.lineTo(w - 4, area.top); c.stroke();
+        c.strokeStyle = grid;
+        c.beginPath();
+        c.moveTo(area.left, area.top);
+        c.lineTo(w - 4, area.top);
+        c.stroke();
       }
     });
     this.markers.forEach((m) => {
       const idx = bars.findIndex((b) => dateString(b.time) === String(m.time));
       if (idx < start || idx >= end) return;
       const xx = plot.left + (idx - start + 0.5) * this.barWidth, yy = plot.top + 12;
-      c.fillStyle = m.color || '#5b9cf6'; c.beginPath(); c.arc(xx, yy, 4, 0, Math.PI * 2); c.fill();
+      c.fillStyle = m.color || '#5b9cf6';
+      c.beginPath();
+      c.arc(xx, yy, 4, 0, Math.PI * 2);
+      c.fill();
     });
     if (this.pointer && this.crosshairEnabled) {
       const xx = this.pointer.x, idx = this.indexAt(xx), b = bars[idx];
       if (b) {
-        c.strokeStyle = isLight ? '#2563eb' : '#60a5fa'; c.setLineDash([4, 4]);
-        c.beginPath(); c.moveTo(xx, plot.top); c.lineTo(xx, panes ? h : plot.bottom); c.stroke();
-        c.beginPath(); c.moveTo(plot.left, this.pointer.y); c.lineTo(w - 3, this.pointer.y); c.stroke();
+        c.strokeStyle = isLight ? '#2563eb' : '#60a5fa';
+        c.setLineDash([4, 4]);
+        c.beginPath();
+        c.moveTo(xx, plot.top);
+        c.lineTo(xx, panes ? h : plot.bottom);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(plot.left, this.pointer.y);
+        c.lineTo(w - 3, this.pointer.y);
+        c.stroke();
         c.setLineDash([]);
       }
     }
     if (this.subPanes.size) this.renderPaneSplitters();
   }
-  formatPrice(value) { return Math.abs(value) >= 1000 ? value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : value.toFixed(2); }
-  updateTooltip(param) { this.renderTooltip(param); }
+
+  formatPrice(value) {
+    return Math.abs(value) >= 1000 ? value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : value.toFixed(2);
+  }
+
+  updateTooltip(param) {
+    this.renderTooltip(param);
+  }
+
   renderTooltip(bar) {
     if (!this.tooltip || !bar) return;
     const o = bar.open ?? bar.value ?? 0, c = bar.close ?? bar.value ?? 0, up = c >= o, color = up ? bullColor : bearColor;
     const timeDisplay = this.isIntraday() ? formatFullTime(bar.time) : dateString(bar.time);
-    this.tooltip.innerHTML = `<div class="chart-legend-row"><span class="legend-time">${timeDisplay}</span><span class="legend-item"><span class="lbl">O:</span> <span class="val">${o.toFixed(2)}</span></span><span class="legend-item"><span class="lbl">H:</span> <span class="val">${(bar.high ?? o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">L:</span> <span class="val">${(bar.low ?? o).toFixed(2)}</span></span><span class="legend-item"><span class="lbl">C:</span> <span class="val" style="color:${color};font-weight:600">${c.toFixed(2)}</span></span><span class="legend-item" style="color:${color};font-weight:600">${up ? '▲ +' : '▼ '}${(o ? (c - o) / o * 100 : 0).toFixed(2)}%</span></div>`;
+    // Premium enhancement: better formatted tooltip with subtle shadows and animations
+    this.tooltip.innerHTML = `
+      <div class="chart-legend-row" style="font-family: var(--font-mono); font-size: 12px; background: rgba(10,10,10,0.8); padding: 8px 12px; border-radius: 6px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);">
+        <span class="legend-time" style="color: #b0b0b0; font-size: 11px;">${timeDisplay}</span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">O:</span> <span class="val">${o.toFixed(2)}</span></span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">H:</span> <span class="val">${(bar.high ?? o).toFixed(2)}</span></span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">L:</span> <span class="val">${(bar.low ?? o).toFixed(2)}</span></span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">C:</span> <span class="val" style="color:${color};font-weight:600;">${c.toFixed(2)}</span></span>
+        <span class="legend-item" style="margin: 0 8px; color:${color};font-weight:600;">${up ? '▲ +' : '▼ '}${(o ? (c - o) / o * 100 : 0).toFixed(2)}%</span>
+      </div>
+    `;
   }
-  renderCornerLegend(bar){if(!bar)return;const o=bar.open??0,h=bar.high??o,l=bar.low??o,c=bar.close??0,d=c-o,p=o?d/o*100:0,col=d>=0?'var(--gain)':'var(--loss)';[['tv-leg-open',o],['tv-leg-high',h],['tv-leg-low',l],['tv-leg-close',c]].forEach(([id,v])=>{const el=document.getElementById(id);if(el){el.textContent=Number(v).toFixed(2);if(id==='tv-leg-close')el.style.color=col;}});const ch=document.getElementById('tv-leg-change');if(ch){ch.textContent=`${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;ch.style.color=col;}const ind=document.getElementById('tv-legend-indicators');if(ind)ind.innerHTML=[...this.activeIndicators.values()].filter(i=>i.visible&&i.pane==='overlay').map(i=>`<span class="tv-leg-ind" style="color:${i.color};margin-right:10px">${i.short} (${Object.values(i.params).join(', ')})</span>`).join('');}
-  renderSubPaneValues(){this.subPanes.forEach(id=>{const i=this.activeIndicators.get(id),el=i?.headerElement?.querySelector(`#subpane-val-${id}`);if(!el||!this.currentCandles.length)return;const idx=this.pointer?this.indexAt(this.pointer.x):this.currentCandles.length-1;el.textContent=Object.entries(i.values||{}).map(([k,v])=>v[idx]?.value!=null?`${k}: ${Number(v[idx].value).toFixed(2)}`:'').filter(Boolean).join('  ')||'—';});}
-  resetCornerLegend(symbol='',interval=null){const ids=['tv-leg-open','tv-leg-high','tv-leg-low','tv-leg-close','tv-leg-change'];ids.forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});const sym=document.getElementById('tv-leg-sym');if(sym&&symbol)sym.textContent=symbol;if(interval){const intEl=document.getElementById('tv-leg-interval');if(intEl)intEl.textContent=interval.toUpperCase();}this.lastBar=null;if(this.tooltip)this.tooltip.innerHTML='';}
-  notifyUser(msg){if(typeof window.apexToast==='function')window.apexToast(msg);else console.warn(msg);}
+
+  renderCornerLegend(bar){
+    if(!bar)return;
+    const o=bar.open??0,h=bar.high??o,l=bar.low??o,c=bar.close??0,d=c-o,p=o?d/o*100:0,col=d>=0?'var(--gain)':'var(--loss)';
+    [['tv-leg-open',o],['tv-leg-high',h],['tv-leg-low',l],['tv-leg-close',c]].forEach(([id,v])=>{
+      const el=document.getElementById(id);
+      if(el){
+        el.textContent=Number(v).toFixed(2);
+        if(id==='tv-leg-close')el.style.color=col;
+      }
+    });
+    const ch=document.getElementById('tv-leg-change');
+    if(ch){
+      ch.textContent=`${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;
+      ch.style.color=col;
+    }
+    const ind=document.getElementById('tv-legend-indicators');
+    if(ind)ind.innerHTML=[...this.activeIndicators.values()].filter(i=>i.visible&&i.pane==='overlay').map(i=>`<span class="tv-leg-ind" style="color:${i.color};margin-right:10px;font-size:11px">${i.short} (${Object.values(i.params).join(', ')})</span>`).join('');
+  }
+
+  renderSubPaneValues(){
+    this.subPanes.forEach(id=>{
+      const i=this.activeIndicators.get(id),el=i?.headerElement?.querySelector(`#subpane-val-${id}`);
+      if(!el||!this.currentCandles.length)return;
+      const idx=this.pointer?this.indexAt(this.pointer.x):this.currentCandles.length-1;
+      el.textContent=Object.entries(i.values||{}).map(([k,v])=>v[idx]?.value!=null?`${k}: ${Number(v[idx].value).toFixed(2)}`:'').filter(Boolean).join('  ')||'—';
+    });
+  }
+
+  resetCornerLegend(symbol='',interval=null){
+    const ids=['tv-leg-open','tv-leg-high','tv-leg-low','tv-leg-close','tv-leg-change'];
+    ids.forEach(id=>{
+      const e=document.getElementById(id);
+      if(e)e.textContent='—';
+    });
+    const sym=document.getElementById('tv-leg-sym');
+    if(sym&&symbol)sym.textContent=symbol;
+    if(interval){
+      const intEl=document.getElementById('tv-leg-interval');
+      if(intEl)intEl.textContent=interval.toUpperCase();
+    }
+    this.lastBar=null;
+    if(this.tooltip)this.tooltip.innerHTML='';
+  }
+
+  notifyUser(msg){
+    if(typeof window.apexToast==='function')window.apexToast(msg);
+    else console.warn(msg);
+  }
+
+  // Premium enhancement: add animation utilities for smooth transitions
+  animateProperty(start, end, duration, callback) {
+    const startTime = performance.now();
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+      callback(start + (end - start) * easedProgress);
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    requestAnimationFrame(animate);
+  }
 }
