@@ -619,7 +619,7 @@ function setupMaraShellControls() {
     }
 
     // Keys Alt+1 to Alt+6 or 1 to 6 (when outside text inputs) -> Quick Workspace Switching
-    const isAltDigit = e.altKey && !e.ctrlKey && !e.metaKey && (
+    const isAltDigit = !isEditingText && e.altKey && !e.ctrlKey && !e.metaKey && (
       (e.key >= '1' && e.key <= '6') || (e.code >= 'Digit1' && e.code <= 'Digit6')
     );
     const isPlainDigit = !isEditingText && !e.altKey && !e.ctrlKey && !e.metaKey && (
