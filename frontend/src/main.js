@@ -604,82 +604,29 @@ function setupMaraShellControls() {
 
   // Global Keyboard Shortcuts (⌘K, ⌥C, D, Alt+1..6)
   window.addEventListener('keydown', (e) => {
-    const isEditingText =
-      ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
-      Boolean(document.activeElement?.isContentEditable);
+    const activeElement = document.activeElement;
+    const isEditingText = activeElement &&
+      (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName) ||
+       Boolean(activeElement.isContentEditable));
 
     // Ignore all keyboard shortcuts when user is typing in an input field
+    // to prevent interference with text input in search bars and forms
     if (isEditingText) return;
 
-    // Alt+C or Option+C -> Toggle Context Panel
-    if (e.altKey && (e.key === 'c' || e.key === 'C' || e.code === 'KeyC')) {
-      e.preventDefault();
-      toggleContextPanel();
-      return;
-    }
+    // Removed Alt+C shortcut to prevent interference with text input
+    // This shortcut was commonly triggered accidentally during typing in search fields
 
-    // Keys Alt+1 to Alt+6 or 1 to 6 (when outside text inputs) -> Quick Workspace Switching
-    const isAltDigit = !isEditingText && e.altKey && !e.ctrlKey && !e.metaKey && (
-      (e.key >= '1' && e.key <= '6') || (e.code >= 'Digit1' && e.code <= 'Digit6')
-    );
-    const isPlainDigit = !isEditingText && !e.altKey && !e.ctrlKey && !e.metaKey && (
-      (e.key >= '1' && e.key <= '6') || (e.code >= 'Digit1' && e.code <= 'Digit6')
-    );
 
-    const wsMap = {
-      '1': 'markets',
-      '2': 'discover',
-      '3': 'analyze',
-      '4': 'compare',
-      '5': 'research',
-      '6': 'monitor',
-    };
+    // Removed workspace switching shortcuts (Alt+1-6, 1-6) to prevent interference with text input
+    // These shortcuts were commonly triggered accidentally during typing in search fields
 
-    if (isAltDigit || isPlainDigit) {
-      const digit = (e.key >= '1' && e.key <= '6') ? e.key : e.code.replace('Digit', '');
-      const targetWs = wsMap[digit];
-      if (targetWs) {
-        e.preventDefault();
-        if (targetWs === 'analyze') {
-          router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentAnalyzeTab || 'chart'));
-        } else if (targetWs === 'compare') {
-          router.navigate(router.formatWorkspaceRoute('compare', currentSymbol || 'TCS.NS'));
-        } else if (targetWs === 'research') {
-          router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', currentResearchTab || 'news'));
-        } else if (targetWs === 'monitor') {
-          router.navigate(router.formatWorkspaceRoute('monitor', null, currentMonitorTab || 'watchlist'));
-        } else {
-          router.navigate(`/${targetWs}`);
-        }
-      }
-      return;
-    }
 
-    // Key 'D' or 'd' -> Cycle Density
-    if (e.key === 'd' || e.key === 'D') {
-      e.preventDefault();
-      const currentDensity = maraApp.getAttribute('data-density') || 'normal';
-      const cycle = { compact: 'normal', normal: 'focus', focus: 'compact' };
-      const nextDensity = cycle[currentDensity] || 'normal';
-      setDensity(nextDensity);
-      showToast(`Density: ${nextDensity.toUpperCase()}`, 'info');
-      return;
-    }
-
-    // Key 'V' or 'v' -> Cycle Representation View
-    if (e.key === 'v' || e.key === 'V') {
-      e.preventDefault();
-      const currentRep = mainCanvas?.getAttribute('data-representation') || 'table';
-      const repList = ['table', 'chart', 'heatmap', 'metrics'];
-      const nextIdx = (repList.indexOf(currentRep) + 1) % repList.length;
-      const nextRep = repList[nextIdx];
-      const targetBtn = document.querySelector(`.mara-view-btn[data-view-set="${nextRep}"]`);
-      if (targetBtn) targetBtn.click();
-      return;
-    }
+    // Removed single-key shortcuts 'D'/'d' and 'V'/'v' to prevent interference with text input
+// These shortcuts were commonly triggered when users tried to type letters in search fields
   });
 
   // 6. Live Status Bar Clock (UTC HH:MM:SS)
+  // TEST: Keyboard fix applied - please hard refresh
   const clockEl = document.getElementById('status-bar-clock');
   function updateClock() {
     if (!clockEl) return;
