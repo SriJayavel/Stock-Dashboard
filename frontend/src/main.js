@@ -604,7 +604,12 @@ function setupMaraShellControls() {
 
   // Global Keyboard Shortcuts (⌘K, ⌥C, D, Alt+1..6)
   window.addEventListener('keydown', (e) => {
-    const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+    const isEditingText =
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
+      Boolean(document.activeElement?.isContentEditable);
+
+    // Ignore all keyboard shortcuts when user is typing in an input field
+    if (isEditingText) return;
 
     // Alt+C or Option+C -> Toggle Context Panel
     if (e.altKey && (e.key === 'c' || e.key === 'C' || e.code === 'KeyC')) {
@@ -617,7 +622,7 @@ function setupMaraShellControls() {
     const isAltDigit = e.altKey && !e.ctrlKey && !e.metaKey && (
       (e.key >= '1' && e.key <= '6') || (e.code >= 'Digit1' && e.code <= 'Digit6')
     );
-    const isPlainDigit = !isInput && !e.altKey && !e.ctrlKey && !e.metaKey && (
+    const isPlainDigit = !isEditingText && !e.altKey && !e.ctrlKey && !e.metaKey && (
       (e.key >= '1' && e.key <= '6') || (e.code >= 'Digit1' && e.code <= 'Digit6')
     );
 
