@@ -2359,7 +2359,391 @@ export const INDICATOR_REGISTRY = {
     },
   },
 
+  // ==========================================
+  // PREMIUM INDICATORS
+  // ==========================================
+
+  ichimoku: {
+    id: 'ichimoku',
+    name: 'Ichimoku Cloud',
+    short: 'Ichimoku',
+    group: 'overlay',
+    pane: 'overlay',
+    params: { conversionPeriod: 9, basePeriod: 26, laggingPeriod: 52, displacement: 26 },
+    paramDefs: [
+      { key: 'conversionPeriod', name: 'Conversion Line Period', type: 'number', min: 1, max: 100, default: 9 },
+      { key: 'basePeriod', name: 'Base Line Period', type: 'number', min: 1, max: 100, default: 26 },
+      { key: 'laggingPeriod', name: 'Lagging Span Period', type: 'number', min: 1, max: 100, default: 52 },
+      { key: 'displacement', name: 'Displacement', type: 'number', min: 1, max: 100, default: 26 },
+    ],
+    needsVolume: false,
+    warmup: (p) => p.laggingPeriod + p.displacement,
+    formula: 'Conversion Line = (Highest High + Lowest Low)/2 for Conversion Period; Base Line = (Highest High + Lowest Low)/2 for Base Period; Leading Span A = (Conversion Line + Base Line)/2; Leading Span B = (Highest High + Lowest Low)/2 for Lagging Period; Lagging Span = Close plotted Displacement periods behind',
+    levels: [],
+    render: [
+      { key: 'conversionLine', type: 'line', title: 'Conversion Line', defaultColor: '#ff6b6b' },
+      { key: 'baseLine', type: 'line', title: 'Base Line', defaultColor: '#4ecdc4' },
+      { key: 'leadingSpanA', type: 'line', title: 'Leading Span A', defaultColor: '#45b7d1', lineStyle: 2 },
+      { key: 'leadingSpanB', type: 'line', title: 'Leading Span B', defaultColor: '#ff9ff3', lineStyle: 2 },
+      { key: 'laggingSpan', type: 'line', title: 'Lagging Span', defaultColor: '#feca57' },
+    ],
+    compute: (bars, p) => {
+      const conversionLine = new Array(bars.length).fill(null);
+      const baseLine = new Array(bars.length).fill(null);
+      const leadingSpanA = new Array(bars.length).fill(null);
+      const leadingSpanB = new Array(bars.length).fill(null);
+      const laggingSpan = new Array(bars.length).fill(null);
+
+      for (let i = p.conversionPeriod - 1; i < bars.length; i++) {
+        let hh = -Infinity;
+        let ll = Infinity;
+        for (let j = 0; j < p.conversionPeriod; j++) {
+          hh = Math.max(hh, bars[i - j].high);
+          ll = Math.min(ll, bars[i - j].low);
+        }
+        conversionLine[i] = (hh + ll) / 2;
+      }
+
+      for (let i = p.basePeriod - 1; i < bars.length; i++) {
+        let hh = -Infinity;
+        let ll = Infinity;
+        for (let j = 0; j < p.basePeriod; j++) {
+          hh = Math.max(hh, bars[i - j].high);
+          ll = Math.min(ll, bars[i - j].low);
+        }
+        baseLine[i] = (hh + ll) / 2;
+      }
+
+      for (let i = p.laggingPeriod - 1; i < bars.length; i++) {
+        let hh = -Infinity;
+        let ll = Infinity;
+        for (let j = 0; j < p.laggingPeriod; j++) {
+          hh = Math.max(hh, bars[i - j].high);
+          ll = Math.min(ll, bars[i - j].low);
+        }
+        leadingSpanB[i] = (hh + ll) / 2;
+      }
+
+      for (let i = 0; i < bars.length; i++) {
+        if (conversionLine[i] != null && baseLine[i] != null) {
+          leadingSpanA[i] = (conversionLine[i] + baseLine[i]) / 2;
+        }
+      }
+
+      for (let i = p.displacement; i < bars.length; i++) {
+        if (leadingSpanB[i - p.displacement] != null) {
+          leadingSpanB[i] = leadingSpanB[i - p.displacement];
+        }
+        if (laggingSpan[i - p.displacement] != null) {
+          laggingSpan[i] = bars[i - p.displacement].close;
+        }
+      }
+
+      return {
+        conversionLine: bars.map((b, i) => ({ time: b.time, value: conversionLine[i] })),
+        baseLine: bars.map((b, i) => ({ time: b.time, value: baseLine[i] })),
+        leadingSpanA: bars.map((b, i) => ({ time: b.time, value: leadingSpanA[i] })),
+        leadingSpanB: bars.map((b, i) => ({ time: b.time, value: leadingSpanB[i] })),
+        laggingSpan: bars.map((b, i) => ({ time: b.time, value: laggingSpan[i] })),
+      };
+    },
+  },
+
+  fibonacci_retracement: {
+    id: 'fibonacci_retracement',
+    name: 'Fibonacci Retracement',
+    short: 'Fib Retracement',
+    group: 'overlay',
+    pane: 'overlay',
+    params: { swingHigh: 0, swingLow: 0 },
+    paramDefs: [
+      { key: 'swingHigh', name: 'Swing High Price', type: 'number', min: 0.01, default: 0 },
+      { key: 'swingLow', name: 'Swing Low Price', type: 'number', min: 0.01, default: 0 },
+    ],
+    needsVolume: false,
+    warmup: () => 1,
+    formula: 'Retracement levels: 0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100% of swing range',
+    levels: [0.236, 0.382, 0.5, 0.618, 0.786],
+    render: [
+      { key: 'level0', type: 'line', title: '0%', defaultColor: '#6c757d', lineStyle: 3 },
+      { key: 'level236', type: 'line', title: '23.6%', defaultColor: '#fd7e14', lineStyle: 3 },
+      { key: 'level382', type: 'line', title: '38.2%', defaultColor: '#ffc107', lineStyle: 3 },
+      { key: 'level50': type: 'line', title: '50%', defaultColor: '#28a745', lineStyle: 3 },
+      { key: 'level618', type: 'line', title: '61.8%', defaultColor: '#17a2b8', lineStyle: 3 },
+      { key: 'level786': type: 'line', title: '78.6%', defaultColor: '#6f42c1', lineStyle: 3 },
+      { key: 'level100': type: 'line', title: '100%', defaultColor: '#dc3545', lineStyle: 3 },
+    ],
+    compute: (bars, p) => {
+      // If swing points are not provided, calculate from recent data
+      let swingHigh = p.swingHigh;
+      let swingLow = p.swingLow;
+
+      if (swingHigh === 0 || swingLow === 0) {
+        // Use recent high/low if not specified
+        const lookbackPeriod = Math.min(50, bars.length);
+        swingHigh = Math.max(...bars.slice(-lookbackPeriod).map(b => b.high));
+        swingLow = Math.min(...bars.slice(-lookbackPeriod).map(b => b.low));
+      }
+
+      const range = swingHigh - swingLow;
+      const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+
+      const result = {};
+      levels.forEach(level => {
+        const price = swingHigh - (range * level);
+        result[`level${level}`] = bars.map((b, i) => ({ time: b.time, value: price }));
+      });
+
+      return result;
+    },
+  },
+
+  volume_profile: {
+    id: 'volume_profile',
+    name: 'Volume Profile',
+    short: 'Vol Profile',
+    group: 'volume',
+    pane: 'overlay',
+    params: { rows: 50, valueAreaPoc: 0.7 },
+    paramDefs: [
+      { key: 'rows', name: 'Number of Rows', type: 'number', min: 10, max: 200, default: 50 },
+      { key: 'valueAreaPoc', name: 'Value Area %', type: 'number', min: 0.5, max: 1.0, step: 0.05, default: 0.7 },
+    ],
+    needsVolume: true,
+    warmup: () => 1,
+    formula: 'Volume distribution across price levels',
+    levels: [],
+    render: [{ key: 'profile', type: 'histogram', title: 'Volume Profile', defaultColor: 'rgba(108, 91, 123, 0.5)' }],
+    compute: (bars, p) => {
+      if (!hasValidVolume(bars)) {
+        return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      }
+
+      // Find price range
+      let maxPrice = -Infinity;
+      let minPrice = Infinity;
+
+      for (const bar of bars) {
+        maxPrice = Math.max(maxPrice, bar.high);
+        minPrice = Math.min(minPrice, bar.low);
+      }
+
+      const priceRange = maxPrice - minPrice;
+      const rowHeight = priceRange / p.rows;
+
+      // Initialize volume profile
+      const volumeProfile = new Array(p.rows).fill(0);
+
+      // Distribute volume across price levels
+      for (const bar of bars) {
+        // Distribute volume across the bar's price range
+        const barPriceRange = bar.high - bar.low;
+        const barMidPrice = (bar.high + bar.low) / 2;
+
+        // Simple approach: allocate volume to the row containing the mid price
+        const rowIndex = Math.floor((barMidPrice - minPrice) / rowHeight);
+        if (rowIndex >= 0 && rowIndex < p.rows) {
+          volumeProfile[rowIndex] += bar.volume || 0;
+        }
+      }
+
+      // Find Point of Control (POC) - price level with maximum volume
+      let pocIndex = 0;
+      let maxVolume = 0;
+      for (let i = 0; i < p.rows; i++) {
+        if (volumeProfile[i] > maxVolume) {
+          maxVolume = volumeProfile[i];
+          pocIndex = i;
+        }
+      }
+
+      // Calculate Value Area
+      const totalVolume = volumeProfile.reduce((sum, vol) => sum + vol, 0);
+      const targetVolume = totalVolume * p.valueAreaPoc;
+
+      // Expand outward from POC to find value area
+      let volumeAccumulated = volumeProfile[pocIndex];
+      let valueAreaLowIndex = pocIndex;
+      let valueAreaHighIndex = pocIndex;
+
+      while (volumeAccumulated < targetVolume && (valueAreaLowIndex > 0 || valueAreaHighIndex < p.rows - 1)) {
+        const volumeBelow = valueAreaLowIndex > 0 ? volumeProfile[valueAreaLowIndex - 1] : 0;
+        const volumeAbove = valueAreaHighIndex < p.rows - 1 ? volumeProfile[valueAreaHighIndex + 1] : 0;
+
+        if (volumeBelow >= volumeAbove && valueAreaLowIndex > 0) {
+          valueAreaLowIndex--;
+          volumeAccumulated += volumeProfile[valueAreaLowIndex];
+        } else if (valueAreaHighIndex < p.rows - 1) {
+          valueAreaHighIndex++;
+          volumeAccumulated += volumeProfile[valueAreaHighIndex];
+        } else if (valueAreaLowIndex > 0) {
+          valueAreaLowIndex--;
+          volumeAccumulated += volumeProfile[valueAreaLowIndex];
+        }
+      }
+
+      const valueAreaLow = minPrice + (valueAreaLowIndex * rowHeight);
+      const valueAreaHigh = minPrice + ((valueAreaHighIndex + 1) * rowHeight);
+
+      // Return data for rendering
+      return {
+        profile: bars.map((b, i) => ({
+          time: b.time,
+          value: {
+            volumeProfile: volumeProfile,
+            priceRange: { min: minPrice, max: maxPrice },
+            rowHeight: rowHeight,
+            pocIndex: pocIndex,
+            valueArea: { low: valueAreaLow, high: valueAreaHigh }
+          }
+        }))
+      };
+    },
+  },
+
+  linear_regression_channel: {
+    id: 'linear_regression_channel',
+    name: 'Linear Regression Channel',
+    short: 'LR Channel',
+    group: 'overlay',
+    pane: 'overlay',
+    params: { period: 50, deviationMultiplier: 2 },
+    paramDefs: [
+      { key: 'period', name: 'Regression Period', type: 'number', min: 5, max: 200, default: 50 },
+      { key: 'deviationMultiplier', name: 'Deviation Multiplier', type: 'number', min: 0.5, max: 5, step: 0.1, default: 2 },
+    ],
+    needsVolume: false,
+    warmup: (p) => p.period,
+    formula: 'Linear Regression: y = mx + b; Upper/Lower Channel = Regression ± (Standard Deviation × Multiplier)',
+    levels: [],
+    render: [
+      { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#6366f1' },
+      { key: 'upperChannel': type: 'line', title: 'Upper Channel', defaultColor: '#28a745', lineStyle: 2 },
+      { key: 'lowerChannel': type: 'line', title: 'Lower Channel', defaultColor: '#dc3545', lineStyle: 2 },
+    ],
+    compute: (bars, p) => {
+      const regressionLine = new Array(bars.length).fill(null);
+      const upperChannel = new Array(bars.length).fill(null);
+      const lowerChannel = new Array(bars.length).fill(null);
+
+      for (let i = p.period - 1; i < bars.length; i++) {
+        // Calculate linear regression for the period
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        const periodData = bars.slice(i - p.period + 1, i + 1);
+
+        for (let j = 0; j < periodData.length; j++) {
+          const x = j; // Time index
+          const y = periodData[j].close; // Price
+          sumX += x;
+          sumY += y;
+          sumXY += x * y;
+          sumXX += x * x;
+        }
+
+        const n = periodData.length;
+        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        // Calculate regression value at current point
+        regressionLine[i] = slope * (p.period - 1) + intercept;
+
+        // Calculate standard deviation of residuals
+        let sumSquaredResiduals = 0;
+        for (let j = 0; j < periodData.length; j++) {
+          const x = j;
+          const y = periodData[j].close;
+          const predicted = slope * x + intercept;
+          const residual = y - predicted;
+          sumSquaredResiduals += residual * residual;
+        }
+
+        const stdDev = Math.sqrt(sumSquaredResiduals / (periodData.length - 2));
+        const deviation = stdDev * p.deviationMultiplier;
+
+        upperChannel[i] = regressionLine[i] + deviation;
+        lowerChannel[i] = regressionLine[i] - deviation;
+      }
+
+      return {
+        regressionLine: bars.map((b, i) => ({ time: b.time, value: regressionLine[i] })),
+        upperChannel: bars.map((b, i) => ({ time: b.time, value: upperChannel[i] })),
+        lowerChannel: bars.map((b, i) => ({ time: b.time, value: lowerChannel[i] })),
+      };
+    },
+  },
+
+  standard_error_bands: {
+    id: 'standard_error_bands',
+    name: 'Standard Error Bands',
+    short: 'SE Bands',
+    group: 'overlay',
+    pane: 'overlay',
+    params: { period: 21, standardErrorMultiplier: 2.1 },
+    paramDefs: [
+      { key: 'period', name: 'Regression Period', type: 'number', min: 5, max: 200, default: 21 },
+      { key: 'standardErrorMultiplier', name: 'Standard Error Multiplier', type: 'number', min: 0.5, max: 5, step: 0.1, default: 2.1 },
+    ],
+    needsVolume: false,
+    warmup: (p) => p.period,
+    formula: 'Standard Error Bands: Linear Regression ± (Standard Error × Multiplier)',
+    levels: [],
+    render: [
+      { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#6366f1' },
+      { key: 'upperBand': type: 'line', title: 'Upper Band', defaultColor: '#20c997', lineStyle: 2 },
+      { key: 'lowerBand': type: 'line', title: 'Lower Band', defaultColor: '#fd7e14', lineStyle: 2 },
+    ],
+    compute: (bars, p) => {
+      const regressionLine = new Array(bars.length).fill(null);
+      const upperBand = new Array(bars.length).fill(null);
+      const lowerBand = new Array(bars.length).fill(null);
+
+      for (let i = p.period - 1; i < bars.length; i++) {
+        // Calculate linear regression for the period
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        const periodData = bars.slice(i - p.period + 1, i + 1);
+
+        for (let j = 0; j < periodData.length; j++) {
+          const x = j; // Time index
+          const y = periodData[j].close; // Price
+          sumX += x;
+          sumY += y;
+          sumXY += x * y;
+          sumXX += x * x;
+        }
+
+        const n = periodData.length;
+        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        // Calculate regression value at current point
+        regressionLine[i] = slope * (p.period - 1) + intercept;
+
+        // Calculate standard error of the estimate
+        let sumSquaredResiduals = 0;
+        for (let j = 0; j < periodData.length; j++) {
+          const x = j;
+          const y = periodData[j].close;
+          const predicted = slope * x + intercept;
+          const residual = y - predicted;
+          sumSquaredResiduals += residual * residual;
+        }
+
+        const standardError = Math.sqrt(sumSquaredResiduals / (periodData.length - 2));
+        const bandWidth = standardError * p.standardErrorMultiplier;
+
+        upperBand[i] = regressionLine[i] + bandWidth;
+        lowerBand[i] = regressionLine[i] - bandWidth;
+      }
+
+      return {
+        regressionLine: bars.map((b, i) => ({ time: b.time, value: regressionLine[i] })),
+        upperBand: bars.map((b, i) => ({ time: b.time, value: upperBand[i] })),
+        lowerBand: bars.map((b, i) => ({ time: b.time, value: lowerBand[i] })),
+      };
+    },
+  },
 };
+
 
 // --------------------------------------------------------------------------
 // Registry Queries and Helper Functions

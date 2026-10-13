@@ -615,6 +615,43 @@ export class TerminalChart {
         const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
         c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
       });
+    } else if (this.chartType === 'heikin_ashi') {
+      // Heikin Ashi candles
+      visible.forEach((b, j) => {
+        const x = plot.left + (j + 0.5) * this.barWidth;
+        const haClose = (b.open + b.high + b.low + b.close) / 4;
+        const haOpen = (b.open + b.close) / 2;
+        const haHigh = Math.max(b.high, haOpen, haClose);
+        const haLow = Math.min(b.low, haOpen, haClose);
+        const up = haClose >= haOpen;
+        const color = up ? bullColor : bearColor;
+        c.strokeStyle = color;
+        c.fillStyle = color;
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x, y(haHigh));
+        c.lineTo(x, y(haLow));
+        c.stroke();
+        const top = y(Math.max(haOpen, haClose)), bottom = y(Math.min(haOpen, haClose)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
+        c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
+      });
+    } else if (this.chartType === 'hollow_candles') {
+      // Hollow Candles (outline depends on whether close > prior close)
+      visible.forEach((b, j) => {
+        const x = plot.left + (j + 0.5) * this.barWidth;
+        const up = b.close >= b.open;
+        const priorUp = j > 0 && visible[j-1].close >= visible[j-1].open;
+        const color = up ? bullColor : bearColor;
+        c.strokeStyle = color;
+        c.fillStyle = up && priorUp ? color : 'rgba(0,0,0,0)'; // Hollow if same direction as prior
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x, y(b.high));
+        c.lineTo(x, y(b.low));
+        c.stroke();
+        const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
+        c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
+      });
     } else {
       // Premium enhancement: smooth line chart with gradient glow
       c.beginPath();

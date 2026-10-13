@@ -150,14 +150,6 @@
           </button>
         </nav>
 
-        <!-- Multi-Representation View Switcher (Same dataset -> Table / Chart / Heatmap) -->
-        <div class="mara-view-switcher" id="mara-view-switcher" title="Dataset Representation">
-          <span style="font-size: 9.5px; color: var(--text-dim); padding: 0 4px; font-family: var(--font-mono);">VIEW:</span>
-          <button class="mara-view-btn active" data-view-set="table">TABLE</button>
-          <button class="mara-view-btn" data-view-set="chart">CHART</button>
-          <button class="mara-view-btn" data-view-set="heatmap">HEATMAP</button>
-          <button class="mara-view-btn" data-view-set="metrics">METRICS</button>
-        </div>
 
         <!-- System & Utility Controls -->
         <div class="mara-header-utilities">
@@ -524,6 +516,13 @@
                   <button class="interval-btn active" data-interval="1d" title="Daily Bars (1D)">1D</button>
                   <button class="interval-btn" data-interval="1wk" title="Weekly Bars (1W)">1W</button>
                   <button class="interval-btn" data-interval="1mo" title="Monthly Bars (1M)">1M</button>
+                </div>
+
+                <!-- Chart Type Toggle (Candles -> Heikin Ashi -> Hollow Candles -> Area -> Line -> Candles) -->
+                <div class="tv-tb-divider"></div>
+
+                <button class="tv-tb-btn" id="tv-rail-chart-type" data-type="candles" title="Chart Type: Candles">
+                  <span class="tv-tb-symbol" style="font-family: var(--font-mono); font-weight: 700; color: var(--text);">C</span>
                 </div>
 
                 <div class="tv-tb-divider"></div>

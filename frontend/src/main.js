@@ -512,55 +512,8 @@ function setupMaraShellControls() {
   const savedDensity = localStorage.getItem('mara-density') || 'normal';
   setDensity(savedDensity);
 
-  // 3. View Switcher Representation (Table / Chart / Heatmap / Metrics)
-  const viewBtns = document.querySelectorAll('.mara-view-btn[data-view-set]');
-  const mainCanvas = document.getElementById('mara-main-canvas');
-
-  function handleViewRepresentationChange(rep) {
-    if (currentActiveWorkspace === 'markets') {
-      if (rep === 'table') {
-        document.getElementById('markets-indices-table')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else if (rep === 'heatmap') {
-        document.getElementById('sector-intelligence-grid')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else if (rep === 'metrics') {
-        document.getElementById('macro-radar-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else if (rep === 'chart') {
-        showToast('Full Candlestick Chart available in Analyze workspace (Alt+3)', 'info');
-      }
-    } else if (currentActiveWorkspace === 'analyze') {
-      if (rep === 'chart') {
-        setAnalyzeSubTab('chart');
-      } else if (rep === 'table') {
-        setAnalyzeSubTab('fundamentals');
-      } else if (rep === 'metrics') {
-        setAnalyzeSubTab('valuation');
-      } else if (rep === 'heatmap') {
-        setAnalyzeSubTab('overview');
-      }
-    } else if (currentActiveWorkspace === 'discover') {
-      if (rep === 'table') {
-        document.getElementById('screener-table-body')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else if (rep === 'metrics') {
-        const wrap = document.getElementById('screener-builder-wrap');
-        if (wrap) wrap.style.display = 'block';
-      }
-    } else if (currentActiveWorkspace === 'compare') {
-      if (rep === 'table') {
-        document.getElementById('peers-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else if (rep === 'metrics' || rep === 'heatmap') {
-        document.getElementById('correlation-matrix-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
-  }
-
-  viewBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const rep = btn.getAttribute('data-view-set');
-      viewBtns.forEach((b) => b.classList.toggle('active', b === btn));
-      if (mainCanvas) mainCanvas.setAttribute('data-representation', rep);
-      handleViewRepresentationChange(rep);
-    });
-  });
+  // View Switcher Representation feature removed as per user request
+  // This feature allowed switching between table, chart, heatmap, and metrics views
 
   // 5. Global Command Input & Keyboard Shortcuts
   const globalSearchInput = document.getElementById('global-search-input');
@@ -686,7 +639,19 @@ export function syncChartControlsToPreferences() {
   const railChartType = document.getElementById('tv-rail-chart-type');
   if (railChartType) {
     railChartType.setAttribute('data-type', chartType);
-    railChartType.title = `Chart Type: ${chartType.charAt(0).toUpperCase() + chartType.slice(1)}`;
+    // Format chart type for display (replace underscores with spaces and capitalize words)
+    const formattedType = chartType
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    railChartType.title = `Chart Type: ${formattedType}`;
+    // Update button content to show first letter of chart type
+    const buttonContent = chartType
+      .split('_')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase();
+    railChartType.querySelector('.tv-tb-symbol').textContent = buttonContent;
   }
 
   // 4. Sync Scale buttons (log / pct)
@@ -1630,22 +1595,52 @@ function setupTradingViewChromeControls() {
     });
   }
 
-  // 5. Left Rail: Chart Type Toggle (Candles -> Line -> Area -> Candles)
+  // 5. Left Rail: Chart Type Toggle (Candles -> Heikin Ashi -> Hollow Candles -> Area -> Line -> Candles)
   const railChartType = document.getElementById('tv-rail-chart-type');
-  const chartTypes = ['candles', 'line', 'area'];
+  const chartTypes = ['candles', 'heikin_ashi', 'hollow_candles', 'area', 'line'];
   if (railChartType) {
-    railChartType.addEventListener('click', () => {
-      const currentType = railChartType.getAttribute('data-type') || 'candles';
-      const nextIdx = (chartTypes.indexOf(currentType) + 1) % chartTypes.length;
-      const nextType = chartTypes[nextIdx];
-      railChartType.setAttribute('data-type', nextType);
-      railChartType.title = `Chart Type: ${nextType.charAt(0).toUpperCase() + nextType.slice(1)}`;
+    let lastClick = 0;
+    railChartType.addEventListener('click', (e) => {
+        const now = Date.now();
+        const doubleClick = (now - lastClick) < 300;
+        lastClick = now;
 
-      if (chartInstance) {
-        chartInstance.setChartType(nextType);
-      }
-      showToast(`Chart View: ${nextType.toUpperCase()}`, 'info');
-    });
+        if (doubleClick) {
+          // Double-click: reset to default chart type (candles)
+          const nextType = 'candles';
+          railChartType.setAttribute('data-type', nextType);
+          railChartType.title = `Chart Type: Candles`;
+          // Update button content to show first letter of chart type
+          const buttonContent = nextType
+            .split('_')
+            .map(part => part.charAt(0))
+            .join('')
+            .toUpperCase();
+          railChartType.querySelector('.tv-tb-symbol').textContent = buttonContent;
+          if (chartInstance) {
+            chartInstance.setChartType(nextType);
+          }
+          showToast(`Chart View: Candles (Reset)`, 'info');
+        } else {
+          // Single-click: cycle to next chart type
+          const currentType = railChartType.getAttribute('data-type') || 'candles';
+          const nextIdx = (chartTypes.indexOf(currentType) + 1) % chartTypes.length;
+          const nextType = chartTypes[nextIdx];
+          railChartType.setAttribute('data-type', nextType);
+          railChartType.title = `Chart Type: ${nextType.charAt(0).toUpperCase() + nextType.slice(1)}`;
+          // Update button content to show first letter of chart type
+          const buttonContent = nextType
+            .split('_')
+            .map(part => part.charAt(0))
+            .join('')
+            .toUpperCase();
+          railChartType.querySelector('.tv-tb-symbol').textContent = buttonContent;
+          if (chartInstance) {
+            chartInstance.setChartType(nextType);
+          }
+          showToast(`Chart View: ${nextType.toUpperCase().replace('_', ' ')}`, 'info');
+        }
+      });
   }
 
   // 6. Left Rail: Fit / Reset Content View
