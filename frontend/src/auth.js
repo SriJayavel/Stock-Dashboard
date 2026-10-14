@@ -65,6 +65,7 @@ class MaraAccount {
     document.getElementById('auth-form')?.addEventListener('submit', (event) => this.submit(event));
     document.getElementById('auth-mode-signin')?.addEventListener('click', () => this.setMode('signin'));
     document.getElementById('auth-mode-signup')?.addEventListener('click', () => this.setMode('signup'));
+    document.getElementById('auth-guest-button')?.addEventListener('click', () => this.enterGuestMode());
     document.getElementById('auth-forgot-button')?.addEventListener('click', () => this.setMode('reset'));
     document.getElementById('auth-back-button')?.addEventListener('click', () => this.setMode('signin'));
     document.getElementById('auth-password-toggle')?.addEventListener('click', () => {
@@ -76,6 +77,15 @@ class MaraAccount {
       button.setAttribute('aria-label', input.type === 'password' ? 'Show password' : 'Hide password');
       button.setAttribute('aria-pressed', String(input.type === 'text'));
     });
+  }
+
+  enterGuestMode() {
+    this.setSession({
+      user: { id: 'guest_analyst', email: 'guest@mara.terminal', user_metadata: { full_name: 'Guest Analyst' } },
+      access_token: 'guest_analyst_token',
+    });
+    this.enterApp();
+    this.onAuthenticated?.();
   }
 
   async submit(event) {
@@ -122,7 +132,7 @@ class MaraAccount {
           this.enterApp();
           this.onAuthenticated?.();
         } else {
-          this.setMessage('Check your inbox for a confirmation link to finish creating your account.', 'success');
+          this.setMessage('Confirmation link sent! Check your inbox, or explore immediately as Guest Analyst below.', 'success');
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -143,7 +153,7 @@ class MaraAccount {
     if (/failed to fetch/i.test(message)) return 'Connection error: Unable to reach Supabase. Check your Supabase URL in Vercel or pause ad-blockers (ABP) for this page.';
     if (/invalid login credentials/i.test(message)) return 'Email or password is incorrect.';
     if (/already registered|already been registered/i.test(message)) return 'An account already exists for this email. Sign in instead.';
-    if (/email not confirmed/i.test(message)) return 'Confirm your email from the link we sent before signing in.';
+    if (/email not confirmed/i.test(message)) return 'Please confirm your email via the link sent, or explore immediately as Guest Analyst below.';
     if (/rate limit|too many requests/i.test(message)) return 'Too many attempts. Wait a little and try again.';
     return message;
   }
@@ -224,7 +234,16 @@ class MaraAccount {
   }
 
   async signOut() {
-    if (supabase) await supabase.auth.signOut();
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Sign out error:', err);
+      }
+    }
+    this.session = null;
+    this.user = null;
+    this.token = '';
     window.location.assign('/');
   }
 

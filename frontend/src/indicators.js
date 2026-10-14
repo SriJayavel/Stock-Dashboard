@@ -2468,10 +2468,10 @@ export const INDICATOR_REGISTRY = {
       { key: 'level0', type: 'line', title: '0%', defaultColor: '#6c757d', lineStyle: 3 },
       { key: 'level236', type: 'line', title: '23.6%', defaultColor: '#fd7e14', lineStyle: 3 },
       { key: 'level382', type: 'line', title: '38.2%', defaultColor: '#ffc107', lineStyle: 3 },
-      { key: 'level50': type: 'line', title: '50%', defaultColor: '#28a745', lineStyle: 3 },
+      { key: 'level50', type: 'line', title: '50%', defaultColor: '#28a745', lineStyle: 3 },
       { key: 'level618', type: 'line', title: '61.8%', defaultColor: '#17a2b8', lineStyle: 3 },
-      { key: 'level786': type: 'line', title: '78.6%', defaultColor: '#6f42c1', lineStyle: 3 },
-      { key: 'level100': type: 'line', title: '100%', defaultColor: '#dc3545', lineStyle: 3 },
+      { key: 'level786', type: 'line', title: '78.6%', defaultColor: '#6f42c1', lineStyle: 3 },
+      { key: 'level100', type: 'line', title: '100%', defaultColor: '#dc3545', lineStyle: 3 },
     ],
     compute: (bars, p) => {
       // If swing points are not provided, calculate from recent data
@@ -2618,8 +2618,8 @@ export const INDICATOR_REGISTRY = {
     levels: [],
     render: [
       { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#6366f1' },
-      { key: 'upperChannel': type: 'line', title: 'Upper Channel', defaultColor: '#28a745', lineStyle: 2 },
-      { key: 'lowerChannel': type: 'line', title: 'Lower Channel', defaultColor: '#dc3545', lineStyle: 2 },
+      { key: 'upperChannel', type: 'line', title: 'Upper Channel', defaultColor: '#28a745', lineStyle: 2 },
+      { key: 'lowerChannel', type: 'line', title: 'Lower Channel', defaultColor: '#dc3545', lineStyle: 2 },
     ],
     compute: (bars, p) => {
       const regressionLine = new Array(bars.length).fill(null);
@@ -2689,8 +2689,8 @@ export const INDICATOR_REGISTRY = {
     levels: [],
     render: [
       { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#6366f1' },
-      { key: 'upperBand': type: 'line', title: 'Upper Band', defaultColor: '#20c997', lineStyle: 2 },
-      { key: 'lowerBand': type: 'line', title: 'Lower Band', defaultColor: '#fd7e14', lineStyle: 2 },
+      { key: 'upperBand', type: 'line', title: 'Upper Band', defaultColor: '#20c997', lineStyle: 2 },
+      { key: 'lowerBand', type: 'line', title: 'Lower Band', defaultColor: '#fd7e14', lineStyle: 2 },
     ],
     compute: (bars, p) => {
       const regressionLine = new Array(bars.length).fill(null);
