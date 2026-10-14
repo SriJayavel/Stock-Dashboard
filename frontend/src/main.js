@@ -1599,6 +1599,18 @@ function setupTradingViewChromeControls() {
   const railChartType = document.getElementById('tv-rail-chart-type');
   const chartTypes = ['candles', 'heikin_ashi', 'hollow_candles', 'area', 'line'];
   if (railChartType) {
+    // Initialize button state from localStorage
+    const savedChartType = localStorage.getItem(getAccountStorageKey('apex_chart_type')) || 'candles';
+    railChartType.setAttribute('data-type', savedChartType);
+    railChartType.title = `Chart Type: ${savedChartType.charAt(0).toUpperCase() + savedChartType.slice(1)}`;
+    // Update button content to show first letter of chart type
+    const initialButtonContent = savedChartType
+      .split('_')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase();
+    railChartType.querySelector('.tv-tb-symbol').textContent = initialButtonContent;
+
     let lastClick = 0;
     railChartType.addEventListener('click', (e) => {
         const now = Date.now();
