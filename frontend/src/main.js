@@ -765,7 +765,7 @@ function setupEventListeners() {
   // Function to render search results in the dropdown
   function renderSearchDropdown(results) {
     if (!results || results.length === 0) {
-      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true">No results found</div>';
+      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true">No symbols found. Try searching for a company name or ticker symbol.</div>';
       return;
     }
 
@@ -2012,6 +2012,10 @@ export function syncHeaderPriceFromQuote(quote, currSym = '₹') {
   }
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
+    // Add redundant cue for accessibility - visual symbol in badge
+    stockChangeBadge.textContent = isUp ? '▲' : '▼';
+    // Also keep data attribute for programmatic access
+    stockChangeBadge.setAttribute('data-change', isUp ? 'up' : 'down');
   }
   if (inspectorPrice) {
     inspectorPrice.textContent = formattedPrice;
@@ -2731,7 +2735,7 @@ function generateSparklineSvg(isUp, seedStr = '') {
 
   return `
     <svg class="macro-sparkline" width="60" height="22" viewBox="0 0 60 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+      <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
   `;
 }
@@ -2791,6 +2795,8 @@ async function loadMarketOverview(force = false) {
         } else {
           heroBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
         }
+        // Add redundant cue for accessibility
+        heroBadge.setAttribute('data-change', isUp ? 'up' : 'down');
       }
 
       if (heroHigh) {
@@ -3280,6 +3286,8 @@ function renderStockOverview(data) {
   }
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
+    // Add redundant cue for accessibility
+    stockChangeBadge.textContent = isUp ? '▲' : '▼';
   }
 
   // Sync TradingView Chrome Top Bar & Corner Legend
@@ -3917,7 +3925,7 @@ function renderPeerIntelligence(data) {
               <td style="color: var(--text-secondary);">${p.name}</td>
               <td>${p.market_cap_str || '—'}</td>
               <td>${curr}${p.current_price?.toFixed(2) || '—'}</td>
-              <td><span class="tape-chg ${chgClass}">${isUp ? '+' : ''}${p.change_pct?.toFixed(2) || '0.00'}%</span></td>
+              <td><span class="tape-chg ${chgClass}">${isUp ? '+' : '−'}${Math.abs(p.change_pct || 0).toFixed(2)}%</span></td>
               <td>${p.pe_trailing != null ? `${p.pe_trailing}x` : '—'}</td>
               <td style="color: var(--accent-green);">${p.roe != null ? `${p.roe}%` : '—'}</td>
               <td>${p.profit_margin != null ? `${p.profit_margin}%` : '—'}</td>
@@ -5399,7 +5407,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               ${chgDisplay}
             </td>
             <td class="text-right">
-              <span class="tape-chg ${chgClass}">${pctDisplay}</span>
+              <span class="tape-chg ${chgClass}">${isUp ? '+' : '−'}${Math.abs(m.change_pct || 0).toFixed(2)}%</span>
             </td>
             <td>
               ${rangeHtml}

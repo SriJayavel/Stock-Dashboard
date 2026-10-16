@@ -26,29 +26,29 @@
 .auth-gate-hidden { display: none; }
 .auth-gate [hidden] { display: none !important; }
 .auth-gate-shell { width: min(1040px, 100%); min-height: min(690px, calc(100vh - 72px)); display: flex; flex-direction: column; }
-.auth-gate-brand { display: flex; align-items: center; gap: 10px; font-size: var(--font-size-lg); font-weight: 600; letter-spacing: -.2px; }
+.auth-gate-brand { display: flex; align-items: center; gap: 10px; font-size: var(--font-size-lg); font-weight: 600; letter-spacing: -0.02em; }
 .auth-brand-mark { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--border); color: var(--accent); font-family: var(--font-mono); font-size: var(--font-size-lg); }
 .auth-gate-content { flex: 1; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); align-items: center; gap: clamp(44px, 9vw, 112px); padding: 56px 0 66px; }
-.auth-gate-intro { max-width: 560px; }
-.auth-eyebrow, .auth-card-kicker { color: var(--text-dim); font: 500 10px/1.4 var(--font-mono); letter-spacing: 1.1px; }
+.auth-gate-intro { max-width: 42rem; }
+.auth-eyebrow, .auth-card-kicker { color: var(--text-dim); font: 500 10px/1.4 var(--font-mono); letter-spacing: 0.08em; }
 .auth-eyebrow { display: inline-flex; align-items: center; gap: 9px; }
 .auth-eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gain); box-shadow: 0 0 0 3px rgba(var(--color-minty-green-350), .12); }
-.auth-gate-intro h1 { margin: 24px 0 17px; color: var(--text); font-size: clamp(38px, 5.2vw, 58px); font-weight: 500; line-height: 1.06; letter-spacing: -2.6px; }
-.auth-gate-intro > p { max-width: 430px; color: var(--text-dim); font-size: 15px; line-height: 1.75; }
+.auth-gate-intro h1 { margin: 24px 0 17px; color: var(--text); font-size: var(--font-size-4xl); font-weight: 500; line-height: 1.1; letter-spacing: -2.6px; }
+.auth-gate-intro > p { max-width: 32rem; color: var(--text-dim); font-size: var(--font-size-lg); line-height: 1.6; }
 .auth-preview { margin-top: 38px; padding: 19px 20px 13px; border: 1px solid var(--border); background: var(--surface); }
 .auth-preview-top, .auth-preview-foot { display: flex; align-items: center; justify-content: space-between; color: var(--text-dim); font: 10px var(--font-mono); letter-spacing: .4px; }
-.auth-preview-value { display: flex; align-items: baseline; gap: 12px; margin-top: 17px; font-size: 15px; font-weight: 500; }
+.auth-preview-value { display: flex; align-items: baseline; gap: 12px; margin-top: 17px; font-size: var(--font-size-lg); font-weight: 500; }
 .auth-preview-value span { color: var(--gain); font: 11px var(--font-mono); }
 .auth-preview svg { display: block; width: 100%; height: 118px; margin: 5px 0 12px; overflow: visible; }
-.auth-preview-grid { fill: none; stroke: var(--border); stroke-width: 1; }
+.auth-preview-grid { fill: none; stroke: var(--border); stroke-width: 1.5px; }
 .auth-preview-area { fill: rgba(var(--color-minty-green-350), .07); }
-.auth-preview-line { fill: none; stroke: var(--gain); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.auth-preview-line { fill: none; stroke: var(--gain); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
 .auth-preview-foot { justify-content: flex-start; flex-wrap: wrap; gap: 8px 19px; font-family: var(--font-sans); letter-spacing: 0; }
 .auth-card { padding: 34px 30px 29px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 18px 60px rgba(0,0,0,.18); }
-.auth-card h2 { margin: 17px 0 8px; font-size: 23px; font-weight: 500; letter-spacing: -.5px; }
-.auth-card > p:not(.auth-message):not(.auth-privacy) { margin-bottom: 26px; color: var(--text-dim); font-size: var(--font-size-base); line-height: 1.65; }
+.auth-card h2 { margin: 17px 0 8px; font-size: var(--font-size-3xl); font-weight: 500; letter-spacing: -.5px; }
+.auth-card > p:not(.auth-message):not(.auth-privacy) { margin-bottom: 26px; color: var(--text-dim); font-size: var(--font-size-base); line-height: 1.6; }
 .auth-card > #auth-form-description { margin-bottom: 8px; }
-.auth-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: 23px 0 20px; border-bottom: 1px solid var(--border); }
+.auth-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: 23px 0 20px; }
 .auth-mode-tabs button { padding: 10px 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-dim); font: 500 12px var(--font-sans); cursor: pointer; }
 .auth-mode-tabs button.active { border-bottom-color: var(--accent); color: var(--text); }
 .auth-field-label { display: block; margin: 14px 0 7px; color: var(--text-dim); font-size: var(--font-size-xs); font-weight: 500; }
@@ -73,10 +73,9 @@
 .auth-message { min-height: 18px; margin-top: 10px; color: var(--loss); font-size: var(--font-size-xs); line-height: 1.5; }
 .auth-message.success { color: var(--gain); }
 .auth-divider { display: flex; align-items: center; gap: 10px; margin: 23px 0 17px; color: var(--text-dim); }
-.auth-divider span { flex: 1; height: 1px; background: var(--border); }
 .auth-divider small { font: 9px var(--font-mono); letter-spacing: .65px; }
-.auth-privacy { color: var(--text-dim); font-size: var(--font-size-xs); line-height: 1.7; }
-.auth-gate-footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-dim); font: 9px var(--font-mono); letter-spacing: .55px; }
+.auth-privacy { color: var(--text-dim); font-size: var(--font-size-xs); line-height: 1.6; }
+.auth-gate-footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 16px; color: var(--text-dim); font: 9px var(--font-mono); letter-spacing: .55px; }
 .auth-account { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: var(--font-size-xs); flex-shrink: 1; min-width: 0; }
 .auth-account img { width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 50%; object-fit: cover; }
 #auth-avatar:not([hidden]) { display: block; }
@@ -88,7 +87,7 @@
   .auth-gate { align-items: start; padding: 22px 18px; }
   .auth-gate-shell { min-height: calc(100vh - 44px); }
   .auth-gate-content { grid-template-columns: 1fr; gap: 28px; padding: 42px 0 34px; }
-.auth-gate-intro h1 { margin-top: 18px; font-size: clamp(36px, 10vw, 48px); }
+.auth-gate-intro h1 { margin-top: 18px; font-size: var(--font-size-3xl); }
 .auth-preview { margin-top: 24px; }
 .auth-preview svg { height: 90px; }
 .auth-card { padding: 26px 22px 23px; }
@@ -422,7 +421,7 @@ body {
   border-radius: 6px;
   padding: 0 12px;
   height: 34px;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .mara-cmd-input-wrap:focus-within {
   border-color: var(--accent);
@@ -553,7 +552,7 @@ body {
   font-size: var(--font-size-xs);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -579,7 +578,7 @@ body {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   user-select: none;
   position: relative;
   overflow: hidden;
@@ -634,7 +633,7 @@ body {
 .mara-ws-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
 }
 .mara-ws-tab-btn {
   height: 36px;
@@ -650,7 +649,7 @@ body {
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -739,7 +738,7 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -962,7 +961,7 @@ body {
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .inspector-primary-action-btn:hover {
   background: var(--accent);
@@ -1004,7 +1003,7 @@ body {
   color: var(--text-dim);
   font-size: 10px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 .inspector-mini-btn:hover {
   background: var(--surface-hover);
@@ -1284,7 +1283,7 @@ body {
   font-weight: 500;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
   user-select: none;
 }
 
@@ -1321,7 +1320,7 @@ body {
   align-items: center;
   gap: 6px;
   position: relative;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   backdrop-filter: saturate(180%) blur(20px);
   background-blend-mode: overlay;
   border-image: linear-gradient(to right, transparent, var(--accent), transparent) 1;
@@ -1366,7 +1365,7 @@ body {
   border: 1px solid var(--border);
   pointer-events: none;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -1443,7 +1442,7 @@ body {
   color: #ffffff;
   font-family: var(--font-mono);
   font-size: 12px;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .search-item:hover .search-item-symbol,
@@ -1455,7 +1454,7 @@ body {
   font-size: 11.5px;
   color: var(--text-dim);
   margin-left: 8px;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .search-item:hover .search-item-name,
@@ -1474,7 +1473,7 @@ body {
   align-items: center;
   gap: 6px;
   margin-left: auto;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .nav-utility-btn {
   min-height: 28px;
@@ -1490,7 +1489,7 @@ body {
   align-items: center;
   gap: 5px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -1544,7 +1543,7 @@ body {
   font-weight: 700;
   position: relative;
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .nav-count::before {
@@ -1566,7 +1565,7 @@ body {
   align-items: center;
   gap: 5px;
   padding: 0 6px;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -1581,7 +1580,7 @@ body {
   border-radius: 50%;
   background: var(--gain);
   box-shadow: 0 0 6px rgba(34, 171, 148, 0.6);
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   position: relative;
 }
 
@@ -1752,7 +1751,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: var(--font-size-xs);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1968,7 +1967,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 .markets-sync-btn:hover {
   background: var(--surface-hover);
@@ -2015,7 +2014,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
   white-space: nowrap;
 }
 .markets-filter-btn:hover {
@@ -2125,7 +2124,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
   white-space: nowrap;
 }
 .markets-table-action-btn:hover {
@@ -2442,7 +2441,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 11.5px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2487,7 +2486,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 11.5px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: opacity 0.12s ease, transform 0.12s ease;
   white-space: nowrap;
 }
 .screener-tab-btn:hover {
@@ -4251,7 +4250,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .drawer-kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
+  gap: 12px;
   margin-top: 2px;
 }
 .drawer-kpi-cell {

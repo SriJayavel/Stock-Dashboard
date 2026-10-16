@@ -97,7 +97,7 @@
         <!-- Global Command / Search Surface (⌘K) -->
         <div class="mara-cmd-surface" id="global-cmd-surface">
           <div class="mara-cmd-input-wrap">
-            <svg class="mara-cmd-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="mara-cmd-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
@@ -825,14 +825,14 @@
       <section class="workspace-view" id="workspace-research" role="tabpanel" aria-labelledby="ws-btn-research">
         <!-- Sub-Navigation Bar for Research Workspace -->
         <div class="workspace-subnav" id="research-subnav">
-          <button class="ws-sub-btn active" data-research-tab="news" id="tab-res-news">News &amp; Events</button>
-          <button class="ws-sub-btn" data-research-tab="earnings" id="tab-res-earnings">Earnings &amp; Events</button>
-          <button class="ws-sub-btn" data-research-tab="whatchanged" id="tab-res-whatchanged">30-Day Delta</button>
-          <button class="ws-sub-btn" data-research-tab="anomalies" id="tab-res-anomalies">Anomalies</button>
-          <button class="ws-sub-btn" data-research-tab="lab" id="tab-res-lab">Scenario Lab</button>
-          <button class="ws-sub-btn" data-research-tab="notebook" id="tab-res-notebook">Notebook</button>
-          <button class="ws-sub-btn" data-research-tab="quality" id="tab-res-quality">Data Quality</button>
-          <button class="ws-sub-btn" data-research-tab="report" id="tab-res-report">Institutional Report</button>
+          <button class="ws-sub-btn active" data-research-tab="news" id="tab-res-news">View News</button>
+          <button class="ws-sub-btn" data-research-tab="earnings" id="tab-res-earnings">View Earnings</button>
+          <button class="ws-sub-btn" data-research-tab="whatchanged" id="tab-res-whatchanged">View Delta</button>
+          <button class="ws-sub-btn" data-research-tab="anomalies" id="tab-res-anomalies">View Anomalies</button>
+          <button class="ws-sub-btn" data-research-tab="lab" id="tab-res-lab">Explore Scenarios</button>
+          <button class="ws-sub-btn" data-research-tab="notebook" id="tab-res-notebook">View Notebook</button>
+          <button class="ws-sub-btn" data-research-tab="quality" id="tab-res-quality">View Data Quality</button>
+          <button class="ws-sub-btn" data-research-tab="report" id="tab-res-report">View Report</button>
         </div>
 
         <div class="workspace-scroll-wrap">
@@ -941,21 +941,21 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
               <div class="dossier-card">
                 <div class="dossier-card-title">Core Investment Thesis</div>
-                <textarea id="nb-thesis" class="notebook-textarea" placeholder="Record your investment thesis, competitive advantages..."></textarea>
+                <textarea id="nb-thesis" class="notebook-textarea" placeholder="The company has strong MOAT and consistent ROE over 5 years..."></textarea>
               </div>
               <div class="dossier-card">
                 <div class="dossier-card-title">Structural Risks &amp; Threats</div>
-                <textarea id="nb-risks" class="notebook-textarea" placeholder="List macroeconomic, regulatory, operational, or competitive risks..."></textarea>
+                <textarea id="nb-risks" class="notebook-textarea" placeholder="Interest rate increases, supply chain disruptions, new competitors..."></textarea>
               </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
               <div class="dossier-card">
                 <div class="dossier-card-title">Due Diligence Questions</div>
-                <textarea id="nb-questions" class="notebook-textarea" placeholder="Unresolved questions, upcoming earnings checks..."></textarea>
+                <textarea id="nb-questions" class="notebook-textarea" placeholder="Will management guidance be raised? When is next earnings announcement?"></textarea>
               </div>
               <div class="dossier-card">
                 <div class="dossier-card-title">Valuation &amp; Target Scenarios</div>
-                <textarea id="nb-valuation" class="notebook-textarea" placeholder="Entry targets, stop levels, upside hurdle rates..."></textarea>
+                <textarea id="nb-valuation" class="notebook-textarea" placeholder="Entry: $450, Stop: $420, Target: $520"></textarea>
               </div>
             </div>
           </div>
@@ -1054,7 +1054,7 @@
                 </div>
                 <div>
                   <label class="auth-field-label" style="margin: 0 0 4px;">Threshold Value</label>
-                  <input type="number" id="ws-alert-target-input" placeholder="e.g. 4500" class="screener-input" />
+                  <input type="number" id="ws-alert-target-input" placeholder="4500" class="screener-input" />
                 </div>
                 <div style="display: flex; align-items: flex-end;">
                   <button id="ws-create-alert-btn" class="ws-action-btn" style="width: 100%; height: 32px;">Add Rule</button>
@@ -1243,15 +1243,15 @@
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">1M Return</span>
-              <strong class="kpi-val chg-up" id="snapshot-return-1m">+3.4%</strong>
+              <strong class="kpi-val chg-up" id="snapshot-return-1m">▲ +3.4%</strong>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">3M Return</span>
-              <strong class="kpi-val chg-up" id="snapshot-return-3m">+8.2%</strong>
+              <strong class="kpi-val chg-up" id="snapshot-return-3m">▲ +8.2%</strong>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">1Y Max DD</span>
-              <strong class="kpi-val chg-down" id="snapshot-drawdown">−6.2%</strong>
+              <strong class="kpi-val chg-down" id="snapshot-drawdown">▼ −6.2%</strong>
             </div>
           </div>
         </div>
@@ -1267,22 +1267,22 @@
               <div class="tape-item" data-symbol="^NSEI">
                 <span class="tape-sym">NIFTY 50</span>
                 <span class="tape-val" id="hero-price">₹22,421.95</span>
-                <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">−0.88%</span></span>
+                <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">▼ −0.88%</span></span>
               </div>
               <div class="tape-item" data-symbol="^BSESN">
                 <span class="tape-sym">SENSEX</span>
                 <span class="tape-val">71,909.70</span>
-                <span class="tape-chg chg-down">−0.79%</span>
+                <span class="tape-chg chg-down">▼ −0.79%</span>
               </div>
               <div class="tape-item" data-symbol="^NSEBANK">
                 <span class="tape-sym">BANK NIFTY</span>
                 <span class="tape-val">54,450.75</span>
-                <span class="tape-chg chg-down">−0.33%</span>
+                <span class="tape-chg chg-down">▼ −0.33%</span>
               </div>
               <div class="tape-item" data-symbol="^GSPC">
                 <span class="tape-sym">S&P 500</span>
                 <span class="tape-val">5,751.20</span>
-                <span class="tape-chg chg-down">−0.25%</span>
+                <span class="tape-chg chg-down">▼ −0.25%</span>
               </div>
               <div class="tape-item" data-symbol="^IXIC">
                 <span class="tape-sym">NASDAQ</span>
@@ -1356,7 +1356,7 @@
               </select>
             </div>
             <div style="display: flex; gap: 6px;">
-              <input type="number" id="alert-target-input" placeholder="Target threshold" class="screener-input" style="flex: 1;" aria-label="Alert target threshold" />
+              <input type="number" id="alert-target-input" placeholder="50.0" class="screener-input" style="flex: 1;" aria-label="Alert target threshold" />
               <button id="create-alert-btn" class="ws-tab-btn active" style="padding: 5px 12px;">Set Alert</button>
             </div>
           </div>

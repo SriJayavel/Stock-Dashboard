@@ -87,6 +87,9 @@ npm run dev
 Open your browser at: `http://localhost:5173`
 
 ---
+y
+
+
 
 ## 🐳 Docker Deployment (Google Cloud Run / Render)
 
