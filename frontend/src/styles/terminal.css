@@ -32,7 +32,7 @@
 .auth-gate-intro { max-width: 42rem; }
 .auth-eyebrow, .auth-card-kicker { color: var(--text-dim); font: 500 10px/1.4 var(--font-mono); letter-spacing: 0.08em; }
 .auth-eyebrow { display: inline-flex; align-items: center; gap: 9px; }
-.auth-eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gain); box-shadow: 0 0 0 3px rgba(var(--color-minty-green-350), .12); }
+.auth-eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gain); box-shadow: 0 0 0 3px var(--gain-sm); }
 .auth-gate-intro h1 { margin: 24px 0 17px; color: var(--text); font-size: var(--font-size-4xl); font-weight: 500; line-height: 1.1; letter-spacing: -2.6px; }
 .auth-gate-intro > p { max-width: 32rem; color: var(--text-dim); font-size: var(--font-size-lg); line-height: 1.6; }
 .auth-preview { margin-top: 38px; padding: 19px 20px 13px; border: 1px solid var(--border); background: var(--surface); }
@@ -41,7 +41,7 @@
 .auth-preview-value span { color: var(--gain); font: 11px var(--font-mono); }
 .auth-preview svg { display: block; width: 100%; height: 118px; margin: 5px 0 12px; overflow: visible; }
 .auth-preview-grid { fill: none; stroke: var(--border); stroke-width: 1.5px; }
-.auth-preview-area { fill: rgba(var(--color-minty-green-350), .07); }
+.auth-preview-area { fill: var(--gain-xs); }
 .auth-preview-line { fill: none; stroke: var(--gain); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
 .auth-preview-foot { justify-content: flex-start; flex-wrap: wrap; gap: 8px 19px; font-family: var(--font-sans); letter-spacing: 0; }
 .auth-card { padding: 34px 30px 29px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 18px 60px rgba(0,0,0,.18); }
@@ -101,200 +101,6 @@
    TradingView Design System — Track All Markets
    Extracted from TradingView (5,000 Elements Analyzed)
    ============================================================================ */
-:root, html:root {
-  /* Neutral Color Inventory */
-  --color-white: #ffffff;
-  --color-black: #000000;
-  --color-transparent: transparent;
-  --color-cold-gray-50: #f9f9f9;
-  --color-cold-gray-100: #f2f2f2;
-  --color-cold-gray-150: #ebebeb;
-  --color-cold-gray-200: #dbdbdb;
-  --color-cold-gray-250: #c9c9c9;
-  --color-cold-gray-300: #b8b8b8;
-  --color-cold-gray-350: #a8a8a8;
-  --color-cold-gray-400: #9c9c9c;
-  --color-cold-gray-450: #8c8c8c;
-  --color-cold-gray-500: #808080;
-  --color-cold-gray-550: #707070;
-  --color-cold-gray-600: #636363;
-  --color-cold-gray-650: #575757;
-  --color-cold-gray-700: #4a4a4a;
-  --color-cold-gray-750: #3d3d3d;
-  --color-cold-gray-800: #2e2e2e;
-  --color-cold-gray-850: #1f1f1f;
-  --color-cold-gray-900: #0f0f0f;
-  --color-cold-gray-950: #000000;
-
-  /* TradingView Blue Scale (Primary & Interactive) */
-  --color-tv-blue-50: #e3effd;
-  --color-tv-blue-100: #bbd9fb;
-  --color-tv-blue-200: #90bff9;
-  --color-tv-blue-300: #5b9cf6;
-  --color-tv-blue-400: #3179f5;
-  --color-tv-blue-500: #2962ff;
-  --color-tv-blue-600: #1e53e5;
-  --color-tv-blue-700: #1848cc;
-  --color-tv-blue-800: #143eb2;
-  --color-tv-blue-900: #0c3299;
-  --color-tv-blue-a100: #82b1ff;
-  --color-tv-blue-a200: #448aff;
-  --color-tv-blue-a400: #2979ff;
-  --color-tv-blue-a600: #2962ff;
-  --color-tv-blue-a700: #143a87;
-  --color-tv-blue-a800: #142e61;
-  --color-tv-blue-a900: #132042;
-
-  /* Minty Green & Forest Green Scale (Bullish Telemetry) */
-  --color-minty-green-50: #daf2ee;
-  --color-minty-green-100: #ace5dc;
-  --color-minty-green-200: #70ccbd;
-  --color-minty-green-300: #42bda8;
-  --color-minty-green-350: #3ECF8E;
-  --color-minty-green-400: #22ab94;
-  --color-minty-green-500: #089981;
-  --color-minty-green-600: #06806b;
-  --color-minty-green-700: #056656;
-  --color-minty-green-800: #004d40;
-  --color-minty-green-900: #00332a;
-  --color-forest-green-400: #22ab67;
-  --color-forest-green-500: #089950;
-  --color-forest-green-800: #004d27;
-
-  /* Ripe Red Scale (Bearish Telemetry) */
-  --color-ripe-red-50: #ffebec;
-  --color-ripe-red-100: #fccbcd;
-  --color-ripe-red-200: #faa1a4;
-  --color-ripe-red-300: #f77c80;
-  --color-ripe-red-400: #f7525f;
-  --color-ripe-red-500: #f23645;
-  --color-ripe-red-600: #cc2f3c;
-  --color-ripe-red-700: #b22833;
-  --color-ripe-red-800: #991f29;
-  --color-ripe-red-900: #801922;
-
-  /* Tan Orange Scale (Accents, Alerts, Badges) */
-  --color-tan-orange-50: #fff3e0;
-  --color-tan-orange-100: #ffe0b2;
-  --color-tan-orange-200: #ffcc80;
-  --color-tan-orange-300: #ffb74d;
-  --color-tan-orange-400: #ffa726;
-  --color-tan-orange-500: #ff9800;
-  --color-tan-orange-600: #fb8c00;
-  --color-tan-orange-700: #f57c00;
-  --color-tan-orange-800: #ef6c00;
-  --color-tan-orange-900: #e65100;
-
-  /* Deep Blue & Purple */
-  --color-deep-blue-300: #9575cd;
-  --color-deep-blue-500: #673ab7;
-
-  /* Terminal Semantic Mapping - Premium Refined Visual Hierarchy */
-  --bg: #000000;
-  --bg-deep: #000000;
-  --bg-canvas: #000000;
-  --bg-surface: #0a0a0a;
-  --bg-card: #0a0a0a;
-  --bg-elevated: #111111;
-  --bg-void: #000000;
-
-  --surface: #0a0a0a;
-  --surface-solid: #0a0a0a;
-  --surface-card: #0a0a0a;
-  --surface-elevated: #111111;
-  --surface-hover: #1a1a1a;
-  --surface-active: #1a1a1a;
-
-  --border: rgba(255,255,255,0.08);
-  --border-strong: rgba(255,255,255,0.12);
-  --border-subtle: rgba(255,255,255,0.04);
-
-  --text: #e0e0e0;
-  --text-heading: #ffffff;
-  --text-dim: #b0b0b0;
-  --text-muted: #888888;
-  --text-primary: #e0e0e0;
-  --text-secondary: #b0b0b0;
-
-  --accent: #D4AF37;
-  --accent-hover: #E6B842;
-  --accent-active: #B88F2B;
-  --accent-blue: #D4AF37;
-  --accent-purple: #D4AF37;
-  --accent-orange: #D4AF37;
-  --accent-amber: #D4AF37;
-  --accent-gold: #D4AF37;
-
-  --gain: #10b981;
-  --gain-bg: rgba(16, 185, 129, 0.12);
-  --gain-glow: rgba(16, 185, 129, 0.20);
-  --loss: #f43f5e;
-  --loss-bg: rgba(244, 63, 94, 0.12);
-  --loss-glow: rgba(244, 63, 94, 0.20);
-  --accent-emerald: var(--gain);
-  --accent-green: var(--gain);
-  --accent-rose: var(--loss);
-  --accent-red: var(--loss);
-  --accent-red-alert: var(--loss);
-
-  /* Premium Enhancements */
-  --accent-gradient: linear-gradient(135deg, #D4AF37, #E6B842);
-  --accent-gradient-secondary: linear-gradient(135deg, #E6B842, #F0C573);
-  --surface-glass: rgba(10, 10, 10, 0.6);
-  --surface-glass-hover: rgba(26, 26, 26, 0.7);
-  --surface-glass-active: rgba(41, 98, 255, 0.2);
-  --shadow-premium: rgba(0, 0, 0, 0.25) 0px 8px 32px;
-  --shadow-premium-hover: rgba(0, 0, 0, 0.35) 0px 12px 48px;
-  --shadow-inset: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  --border-glass: 1px solid rgba(255, 255, 255, 0.18);
-  --border-glass-hover: 1px solid rgba(255, 255, 255, 0.25);
-  --transition-premium: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-smooth: all 0.2s ease;
-
-  /* Typography System - Enhanced for better hierarchy */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-
-  /* Border Radii - Slightly refined */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-pill: 24px;
-  --radius-full: 100px;
-
-  /* Box Shadows */
-  --shadow-sm: rgba(0, 0, 0, 0.18) 0px 2px 4px 0px;
-  --shadow-card: rgba(0, 0, 0, 0.18) 0px 2px 4px 0px;
-  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.5);
-
-  /* Physical Interface Spatial Dimensions - Increased spacing for better comfort */
-  --shell-header-h: 80px; /* Unified header height */
-  --shell-workspace-bar-h: 0px; /* Hidden - now part of unified header */
-  --shell-rail-w: 64px; /* Increased from 60px */
-  --shell-status-bar-h: 28px; /* Increased from 26px */
-  --shell-context-panel-w: 360px; /* Increased from 340px */
-
-  /* Density Scaling Tokens - Increased for better readability and comfort */
-  --density-font-ui: 13px; /* Increased from 12px */
-  --density-font-mono: 13px; /* Increased from 12px */
-  --density-font-caption: 12px; /* Increased from 11px */
-  --density-row-h: 36px; /* Increased from 32px */
-  --density-cell-pad-y: 8px; /* Increased from 6px */
-  --density-cell-pad-x: 12px; /* Increased from 10px */
-
-  /* Typographic Scale - Based on --density-font-ui (13px) */
-  --font-size-xxs: 10px;   /* --density-font-ui * 0.77 */
-  --font-size-xs:  11px;   /* --density-font-ui * 0.85 */
-  --font-size-sm:  12px;   /* --density-font-ui * 0.92 */
-  --font-size-base: 13px;  /* --density-font-ui */
-  --font-size-lg:  14px;   /* --density-font-ui * 1.08 */
-  --font-size-xl:  16px;   /* --density-font-ui * 1.23 */
-  --font-size-2xl: 18px;   /* --density-font-ui * 1.38 */
-  --font-size-3xl: 20px;   /* --density-font-ui * 1.54 */
-  --font-size-4xl: 24px;   /* --density-font-ui * 1.85 */
-}
 
 [data-density="compact"] {
   --density-font-ui: 11px;
