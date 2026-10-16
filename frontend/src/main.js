@@ -266,9 +266,12 @@ export function setAnalyzeSubTab(subTab) {
     btn.classList.toggle('active', btn.getAttribute('data-analyze-tab') === subTab);
   });
 
-  document.querySelectorAll('#workspace-analyze .analyze-panel').forEach((panel) => {
-    panel.classList.toggle('active', panel.id === `panel-${subTab}`);
-  });
+  const activeAnalyzeWorkspace = document.querySelector('#workspace-analyze.active');
+  if (activeAnalyzeWorkspace) {
+    activeAnalyzeWorkspace.querySelectorAll('.analyze-panel').forEach((panel) => {
+      panel.classList.toggle('active', panel.id === `panel-${subTab}`);
+    });
+  }
 
   if (subTab === 'chart' && chartInstance) {
     requestAnimationFrame(() => {
@@ -1988,7 +1991,7 @@ export function syncHeaderPriceFromQuote(quote, currSym = '₹') {
   const stockChangePct = document.getElementById('stock-change-pct');
   const stockChangeBadge = document.getElementById('stock-change-badge');
   const inspectorPrice = document.getElementById('inspector-price');
-  const decimals = currentSymbol?.includes('=X') ? 4 : 2;
+  const decimals = quote.symbol?.includes('=X') ? 4 : 2;
 
   const isUp = (quote.change || 0) >= 0;
   const sign = isUp ? '+' : '−';
