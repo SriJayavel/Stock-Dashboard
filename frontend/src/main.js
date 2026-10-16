@@ -461,6 +461,7 @@ function setupMaraShellControls() {
     const isOpen = maraApp.classList.toggle('context-panel-open');
     if (contextToggle) {
       contextToggle.classList.toggle('active', isOpen);
+      contextToggle.setAttribute('aria-expanded', String(isOpen));
       const span = contextToggle.querySelector('span');
       if (span) span.textContent = isOpen ? 'Inspector ◨' : 'Inspector ◻';
     }
@@ -485,6 +486,7 @@ function setupMaraShellControls() {
     maraApp.classList.remove('context-panel-open');
     if (contextToggle) {
       contextToggle.classList.remove('active');
+      contextToggle.setAttribute('aria-expanded', 'false');
       const span = contextToggle.querySelector('span');
       if (span) span.textContent = 'Inspector ◻';
     }
@@ -2971,7 +2973,7 @@ export function renderStockInspector(data, isUp) {
   const chgVal = Math.abs(data.change || 0).toFixed(2);
   const priceDisplay = formatCurrencyValue(data.price, data.symbol, data.currency);
   const pe = data.pe_ratio != null ? `${Number(data.pe_ratio).toFixed(1)}x` : '—';
-  const rsi = data.rsi_14 != null ? Number(data.rsi_14).toFixed(1) : (data.technical?.rsi != null ? Number(data.technical.rsi).toFixed(1) : '56.4');
+  const rsi = data.rsi_14 != null ? Number(data.rsi_14).toFixed(1) : (data.technical?.rsi != null ? Number(data.technical.rsi).toFixed(1) : '—');
 
   panelBody.innerHTML = `
     <div class="inspector-block">
@@ -2982,7 +2984,7 @@ export function renderStockInspector(data, isUp) {
       <div class="inspector-primary-ident">
         <div>
           <span style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: #ffffff;" id="inspector-sym">${data.symbol}</span>
-          <span style="font-size: 11px; color: var(--text-dim); margin-left: 6px;" id="inspector-exchange">${data.exchange || 'NSE India'}</span>
+          ${data.exchange ? `<span style="font-size: 11px; color: var(--text-dim); margin-left: 6px;" id="inspector-exchange">${data.exchange}</span>` : ''}
           <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;" id="inspector-company">${data.name || data.symbol}</div>
         </div>
         <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}" id="inspector-chg">${sign}${chgPct}%</span>
@@ -3008,29 +3010,7 @@ export function renderStockInspector(data, isUp) {
         </div>
         <div class="inspector-stat">
           <span class="label">RSI (14)</span>
-          <span class="val" style="color: var(--gain);">${rsi}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="inspector-block">
-      <div class="inspector-block-title">Pipeline Diagnostics</div>
-      <div class="inspector-grid">
-        <div class="inspector-stat">
-          <span class="label">Data Feed</span>
-          <span class="val" style="color: var(--gain);">${data.data_source || 'Direct NSE'}</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">L1 TTLCache</span>
-          <span class="val">HIT (0.4ms)</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">Exchange TZ</span>
-          <span class="val">${data.exchange_timezone || 'Asia/Kolkata'}</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">Feed Health</span>
-          <span class="val" style="color: var(--gain);">NOMINAL</span>
+          <span class="val">${rsi}</span>
         </div>
       </div>
     </div>

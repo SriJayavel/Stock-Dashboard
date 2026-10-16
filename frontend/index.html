@@ -10,6 +10,7 @@
     <meta property="og:image" content="/favicon.svg" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/src/styles/terminal.css" />
+    <link rel="stylesheet" href="/src/styles/redesign.css" />
   </head>
   <body class="auth-required">
     <a href="#mara-main-canvas" class="skip-to-content-link">Skip to content</a>
@@ -19,11 +20,11 @@
         <div class="auth-gate-content">
           <div class="auth-gate-intro">
             <span class="auth-eyebrow"><span class="auth-eyebrow-dot"></span> MARKET RESEARCH WORKSPACE</span>
-            <h1 id="auth-title">Clarity for every<br />market decision.</h1>
+            <h1 id="auth-title">Clarity for market decisions.</h1>
             <p>Research equities, track the signals that matter, and keep your market workspace close at hand.</p>
             <div class="auth-preview" aria-hidden="true">
-              <div class="auth-preview-top"><span>MARKET OVERVIEW</span><span>1Y</span></div>
-              <div class="auth-preview-value">NIFTY 50 <span>+1.42%</span></div>
+              <div class="auth-preview-top"><span>EXAMPLE WORKSPACE</span><span>1Y</span></div>
+              <div class="auth-preview-value">Market overview</div>
               <svg viewBox="0 0 560 150" preserveAspectRatio="none">
                 <path class="auth-preview-grid" d="M0 25H560M0 75H560M0 125H560" />
                 <path class="auth-preview-area" d="M0 124 C35 120 34 94 75 104 S121 114 151 82 S197 100 226 72 S268 78 295 62 S342 79 368 50 S410 60 440 36 S482 52 510 20 S540 29 560 10 V150H0Z" />
@@ -84,14 +85,13 @@
     <!-- =====================================================================
          MARA PHYSICAL INTERFACE ARCHITECTURE — PHASE 0 GLOBAL SHELL
          ===================================================================== -->
-    <div id="mara-app" class="mara-app context-panel-open" data-density="normal">
+    <div id="mara-app" class="mara-app" data-density="normal">
       <!-- UNIFIED NAVIGATION HEADER -->
       <header id="mara-unified-header" class="mara-unified-header">
         <!-- Brand Group -->
         <div class="mara-brand-group" id="brand-home-btn" title="Mara Financial Workstation">
           <img src="/favicon.svg" alt="Mara Logo" class="mara-brand-logo" width="22" height="22" />
           <span class="mara-brand-title">MARA</span>
-          <span class="mara-brand-badge">TERMINAL v2.5</span>
         </div>
 
         <!-- Global Command / Search Surface (⌘K) -->
@@ -123,10 +123,6 @@
           <span class="mara-asset-badge chg-neutral" id="stock-change-badge">
             <span id="stock-change-pct">—</span>
           </span>
-          <div class="mara-live-status" title="Direct Exchange Feed Synchronized">
-            <span class="mara-live-dot"></span>
-            <span>LIVE</span>
-          </div>
         </div>
 
         <!-- Workspace Navigation Tabs -->
@@ -178,7 +174,7 @@
           </button>
 
           <!-- Context Inspector Panel Toggle -->
-          <button class="mara-header-btn active" id="mara-context-toggle" type="button" title="Toggle Context Inspector Panel (⌥C)">
+          <button class="mara-header-btn" id="mara-context-toggle" type="button" title="Toggle research context" aria-controls="mara-context-panel" aria-expanded="false">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
             <span>Inspector ◨</span>
           </button>
@@ -1080,82 +1076,15 @@
   <div class="context-panel-header">
     <div style="display: flex; align-items: center; gap: 6px;">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
-      <span class="context-panel-title">Context Inspector</span>
+      <span class="context-panel-title">Research context</span>
     </div>
     <button class="context-panel-close-btn" id="close-context-panel-btn" title="Close Panel (⌥C)">✕</button>
   </div>
-  <div class="context-panel-body" id="context-panel-body">
-    <!-- Active Asset Dossier Card -->
-    <div class="inspector-block">
-      <div class="inspector-block-title">Active Instrument</div>
-      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;">
-        <div>
-          <span style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: #ffffff;" id="inspector-sym">TCS.NS</span>
-          <span style="font-size: 11px; color: var(--text-dim); margin-left: 6px;" id="inspector-exchange">NSE India</span>
-        </div>
-        <span class="mara-asset-badge chg-neutral" id="inspector-chg">—</span>
-      </div>
-      <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" id="inspector-company">Tata Consultancy Services Ltd</div>
-      <div class="inspector-grid">
-        <div class="inspector-stat">
-          <span class="label">Last Price</span>
-          <span class="val" id="inspector-price">—</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">Market Cap</span>
-          <span class="val">—</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">P/E Ratio</span>
-          <span class="val">—</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">RSI (14)</span>
-          <span class="val" style="color: var(--gain);">56.4</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Quick Watchlist Peek -->
-    <div class="inspector-block">
-      <div class="inspector-block-title">Fast Watchlist</div>
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 4px 6px; background: #181b24; border-radius: 3px;">
-          <span style="font-family: var(--font-mono); font-weight: 600; color: #fff;">RELIANCE.NS</span>
-          <span style="font-family: var(--font-mono); color: var(--gain);">₹2,980 (+1.2%)</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 4px 6px; background: #181b24; border-radius: 3px;">
-          <span style="font-family: var(--font-mono); font-weight: 600; color: #fff;">INFY.NS</span>
-          <span style="font-family: var(--font-mono); color: var(--loss);">₹1,840 (-0.5%)</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 4px 6px; background: #181b24; border-radius: 3px;">
-          <span style="font-family: var(--font-mono); font-weight: 600; color: #fff;">HDFCBANK.NS</span>
-          <span style="font-family: var(--font-mono); color: var(--gain);">₹1,690 (+0.8%)</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Telemetry Status -->
-    <div class="inspector-block">
-      <div class="inspector-block-title">Pipeline Diagnostics</div>
-      <div class="inspector-grid">
-        <div class="inspector-stat">
-          <span class="label">Data Handshake</span>
-          <span class="val" style="color: var(--gain);">Direct NSE</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">L1 TTLCache</span>
-          <span class="val">HIT (0.4ms)</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">Fallback Feeder</span>
-          <span class="val">Yahoo Finance</span>
-        </div>
-        <div class="inspector-stat">
-          <span class="label">WebSocket</span>
-          <span class="val" style="color: var(--gain);">STANDBY</span>
-        </div>
-      </div>
+  <div class="context-panel-body" id="context-panel-body" aria-live="polite">
+    <div class="context-empty-state">
+      <span class="context-empty-mark" aria-hidden="true">—</span>
+      <h3>Research context</h3>
+      <p>Verified instrument details will appear here when available.</p>
     </div>
   </div>
 </aside>
@@ -1164,26 +1093,7 @@
 
 <!-- 4. SYSTEM STATUS BAR (26px) -->
 <footer id="mara-status-bar" class="mara-status-bar">
-  <div class="status-bar-left">
-    <div class="status-bar-item live">
-      <span class="mara-live-dot"></span>
-      <span>NSE OPEN</span>
-    </div>
-    <span class="sep">·</span>
-    <div class="status-bar-item">
-      <span>DATA: CONNECTED</span>
-    </div>
-    <span class="sep">·</span>
-    <div class="status-bar-item">
-      <span>PIPELINE: DIRECT NSE</span>
-    </div>
-  </div>
-
   <div class="status-bar-center">
-    <div class="status-bar-item">
-      <span>CACHE: <strong style="color: #ffffff;">180ms</strong> (L1/L2 HYBRID)</span>
-    </div>
-    <span class="sep">·</span>
     <div class="status-bar-item">
       <span>ACTIVE WORKSTATION: <strong id="status-active-ws" style="color: var(--accent);">MARKETS</strong></span>
     </div>
@@ -1191,12 +1101,7 @@
 
   <div class="status-bar-right">
     <div class="status-bar-item">
-      <span id="status-bar-clock">UTC 12:41:03</span>
-    </div>
-    <span class="sep">·</span>
-    <div class="status-bar-item">
-      <kbd style="font-family: var(--font-mono); font-size: 9px; padding: 1px 4px; background: rgba(255,255,255,0.08); border-radius: 2px;">⌘K</kbd>
-      <span>COMMANDS</span>
+      <span id="status-bar-clock">UTC --:--:--</span>
     </div>
   </div>
 </footer>
