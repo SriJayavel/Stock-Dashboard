@@ -89,12 +89,7 @@ class AwardWinningDashboard {
           <!-- Workspace Tabs -->
           <div class="hidden md:flex items-center gap-2">
             ['Markets', 'Discover', 'Analyze', 'Compare', 'Research', 'Monitor'].map((tab, index) => (
-              `<button
-                key="${tab}"
-                class="px-4 py-2 text-[13px] font-medium transition-all duration-300 ${index === 0 ? 'bg-[rgba(200,169,106,0.15)] text-[#c8a96a]' : 'text-[rgba(160,156,145,0.7)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#ffffff]'}"
-              >
-                ${tab}
-              </button>`
+              `<button key="${tab}" class="px-4 py-2 text-[13px] font-medium transition-all duration-300 ${index === 0 ? 'bg-[rgba(200,169,106,0.15)] text-[#c8a96a]' : 'text-[rgba(160,156,145,0.7)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[#ffffff]'">${tab}</button>`
             )).join('')
           }
 
