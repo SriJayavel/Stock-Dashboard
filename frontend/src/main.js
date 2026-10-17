@@ -235,8 +235,17 @@ export function setWorkspace(workspaceName, subTab = null) {
     const targetSub = subTab || currentMonitorTab || 'watchlist';
     setMonitorSubTab(targetSub);
   } else if (workspaceName === 'markets') {
-    loadMarketOverview();
-    loadAndRenderSectorsAndMarketMap();
+    // Initialize Award-Winning Dashboard instead of traditional markets view
+    if (typeof AwardWinningDashboard === 'function') {
+      // Create or reuse the award-winning dashboard instance
+      if (!window.awardWinningDashboardInstance) {
+        window.awardWinningDashboardInstance = new AwardWinningDashboard();
+      }
+    } else {
+      // Fallback to traditional markets view if award-winning dashboard is not loaded
+      loadMarketOverview();
+      loadAndRenderSectorsAndMarketMap();
+    }
   } else if (workspaceName === 'discover') {
     if (subTab) {
       const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
