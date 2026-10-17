@@ -27,7 +27,7 @@ html:not(.light-theme) {
   --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --shadow-dropdown: 0 18px 48px rgba(0, 0, 0, 0.52);
   --shell-header-h: 64px;
-  --shell-status-bar-h: 32px;
+  --shell-status-bar-h: 24px;
 }
 
 html.light-theme {
@@ -54,6 +54,7 @@ html.light-theme {
   --font-sans: "Segoe UI", "Trebuchet MS", sans-serif;
   --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --shadow-dropdown: 0 18px 48px rgba(41, 34, 20, 0.16);
+  --shell-status-bar-h: 24px;
 }
 
 html,
@@ -598,6 +599,7 @@ textarea {
 @media (max-width: 1023px) {
   :root {
     --shell-header-h: 100px;
+    --shell-status-bar-h: 24px;
   }
 
   .mara-unified-header {
@@ -643,7 +645,7 @@ textarea {
 @media (max-width: 767px) {
   :root {
     --shell-header-h: 124px;
-    --shell-status-bar-h: 30px;
+    --shell-status-bar-h: 22px;
   }
 
   .mara-unified-header {
