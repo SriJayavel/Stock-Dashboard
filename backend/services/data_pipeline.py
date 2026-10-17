@@ -850,14 +850,37 @@ def get_market_candles(symbol: str, interval: str = "1m", range_param: str = "1d
     return get_stock_history(symbol=symbol, timeframe=range_param, interval=interval)
 
 
-def get_market_overview() -> dict:
+def get_market_overview(refresh: bool = False) -> dict:
     """
-    Fetch hero index (NIFTY 50), multi-asset macro dashboard (Crypto, Forex, Indices, Commodities),
-    and community trends.
+    Serve the cached market snapshot to web requests. Upstream market providers are
+    contacted only by the scheduled cache warmer (refresh=True), not by page loads.
     """
     cached = cache.get("market", "overview")
-    if cached:
+    if cached and not refresh:
         return cached
+
+    if not refresh:
+        stale = cache.get("market", "overview_stale")
+        if stale:
+            stale_snapshot = dict(stale)
+            stale_snapshot["is_stale"] = True
+            stale_snapshot["hero"] = {
+                **(stale.get("hero") or {}),
+                "is_stale": True,
+            }
+            stale_snapshot["macro"] = {
+                category: [{**item, "is_stale": True} for item in items]
+                for category, items in (stale.get("macro") or {}).items()
+            }
+            return stale_snapshot
+        return {
+            "hero": {"symbol": "^NSEI", "name": "NIFTY 50", "price": None, "status": "unavailable"},
+            "macro": {"Indices": [], "Forex": [], "Commodities": [], "Crypto": []},
+            "trending": [],
+            "market_status": "Unavailable",
+            "last_updated": None,
+            "is_stale": True,
+        }
 
     # 1. Hero Index: Try NSE Direct for Nifty 50, fallback to yfinance
     hero_nifty = None
@@ -1026,13 +1049,16 @@ def get_market_overview() -> dict:
                 ]
 
     # Top Trending & Community Leaders
-    trending = [
-        {"symbol": "RELIANCE.NS", "name": "Reliance", "change_pct": 1.45, "volume_str": "8.4M", "sentiment": "Bullish (78%)"},
-        {"symbol": "TCS.NS", "name": "TCS", "change_pct": 0.82, "volume_str": "3.1M", "sentiment": "Neutral (54%)"},
-        {"symbol": "NVDA", "name": "NVIDIA", "change_pct": 3.12, "volume_str": "45.2M", "sentiment": "Strong Bullish (88%)"},
-        {"symbol": "HDFCBANK.NS", "name": "HDFC Bank", "change_pct": -0.65, "volume_str": "12.8M", "sentiment": "Consolidating (48%)"},
-        {"symbol": "BTC-USD", "name": "Bitcoin", "change_pct": 2.80, "volume_str": "$28.4B", "sentiment": "Bullish (82%)"},
-    ]
+    trending = sorted(
+        (
+            {"symbol": item["symbol"], "name": item["name"], "change_pct": item["change_pct"]}
+            for category in macro_results.values()
+            for item in category
+            if item.get("change_pct") is not None
+        ),
+        key=lambda item: abs(item["change_pct"]),
+        reverse=True,
+    )[:5]
 
     overview_data = {
         "hero": hero_nifty,
@@ -1112,7 +1138,7 @@ def warm_all_caches() -> dict:
     try:
         # 1. Warm Market Overview
         try:
-            get_market_overview()
+            get_market_overview(refresh=True)
             warmed_count += 1
         except Exception as e:
             errors.append(f"Market overview: {str(e)}")

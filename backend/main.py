@@ -133,8 +133,8 @@ def health_check():
 @app.get("/api/markets/overview")
 def api_markets_overview():
     """
-    Get Hero NIFTY 50 index snapshot, multi-asset macro dashboard (Indices, Forex, Crypto, Commodities),
-    and community trending leaders.
+    Serve the latest cached multi-asset market snapshot without making inline
+    upstream provider requests.
     """
     try:
         data = get_market_overview()

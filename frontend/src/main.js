@@ -2745,11 +2745,74 @@ function generateSparklineSvg(isUp, seedStr = '') {
   `;
 }
 
+function renderMarketTicker(data) {
+  const track = document.getElementById('market-ticker-track');
+  if (!track) return;
+
+  const symbols = ['^NSEI', '^BSESN', '^NSEBANK', '^GSPC', '^IXIC', '^FTSE', '^N225', 'GC=F', 'SI=F', 'BTC-USD'];
+  const assets = Object.values(data?.macro || {}).flat();
+  const bySymbol = new Map(assets.map((item) => [item.symbol, item]));
+  if (data?.hero?.price != null && !bySymbol.has('^NSEI')) {
+    bySymbol.set('^NSEI', { ...data.hero, symbol: '^NSEI', name: 'NIFTY 50' });
+  }
+  const available = symbols.map((symbol) => bySymbol.get(symbol))
+    .filter((item) => item && Number.isFinite(Number(item.price)));
+
+  track.replaceChildren();
+  if (!available.length) {
+    const empty = document.createElement('span');
+    empty.className = 'market-ticker-empty';
+    empty.textContent = 'Market snapshot unavailable';
+    track.append(empty);
+    return;
+  }
+
+  for (const item of available) {
+    const button = document.createElement('button');
+    const change = Number(item.change_pct);
+    const currency = ({
+      '^NSEI': '₹', '^BSESN': '₹', '^NSEBANK': '₹',
+      '^GSPC': '$', '^IXIC': '$', '^FTSE': '£', '^N225': '¥',
+      'GC=F': '$', 'SI=F': '$', 'BTC-USD': '$',
+    })[item.symbol] || '';
+    const decimals = item.symbol?.includes('=X') ? 4 : 2;
+    button.type = 'button';
+    button.className = `market-ticker-item ${Number.isFinite(change) ? change >= 0 ? 'is-positive' : 'is-negative' : ''}`;
+    button.title = `${item.name || item.symbol} · Open in Analyze`;
+
+    const identity = document.createElement('span');
+    identity.className = 'market-ticker-identity';
+    identity.textContent = item.name || item.symbol;
+    const value = document.createElement('span');
+    value.className = 'market-ticker-value';
+    value.textContent = `${currency}${Number(item.price).toLocaleString('en-US', {
+      minimumFractionDigits: decimals, maximumFractionDigits: decimals,
+    })}`;
+    const movement = document.createElement('span');
+    movement.className = 'market-ticker-movement';
+    const absoluteChange = document.createElement('span');
+    absoluteChange.className = 'market-ticker-change';
+    absoluteChange.textContent = Number.isFinite(Number(item.change))
+      ? `${Number(item.change) > 0 ? '+' : Number(item.change) < 0 ? '−' : ''}${currency}${Math.abs(Number(item.change)).toLocaleString('en-US', { maximumFractionDigits: decimals })}`
+      : '—';
+    const percentChange = document.createElement('span');
+    percentChange.className = 'market-ticker-percent';
+    percentChange.textContent = Number.isFinite(change) ? `${change > 0 ? '+' : ''}${change.toFixed(2)}%` : '—';
+    movement.append(absoluteChange, percentChange);
+    button.append(identity, value, movement);
+    button.addEventListener('click', () => {
+      if (item.symbol) router.navigate(router.formatSymbolRoute(item.symbol, 'chart'));
+    });
+    track.append(button);
+  }
+}
+
 // Load and Render Market Overview
 async function loadMarketOverview(force = false) {
   const now = Date.now();
   if (!force && marketDataCache?.macro && (now - lastMarketOverviewFetchTime < 60000)) {
     renderMarketStateBar(marketDataCache);
+    renderMarketTicker(marketDataCache);
     return;
   }
   try {
@@ -2757,6 +2820,7 @@ async function loadMarketOverview(force = false) {
     marketDataCache = data;
     lastMarketOverviewFetchTime = now;
     renderMarketStateBar(data);
+    renderMarketTicker(data);
 
     // Render Hero Card
     if (data.hero) {
@@ -5282,6 +5346,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     try {
       marketDataCache = await api.getMarketOverview();
       lastMarketOverviewFetchTime = now;
+      renderMarketTicker(marketDataCache);
     } catch (e) {
       console.warn('Could not fetch market overview for indices table:', e);
     }
