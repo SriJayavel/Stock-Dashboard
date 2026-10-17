@@ -118,11 +118,11 @@ html.light-theme .mara-unified-header {
 }
 
 .mara-cmd-input-wrap {
-  height: 38px;
-  padding: 0 11px;
+  height: 32px;
+  padding: 0 8px;
   background: rgba(255, 255, 255, 0.025);
   border-color: var(--border);
-  border-radius: 7px;
+  border-radius: 6px;
 }
 
 .mara-cmd-input-wrap:focus-within {
@@ -133,6 +133,21 @@ html.light-theme .mara-unified-header {
 
 .mara-cmd-input::placeholder {
   color: var(--text-muted);
+}
+
+.mara-cmd-input {
+  height: 100%;
+  width: 100%;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font-sans);
+}
+
+.mara-cmd-input:focus-visible {
+  outline: none;
 }
 
 .mara-cmd-kbd {
@@ -780,7 +795,7 @@ html:not(.light-theme) .mara-app {
 .mara-unified-header .mara-active-asset-strip { display: flex; }
 
 .market-ticker-strip {
-  display: flex;
+  display: none !important;
   align-items: stretch;
   min-height: 57px;
   border-bottom: 1px solid var(--border);
