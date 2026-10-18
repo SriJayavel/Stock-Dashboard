@@ -1,0 +1,67 @@
+# Task: Diagnose and Fix Content Security Policy (CSP) `unsafe-eval` Error
+
+## Problem
+
+The browser console reports the following Content Security Policy violation:
+
+- **Directive:** `script-src`
+- **Status:** Blocked
+- **Issue:** JavaScript string evaluation is blocked by CSP.
+
+The error indicates that some code may be attempting to use `eval()`, `new Function()`, or a string argument passed to `setTimeout()` or `setInterval()`.
+
+## Objective
+
+Identify the exact source of the CSP violation and fix it without compromising the application's security, functionality, or production deployment.
+
+## Step 1: Diagnose the Root Cause
+
+1. Inspect the browser console and identify the complete CSP error, including the stack trace and source file.
+2. Inspect the Network tab for the document's `Content-Security-Policy` response header and any CSP `<meta>` tag.
+3. Search the codebase and dependencies for:
+   - `eval()`
+   - `new Function()`
+   - String-based `setTimeout()` or `setInterval()`
+   - Development tools, charting libraries, or other dependencies that may require dynamic code evaluation.
+4. Determine whether the violation occurs in development, production, or both.
+5. Identify whether the error originates from application code, a third-party dependency, a browser extension, or a development-only tool.
+
+## Step 2: Apply the Correct Fix
+
+Choose the smallest appropriate fix based on the confirmed root cause.
+
+- If application code uses dynamic string evaluation, replace it with normal function calls, callbacks, or safer alternatives.
+- If a dependency causes the violation, check for a compatible version or configuration that does not require `unsafe-eval`.
+- If a development tool causes the violation, configure the development environment appropriately without weakening the production policy.
+- If the CSP header or meta policy is incorrectly configured, correct it while preserving the existing security protections.
+- Check whether multiple CSP policies are active. Do not assume that adding a permissive source to one policy will override another restrictive policy.
+
+## Step 3: Security Requirements
+
+- Do NOT add `'unsafe-eval'` to `script-src` as the default fix.
+- Do NOT use `'unsafe-inline'` or disable CSP as a workaround.
+- Do NOT remove existing security directives without justification.
+- Do NOT modify unrelated application features or redesign the UI.
+- Preserve the application's existing API integrations, charts, routing, and production functionality.
+
+Only consider allowing `'unsafe-eval'` if a verified, essential dependency cannot operate without it, safer alternatives have been evaluated, and the security trade-off is explicitly documented and approved.
+
+## Step 4: Verify the Fix
+
+1. Restart the development server and rebuild the application.
+2. Test the affected page in a clean browser session.
+3. Confirm that the CSP violation no longer occurs.
+4. Verify that the relevant UI components and JavaScript functionality still work.
+5. Check the production deployment and its actual CSP response headers.
+6. Check for new console errors, failed API requests, or regressions.
+
+## Expected Deliverables
+
+Provide:
+1. The confirmed root cause and the file or dependency responsible.
+2. The exact files changed and a summary of the changes.
+3. The code-level fix or configuration change applied.
+4. Build and runtime verification results.
+5. Any remaining CSP warnings and their security implications.
+
+**Important:** Do not merely suppress the console warning. Fix the underlying cause wherever possible, and report honestly if the issue cannot be reproduced or verified.
