@@ -74,16 +74,36 @@ app.add_middleware(
 async def require_mara_account(request, call_next):
     """Require an active Supabase Auth session for all application data APIs."""
     path = request.url.path
-    public_paths = {
+
+    # Define public path prefixes that don't require authentication
+    public_path_prefixes = [
         "/api/health",
-        "/api/stocks/{symbol:path}/overview",
-        "/api/stocks/{symbol:path}/history",
         "/api/market/candles",
         "/api/markets/overview",
         "/api/screener",
         "/api/search"
-    }
-    if request.method != "OPTIONS" and path.startswith("/api/") and path not in public_paths:
+    ]
+
+    # Define public path patterns with parameters
+    public_path_patterns = [
+        ("/api/stocks/", "/overview"),
+        ("/api/stocks/", "/history")
+    ]
+
+    # Check if path is in public prefixes
+    is_public_prefix = any(path.startswith(prefix) for prefix in public_path_prefixes)
+
+    # Check if path matches public patterns
+    is_public_pattern = False
+    if path.startswith("/api/"):
+        for prefix, suffix in public_path_patterns:
+            if path.startswith(prefix) and path.endswith(suffix):
+                is_public_pattern = True
+                break
+
+    is_public = is_public_prefix or is_public_pattern
+
+    if request.method != "OPTIONS" and path.startswith("/api/") and not is_public:
         if settings.ENVIRONMENT != "production" and (not settings.SUPABASE_URL or not settings.SUPABASE_KEY):
             request.state.mara_user = {"id": "guest_dev", "email": "dev@mara.internal"}
             return await call_next(request)

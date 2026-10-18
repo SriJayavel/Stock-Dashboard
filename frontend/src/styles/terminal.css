@@ -6551,7 +6551,7 @@ a:focus-visible {
 }
 
 /* Active design tokens; authoritative TradingView-style dark tokens. */
-html:root {
+/* html:root {
   --bg: #131722;
   --surface: #1e222d;
   --surface-solid: #1e222d;
@@ -6576,7 +6576,7 @@ html:root {
   --radius-md: 6px;
   --radius-lg: 8px;
   --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
+} */
 html body { background: #131722; color: var(--text); font-family: var(--font-sans); }
 html .navbar { background: rgba(19, 23, 34, 0.98); border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
 html .top-nav-workspaces, html .top-nav-views, html .search-input-wrapper, html .workspace-nav-bar { background: #1e222d; }
@@ -6698,7 +6698,7 @@ body.chart-fullscreen-active .navbar:focus-within {
 }
 
 /* Light Theme Overrides */
-html.light-theme {
+/* html.light-theme {
   --bg: #ffffff;
   --surface: #f8fafc;
   --text: #0f172a;
@@ -6722,7 +6722,7 @@ html.light-theme {
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
+} */
 
 html.light-theme .mara-global-header,
 html.light-theme .navbar,

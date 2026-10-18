@@ -47,9 +47,9 @@ let lastMarketOverviewFetchTime = 0;
 let currentLoadToken = 0;
 let currentChartInterval = (() => {
   try {
-    return localStorage.getItem(getAccountStorageKey('apex_chart_interval')) || '1m';
+    return localStorage.getItem(getAccountStorageKey('apex_chart_interval')) || '1d';
   } catch {
-    return '1m';
+    return '1d';
   }
 })();
 let currentChartRange = (() => {
@@ -235,17 +235,9 @@ export function setWorkspace(workspaceName, subTab = null) {
     const targetSub = subTab || currentMonitorTab || 'watchlist';
     setMonitorSubTab(targetSub);
   } else if (workspaceName === 'markets') {
-    // Initialize Award-Winning Dashboard instead of traditional markets view
-    if (typeof AwardWinningDashboard === 'function') {
-      // Create or reuse the award-winning dashboard instance
-      if (!window.awardWinningDashboardInstance) {
-        window.awardWinningDashboardInstance = new AwardWinningDashboard();
-      }
-    } else {
-      // Fallback to traditional markets view if award-winning dashboard is not loaded
-      loadMarketOverview();
-      loadAndRenderSectorsAndMarketMap();
-    }
+    // Use traditional markets view to properly utilize redesign.css with Signal Sigma design
+    loadMarketOverview();
+    loadAndRenderSectorsAndMarketMap();
   } else if (workspaceName === 'discover') {
     if (subTab) {
       const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
@@ -3107,7 +3099,9 @@ async function loadStock(symbol, timeframe = '1y') {
   if (tvNameText) tvNameText.textContent = 'Loading...';
   const tvLegSym = document.getElementById('tv-leg-sym');
   if (tvLegSym) tvLegSym.textContent = symbol;
-  const activeInt = currentChartInterval || chartInstance?.activeInterval || '1m';
+  // For stock overview charts, use daily interval to ensure we get historical data via getStockHistory
+  // rather than intraday data via getMarketCandles, unless we're already viewing intraday data
+  const activeInt = currentChartInterval || chartInstance?.activeInterval || '1d';
   const intLabel = (activeInt === '1d' || activeInt === 'D') ? '1D' : ((activeInt === '1wk' || activeInt === 'W') ? '1W' : ((activeInt === '1mo' || activeInt === 'M') ? '1M' : activeInt.toUpperCase()));
   const tvLegInterval = document.getElementById('tv-leg-interval');
   if (tvLegInterval) tvLegInterval.textContent = intLabel;
@@ -3316,9 +3310,12 @@ function renderStockOverview(data) {
   if (stockSector) stockSector.textContent = `${data.sector || 'General'} / ${data.industry || 'Market'}`;
   if (stockMcap) stockMcap.textContent = `MCap: ${data.market_cap_str || '—'}`;
 
-  const isUp = (data.change || 0) >= 0;
-  const currSym = data.currency_symbol || getCurrencySymbol(data.symbol, data.currency);
   const decimals = data.symbol.includes('=X') ? 4 : 2;
+  const isUp = (data.change || 0) >= 0;
+  const sign = isUp ? '+' : '−';
+  const chgVal = Math.abs(data.change || 0).toFixed(decimals);
+  const chgPct = Math.abs(data.change_pct || 0).toFixed(decimals);
+  const currSym = data.currency_symbol || getCurrencySymbol(data.symbol, data.currency);
 
   if (stockPrice) {
     stockPrice.textContent = `${currSym}${data.current_price != null ? data.current_price.toFixed(decimals) : '0.00'}`;
@@ -3335,9 +3332,6 @@ function renderStockOverview(data) {
   }
 
   if (stockChangePct) {
-    const sign = isUp ? '+' : '−';
-    const chgVal = Math.abs(data.change || 0).toFixed(decimals);
-    const chgPct = Math.abs(data.change_pct || 0).toFixed(2);
     stockChangePct.textContent = `${sign}${chgVal} (${sign}${chgPct}%)`;
   }
   if (stockChangeBadge) {
