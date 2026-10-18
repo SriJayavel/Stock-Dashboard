@@ -6,6 +6,12 @@
  * Hover Physics, Scroll Pinning, Image Scale & Fade Scroll, Scrubbing Text Reveals, Card Stacking
  */
 
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+// Register GSAP plugins
+gsap.registerPlugin(ScrollTrigger);
+
 class AwardWinningDashboard {
   constructor() {
     this.marketData = [];
@@ -564,25 +570,7 @@ class AwardWinningDashboard {
   initGSAPAnimations() {
     // Wait for DOM to be ready
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.loadGSAP());
-    } else {
-      this.loadGSAP();
-    }
-  }
-
-  loadGSAP() {
-    // Load GSAP and ScrollTrigger if not already loaded
-    if (typeof gsap === 'undefined') {
-      // Dynamically load GSAP
-      const gsapScript = document.createElement('script');
-      gsapScript.src = 'https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js';
-      gsapScript.onload = () => {
-        const scrollTriggerScript = document.createElement('script');
-        scrollTriggerScript.src = 'https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js';
-        scrollTriggerScript.onload = () => this.initAnimations();
-        document.head.appendChild(scrollTriggerScript);
-      };
-      document.head.appendChild(gsapScript);
+      document.addEventListener('DOMContentLoaded', () => this.initAnimations());
     } else {
       this.initAnimations();
     }
