@@ -74,7 +74,15 @@ app.add_middleware(
 async def require_mara_account(request, call_next):
     """Require an active Supabase Auth session for all application data APIs."""
     path = request.url.path
-    public_paths = {"/api/health"}
+    public_paths = {
+        "/api/health",
+        "/api/stocks/{symbol:path}/overview",
+        "/api/stocks/{symbol:path}/history",
+        "/api/market/candles",
+        "/api/markets/overview",
+        "/api/screener",
+        "/api/search"
+    }
     if request.method != "OPTIONS" and path.startswith("/api/") and path not in public_paths:
         if settings.ENVIRONMENT != "production" and (not settings.SUPABASE_URL or not settings.SUPABASE_KEY):
             request.state.mara_user = {"id": "guest_dev", "email": "dev@mara.internal"}
