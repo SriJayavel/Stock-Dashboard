@@ -808,7 +808,12 @@ def get_v4_intelligence(symbol: str) -> Dict[str, Any]:
     from backend.services.research_pipeline import get_stock_research
     from backend.services.deep_research import get_historical_valuation_and_drawdown
 
-    research_data = get_stock_research(sym)
+    # Safely get research data with fallback
+    try:
+        research_data = get_stock_research(sym)
+    except Exception as e:
+        logger.error(f"Error fetching research data for {sym}: {e}")
+        research_data = {}
     fin_timeline = research_data.get("financial_timeline", [])
 
     # Safely calculate PE value with fallback

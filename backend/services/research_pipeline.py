@@ -129,8 +129,9 @@ def _extract_peer_summary(peer_sym: str) -> dict:
                 info = raw_info
             else:
                 info = {}
-        except (AttributeError, KeyError):
+        except (AttributeError, KeyError, Exception):  # Broad catch for robustness including HTTP errors
             info = {}
+
         fast = getattr(t, "fast_info", None)
         price = info.get("currentPrice") or info.get("regularMarketPrice") or _get_fast_info_val(fast, "last_price", "lastPrice") or 0.0
         prev = info.get("regularMarketPreviousClose") or _get_fast_info_val(fast, "previous_close", "previousClose") or price
@@ -150,7 +151,7 @@ def _extract_peer_summary(peer_sym: str) -> dict:
             "debt_to_equity": _parse_debt_to_equity(info, sym=peer_sym),
             "dividend_yield": _parse_dividend_yield(info, price=price, sym=peer_sym),
         }
-    except (AttributeError, KeyError, ValueError, RuntimeError) as e:
+    except Exception as e:
         logger.debug(f"Failed extracting peer summary for {peer_sym}: {e}")
         return {
             "symbol": peer_sym,
