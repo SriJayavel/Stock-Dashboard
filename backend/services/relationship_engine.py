@@ -811,9 +811,46 @@ def get_v4_intelligence(symbol: str) -> Dict[str, Any]:
     research_data = get_stock_research(sym)
     fin_timeline = research_data.get("financial_timeline", [])
 
-    pe_val = round(float(info["trailingPE"]), 2) if info.get("trailingPE") is not None else None
-    price = float(info.get("currentPrice") or info.get("regularMarketPrice") or 0.0)
-    hist_val = get_historical_valuation_and_drawdown(t, pe_val, price, currency)
+    # Safely calculate PE value with fallback
+    try:
+        pe_val = round(float(info["trailingPE"]), 2) if info.get("trailingPE") is not None else None
+    except (ValueError, TypeError, KeyError) as e:
+        logger.warning(f"Failed to calculate PE value for {sym}: {e}")
+        pe_val = None
+
+    # Safely calculate price with fallback
+    try:
+        price = float(info.get("currentPrice") or info.get("regularMarketPrice") or 0.0)
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Failed to calculate price for {sym}: {e}")
+        price = 0.0
+
+    # Safely calculate historical valuation with fallback
+    try:
+        hist_val = get_historical_valuation_and_drawdown(t, pe_val, price, currency)
+    except Exception as e:
+        logger.error(f"Error computing historical valuation for {sym}: {e}")
+        hist_val = {
+            "historical_valuation": {
+                "current_pe": pe_val,
+                "pe_5y_median": None,
+                "pe_5y_high": None,
+                "pe_5y_low": None,
+                "pe_percentile_rank": None,
+                "valuation_stance": "Fairly Valued Relative to 5Y Cycle",
+            },
+            "volatility_and_drawdown": {
+                "max_drawdown_pct": None,
+                "peak_price": None,
+                "trough_price": None,
+                "recovery_days": None,
+                "annualized_volatility_30d": None,
+                "annualized_volatility_90d": None,
+                "annualized_volatility_1y": None,
+                "atr_14": None,
+                "returns": {},
+            },
+        }
 
     # 2. Compute v4 Engines with fault-tolerant individual fallbacks
     try:
