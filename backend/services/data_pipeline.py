@@ -30,6 +30,7 @@ from backend.services.cache_manager import cache
 from backend.services.nse_fetcher import nse_client
 from backend.services.indicators import apply_all_indicators, generate_technical_observations
 from backend.services.market_calendar import get_calendar_for_symbol
+from backend.services.circuit_breaker import is_circuit_open, record_failure, record_success
 
 logger = logging.getLogger("data_pipeline")
 
@@ -361,20 +362,49 @@ def get_stock_overview(symbol: str) -> dict:
     if sym.endswith(".NS") and not sym.startswith("^"):
         nse_data = nse_client.get_equity_quote(sym)
 
-    # Fetch yfinance fundamentals
-    session = _yf_session
-    t = yf.Ticker(sym, session=session)
-    info = {}
-    try:
-        info = t.info or {}
-    except Exception as e:
-        logger.debug(f"yfinance info fetch error for {sym}: {e}")
-
-    try:
-        fast = getattr(t, "fast_info", None)
-    except Exception as e:
-        logger.warning(f"yfinance fast_info unavailable for {sym}: {e}")
+    # Check circuit breaker for yfinance
+    if is_circuit_open("yfinance"):
+        logger.warning(f"Circuit breaker open for yfinance, using cached/stale data for {sym}")
+        # We'll still try to get cached data below, but skip fresh yfinance calls
+        t = None
+        info = {}
         fast = None
+    else:
+        # Fetch yfinance fundamentals
+        session = _yf_session
+        try:
+            t = yf.Ticker(sym, session=session)
+        except Exception as e:
+            logger.warning(f"Failed to create yfinance Ticker for {sym}: {e}")
+            record_failure("yfinance")
+            t = None
+            info = {}
+            fast = None
+        else:
+            # Fetch yfinance fundamentals
+            try:
+                raw_info = t.info
+                if raw_info is None:
+                    info = {}
+                elif isinstance(raw_info, dict):
+                    info = raw_info
+                else:
+                    info = {}
+            except Exception as e:
+                logger.debug(f"yfinance info fetch error for {sym}: {e}")
+                record_failure("yfinance")
+                info = {}
+
+        try:
+            fast = getattr(t, "fast_info", None)
+        except Exception as e:
+            logger.warning(f"yfinance fast_info unavailable for {sym}: {e}")
+            fast = None
+            record_failure("yfinance")
+
+        # If we got here without exceptions, record success
+        if t is not None:
+            record_success("yfinance")
 
     # Determine Price
     price = 0.0

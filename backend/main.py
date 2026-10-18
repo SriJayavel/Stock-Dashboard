@@ -151,11 +151,41 @@ def health_check():
                 "config_errors": settings.config_errors,
             },
         )
-    return {
-        "status": "healthy",
+
+    # Check cache status (critical for our application)
+    cache_status = "ok"
+    try:
+        # Simple cache operation to verify it's working
+        cache.set("health_check_test", "ok", ttl=1)
+        result = cache.get("health_check_test")
+        if result != "ok":
+            cache_status = "fail"
+    except Exception:
+        cache_status = "fail"
+
+    # Overall status depends on critical components (config and cache)
+    # External APIs can be degraded without making the whole system unhealthy
+    overall_status = "healthy" if (settings.config_errors == [] and cache_status == "ok") else "degraded"
+
+    # Prepare dependency information (don't include in overall status for external APIs)
+    dependencies = {
+        "cache": cache_status,
+        # Note: We don't include external APIs in overall health status to avoid
+        # cascading failures, but we monitor them for alerting purposes
+    }
+
+    response = {
+        "status": overall_status,
         "service": "Mara Stock Dashboard API",
         "environment": settings.ENVIRONMENT,
+        "dependencies": dependencies,
     }
+
+    # Include config errors if any (even if we're degraded due to config, we still show them)
+    if settings.config_errors:
+        response["config_errors"] = settings.config_errors
+
+    return response
 
 
 @app.get("/api/markets/overview")

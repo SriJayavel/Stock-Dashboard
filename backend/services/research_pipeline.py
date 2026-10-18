@@ -122,7 +122,13 @@ def _extract_peer_summary(peer_sym: str) -> dict:
     try:
         t = yf.Ticker(peer_sym, session=_yf_session)
         try:
-            info = t.info or {}
+            raw_info = t.info
+            if raw_info is None:
+                info = {}
+            elif isinstance(raw_info, dict):
+                info = raw_info
+            else:
+                info = {}
         except (AttributeError, KeyError):
             info = {}
         fast = getattr(t, "fast_info", None)
@@ -180,7 +186,13 @@ def get_stock_research(symbol: str) -> dict:
     fetch_start = datetime.datetime.utcnow()
     t = yf.Ticker(sym, session=_yf_session)
     try:
-        info = t.info or {}
+        raw_info = t.info
+        if raw_info is None:
+            info = {}
+        elif isinstance(raw_info, dict):
+            info = raw_info
+        else:
+            info = {}
     except (AttributeError, KeyError, RuntimeError) as e:
         logger.warning(f"Failed to fetch info for {sym}: {e}")
         info = {}

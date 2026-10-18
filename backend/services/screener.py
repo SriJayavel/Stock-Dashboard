@@ -69,7 +69,17 @@ def get_screener_snapshot(universe: str = "us_mega_caps") -> dict:
                     continue
 
                 fast = getattr(t, "fast_info", None)
-                info = getattr(t, "info", {}) or {}
+                try:
+                    raw_info = getattr(t, "info", None)
+                    if raw_info is None:
+                        info = {}
+                    elif isinstance(raw_info, dict):
+                        info = raw_info
+                    else:
+                        info = {}
+                except Exception as e:
+                    logger.debug(f"Failed to fetch info for {sym}: {e}")
+                    info = {}
 
                 price = 0.0
                 if fast and hasattr(fast, "lastPrice") and fast.lastPrice:

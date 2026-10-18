@@ -792,7 +792,13 @@ def get_v4_intelligence(symbol: str) -> Dict[str, Any]:
 
     t = yf.Ticker(sym, session=_yf_session)
     try:
-        info = getattr(t, "info", {}) or {}
+        raw_info = getattr(t, "info", None)
+        if raw_info is None:
+            info = {}
+        elif isinstance(raw_info, dict):
+            info = raw_info
+        else:
+            info = {}
     except Exception as e:
         logger.warning(f"Failed to fetch info for {sym}: {e}")
         info = {}
