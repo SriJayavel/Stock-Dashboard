@@ -41,7 +41,7 @@ def _safe_float(val: Any) -> Optional[float]:
 # Curated peer groups for high-confidence comparative benchmarking
 PEER_GROUPS = {
     # Indian Sectors
-    "IN_IT": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "LTIM.NS"],
+    "IN_IT": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "LTM.NS"],
     "IN_BANKING": ["HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS"],
     "IN_AUTO": ["TATAMOTORS.NS", "MARUTI.NS", "M&M.NS", "BAJAJ-AUTO.NS"],
     "IN_ENERGY": ["RELIANCE.NS", "ONGC.NS", "BPCL.NS", "IOC.NS", "NTPC.NS"],
@@ -103,6 +103,7 @@ def find_peers_for_symbol(symbol: str, sector: str = "", industry: str = "") -> 
 
 def _extract_peer_summary(peer_sym: str) -> dict:
     """Fetch quick summary metrics for a peer ticker."""
+    peer_sym = resolve_symbol(peer_sym)
     cached = cache.get("overview", peer_sym)
     if cached:
         return {

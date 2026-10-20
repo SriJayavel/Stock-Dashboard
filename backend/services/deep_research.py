@@ -46,7 +46,7 @@ BENCHMARK_SECTORS = {
     "Technology": {
         "benchmark_etf": "XLK",
         "indian_proxy": "^CNXIT",
-        "constituents": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "LTIM.NS", "NVDA", "AAPL", "MSFT"],
+        "constituents": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "LTM.NS", "NVDA", "AAPL", "MSFT"],
         "display_name": "Information Technology & Software",
     },
     "Banking & Finance": {

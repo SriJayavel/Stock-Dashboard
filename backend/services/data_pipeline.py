@@ -118,6 +118,7 @@ POPULAR_UNIVERSE = [
     {"symbol": "SBIN.NS", "name": "State Bank of India", "category": "Equities", "exchange": "NSE", "country": "IN"},
     {"symbol": "ITC.NS", "name": "ITC Limited", "category": "Equities", "exchange": "NSE", "country": "IN"},
     {"symbol": "LT.NS", "name": "Larsen & Toubro", "category": "Equities", "exchange": "NSE", "country": "IN"},
+    {"symbol": "LTM.NS", "name": "LTM Limited", "category": "Equities", "exchange": "NSE", "country": "IN"},
     {"symbol": "TATAMOTORS.NS", "name": "Tata Motors", "category": "Equities", "exchange": "NSE", "country": "IN"},
 
     # Major US Tech Equities
@@ -139,6 +140,12 @@ def resolve_symbol(query: str) -> str:
     upper = cleaned.upper()
 
     aliases = {
+        # Yahoo Finance retired LTIM.NS; normalize legacy input before any
+        # cache lookup or provider request so all services share one identity.
+        "LTIM": "LTM.NS",
+        "LTIM.NS": "LTM.NS",
+        "LTIMINDTREE": "LTM.NS",
+        "LTIMINDTREE LIMITED": "LTM.NS",
         "NIFTY": "^NSEI",
         "NIFTY50": "^NSEI",
         "NIFTY 50": "^NSEI",
@@ -189,6 +196,15 @@ def search_assets(query: str) -> list[dict]:
         return POPULAR_UNIVERSE[:12]
 
     q_clean = query.strip()
+    resolved_query = resolve_symbol(q_clean)
+    if resolved_query != q_clean.upper():
+        canonical_match = next(
+            (item for item in POPULAR_UNIVERSE if item["symbol"] == resolved_query),
+            None,
+        )
+        if canonical_match:
+            return [canonical_match]
+
     q_low = q_clean.lower()
     matches = []
     seen = set()

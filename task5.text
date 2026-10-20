@@ -1,0 +1,32 @@
+### Fix: LTIMindtree ticker migration in MARA Stock Dashboard
+
+**Problem**
+
+The backend repeatedly logs:
+
+`$LTIM.NS: No data found, symbol may be delisted`
+
+**Root cause**
+
+Yahoo Finance now uses `LTM.NS` for LTIMindtree instead of the legacy `LTIM.NS` ticker.
+
+**Required changes**
+
+1. Search the entire codebase for `LTIM.NS`, including asset lists, symbol mappings, watchlists, search indexes, API routes, cache keys, and fallback logic.
+2. Replace the active LTIMindtree ticker mapping with `LTM.NS`. Keep the company display name as **LTIMindtree** or the provider's current official name.
+3. Update symbol resolution so legacy user input `LTIM.NS` redirects to the canonical ticker `LTM.NS` before making provider requests.
+4. Invalidate obsolete cached responses associated with the old ticker and prevent repeated requests for it.
+5. Check every endpoint that depends on the symbol: quote, historical chart, research, fundamentals, and intelligence.
+6. If the provider returns empty data, handle it gracefully. Do not display fabricated prices or label the company delisted based solely on a failed request.
+7. Add a regression test confirming that legacy `LTIM.NS` resolves to `LTM.NS` and that the application makes the provider request using the canonical ticker.
+8. Search for similar legacy ticker mappings elsewhere in the asset universe, but change other symbols only when verified.
+
+**Acceptance criteria**
+
+- No repeated Yahoo Finance requests for legacy `LTIM.NS`.
+- LTIMindtree resolves to `LTM.NS` throughout the application.
+- Existing charts, quotes, and research endpoints work with the canonical symbol.
+- The build and relevant tests pass.
+- No unrelated functionality or UI is changed.
+
+First inspect the existing architecture, then implement the smallest safe fix and report the changed files and test results.
