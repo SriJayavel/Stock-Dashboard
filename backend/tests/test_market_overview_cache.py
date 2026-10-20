@@ -5,6 +5,30 @@ from backend.services import data_pipeline
 
 
 class TestMarketOverviewCacheOnly(unittest.TestCase):
+    def test_explicit_refresh_uses_lock_and_refreshes_snapshot(self):
+        expected = {"market_status": "available"}
+        with (
+            patch.object(data_pipeline.cache, "acquire_lock", return_value=True) as acquire,
+            patch.object(data_pipeline.cache, "release_lock") as release,
+            patch.object(data_pipeline, "get_market_overview", return_value=expected) as refresh,
+        ):
+            result = data_pipeline.refresh_market_overview()
+
+        self.assertEqual(result, expected)
+        acquire.assert_called_once_with("market_overview_refresh", ttl=180)
+        refresh.assert_called_once_with(refresh=True)
+        release.assert_called_once_with("market_overview_refresh")
+
+    def test_explicit_refresh_skips_when_another_refresh_is_running(self):
+        with (
+            patch.object(data_pipeline.cache, "acquire_lock", return_value=False),
+            patch.object(data_pipeline, "get_market_overview") as refresh,
+        ):
+            result = data_pipeline.refresh_market_overview()
+
+        self.assertEqual(result["status"], "skipped")
+        refresh.assert_not_called()
+
     def test_cache_miss_does_not_call_upstream_providers(self):
         with (
             patch.object(data_pipeline.cache, "get", return_value=None),
@@ -26,6 +50,7 @@ class TestMarketOverviewCacheOnly(unittest.TestCase):
             "hero": {"symbol": "^NSEI", "name": "NIFTY 50", "price": 22000},
             "macro": {"Indices": [{"symbol": "^NSEI", "price": 22000}]},
             "trending": [],
+            "last_updated": "2026-10-20T10:00:00+00:00",
         }
 
         def cached_value(namespace, key):
@@ -42,6 +67,9 @@ class TestMarketOverviewCacheOnly(unittest.TestCase):
         self.assertTrue(result["is_stale"])
         self.assertTrue(result["hero"]["is_stale"])
         self.assertTrue(result["macro"]["Indices"][0]["is_stale"])
+        self.assertEqual(result["macro"]["Indices"][0]["freshness"], "STALE")
+        self.assertEqual(result["macro"]["Indices"][0]["retrieved_at"], stale["last_updated"])
+        self.assertEqual(result["feed_health"]["Indices"], "STALE")
         nse_quote.assert_not_called()
         yf_ticker.assert_not_called()
         yf_tickers.assert_not_called()

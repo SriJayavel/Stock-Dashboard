@@ -49,6 +49,41 @@ class TestMarketBenchmarkQuotes(unittest.TestCase):
                 self.assertEqual(quote["low"], 103 + offset)
                 self.assertTrue(quote["source_timestamp"])
 
+    def test_batch_failure_falls_back_per_symbol_and_reports_independent_health(self):
+        good_ticker = MagicMock()
+        good_ticker.fast_info = {
+            "last_price": 105.0,
+            "previous_close": 100.0,
+            "day_high": 108.0,
+            "day_low": 103.0,
+        }
+        def ticker_for_symbol(symbol, **kwargs):
+            if symbol == "^GSPC":
+                return good_ticker
+            raise RuntimeError("provider unavailable")
+
+        with (
+            patch.object(data_pipeline.cache, "get", return_value=None),
+            patch.object(data_pipeline.cache, "set"),
+            patch.object(data_pipeline.nse_client, "get_index_quote", return_value=None),
+            patch.object(data_pipeline.yf, "Ticker", side_effect=ticker_for_symbol),
+            patch.object(data_pipeline.yf, "Tickers", side_effect=RuntimeError("batch failed")),
+        ):
+            snapshot = data_pipeline.get_market_overview(refresh=True)
+
+        indices = {item["symbol"]: item for item in snapshot["macro"]["Indices"]}
+        self.assertEqual(set(indices), {"^GSPC"})
+        self.assertEqual(indices["^GSPC"]["freshness"], "DELAYED")
+        self.assertTrue(indices["^GSPC"]["retrieved_at"])
+        self.assertEqual(snapshot["feed_health"]["Indices"], "DELAYED")
+        self.assertEqual(snapshot["feed_health"]["Forex"], "OFFLINE")
+        self.assertEqual(snapshot["feed_health"]["Commodities"], "OFFLINE")
+        self.assertEqual(snapshot["feed_health"]["Crypto"], "OFFLINE")
+
+    def test_provider_symbol_alias_is_applied_without_changing_unknown_symbols(self):
+        self.assertEqual(data_pipeline.get_provider_symbol("TATAMOTORS.NS"), "TMPV.NS")
+        self.assertEqual(data_pipeline.get_provider_symbol("EURUSD=X"), "EURUSD=X")
+
     def test_missing_previous_close_stays_unknown_not_zero_return(self):
         ticker = MagicMock()
         ticker.fast_info = {"last_price": 105}

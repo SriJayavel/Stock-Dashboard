@@ -80,6 +80,10 @@ class ApiClient {
     return this.fetchWithRetry('/api/markets/overview');
   }
 
+  async refreshMarketOverview() {
+    return this.fetchWithRetry('/api/markets/refresh', { method: 'POST' }, 0, 15000);
+  }
+
   async getStockOverview(symbol) {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(`/api/stocks/${encodeURIComponent(sym)}/overview`);

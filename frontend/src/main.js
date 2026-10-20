@@ -5146,10 +5146,31 @@ function renderMarketStateBar(data) {
       refreshBtn.classList.add('spinning');
       refreshBtn.disabled = true;
       try {
-        // This public endpoint is cache-only. Upstream refresh stays with the
-        // authenticated scheduled cache warmer.
+        const previousAttempt = marketDataCache?.last_attempted_at;
+        await api.refreshMarketOverview();
+        showToast('Market feed refresh started.', 'info');
+        let refreshed = false;
+        for (let attempt = 0; attempt < 15; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          const latest = await api.getMarketOverview();
+          if (latest?.last_attempted_at && latest.last_attempted_at !== previousAttempt) {
+            marketDataCache = latest;
+            renderMarketStateBar(latest);
+            renderMarketTicker(latest);
+            renderMacroRadarPanels();
+            refreshed = true;
+            showToast(Object.values(latest.feed_health || {}).some((state) => state === 'DELAYED')
+              ? 'Market feeds refreshed; at least one category has data.'
+              : 'Refresh completed; feeds remain stale or offline.',
+            Object.values(latest.feed_health || {}).some((state) => state === 'DELAYED') ? 'success' : 'warning');
+            break;
+          }
+        }
+        if (!refreshed) showToast('Refresh is still running. Market data will update when it completes.', 'info');
         await loadMarketOverview(true);
         await loadAndRenderSectorsAndMarketMap(true);
+      } catch (error) {
+        showToast(error.message || 'Market refresh failed.', 'error');
       } finally {
         refreshBtn.classList.remove('spinning');
         refreshBtn.disabled = false;
@@ -5800,7 +5821,7 @@ function renderMacroRadarPanels() {
           <div class="macro-asset-row" data-sym="${it.symbol}" data-category="${category}">
             <div class="macro-asset-ident">
               <span class="macro-asset-name">${it.name || it.symbol}</span>
-              <span class="macro-asset-sym">${it.symbol}</span>
+              <span class="macro-asset-sym" title="${it.retrieved_at || it.source_timestamp || 'Timestamp unavailable'}">${it.symbol} · ${it.freshness || (it.is_stale ? 'STALE' : 'DELAYED')}</span>
             </div>
             <div class="macro-asset-values">
               <span class="macro-asset-price">${priceFmt}</span>

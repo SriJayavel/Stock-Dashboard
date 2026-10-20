@@ -8,7 +8,7 @@ FastAPI Backend for Mara Market Intelligence:
 import os
 import logging
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Header, Depends, Query, status, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Header, Depends, Query, status, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -28,8 +28,10 @@ from backend.services.data_pipeline import (
     get_market_candles,
     search_assets,
     warm_all_caches,
+    refresh_market_overview,
     resolve_symbol,
 )
+from backend.services.cache_manager import cache
 from backend.services.screener import get_screener_snapshot
 from backend.services.research_pipeline import get_stock_research
 from backend.services.deep_research import (
@@ -411,6 +413,24 @@ def api_research_query(body: ResearchQueryRequest):
     except Exception as e:
         logger.error(f"Error parsing research query: {e}")
         raise HTTPException(status_code=500, detail="Failed to parse research query.")
+
+
+@app.post("/api/markets/refresh", status_code=status.HTTP_202_ACCEPTED)
+def api_refresh_market_overview(
+    background_tasks: BackgroundTasks,
+    request: Request,
+):
+    """Queue a user-requested overview refresh without exposing the internal secret."""
+    user = getattr(request.state, "mara_user", None)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in to refresh market data.")
+    if not cache.acquire_lock("market_overview_refresh_cooldown", ttl=30):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Please wait before requesting another market refresh.")
+    if not cache.acquire_lock("market_overview_refresh", ttl=180):
+        cache.release_lock("market_overview_refresh_cooldown")
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="A market refresh is already running.")
+    background_tasks.add_task(refresh_market_overview, lock_acquired=True)
+    return {"status": "accepted", "message": "Market overview refresh started."}
 
 
 @app.post("/internal/refresh-cache", status_code=status.HTTP_202_ACCEPTED)

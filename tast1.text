@@ -1,0 +1,44 @@
+# MARA Terminal — Task 6 Production Verification
+
+Do not make further code changes unless testing identifies a concrete defect.
+
+## 1. Verify deployment
+- Confirm the backend and frontend deployments include the latest Task 6 changes.
+- Check deployment health and backend startup logs.
+- Confirm the required refresh authentication configuration exists without printing secrets.
+
+## 2. Test the live overview
+- Request the deployed market overview endpoint.
+- Verify that feed_health, retrieval timestamps, stale indicators, and last-price fields are present and correctly structured.
+- Check that one failed category does not automatically mark every category offline.
+
+## 3. Test RELOAD end to end
+- Open the deployed dashboard and click RELOAD.
+- Confirm that the authenticated refresh request is accepted.
+- Verify that the refresh is queued and processed, and that the dashboard eventually receives updated status.
+- Test repeated clicks to confirm the cooldown and lock prevent duplicate refresh jobs.
+- Confirm unauthorized requests are rejected.
+
+## 4. Verify real data
+Test available instruments from Indian indices, US benchmarks, Forex, commodities, and digital assets.
+
+For each instrument, record:
+- Requested symbol and provider.
+- HTTP status and whether valid data was returned.
+- Provider timestamp and retrieval timestamp, where available.
+- Whether the displayed value is current, delayed, stale, or unavailable.
+- Whether the result is consistent with the provider's actual response.
+
+Account for exchange trading hours and provider delays. Do not treat a closed market as a failed connection.
+
+## 5. Verify frontend behavior
+- Check that valid prices render instead of unnecessary em dashes.
+- Confirm unavailable prices remain missing rather than being fabricated.
+- Confirm timestamps and stale labels are accurate.
+- Check the browser console and network requests for failures.
+- Test the dashboard with the frontend smoke tests against a running application if possible.
+
+## Final report
+Separate confirmed successes from failures and untested items. Include relevant endpoint names, HTTP status codes, timestamps, and sanitized error messages. Do not expose credentials.
+
+If production access is unavailable, state exactly which checks remain pending. Do not claim live recovery without evidence.

@@ -934,6 +934,16 @@ def get_market_candles(symbol: str, interval: str = "1m", range_param: str = "1d
     return get_stock_history(symbol=symbol, timeframe=range_param, interval=interval)
 
 
+def refresh_market_overview(lock_acquired: bool = False) -> dict:
+    """Refresh the market overview under a short distributed lock."""
+    if not lock_acquired and not cache.acquire_lock("market_overview_refresh", ttl=180):
+        return {"status": "skipped", "message": "A market refresh is already running."}
+    try:
+        return get_market_overview(refresh=True)
+    finally:
+        cache.release_lock("market_overview_refresh")
+
+
 def get_market_overview(refresh: bool = False) -> dict:
     """
     Serve the cached market snapshot to web requests. Upstream market providers are
@@ -953,8 +963,19 @@ def get_market_overview(refresh: bool = False) -> dict:
                 "is_stale": True,
             }
             stale_snapshot["macro"] = {
-                category: [{**item, "is_stale": True} for item in items]
+                category: [
+                    {
+                        **item,
+                        "is_stale": True,
+                        "freshness": "STALE",
+                        "retrieved_at": item.get("retrieved_at") or stale.get("last_updated"),
+                    }
+                    for item in items
+                ]
                 for category, items in (stale.get("macro") or {}).items()
+            }
+            stale_snapshot["feed_health"] = {
+                category: "STALE" for category in stale_snapshot["macro"]
             }
             return stale_snapshot
         return {
@@ -1021,6 +1042,7 @@ def get_market_overview(refresh: bool = False) -> dict:
             "low": round(low, decimals) if low is not None else None,
             "source": "Yahoo Finance",
             "source_timestamp": source_timestamp,
+            "freshness": "DELAYED",
             "is_stale": False,
         }
 
@@ -1087,6 +1109,8 @@ def get_market_overview(refresh: bool = False) -> dict:
         if stale_market and stale_market.get("hero") and stale_market["hero"].get("price") is not None:
             hero_nifty = dict(stale_market["hero"])
             hero_nifty["is_stale"] = True
+            hero_nifty["freshness"] = "STALE"
+            hero_nifty["retrieved_at"] = hero_nifty.get("retrieved_at") or stale_market.get("last_updated")
             hero_nifty["source"] = f"{hero_nifty.get('source', 'yfinance')} (Stale Cache)"
         else:
             hero_nifty = {
@@ -1145,23 +1169,32 @@ def get_market_overview(refresh: bool = False) -> dict:
         "Crypto": [],
     }
 
+    batch = None
     try:
         sym_str = " ".join([m["symbol"] for m in macro_symbols])
         batch = yf.Tickers(sym_str)
-        for m in macro_symbols:
-            sym = m["symbol"]
-            cat = m["category"]
-            try:
-                t = batch.tickers.get(sym)
-                quote = _macro_quote(t, sym)
-                if quote:
-                    quote["name"] = m["name"]
-                    macro_results[cat].append(quote)
-            except Exception as e:
-                logger.debug(f"Failed extracting macro asset {sym}: {e}")
-                continue
     except Exception as e:
-        logger.warning(f"Batch macro ticker fetch failed: {e}")
+        logger.warning("Batch macro ticker initialization failed; trying symbols independently: %s", e)
+
+    for m in macro_symbols:
+        sym = m["symbol"]
+        cat = m["category"]
+        try:
+            ticker = None
+            if batch is not None:
+                try:
+                    ticker = batch.tickers.get(sym)
+                except Exception as exc:
+                    logger.debug("Batch ticker lookup failed for %s: %s", sym, exc)
+            if ticker is None:
+                ticker = yf.Ticker(sym, session=_yf_session)
+            quote = _macro_quote(ticker, sym)
+            if quote:
+                quote["name"] = m["name"]
+                macro_results[cat].append(quote)
+        except Exception as e:
+            logger.debug("Failed fetching macro asset %s: %s", sym, e)
+            continue
 
     # If any macro category failed completely, check for stale real cache rather than inventing fictional numbers
     stale_market = cache.get("market", "overview_stale")
@@ -1169,7 +1202,12 @@ def get_market_overview(refresh: bool = False) -> dict:
         for cat in macro_results:
             if not macro_results[cat] and stale_market["macro"].get(cat):
                 macro_results[cat] = [
-                    {**item, "is_stale": True}
+                    {
+                        **item,
+                        "is_stale": True,
+                        "freshness": "STALE",
+                        "retrieved_at": item.get("retrieved_at") or stale_market.get("last_updated"),
+                    }
                     for item in stale_market["macro"][cat]
                 ]
 
@@ -1186,6 +1224,18 @@ def get_market_overview(refresh: bool = False) -> dict:
     )[:5]
 
     fetched_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    feed_health = {}
+    for category, items in macro_results.items():
+        fresh_items = [item for item in items if not item.get("is_stale") and item.get("price") is not None]
+        stale_items = [item for item in items if item.get("is_stale") and item.get("price") is not None]
+        feed_health[category] = "DELAYED" if fresh_items else "STALE" if stale_items else "OFFLINE"
+        for item in fresh_items:
+            item["retrieved_at"] = fetched_at
+
+    if hero_nifty and hero_nifty.get("price") is not None:
+        hero_nifty.setdefault("freshness", "STALE" if hero_nifty.get("is_stale") else "DELAYED")
+        hero_nifty.setdefault("retrieved_at", fetched_at)
+
     has_fresh_data = bool(
         hero_nifty
         and hero_nifty.get("price") is not None
@@ -1205,6 +1255,7 @@ def get_market_overview(refresh: bool = False) -> dict:
         "macro": macro_results,
         "trending": trending,
         "market_status": "available" if has_fresh_data else "unavailable",
+        "feed_health": feed_health,
         "last_attempted_at": fetched_at,
         "last_successful_update": fetched_at if has_fresh_data else previous_success,
         "last_updated": fetched_at if has_fresh_data else previous_success,
