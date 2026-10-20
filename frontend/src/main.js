@@ -2834,53 +2834,88 @@ async function loadMarketOverview(force = false) {
       const heroDot = document.getElementById('hero-range-dot');
       const heroFill = document.getElementById('hero-range-fill');
 
+      // Check if current hero data is unavailable
       const isStale = Boolean(data.hero.is_stale);
       const isUnavailable = data.hero.status === 'unavailable' || data.hero.price == null;
-      const isUp = (data.hero.change || 0) >= 0;
+
+      // If current data is unavailable, try to use cached data as fallback
+      let heroData = data.hero;
+      let isUsingFallback = false;
+      if (isUnavailable && marketDataCache && marketDataCache.hero && marketDataCache.hero.price != null) {
+        heroData = marketDataCache.hero;
+        isUsingFallback = true;
+      }
+
+      const isUp = (heroData.change || 0) >= 0;
 
       if (heroPrice) {
-        if (isUnavailable) {
+        if (isUnavailable && !isUsingFallback) {
+          // No current data and no fallback available
           heroPrice.textContent = '—';
           heroPrice.className = 'hero-price';
         } else {
-          heroPrice.textContent = `₹${data.hero.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-          heroPrice.className = isStale ? 'hero-price stale-price' : 'hero-price';
+          // Show current data or fallback data
+          const priceValue = heroData.price != null ? heroData.price : 0;
+          heroPrice.textContent = `₹${priceValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          heroPrice.className = isStale && !isUsingFallback ? 'hero-price stale-price' :
+                               isUsingFallback ? 'hero-price fallback-price' : 'hero-price';
         }
       }
 
       if (heroChange) {
-        if (isUnavailable) {
+        if (isUnavailable && !isUsingFallback) {
           heroChange.textContent = 'Feed Offline';
         } else {
           const sign = isUp ? '+' : '−';
-          const chgVal = Math.abs(data.hero.change || 0).toFixed(2);
-          const chgPct = Math.abs(data.hero.change_pct || 0).toFixed(2);
+          const chgVal = Math.abs(heroData.change || 0).toFixed(2);
+          const chgPct = Math.abs(heroData.change_pct || 0).toFixed(2);
           heroChange.textContent = `${sign}${chgVal} (${sign}${chgPct}%)`;
+          // Add tooltip to indicate fallback data if applicable
+          if (isUsingFallback) {
+            heroChange.title = 'Showing last available price (markets closed)';
+          }
         }
       }
 
       if (heroBadge) {
-        if (isUnavailable) {
+        if (isUnavailable && !isUsingFallback) {
           heroBadge.className = 'hero-change-badge chg-neutral';
         } else {
           heroBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
+          if (isUsingFallback) {
+            heroBadge.classList.add('fallback-badge');
+          }
         }
         // Add redundant cue for accessibility
         heroBadge.setAttribute('data-change', isUp ? 'up' : 'down');
       }
 
       if (heroHigh) {
-        heroHigh.textContent = data.hero.high != null ? `₹${data.hero.high.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+        if (isUnavailable && !isUsingFallback) {
+          heroHigh.textContent = '—';
+        } else {
+          const highValue = heroData.high != null ? heroData.high : 0;
+          heroHigh.textContent = `₹${highValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
       }
       if (heroLow) {
-        heroLow.textContent = data.hero.low != null ? `₹${data.hero.low.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+        if (isUnavailable && !isUsingFallback) {
+          heroLow.textContent = '—';
+        } else {
+          const lowValue = heroData.low != null ? heroData.low : 0;
+          heroLow.textContent = `₹${lowValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
       }
 
       // Day Range Mini Range Bar with Marker Dot
       if (heroDot && heroFill) {
-        if (!isUnavailable && data.hero.high != null && data.hero.low != null && data.hero.high > data.hero.low && data.hero.price != null) {
-          const range = data.hero.high - data.hero.low;
-          const pct = Math.min(100, Math.max(0, ((data.hero.price - data.hero.low) / range) * 100));
+        const hasValidRange = !isUnavailable || isUsingFallback;
+        const hasHighLow = heroData.high != null && heroData.low != null && heroData.high > heroData.low;
+        const hasPrice = heroData.price != null;
+
+        if (hasValidRange && hasHighLow && hasPrice) {
+          const range = heroData.high - heroData.low;
+          const pct = Math.min(100, Math.max(0, ((heroData.price - heroData.low) / range) * 100));
           heroDot.style.left = `${pct}%`;
           heroFill.style.width = `${pct}%`;
         } else {
@@ -2890,14 +2925,17 @@ async function loadMarketOverview(force = false) {
       }
 
       if (heroSource) {
-        if (isUnavailable) {
+        if (isUnavailable && !isUsingFallback) {
           heroSource.textContent = 'Offline';
           heroSource.className = '';
-        } else if (isStale) {
+        } else if (isStale && !isUsingFallback) {
           heroSource.textContent = 'Stale (cached)';
           heroSource.className = '';
+        } else if (isUsingFallback) {
+          heroSource.textContent = 'Last Available (markets closed)';
+          heroSource.className = 'fallback-source';
         } else {
-          heroSource.textContent = data.hero.source || 'Direct NSE';
+          heroSource.textContent = heroData.source || 'Direct NSE';
           heroSource.className = '';
         }
       }
@@ -2952,15 +2990,42 @@ function renderTickerTape(data) {
       const badgeId = isHeroItem ? 'id="hero-change-badge"' : '';
       const chgId = isHeroItem ? 'id="hero-change"' : '';
 
-      const formattedPrice = item.price != null
-        ? Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      // Check if current item data is unavailable
+      const isItemUnavailable = item.price == null;
+
+      // If current data is unavailable, try to use cached data as fallback
+      let itemData = item;
+      let isUsingFallback = false;
+      if (isItemUnavailable && marketDataCache && marketDataCache.macro) {
+        // Search for this symbol in the cached macro data
+        let cachedItem = null;
+        Object.values(marketDataCache.macro).forEach((categoryList) => {
+          if (Array.isArray(categoryList)) {
+            const found = categoryList.find((it) => it.symbol === item.symbol);
+            if (found) cachedItem = found;
+          }
+        });
+        if (cachedItem && cachedItem.price != null) {
+          itemData = cachedItem;
+          isUsingFallback = true;
+        }
+      }
+
+      const formattedPrice = itemData.price != null
+        ? Number(itemData.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : '—';
 
       return `
         <div class="tape-item" data-symbol="${item.symbol}">
-          <span class="tape-sym">${item.name || item.symbol}</span>
+          <span class="tape-sym">${itemData.name || itemData.symbol}</span>
           <span class="tape-val" ${valId}>${formattedPrice}</span>
-          <span class="tape-chg ${chgClass}" ${badgeId}><span ${chgId}>${sign}${Math.abs(item.change_pct || 0).toFixed(2)}%</span></span>
+          <span class="tape-chg ${chgClass}" ${badgeId}>
+            <span ${chgId}>
+              ${isItemUnavailable && !isUsingFallback ? '—' :
+               `${sign}${Math.abs(itemData.change_pct || 0).toFixed(2)}%`}
+            </span>
+          </span>
+          ${isUsingFallback ? '<span class="tape-flag" title="Last available price (markets closed)">*</span>' : ''}
         </div>
       `;
     })

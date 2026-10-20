@@ -1,0 +1,64 @@
+## Fix: Sector Analytics API Network Failure
+
+The Sector Analytics feature in the MARA Stock Dashboard is failing to load. Please investigate and fix the **root cause**, not just suppress the errors or increase retry attempts.
+
+### Observed Errors
+
+From the browser DevTools console:
+
+- `net::ERR_ADDRESS_UNREACHABLE` for `/api/analytics/sectors`
+- `net::ERR_INTERNET_DISCONNECTED` for `/api/analytics/sectors`
+- `Request failed for /api/analytics/sectors, retrying... (2 left)`
+- `Request failed for /api/analytics/sectors, retrying... (1 left)`
+- `Failed sector intelligence load: TypeError: Failed to fetch`
+
+The request ultimately fails after retries.
+
+### Required Investigation
+
+**1. Trace the API request end to end**
+- Identify which frontend component or service calls `/api/analytics/sectors`.
+- Inspect the `fetchWithRetry` implementation and its caller.
+- Determine the actual API base URL and how the frontend resolves this endpoint in production.
+- Verify whether the request reaches the Vercel deployment, a separate backend, or an unreachable host.
+- Check the deployed frontend environment variables, backend deployment status, routing, and API proxy/rewrite configuration as applicable.
+
+**2. Identify the actual root cause**
+- Distinguish between a genuinely unreachable network/backend and a frontend configuration or routing problem.
+- Check whether relative API URLs are being sent to the correct origin.
+- Inspect the Vercel deployment logs and backend logs for corresponding requests and errors.
+- Do not assume the problem is caused by the retry logic alone.
+
+**3. Implement a proper fix**
+- Correct the API URL, proxy/rewrite configuration, deployment settings, or backend connectivity if any of these are responsible.
+- Ensure `/api/analytics/sectors` returns valid JSON with the expected schema.
+- Verify that the frontend correctly handles successful responses, empty datasets, HTTP errors, timeouts, and genuine network failures.
+- Retry only transient failures. Do not repeatedly retry permanent HTTP errors or browser-level network failures that are unlikely to recover immediately.
+- Preserve existing sector analytics and intelligence functionality. Do not replace real data with fabricated data or hardcode fake successful responses.
+
+**4. Improve failure handling**
+- Prevent unhandled promise rejections.
+- Display a clear, non-blocking error state when sector analytics cannot be loaded.
+- Provide a manual retry option and avoid repeated background requests that waste resources.
+- Keep other dashboard sections operational when sector analytics is unavailable.
+
+### Validation Requirements
+
+After implementing the fix:
+
+1. Run the production build and resolve any new errors.
+2. Test `/api/analytics/sectors` directly against the deployed environment.
+3. Verify the response status, content type, JSON structure, and data validity.
+4. Confirm in browser DevTools that the request reaches the intended backend and that the feature loads successfully.
+5. Check that unrelated dashboard APIs and features remain unaffected.
+
+### Final Report
+
+Tell me:
+- The confirmed root cause.
+- The files and configurations changed.
+- The fix implemented.
+- The build and API test results.
+- Whether the deployed production version has been verified.
+
+**Important:** Do not claim the issue is fixed merely because the code compiles or the console errors disappear. Verify actual API connectivity and successful sector analytics loading. If the underlying backend or network is unreachable, explain the evidence and the remaining deployment or infrastructure action required.
