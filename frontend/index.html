@@ -300,9 +300,9 @@
                   <span class="mkt-state-label">UPDATED</span>
                   <span class="mkt-state-val-mono" id="mkt-last-updated">SYNCED</span>
                 </div>
-                <button class="markets-sync-btn" id="mkt-refresh-btn" type="button" title="Synchronize Live Market Data">
+                <button class="markets-sync-btn" id="mkt-refresh-btn" type="button" title="Reload the latest cached market snapshot. Upstream data refresh is handled by the scheduled cache warmer.">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                  <span>SYNC</span>
+                  <span>RELOAD</span>
                 </button>
               </div>
             </div>
@@ -312,7 +312,7 @@
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h3 class="section-sub-title">Global Benchmark Indices</h3>
-                  <span class="section-sub-caption">Real-time performance across India, Americas, Europe, and Asia-Pacific. Click any row to load into Analyze workstation.</span>
+                  <span class="section-sub-caption">Latest available benchmark snapshot across India, Americas, Europe, and Asia-Pacific. Click a row to inspect or analyze it.</span>
                 </div>
                 <div class="markets-filter-strip" id="markets-indices-filter">
                   <button class="markets-filter-btn active" data-region="all">All (7)</button>
@@ -332,7 +332,7 @@
                       <th style="width: 100px;">Ticker</th>
                       <th class="text-right" style="width: 120px;">Last Price</th>
                       <th class="text-right" style="width: 110px;">Net Change</th>
-                      <th class="text-right" style="width: 105px;">24H Return</th>
+                      <th class="text-right" style="width: 105px;">Prev. Close %</th>
                       <th style="width: 220px;">Session Range</th>
                       <th class="text-right" style="width: 90px;">Action</th>
                     </tr>

@@ -5041,55 +5041,44 @@ let cachedSectorData = null;
 
 // Telemetry Calculator for Global Desks and Session Context
 function getMarketSessionTelemetry() {
-  const now = new Date();
-  const utcHours = now.getUTCHours();
-  const utcMins = now.getUTCMinutes();
-  const utcTotal = utcHours * 60 + utcMins;
-  const day = now.getUTCDay();
-  const isWeekend = day === 0 || day === 6;
-
-  // IST (UTC+5:30) -> NSE regular 09:15 to 15:30 IST = UTC 03:45 (225m) to 10:00 (600m)
-  let nseStatus = 'CLOSED';
-  if (!isWeekend) {
-    if (utcTotal >= 225 && utcTotal <= 600) {
-      nseStatus = 'REGULAR SESSION';
-    } else if (utcTotal >= 210 && utcTotal < 225) {
-      nseStatus = 'PRE-MARKET';
-    } else if (utcTotal > 600 && utcTotal <= 630) {
-      nseStatus = 'POST-MARKET';
-    }
-  }
-
-  // NYSE: 09:30 to 16:00 EDT = UTC 13:30 (810m) to 20:00 (1200m)
-  let nyseStatus = 'CLOSED';
-  if (!isWeekend) {
-    if (utcTotal >= 810 && utcTotal <= 1200) {
-      nyseStatus = 'REGULAR';
-    } else if (utcTotal >= 480 && utcTotal < 810) {
-      nyseStatus = 'PRE-MKT';
-    } else if (utcTotal > 1200 && utcTotal <= 1440) {
-      nyseStatus = 'AFTER-HOURS';
-    }
-  }
-
-  // LSE: 08:00 to 16:30 UTC = 480m to 990m
-  let lseStatus = 'CLOSED';
-  if (!isWeekend && utcTotal >= 480 && utcTotal <= 990) {
-    lseStatus = 'OPEN';
-  }
-
-  // Tokyo: 09:00 to 15:00 JST = UTC 00:00 to 06:00 (0m to 360m)
-  let tyoStatus = 'CLOSED';
-  if (!isWeekend && utcTotal >= 0 && utcTotal <= 360) {
-    tyoStatus = 'OPEN';
-  }
+  // Local exchange clocks handle DST correctly. These are scheduled hours;
+  // this browser-only indicator cannot confirm exchange holidays.
+  const localClock = (timeZone) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+    const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(values.weekday);
+    return { day, minute: Number(values.hour) * 60 + Number(values.minute) };
+  };
+  const schedule = (timeZone, open, close, extra = {}) => {
+    const { day, minute } = localClock(timeZone);
+    if (day === 0 || day === 6) return { state: 'CLOSED', open: false };
+    if (extra.pre != null && minute >= extra.pre && minute < open) return { state: 'PRE-MKT', open: false };
+    if (minute >= open && minute < close) return { state: 'REGULAR', open: true };
+    if (extra.post != null && minute >= close && minute < extra.post) return { state: 'AFTER-HOURS', open: false };
+    return { state: 'CLOSED', open: false };
+  };
+  const nse = schedule('Asia/Kolkata', 555, 930, { pre: 540, post: 960 });
+  const nyse = schedule('America/New_York', 570, 960, { pre: 240, post: 1200 });
+  const lse = schedule('Europe/London', 480, 990);
+  const tyo = schedule('Asia/Tokyo', 540, 900);
+  // TSE's lunch recess is 11:30–12:30 JST.
+  const tokyoLunch = localClock('Asia/Tokyo').minute;
+  const tyoOpen = tyo.open && !(tokyoLunch >= 690 && tokyoLunch < 750);
+  const scheduledLabel = (state) => state === 'REGULAR' ? 'SCHED OPEN' : state;
+  const nseStatus = scheduledLabel(nse.state);
+  const nyseStatus = scheduledLabel(nyse.state);
+  const lseStatus = scheduledLabel(lse.state);
+  const tyoStatus = tyoOpen ? 'SCHED OPEN' : tyo.state === 'REGULAR' ? 'LUNCH' : tyo.state;
 
   return {
     nse: nseStatus,
     nyse: nyseStatus,
     lse: lseStatus,
     tyo: tyoStatus,
-    isLive: nseStatus.includes('REGULAR') || nyseStatus.includes('REGULAR') || lseStatus === 'OPEN' || tyoStatus === 'OPEN',
+    nseIsOpen: nse.open,
+    isLive: nse.open || nyse.open || lse.open || tyoOpen,
   };
 }
 
@@ -5105,13 +5094,14 @@ function renderMarketStateBar(data) {
   const telemetry = getMarketSessionTelemetry();
 
   if (sessionDot) {
-    sessionDot.className = `mkt-session-dot ${telemetry.nse.includes('REGULAR') ? '' : 'closed'}`;
+    sessionDot.className = `mkt-session-dot ${telemetry.nseIsOpen ? '' : 'closed'}`;
   }
   if (sessionName) {
     sessionName.textContent = `NSE INDIA: ${telemetry.nse}`;
   }
   if (globalStatus) {
-    globalStatus.textContent = `NSE ${telemetry.nse.split(' ')[0]} · NYSE ${telemetry.nyse} · LSE ${telemetry.lse} · TYO ${telemetry.tyo}`;
+    globalStatus.textContent = `NSE ${telemetry.nse} · NYSE ${telemetry.nyse} · LSE ${telemetry.lse} · TYO ${telemetry.tyo}`;
+    globalStatus.title = 'Scheduled exchange hours are DST-aware; browser status does not validate official exchange holidays.';
   }
 
   // Compute Benchmark Advance / Decline
@@ -5120,23 +5110,32 @@ function renderMarketStateBar(data) {
     let adv = 0;
     let dec = 0;
     let flt = 0;
-    indices.forEach((i) => {
-      const p = i.change_pct || 0;
+    const knownChanges = indices.filter((i) => Number.isFinite(i.change_pct));
+    knownChanges.forEach((i) => {
+      const p = i.change_pct;
       if (p > 0.05) adv++;
       else if (p < -0.05) dec++;
       else flt++;
     });
-    breadthVal.textContent = indices.length > 0 ? `${adv} ADV · ${dec} DEC · ${flt} FLT` : '4 ADV · 3 DEC';
+    breadthVal.textContent = knownChanges.length
+      ? `${adv} ADV · ${dec} DEC · ${flt} FLT${knownChanges.length < indices.length ? ` · ${indices.length - knownChanges.length} N/A` : ''}`
+      : '—';
   }
 
   if (feedSource) {
     const src = data?.hero?.source;
-    feedSource.textContent = src ? src.toUpperCase() : '';
+    feedSource.textContent = `${src ? src.toUpperCase() : 'FEED UNAVAILABLE'}${data?.is_stale || data?.hero?.is_stale ? ' · STALE' : ''}`;
+    feedSource.classList.toggle('is-stale', Boolean(data?.is_stale || data?.hero?.is_stale));
   }
 
   if (lastUpdated) {
-    const now = new Date();
-    lastUpdated.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const timestamp = data?.last_successful_update || data?.last_updated;
+    lastUpdated.textContent = timestamp
+      ? new Date(timestamp).toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+      : 'NO SUCCESSFUL UPDATE';
+    lastUpdated.title = data?.last_attempted_at
+      ? `Last fetch attempt: ${new Date(data.last_attempted_at).toLocaleString()}`
+      : 'No refresh attempt timestamp available';
   }
 
   // Sync button event
@@ -5145,9 +5144,16 @@ function renderMarketStateBar(data) {
     refreshBtn.dataset.bound = 'true';
     refreshBtn.addEventListener('click', async () => {
       refreshBtn.classList.add('spinning');
-      await loadMarketOverview(true);
-      await loadAndRenderSectorsAndMarketMap(true);
-      setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+      refreshBtn.disabled = true;
+      try {
+        // This public endpoint is cache-only. Upstream refresh stays with the
+        // authenticated scheduled cache warmer.
+        await loadMarketOverview(true);
+        await loadAndRenderSectorsAndMarketMap(true);
+      } finally {
+        refreshBtn.classList.remove('spinning');
+        refreshBtn.disabled = false;
+      }
     });
   }
 }
@@ -5438,6 +5444,13 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
   if (tableBody) {
     const liveIndices = (marketDataCache?.macro?.Indices || []);
     const lookup = new Map(liveIndices.map((i) => [i.symbol, i]));
+    const sessionTelemetry = getMarketSessionTelemetry();
+    const sessionByRegion = {
+      india: sessionTelemetry.nse,
+      americas: sessionTelemetry.nyse,
+      europe: sessionTelemetry.lse,
+      asia: sessionTelemetry.tyo,
+    };
 
     const processedBenchmarks = benchmarkMeta.map((m) => {
       const live = lookup.get(m.symbol);
@@ -5455,7 +5468,10 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         change_pct: rawPct,
         high: rawHigh,
         low: rawLow,
-        source,
+        source: live?.source || source,
+        source_timestamp: live?.source_timestamp || null,
+        is_stale: Boolean(live?.is_stale || marketDataCache?.is_stale),
+        session_status: sessionByRegion[m.regionCode] || 'UNAVAILABLE',
       };
     });
 
@@ -5465,11 +5481,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         const priceDisplay = m.price != null
           ? `${m.curr}${m.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : '—';
-        const isUp = (m.change_pct || 0) >= 0;
+        const hasChange = m.change_pct != null;
+        const isUp = hasChange && m.change_pct >= 0;
         const sign = isUp ? '+' : '−';
         const chgDisplay = m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—';
         const pctDisplay = m.change_pct != null ? `${isUp ? '+' : ''}${m.change_pct.toFixed(2)}%` : '—';
-        const chgClass = isUp ? 'chg-up' : 'chg-down';
+        const chgClass = !hasChange ? 'chg-neutral' : isUp ? 'chg-up' : 'chg-down';
 
         let rangeHtml = '';
         if (m.high != null && m.low != null && m.high > m.low && m.price != null) {
@@ -5485,19 +5502,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               <span class="range-bound high">${highFmt}</span>
             </div>
           `;
-        } else if (m.price != null) {
-          const clampPct = Math.min(85, Math.max(15, 50 + (m.change_pct || 0) * 12));
-          rangeHtml = `
-            <div class="session-range-cell" title="Session momentum relative to previous close">
-              <span class="range-bound low" style="font-size: 10px; color: var(--text-dim);">Close</span>
-              <div class="mini-range-track">
-                <div class="mini-range-dot" style="left: ${clampPct}%; background: ${isUp ? 'var(--gain)' : 'var(--loss)'};"></div>
-              </div>
-              <span class="range-bound high" style="font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Gain' : '▼ Loss'}</span>
-            </div>
-          `;
         } else {
-          rangeHtml = '<span style="color: var(--text-muted); font-size: 11px;">Feed syncing</span>';
+          const availability = m.is_stale ? 'Stale snapshot' : m.price == null ? 'Data unavailable' : 'Range unavailable';
+          rangeHtml = `<span class="market-data-state ${m.is_stale ? 'is-stale' : ''}" title="${m.source || 'Market feed'}${m.source_timestamp ? ` · ${m.source_timestamp}` : ''}">${availability}</span>`;
         }
 
         const isDefaultActive = idx === 0;
@@ -5505,9 +5512,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         return `
           <tr class="markets-index-row ${isDefaultActive ? 'active-row' : ''}" data-region="${m.regionCode}" data-sym="${m.symbol}">
             <td>
-              <div class="region-badge">
+              <div class="region-badge" title="Scheduled hours only; exchange holiday status is not checked in the browser.">
                 <span class="region-tag ${m.tagClass}">${m.tag}</span>
-                <span>${m.region}</span>
+                <span>${m.region}<small class="market-session-label">${m.session_status}</small></span>
               </div>
             </td>
             <td>
@@ -5523,7 +5530,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               ${chgDisplay}
             </td>
             <td class="text-right">
-              <span class="tape-chg ${chgClass}">${isUp ? '+' : '−'}${Math.abs(m.change_pct || 0).toFixed(2)}%</span>
+              <span class="tape-chg ${chgClass}">${hasChange ? `${isUp ? '+' : '−'}${Math.abs(m.change_pct).toFixed(2)}%` : '—'}</span>
             </td>
             <td>
               ${rangeHtml}

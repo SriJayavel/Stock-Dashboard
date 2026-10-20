@@ -950,6 +950,64 @@ def get_market_overview(refresh: bool = False) -> dict:
             "is_stale": True,
         }
 
+    def _macro_quote(ticker: Any, symbol: str) -> Optional[dict]:
+        """Build a real quote from fast_info, supplementing gaps from daily bars."""
+        if ticker is None:
+            return None
+        fast = getattr(ticker, "fast_info", None)
+        last = _get_fast_info_val(fast, "last_price", "lastPrice")
+        previous = _get_fast_info_val(fast, "previous_close", "previousClose")
+        high = _get_fast_info_val(fast, "day_high", "dayHigh")
+        low = _get_fast_info_val(fast, "day_low", "dayLow")
+        last = last if last is not None and np.isfinite(last) else None
+        previous = previous if previous is not None and np.isfinite(previous) else None
+        high = high if high is not None and np.isfinite(high) else None
+        low = low if low is not None and np.isfinite(low) else None
+        source_timestamp = None
+
+        # Yahoo's fast_info frequently omits index fields. A short daily history
+        # is an independent fallback and provides the prior close without
+        # manufacturing a zero return.
+        if last is None or previous is None or high is None or low is None:
+            try:
+                bars = ticker.history(period="5d", interval="1d")
+            except Exception as exc:
+                logger.debug("History fallback failed for benchmark %s: %s", symbol, exc)
+                bars = None
+            if bars is not None and not bars.empty and "Close" in bars:
+                closes = bars["Close"].dropna()
+                if not closes.empty:
+                    if last is None:
+                        last = float(closes.iloc[-1])
+                    if previous is None:
+                        previous = float(closes.iloc[-2]) if len(closes) > 1 else None
+                    latest = bars.iloc[-1]
+                    if high is None and pd.notna(latest.get("High")):
+                        high = float(latest["High"])
+                    if low is None and pd.notna(latest.get("Low")):
+                        low = float(latest["Low"])
+                    try:
+                        source_timestamp = pd.Timestamp(bars.index[-1]).isoformat()
+                    except (TypeError, ValueError):
+                        source_timestamp = None
+
+        if last is None or not np.isfinite(last) or last <= 0:
+            return None
+        change = last - previous if previous is not None and previous > 0 else None
+        change_pct = (change / previous * 100) if change is not None else None
+        decimals = 4 if "=X" in symbol else 2
+        return {
+            "symbol": symbol,
+            "price": round(last, decimals),
+            "change": round(change, decimals) if change is not None else None,
+            "change_pct": round(change_pct, 2) if change_pct is not None else None,
+            "high": round(high, decimals) if high is not None else None,
+            "low": round(low, decimals) if low is not None else None,
+            "source": "Yahoo Finance",
+            "source_timestamp": source_timestamp,
+            "is_stale": False,
+        }
+
     # 1. Hero Index: Try NSE Direct for Nifty 50, fallback to yfinance
     hero_nifty = None
     try:
@@ -1079,27 +1137,10 @@ def get_market_overview(refresh: bool = False) -> dict:
             cat = m["category"]
             try:
                 t = batch.tickers.get(sym)
-                fast = getattr(t, "fast_info", None) if t else None
-                last = _get_fast_info_val(fast, "last_price", "lastPrice")
-                prev = _get_fast_info_val(fast, "previous_close", "previousClose")
-                if last is None and t:
-                    h = t.history(period="5d")
-                    if not h.empty and "Close" in h.columns:
-                        last = float(h["Close"].dropna().iloc[-1])
-                        prev = float(h["Close"].dropna().iloc[-2]) if len(h) > 1 else last
-
-                if last is not None and last > 0:
-                    prev = prev or last
-                    chg = last - prev
-                    chg_pct = (chg / prev * 100) if prev else 0.0
-                    decimals = 4 if cat == "Forex" else 2
-                    macro_results[cat].append({
-                        "symbol": sym,
-                        "name": m["name"],
-                        "price": round(last, decimals),
-                        "change": round(chg, decimals),
-                        "change_pct": round(chg_pct, 2),
-                    })
+                quote = _macro_quote(t, sym)
+                if quote:
+                    quote["name"] = m["name"]
+                    macro_results[cat].append(quote)
             except Exception as e:
                 logger.debug(f"Failed extracting macro asset {sym}: {e}")
                 continue
@@ -1128,12 +1169,29 @@ def get_market_overview(refresh: bool = False) -> dict:
         reverse=True,
     )[:5]
 
+    fetched_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    has_fresh_data = bool(
+        hero_nifty
+        and hero_nifty.get("price") is not None
+        and not hero_nifty.get("is_stale")
+    ) or any(
+        item.get("price") is not None and not item.get("is_stale")
+        for items in macro_results.values()
+        for item in items
+    )
+    previous_success = (
+        stale_market.get("last_successful_update")
+        if isinstance(stale_market, dict)
+        else None
+    )
     overview_data = {
         "hero": hero_nifty,
         "macro": macro_results,
         "trending": trending,
-        "market_status": "Open" if 9 <= datetime.datetime.now().hour <= 16 else "Closed",
-        "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
+        "market_status": "available" if has_fresh_data else "unavailable",
+        "last_attempted_at": fetched_at,
+        "last_successful_update": fetched_at if has_fresh_data else previous_success,
+        "last_updated": fetched_at if has_fresh_data else previous_success,
     }
 
     cache.set("market", "overview", overview_data, ttl=settings.L1_MARKET_OVERVIEW_TTL)
