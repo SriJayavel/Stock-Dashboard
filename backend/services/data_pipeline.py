@@ -504,6 +504,11 @@ def get_stock_overview(symbol: str) -> dict:
         or (nse_data.get("low_52w") if nse_data else None)
         or _get_fast_info_val(fast, "year_low", "yearLow")
     )
+    # Convert NaN values to None to prevent JSON serialization errors
+    if high_52w is not None and isinstance(high_52w, float) and np.isnan(high_52w):
+        high_52w = None
+    if low_52w is not None and isinstance(low_52w, float) and np.isnan(low_52w):
+        low_52w = None
 
     overview = {
         "symbol": sym,
