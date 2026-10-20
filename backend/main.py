@@ -159,8 +159,8 @@ def health_check():
     cache_status = "ok"
     try:
         # Simple cache operation to verify it's working
-        cache.set("health_check_test", "ok", ttl=1)
-        result = cache.get("health_check_test")
+        cache.set("market", "health_check_test", "ok", ttl=1)
+        result = cache.get("market", "health_check_test")
         if result != "ok":
             cache_status = "fail"
     except Exception:

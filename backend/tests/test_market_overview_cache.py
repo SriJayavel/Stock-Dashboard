@@ -38,8 +38,12 @@ class TestMarketOverviewCacheOnly(unittest.TestCase):
         ):
             result = data_pipeline.get_market_overview()
 
-        self.assertEqual(result["market_status"], "Unavailable")
+        self.assertEqual(result["market_status"], "unavailable")
         self.assertIsNone(result["hero"]["price"])
+        self.assertEqual(result["hero"]["freshness"], "OFFLINE")
+        self.assertEqual(result["feed_health"]["Indices"], "OFFLINE")
+        self.assertIn("last_attempted_at", result)
+        self.assertIsNone(result["last_attempted_at"])
         self.assertEqual(result["macro"]["Indices"], [])
         nse_quote.assert_not_called()
         yf_ticker.assert_not_called()

@@ -979,12 +979,28 @@ def get_market_overview(refresh: bool = False) -> dict:
             }
             return stale_snapshot
         return {
-            "hero": {"symbol": "^NSEI", "name": "NIFTY 50", "price": None, "status": "unavailable"},
+            "hero": {
+                "symbol": "^NSEI",
+                "name": "NIFTY 50",
+                "price": None,
+                "status": "unavailable",
+                "freshness": "OFFLINE",
+                "is_stale": False,
+                "retrieved_at": None,
+            },
             "macro": {"Indices": [], "Forex": [], "Commodities": [], "Crypto": []},
+            "feed_health": {
+                "Indices": "OFFLINE",
+                "Forex": "OFFLINE",
+                "Commodities": "OFFLINE",
+                "Crypto": "OFFLINE",
+            },
             "trending": [],
-            "market_status": "Unavailable",
+            "market_status": "unavailable",
+            "last_attempted_at": None,
+            "last_successful_update": None,
             "last_updated": None,
-            "is_stale": True,
+            "is_stale": False,
         }
 
     def _macro_quote(ticker: Any, symbol: str) -> Optional[dict]:
