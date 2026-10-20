@@ -4,6 +4,7 @@ yfinance returns non-dictionary values.
 """
 import unittest
 from unittest.mock import patch, MagicMock
+import pandas as pd
 import yfinance as yf
 
 from backend.services.research_pipeline import get_stock_research, _extract_peer_summary
@@ -98,19 +99,26 @@ class TestTInfoHandling(unittest.TestCase):
                 with patch('yfinance.Ticker') as mock_ticker:
                     mock_instance = MagicMock()
                     mock_ticker.return_value = mock_instance
+                    mock_instance.history.return_value = pd.DataFrame(
+                        {"Close": [100.0]},
+                        index=pd.to_datetime(["2026-10-19"]),
+                    )
 
                     # Configure the mock to return our test value for .info
                     mock_instance.info = non_dict_value
                     mock_instance.fast_info = None
+                    with patch(
+                        "backend.services.data_pipeline.nse_client.get_equity_quote",
+                        return_value=None,
+                    ):
 
-                    # Should not raise AttributeError
-                    try:
-                        result = get_stock_overview(self.test_symbol)
-                        # Should return a dict (even if empty/default data)
-                        self.assertIsInstance(result, dict)
-                        self.assertIn('symbol', result)
-                    except AttributeError:
-                        self.fail(f"get_stock_overview raised AttributeError for info={non_dict_value}")
+                        # Should not raise AttributeError
+                        try:
+                            result = get_stock_overview(self.test_symbol)
+                            self.assertIsInstance(result, dict)
+                            self.assertIn('symbol', result)
+                        except AttributeError:
+                            self.fail(f"get_stock_overview raised AttributeError for info={non_dict_value}")
 
     def test_deep_research_handles_non_dict_info(self):
         """Test get_deep_stock_research handles non-dict info without AttributeError."""

@@ -20,6 +20,7 @@ from backend.auth import verify_access_token
 
 from backend.config import settings
 from backend.services.data_pipeline import (
+    InstrumentUnavailableError,
     get_market_overview,
     get_stock_overview,
     get_batch_stock_overview,
@@ -224,6 +225,8 @@ def api_stock_overview(symbol: str):
     try:
         data = get_stock_overview(symbol)
         return data
+    except InstrumentUnavailableError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.exception("Error serving stock overview for %s", symbol)
         raise HTTPException(

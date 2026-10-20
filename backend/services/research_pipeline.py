@@ -127,6 +127,14 @@ def _extract_peer_summary(peer_sym: str) -> dict:
                 info = {}
             elif isinstance(raw_info, dict):
                 info = raw_info
+                # Check if we received a Yahoo Finance error response
+                if "quoteSummary" in info:
+                    quote_summary = info["quoteSummary"]
+                    if isinstance(quote_summary, dict) and quote_summary.get("result") is None:
+                        error = quote_summary.get("error", {})
+                        if isinstance(error, dict) and "code" in error and "description" in error:
+                            # This looks like a Yahoo Finance error response - treat as no info
+                            info = {}
             else:
                 info = {}
         except (AttributeError, KeyError, Exception):  # Broad catch for robustness including HTTP errors

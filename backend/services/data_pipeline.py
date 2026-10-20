@@ -34,6 +34,22 @@ from backend.services.circuit_breaker import is_circuit_open, record_failure, re
 
 logger = logging.getLogger("data_pipeline")
 
+# Canonical symbols accepted by the API may differ from Yahoo's current
+# provider symbols after corporate actions. Keep this mapping in one place.
+PROVIDER_SYMBOL_ALIASES = {
+    "TATAMOTORS.NS": "TMPV.NS",
+}
+
+
+class InstrumentUnavailableError(ValueError):
+    """Raised when no provider returns usable market data for a symbol."""
+
+
+def get_provider_symbol(symbol: str) -> str:
+    """Translate a canonical symbol to the provider-specific Yahoo symbol."""
+    return PROVIDER_SYMBOL_ALIASES.get(symbol, symbol)
+
+
 # Persistent yfinance session
 _yf_session = requests.Session()
 _yf_session.headers.update({
@@ -350,6 +366,7 @@ def get_stock_overview(symbol: str) -> dict:
     Checks L1 -> L2 -> NSE fetcher (if Indian) -> yfinance.
     """
     sym = resolve_symbol(symbol)
+    provider_sym = get_provider_symbol(sym)
     cache_key = f"overview:{sym}"
     cached = cache.get("overview", sym)
     if cached:
@@ -360,7 +377,7 @@ def get_stock_overview(symbol: str) -> dict:
     # Attempt direct NSE fetch if Indian equity
     nse_data = None
     if sym.endswith(".NS") and not sym.startswith("^"):
-        nse_data = nse_client.get_equity_quote(sym)
+        nse_data = nse_client.get_equity_quote(provider_sym)
 
     # Check circuit breaker for yfinance
     if is_circuit_open("yfinance"):
@@ -373,7 +390,7 @@ def get_stock_overview(symbol: str) -> dict:
         # Fetch yfinance fundamentals
         session = _yf_session
         try:
-            t = yf.Ticker(sym, session=session)
+            t = yf.Ticker(provider_sym, session=session)
         except Exception as e:
             logger.warning(f"Failed to create yfinance Ticker for {sym}: {e}")
             record_failure("yfinance")
@@ -388,6 +405,14 @@ def get_stock_overview(symbol: str) -> dict:
                     info = {}
                 elif isinstance(raw_info, dict):
                     info = raw_info
+                    # Check if we received a Yahoo Finance error response
+                    if "quoteSummary" in info:
+                        quote_summary = info["quoteSummary"]
+                        if isinstance(quote_summary, dict) and quote_summary.get("result") is None:
+                            error = quote_summary.get("error", {})
+                            if isinstance(error, dict) and "code" in error and "description" in error:
+                                # This looks like a Yahoo Finance error response - treat as no info
+                                info = {}
                 else:
                     info = {}
             except Exception as e:
@@ -436,6 +461,10 @@ def get_stock_overview(symbol: str) -> dict:
         stale = dict(stale_cached)
         stale["is_stale"] = True
         return stale
+    if price <= 0:
+        raise InstrumentUnavailableError(
+            f"No current quote or recent price history is available for {sym}"
+        )
 
     # Previous Close & Change
     prev_close = 0.0
@@ -568,6 +597,9 @@ def get_stock_overview(symbol: str) -> dict:
         "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
     }
 
+    # Keep canonical API/cache identity while recording the actual provider
+    # symbol for traceability.
+    overview["provider_symbol"] = provider_sym
     cache.set("overview", sym, overview, ttl=settings.L1_STOCK_OVERVIEW_TTL)
     # Retain the latest genuine payload so transient provider failures can be
     # answered with clearly marked stale data instead of an invocation crash.
@@ -614,6 +646,7 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
     Supports genuine 1m, 5m, 15m, 30m, 1h intraday bars as well as daily/weekly/monthly history.
     """
     sym = resolve_symbol(symbol)
+    provider_sym = get_provider_symbol(sym)
     cache_key = f"{sym}_{timeframe}_{interval}"
     cached = cache.get("history", cache_key)
     if cached:
@@ -641,11 +674,11 @@ def get_stock_history(symbol: str, timeframe: str = "max", interval: str = "1d")
         }
         fetch_period = fetch_period_map.get(timeframe, "max")
 
-    t = yf.Ticker(sym, session=_yf_session)
+    t = yf.Ticker(provider_sym, session=_yf_session)
     df = t.history(period=fetch_period, interval=interval, auto_adjust=True)
 
-    if df.empty and not sym.endswith(".NS") and not any(c in sym for c in ["^", "=", "-"]):
-        alt_t = yf.Ticker(f"{sym}.NS", session=_yf_session)
+    if df.empty and not provider_sym.endswith(".NS") and not any(c in provider_sym for c in ["^", "=", "-"]):
+        alt_t = yf.Ticker(f"{provider_sym}.NS", session=_yf_session)
         df = alt_t.history(period=fetch_period, interval=interval, auto_adjust=True)
 
     status_info = get_instrument_market_status(sym)
