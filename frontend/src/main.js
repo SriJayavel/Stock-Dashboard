@@ -86,11 +86,40 @@ export function getCurrencySymbol(symbol = '', currency = '') {
   return '$';
 }
 
-export function formatCurrencyValue(val, symbol = '', currency = '') {
-  if (val == null || isNaN(val)) return '—';
+export function formatCurrencyValue(val, symbol = '', currency = '', state = null) {
+  if (val == null || isNaN(val)) {
+    if (state) {
+      return `<span class="data-${state}">—</span>`;
+    }
+    return '—';
+  }
   const sym = getCurrencySymbol(symbol, currency);
   const decimals = (typeof symbol === 'string' && symbol.includes('=X')) ? 4 : 2;
   return `${sym}${Number(val).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
+/**
+ * Format a value with semantic data-state indication for missing/null values.
+ * @param {number|null} val - The numeric value
+ * @param {string} state - One of: 'unavailable', 'stale', 'delayed', 'loading', 'market-closed', 'zero'
+ * @param {Object} options - Formatting options
+ * @returns {string} HTML string with appropriate data-state class
+ */
+export function formatWithState(val, state, options = {}) {
+  const { prefix = '', suffix = '', zeroAsDash = false } = options;
+
+  if (val == null || isNaN(val)) {
+    if (state) {
+      return `<span class="data-${state}">${prefix}—${suffix}</span>`;
+    }
+    return `${prefix}—${suffix}`;
+  }
+
+  if (val === 0 && zeroAsDash) {
+    return `<span class="data-zero">${prefix}0${suffix}</span>`;
+  }
+
+  return `${prefix}${val}${suffix}`;
 }
 
 // Cold-Start Alert Controller
@@ -524,8 +553,11 @@ function setupMaraShellControls() {
   // 5. Global Command Input & Keyboard Shortcuts
   const globalSearchInput = document.getElementById('global-search-input');
   const kbdHint = document.getElementById('search-kbd-hint');
+  const cmdHintText = document.getElementById('cmd-hint-text');
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  if (kbdHint) kbdHint.textContent = isMac ? '⌘K' : 'Ctrl+K';
+  const shortcut = isMac ? '⌘K' : 'Ctrl+K';
+  if (kbdHint) kbdHint.textContent = shortcut;
+  if (cmdHintText) cmdHintText.textContent = `Press ${shortcut} to search`;
 
   // Left rail utility buttons
   const railStarBtn = document.getElementById('rail-star-btn');
@@ -771,7 +803,7 @@ function setupEventListeners() {
   // Function to render search results in the dropdown
   function renderSearchDropdown(results) {
     if (!results || results.length === 0) {
-      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true">No symbols found. Try searching for a company name or ticker symbol.</div>';
+      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true" style="padding: 12px; text-align: center;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">No symbols found</div><div style="font-size: 11px; color: var(--text-muted);">Try searching for a company name or ticker symbol</div><div style="font-size: 10px; margin-top: 6px; color: var(--text-muted);">Last search: ${new Date().toLocaleTimeString()}</div></div>';
       return;
     }
 
@@ -895,7 +927,7 @@ function setupEventListeners() {
         } catch (err) {
           if (requestSeq !== searchRequestSeq) return;
           console.error('Search query failed:', err);
-          searchDropdown.innerHTML = '<div class="search-error-state" role="option" aria-selected="false" aria-disabled="true">Search is temporarily unavailable. Try again in a moment.</div>';
+          searchDropdown.innerHTML = `<div class="search-error-state" role="option" aria-selected="false" aria-disabled="true" style="padding: 12px; text-align: center;"><div style="font-weight: 500; color: var(--loss); margin-bottom: 4px;">Search temporarily unavailable</div><div style="font-size: 11px; color: var(--text-muted);">The search service is not responding. Please try again shortly.</div><div style="font-size: 10px; margin-top: 6px; color: var(--text-muted);">Error: ${err.message || 'Unknown error'}</div></div>`;
           searchDropdown.setAttribute('aria-busy', 'false');
         }
       }, 200);
@@ -903,9 +935,12 @@ function setupEventListeners() {
 
     // Click on kbd shortcut hint also focuses search
     const kbdHint = document.getElementById('search-kbd-hint');
+    const cmdHintText = document.getElementById('cmd-hint-text');
     if (kbdHint) {
       const platform = navigator.userAgentData?.platform || navigator.platform || '';
-      kbdHint.textContent = /Mac|iPhone|iPad/i.test(platform) ? '⌘ K' : 'Ctrl K';
+      const shortcut = /Mac|iPhone|iPad/i.test(platform) ? '⌘ K' : 'Ctrl K';
+      kbdHint.textContent = shortcut;
+      if (cmdHintText) cmdHintText.textContent = `Press ${shortcut} to search`;
       kbdHint.addEventListener('click', () => {
         searchInput.focus();
         searchInput.select();
@@ -2401,13 +2436,14 @@ async function refreshWatchlistUI() {
       <div class="watchlist-empty-state" style="padding: 24px 12px; text-align: center;">
         <div style="font-size: 22px; color: var(--text-dim); margin-bottom: 6px;">☆</div>
         <div class="watchlist-empty-text" style="font-weight: 500; color: var(--text); font-size: 13px;">Watchlist is empty</div>
-        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 14px;">Star assets or pick a quick suggestion:</div>
-        <div class="watchlist-empty-suggestions" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
-          <button class="wl-add-sugg-btn" data-add="TCS.NS" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ TCS</button>
-          <button class="wl-add-sugg-btn" data-add="RELIANCE.NS" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ RELIANCE</button>
-          <button class="wl-add-sugg-btn" data-add="INFY.NS" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ INFY</button>
-          <button class="wl-add-sugg-btn" data-add="NVDA" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">+ NVDA</button>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 14px;">Press ⌘K to search and add assets, or pick a quick suggestion:</div>
+        <div class="watchlist-empty-suggestions" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 12px;">
+          <button class="ghost-btn ghost-btn-sm wl-add-sugg-btn" data-add="TCS.NS">+ TCS</button>
+          <button class="ghost-btn ghost-btn-sm wl-add-sugg-btn" data-add="RELIANCE.NS">+ RELIANCE</button>
+          <button class="ghost-btn ghost-btn-sm wl-add-sugg-btn" data-add="INFY.NS">+ INFY</button>
+          <button class="ghost-btn ghost-btn-sm wl-add-sugg-btn" data-add="NVDA">+ NVDA</button>
         </div>
+        <div style="font-size: 10px; color: var(--text-muted);">Watchlist persists in local storage. Last sync: ${new Date().toLocaleString()}</div>
       </div>
     `;
     listContainer.querySelectorAll('.wl-add-sugg-btn').forEach((btn) => {
@@ -2505,7 +2541,7 @@ function renderWatchlistRows(quotes) {
                 ${
                   isPending
                     ? `<span class="meta-badge" style="font-size:10px; color:#fbbf24;">Queued</span>`
-                    : `<span class="wl-item-price">${curr}${item.current_price ? item.current_price.toFixed(decimals) : '—'}</span>
+                    : `<span class="wl-item-price">${item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable')}</span>
                        <span class="tape-chg ${chgClass}" style="font-size:10px;">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>`
                 }
               </div>
@@ -2607,11 +2643,11 @@ function renderWatchlistRows(quotes) {
               <tr data-symbol="${sym}">
                 <td class="screener-sym-col">${sym}</td>
                 <td style="font-weight: 500;">${item.name || sym}</td>
-                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Queued</span>' : `${curr}${item.current_price ? item.current_price.toFixed(decimals) : '—'}`}</td>
-                <td><span class="tape-chg ${chgClass}">${isPending ? '—' : `${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%`}</span></td>
+                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Queued</span>' : (item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable'))}</td>
+                <td><span class="tape-chg ${chgClass}">${isPending ? formatWithState(null, 'unavailable') : `${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%`}</span></td>
                 <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
                 <td>
-                  <button class="wl-btn ws-inspect-btn" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px;">Analyze ↗</button>
+                  <button class="ghost-btn ws-inspect-btn" data-symbol="${sym}" title="Analyze ${item.name || sym}">Analyze ↗</button>
                   <button class="wl-btn wl-btn-alert" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
                   <button class="wl-btn wl-btn-danger ws-remove-btn" data-del="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px;">Remove</button>
                 </td>
@@ -3048,7 +3084,7 @@ function renderMacroCards() {
   const items = marketDataCache.macro[currentMacroCategory] || [];
 
   if (items.length === 0) {
-    container.innerHTML = '<div style="color: #94a3b8; font-size: 13px; padding: 12px;">No assets available in this category.</div>';
+    container.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; padding: 12px; text-align: center;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">No assets in this category</div><div style="font-size: 11px;">Data may be unavailable or not yet loaded for ${currentMacroCategory}.</div><div style="font-size: 10px; margin-top: 4px; color: var(--text-muted);">Last checked: ${new Date().toLocaleTimeString()}</div></div>`;
     return;
   }
 
@@ -3065,7 +3101,7 @@ function renderMacroCards() {
         : (isStale ? '<span class="macro-status-dot stale" title="Stale Cache"></span>' : '');
       const formattedPrice = item.price != null
         ? Number(item.price).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-        : '—';
+        : formatWithState(item.price, isOffline ? 'unavailable' : (isStale ? 'stale' : 'unavailable'));
 
       return `
         <div class="macro-mini-card ${isStale ? 'stale-card' : ''}" data-symbol="${item.symbol}">
@@ -3102,8 +3138,8 @@ export function renderStockInspector(data, isUp) {
   const chgPct = Math.abs(data.change_pct || 0).toFixed(2);
   const chgVal = Math.abs(data.change || 0).toFixed(2);
   const priceDisplay = formatCurrencyValue(data.price, data.symbol, data.currency);
-  const pe = data.pe_ratio != null ? `${Number(data.pe_ratio).toFixed(1)}x` : '—';
-  const rsi = data.rsi_14 != null ? Number(data.rsi_14).toFixed(1) : (data.technical?.rsi != null ? Number(data.technical.rsi).toFixed(1) : '—');
+  const pe = data.pe_ratio != null ? `${Number(data.pe_ratio).toFixed(1)}x` : formatWithState(data.pe_ratio, 'unavailable', { suffix: 'x' });
+  const rsi = data.rsi_14 != null ? Number(data.rsi_14).toFixed(1) : (data.technical?.rsi != null ? Number(data.technical.rsi).toFixed(1) : formatWithState(data.rsi_14, 'unavailable'));
 
   panelBody.innerHTML = `
     <div class="inspector-block">
@@ -4210,7 +4246,21 @@ function renderScreenerTable(items) {
   const tbody = document.getElementById('screener-table-body');
   if (!tbody) return;
   if (!items || items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No assets match current screen criteria.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">No assets match current screen criteria</div><div style="font-size: 11px;">Adjust filters or <button class="ghost-btn ghost-btn-sm" id="reset-screener-btn" style="margin-left: 6px;">Reset Filters</button></div><div style="font-size: 10px; margin-top: 4px; color: var(--text-muted);">Last screen: ${new Date().toLocaleTimeString()}</div></td></tr>`;
+    const resetBtn = tbody.querySelector('#reset-screener-btn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        // Reset all filter inputs
+        document.querySelectorAll('.screener-filter-input').forEach(input => {
+          input.value = '';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        document.querySelectorAll('.screener-filter-select').forEach(select => {
+          select.value = '';
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+    }
     return;
   }
   tbody.innerHTML = items
@@ -4231,7 +4281,7 @@ function renderScreenerTable(items) {
           <td><span class="tape-chg ${chgClass}">${chgStr}</span></td>
           <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metricStr}</td>
           <td>
-            <button class="wl-btn screener-load-btn" data-symbol="${item.symbol}" style="padding: 4px 10px; font-size: 11px;">
+            <button class="ghost-btn screener-load-btn" data-symbol="${item.symbol}" title="Analyze ${item.name || item.symbol}">
               Analyze ↗
             </button>
           </td>
@@ -4631,7 +4681,7 @@ function renderFilingDiff(data) {
   if (!container) return;
 
   if (!data) {
-    container.innerHTML = '<div style="padding: 16px; color: var(--text-muted); font-size: 13px;">Primary source filing diff unavailable for this asset.</div>';
+    container.innerHTML = `<div style="padding: 16px; color: var(--text-muted); font-size: 13px; text-align: center;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">Filing diff unavailable</div><div style="font-size: 11px;">Primary source documents not available for this asset.</div><div style="font-size: 10px; margin-top: 4px; color: var(--text-muted);">Last checked: ${new Date().toLocaleTimeString()}</div></div>`;
     return;
   }
 
@@ -4714,7 +4764,7 @@ async function loadAndRenderMacroExplorer(symbol) {
     const res = await api.getMacroExplorer(symbol);
     const factors = res.macro_factors || [];
     if (factors.length === 0) {
-      container.innerHTML = '<div style="padding: 16px; color: var(--text-muted); font-size: 13px;">Macro relationship model unavailable for this asset basket.</div>';
+      container.innerHTML = `<div style="padding: 16px; color: var(--text-muted); font-size: 13px; text-align: center;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">Macro relationship model unavailable</div><div style="font-size: 11px;">No correlation factors found for this asset basket.</div><div style="font-size: 10px; margin-top: 4px; color: var(--text-muted);">Last checked: ${new Date().toLocaleTimeString()}</div></div>`;
       return;
     }
 
@@ -5317,7 +5367,7 @@ export function renderMarketInspector(type, data) {
           ${(data.constituents || []).slice(0, 4).map((sym) => `
             <div class="inspector-mini-item" data-sym="${sym}">
               <span class="inspector-mini-sym">${sym}</span>
-              <button class="inspector-mini-btn" data-sym="${sym}">Analyze ↗</button>
+              <button class="ghost-btn ghost-btn-sm inspector-mini-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
             </div>
           `).join('')}
         </div>
@@ -5557,7 +5607,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               ${rangeHtml}
             </td>
             <td class="text-right">
-              <button class="markets-table-action-btn" data-sym="${m.symbol}" title="Analyze ${m.name}">Analyze ↗</button>
+              <button class="ghost-btn markets-table-action-btn" data-sym="${m.symbol}" title="Analyze ${m.name}">Analyze ↗</button>
             </td>
           </tr>
         `;
@@ -5664,7 +5714,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
                     <span class="tape-chg chg-neutral" style="font-size: 10px; padding: 1px 6px;">Tracked</span>
                   </td>
                   <td class="text-right">
-                    <button class="markets-table-action-btn sector-analyze-btn" data-sym="${sym}">Analyze ↗</button>
+                    <button class="ghost-btn markets-table-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
                   </td>
                 </tr>
               `;
@@ -6211,7 +6261,7 @@ function refreshAlertsUI() {
   if (!container) return;
 
   if (allAlerts.length === 0) {
-    container.innerHTML = '<div class="alerts-empty-state"><span class="alerts-empty-mark" aria-hidden="true">◌</span><strong>No alerts yet</strong><span>Create a price or indicator threshold above to keep an eye on a level.</span></div>';
+    container.innerHTML = '<div class="alerts-empty-state" style="padding: 24px 12px; text-align: center;"><span class="alerts-empty-mark" aria-hidden="true" style="font-size: 22px; color: var(--text-dim); margin-bottom: 6px; display: block;">◌</span><strong style="color: var(--text); font-size: 13px;">No alerts yet</strong><div style="font-size: 11px; color: var(--text-dim); margin: 8px 0;">Use the form above to create a price or indicator threshold.</div><div style="font-size: 10px; color: var(--text-muted);">Alerts persist across sessions.</div></div>';
     return;
   }
 

@@ -1,0 +1,12 @@
+Phase 1 looks good overall. Before moving on, make one brief accessibility correction:
+
+1. Verify actual WCAG contrast ratios for all text tokens against their real rendered backgrounds in both dark and light themes. The reported ~4.3:1 for --text-dim and ~3.9:1 for --text-muted are below the 4.5:1 requirement for normal text. Adjust failing combinations where these tokens are used for normal-sized text. Do not assume the token's ratio from its hex value alone if opacity or layered backgrounds are involved.
+2. Confirm semantic state classes are actually applied correctly in the rendered UI and that zero, unavailable, stale, delayed, and loading states remain distinct.
+3. Run the production build again and report the contrast results and any remaining exceptions.
+
+Then proceed with Phase 2 only:
+- Convert Analyze actions into accessible ghost buttons with hover, focus-visible, active, and disabled states.
+- Add a subtle, responsive Ctrl+K command palette hint using the correct platform shortcut.
+- Improve empty/error states with truthful last-update information and only functional fallback actions.
+
+Preserve existing functionality, routes, API contracts, market-data refresh behavior, and current visual identity. Keep the diff focused. Do not start Phase 3 yet. Report changed files and verification results when finished.
