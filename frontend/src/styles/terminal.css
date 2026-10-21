@@ -1904,12 +1904,46 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border-radius: var(--radius-sm);
   overflow-x: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  /* Prevent page-wide overflow */
+  max-width: 100%;
 }
 .markets-data-table {
   width: 100%;
+  min-width: 720px; /* Minimum width to keep columns readable */
   border-collapse: collapse;
   font-size: 12px;
   text-align: left;
+}
+/* Responsive table column handling */
+@media (max-width: 1024px) {
+  .markets-data-table {
+    min-width: 640px;
+  }
+  .markets-data-table th,
+  .markets-data-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+}
+@media (max-width: 768px) {
+  .markets-data-table {
+    min-width: 580px;
+  }
+  .markets-data-table th,
+  .markets-data-table td {
+    padding: 6px 8px;
+    font-size: 10.5px;
+  }
+}
+@media (max-width: 390px) {
+  .markets-data-table {
+    min-width: 520px;
+  }
+  .markets-data-table th,
+  .markets-data-table td {
+    padding: 5px 6px;
+    font-size: 10px;
+  }
 }
 .markets-data-table th {
   background: #181b24;
@@ -2119,14 +2153,38 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
+/* Responsive breakpoints for sector heatmap */
+@media (max-width: 1440px) {
+  .sector-heatmap-matrix {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 1280px) {
+  .sector-heatmap-matrix {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
 @media (max-width: 1024px) {
   .sector-heatmap-matrix {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+@media (max-width: 768px) {
+  .sector-heatmap-matrix {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
 @media (max-width: 640px) {
   .sector-heatmap-matrix {
     grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+@media (max-width: 390px) {
+  .sector-heatmap-matrix {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
 .hm-tile {
@@ -2138,18 +2196,89 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border: 1px solid var(--border);
   min-height: 98px;
   cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
   user-select: none;
   background: var(--surface);
   position: relative;
+  /* Keyboard focus accessibility */
+  outline: none;
 }
 .hm-tile:hover {
   border-color: rgba(255, 255, 255, 0.25);
   transform: translateY(-1px);
 }
+.hm-tile:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(41, 98, 255, 0.2);
+  border-color: var(--accent);
+  z-index: 1;
+}
 .hm-tile.active-hm-cell {
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 1.5px var(--accent), 0 2px 8px rgba(41, 98, 255, 0.25);
+}
+.hm-tile.active-hm-cell:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px rgba(41, 98, 255, 0.3), 0 2px 8px rgba(41, 98, 255, 0.25);
+}
+
+/* Heatmap tile state variants for constituent breadth */
+.hm-tile.hm-loading {
+  opacity: 0.6;
+  pointer-events: none;
+  background: rgba(91, 156, 246, 0.08);
+  border-color: rgba(91, 156, 246, 0.3);
+}
+.hm-tile.hm-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: hm-spin 0.8s linear infinite;
+}
+@keyframes hm-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-tile.hm-loading::after {
+    animation: none;
+    border-color: var(--accent);
+  }
+}
+.hm-tile.hm-empty {
+  opacity: 0.5;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+.hm-tile.hm-error {
+  opacity: 0.7;
+  pointer-events: none;
+  background: rgba(242, 54, 69, 0.08);
+  border-color: rgba(242, 54, 69, 0.3);
+}
+.hm-tile.hm-unavailable {
+  opacity: 0.4;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.01);
+  border-color: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+
+/* Respect reduced-motion for heatmap transitions */
+@media (prefers-reduced-motion: reduce) {
+  .hm-tile {
+    transition: none !important;
+  }
+  .hm-tile:hover {
+    transform: none;
+  }
 }
 
 /* Heatmap Performance Color Intensities */
@@ -2259,9 +2388,29 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
 }
+/* Responsive breakpoints for macro radar matrix */
+@media (max-width: 1280px) {
+  .macro-radar-matrix {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
 @media (max-width: 960px) {
   .macro-radar-matrix {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+@media (max-width: 768px) {
+  .macro-radar-matrix {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+@media (max-width: 390px) {
+  .macro-radar-matrix {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }
 .macro-radar-panel {

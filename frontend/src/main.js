@@ -5767,6 +5767,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
   // 3. Render Sector Performance Heatmap Matrix
   if (secGrid) {
+    // Show loading state
+    secGrid.innerHTML = '<div class="hm-tile hm-loading" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--text-dim);"><span>Loading sector data...</span></div>';
+
     try {
       if (!cachedSectorData || force || (now - lastSectorIntelligenceFetchTime > 60000)) {
         const data = await api.getSectorIntelligence();
@@ -5777,6 +5780,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
       if (!currentSelectedSector && sectorData.length > 0) {
         currentSelectedSector = sectorData[0];
+      }
+
+      if (sectorData.length === 0) {
+        // Empty state
+        secGrid.innerHTML = '<div class="hm-tile hm-empty" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--text-muted);"><span style="font-weight: 500; margin-bottom: 4px;">No sector data available</span><span style="font-size: 11px;">Sector intelligence feed returned no data.</span><span style="font-size: 10px; margin-top: 4px;">Last checked: ' + new Date().toLocaleTimeString() + '</span></div>';
+        return;
       }
 
       secGrid.innerHTML = sectorData
@@ -5792,18 +5801,26 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           else if (perf <= -1.5) intensityClass = 'hm-loss-strong';
           else if (perf <= -0.2) intensityClass = 'hm-loss-mod';
 
+          // Determine tile state
+          let stateClass = '';
+          if (s.constituents === undefined || s.constituents === null) {
+            stateClass = 'hm-unavailable';
+          } else if (s.constituents.length === 0) {
+            stateClass = 'hm-empty';
+          }
+
           return `
-            <div class="hm-tile ${intensityClass} ${isSelected ? 'active-hm-cell' : ''}" data-sector="${s.sector}" title="Click to inspect ${s.display_name}">
+            <div class="hm-tile ${intensityClass} ${isSelected ? 'active-hm-cell' : ''} ${stateClass}" data-sector="${s.sector}" tabindex="0" role="button" aria-label="${s.display_name}, ${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%${stateClass ? ', ' + stateClass.replace('hm-', '') : ''}" title="Click or press Enter to inspect ${s.display_name}">
               <div class="hm-tile-header">
                 <span class="hm-sector-name">${s.display_name}</span>
                 <span class="hm-sector-perf ${isUp ? 'text-gain' : 'text-loss'}">${isUp ? '+' : ''}${perf.toFixed(2)}%</span>
               </div>
               <div class="hm-meta-line">
                 <span class="hm-proxy-tag">${proxy}</span>
-                <span class="hm-leader-tag">Leader: <strong>${s.leading_asset}</strong></span>
+                <span class="hm-leader-tag">Leader: <strong>${s.leading_asset || '—'}</strong></span>
               </div>
               <div class="hm-footer-bar">
-                <span>${s.constituents?.length || 0} Constituents</span>
+                <span>${s.constituents?.length || 0} Constituents${stateClass === 'hm-unavailable' ? ' (unavailable)' : stateClass === 'hm-empty' ? ' (no data)' : ''}</span>
                 <span style="font-family: var(--font-mono); font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Net Bullish' : '▼ Net Bearish'}</span>
               </div>
             </div>
@@ -5813,7 +5830,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
       // Wire tile click -> select sector and update Context Inspector
       secGrid.querySelectorAll('.hm-tile').forEach((tile) => {
-        tile.addEventListener('click', () => {
+        const handleActivate = () => {
           const secName = tile.getAttribute('data-sector');
           const found = sectorData.find((s) => s.sector === secName);
           if (found) {
@@ -5821,6 +5838,13 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             secGrid.querySelectorAll('.hm-tile').forEach((t) => t.classList.toggle('active-hm-cell', t.getAttribute('data-sector') === secName));
             renderSelectedSectorDetail(found);
             renderMarketInspector('sector', found);
+          }
+        };
+        tile.addEventListener('click', handleActivate);
+        tile.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleActivate();
           }
         });
       });
@@ -5830,6 +5854,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       }
     } catch (e) {
       console.warn('Failed sector intelligence load:', e);
+      // Show error state
+      secGrid.innerHTML = '<div class="hm-tile hm-error" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--text-dim);"><span style="font-weight: 500; margin-bottom: 4px; color: var(--loss);">Failed to load sector data</span><span style="font-size: 11px;">The sector intelligence feed is currently unreachable.</span><span style="font-size: 10px; margin-top: 4px;">Last attempt: ' + new Date().toLocaleTimeString() + '</span></div>';
     }
   }
 
