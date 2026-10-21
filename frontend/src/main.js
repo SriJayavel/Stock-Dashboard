@@ -170,30 +170,30 @@ async function startApp() {
   // Router Subscription: 6 Institutional Workspaces
   router.subscribe(async (route) => {
     if (route.type === 'markets' || route.workspace === 'markets') {
-      setWorkspace('markets');
+      await setWorkspace('markets');
     } else if (route.type === 'discover' || route.workspace === 'discover' || route.type === 'screener') {
-      setWorkspace('discover', route.universe);
+      await setWorkspace('discover', route.universe);
     } else if (route.type === 'compare' || route.workspace === 'compare') {
       if (route.symbol && route.symbol !== currentSymbol) {
         await loadStock(route.symbol, currentTimeframe);
       }
-      setWorkspace('compare');
+      await setWorkspace('compare');
     } else if (route.type === 'research' || route.workspace === 'research') {
       if (route.symbol && route.symbol !== currentSymbol) {
         await loadStock(route.symbol, currentTimeframe);
       }
-      setWorkspace('research', route.subTab || 'news');
+      await setWorkspace('research', route.subTab || 'news');
     } else if (route.type === 'monitor' || route.workspace === 'monitor') {
-      setWorkspace('monitor', route.subTab || 'watchlist');
+      await setWorkspace('monitor', route.subTab || 'watchlist');
     } else if (route.type === 'symbol' || route.type === 'analyze' || route.workspace === 'analyze') {
       const targetSym = route.symbol || currentSymbol || 'TCS.NS';
       const targetTab = route.tab || 'chart';
-      setWorkspace('analyze', targetTab);
+      await setWorkspace('analyze', targetTab);
       if (!currentSymbol || targetSym !== currentSymbol) {
         await loadStock(targetSym, currentTimeframe);
       }
     } else if (route.type === 'markets' || route.type === 'sectors' || route.workspace === 'markets') {
-      setWorkspace('markets');
+      await setWorkspace('markets');
     }
   });
 
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Primary Workspace Switcher
-export function setWorkspace(workspaceName, subTab = null) {
+export async function setWorkspace(workspaceName, subTab = null) {
   currentActiveWorkspace = workspaceName;
 
   // 1. Top workspace navigation buttons
@@ -265,8 +265,9 @@ export function setWorkspace(workspaceName, subTab = null) {
     setMonitorSubTab(targetSub);
   } else if (workspaceName === 'markets') {
     // Use traditional markets view to properly utilize redesign.css with Signal Sigma design
-    loadMarketOverview();
-    loadAndRenderSectorsAndMarketMap();
+    // Await data loading so the feed shows immediately when user opens Markets
+    await loadMarketOverview(true); // force refresh on workspace switch
+    await loadAndRenderSectorsAndMarketMap(true);
   } else if (workspaceName === 'discover') {
     if (subTab) {
       const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
@@ -633,22 +634,22 @@ function setupMaraShellControls() {
 
 
 // Backward Compatibility Bridges
-export function setTopLevelView(viewName) {
-  if (viewName === 'terminal') setWorkspace('analyze');
-  else if (viewName === 'screener') setWorkspace('discover');
-  else if (viewName === 'sectors') setWorkspace('markets');
-  else setWorkspace(viewName);
+export async function setTopLevelView(viewName) {
+  if (viewName === 'terminal') await setWorkspace('analyze');
+  else if (viewName === 'screener') await setWorkspace('discover');
+  else if (viewName === 'sectors') await setWorkspace('markets');
+  else await setWorkspace(viewName);
 }
 
-export function activateWorkspaceTab(targetTab) {
+export async function activateWorkspaceTab(targetTab) {
   if (['chart', 'overview', 'fundamentals', 'valuation'].includes(targetTab)) {
-    setWorkspace('analyze', targetTab);
+    await setWorkspace('analyze', targetTab);
   } else if (['peers', 'correlation'].includes(targetTab)) {
-    setWorkspace('compare');
+    await setWorkspace('compare');
   } else if (targetTab === 'sectors') {
-    setWorkspace('markets');
+    await setWorkspace('markets');
   } else if (['news', 'earnings', 'whatchanged', 'anomalies', 'lab', 'notebook', 'quality', 'report'].includes(targetTab)) {
-    setWorkspace('research', targetTab);
+    await setWorkspace('research', targetTab);
   }
 }
 
