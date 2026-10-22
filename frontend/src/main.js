@@ -2854,14 +2854,23 @@ async function loadMarketOverview(force = false) {
     return;
   }
   try {
-    const data = await api.getMarketOverview();
-    marketDataCache = data;
+    const prevHero = (marketDataCache?.hero?.price != null) ? marketDataCache.hero : loadPersistedMarketSnapshot()?.hero;
+    const hasLiveIndices = (data?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
+    if (hasLiveIndices) {
+      marketDataCache = data;
+      persistMarketSnapshot(data);
+    } else if (marketDataCache?.macro?.Indices?.some((i) => typeof i.price === 'number' && i.price > 0)) {
+      marketDataCache.is_stale = true;
+    } else {
+      const persisted = loadPersistedMarketSnapshot();
+      marketDataCache = persisted || data;
+    }
     lastMarketOverviewFetchTime = now;
-    renderMarketStateBar(data);
-    renderMarketTicker(data);
+    renderMarketStateBar(marketDataCache);
+    renderMarketTicker(marketDataCache);
 
     // Render Hero Card
-    if (data.hero) {
+    if (data.hero || prevHero) {
       const heroPrice = document.getElementById('hero-price');
       const heroChange = document.getElementById('hero-change');
       const heroBadge = document.getElementById('hero-change-badge');
@@ -2872,16 +2881,14 @@ async function loadMarketOverview(force = false) {
       const heroFill = document.getElementById('hero-range-fill');
 
       // Check if current hero data is unavailable
-      const isStale = Boolean(data.hero.is_stale);
-      const isUnavailable = data.hero.status === 'unavailable' || data.hero.price == null;
-
-      // If current data is unavailable, try to use cached data as fallback
+      const isUnavailable = !data.hero || data.hero.status === 'unavailable' || data.hero.price == null;
       let heroData = data.hero;
       let isUsingFallback = false;
-      if (isUnavailable && marketDataCache && marketDataCache.hero && marketDataCache.hero.price != null) {
-        heroData = marketDataCache.hero;
+      if (isUnavailable && prevHero && prevHero.price != null) {
+        heroData = prevHero;
         isUsingFallback = true;
       }
+      const isStale = Boolean(heroData?.is_stale || isUsingFallback);
 
       const isUp = (heroData.change || 0) >= 0;
 
@@ -5133,6 +5140,85 @@ function getMarketSessionTelemetry() {
   };
 }
 
+const MARKET_CACHE_STORAGE_KEY = 'mara_market_snapshot_v2';
+
+function loadPersistedMarketSnapshot() {
+  try {
+    const raw = localStorage.getItem(MARKET_CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.macro && Array.isArray(parsed.macro.Indices)) {
+      return {
+        ...parsed,
+        is_stale: true,
+        is_persisted_fallback: true,
+      };
+    }
+  } catch (err) {
+    console.warn('Failed reading persisted market snapshot:', err);
+  }
+  return null;
+}
+
+function persistMarketSnapshot(data) {
+  try {
+    if (data && data.macro?.Indices?.some((item) => typeof item.price === 'number' && item.price > 0)) {
+      localStorage.setItem(MARKET_CACHE_STORAGE_KEY, JSON.stringify(data));
+    }
+  } catch (err) {
+    console.warn('Failed saving market snapshot to localStorage:', err);
+  }
+}
+
+function renderBenchmarkSkeleton(tableBody) {
+  if (!tableBody) return;
+  const skeletonIndices = [
+    { tag: 'IN', tagClass: 'tag-in', region: 'India', name: 'NIFTY 50', symbol: '^NSEI' },
+    { tag: 'IN', tagClass: 'tag-in', region: 'India', name: 'SENSEX', symbol: '^BSESN' },
+    { tag: 'IN', tagClass: 'tag-in', region: 'India', name: 'BANK NIFTY', symbol: '^NSEBANK' },
+    { tag: 'US', tagClass: 'tag-us', region: 'Americas', name: 'S&P 500', symbol: '^GSPC' },
+    { tag: 'US', tagClass: 'tag-us', region: 'Americas', name: 'NASDAQ Composite', symbol: '^IXIC' },
+    { tag: 'UK', tagClass: 'tag-eu', region: 'Europe', name: 'FTSE 100', symbol: '^FTSE' },
+    { tag: 'JP', tagClass: 'tag-ap', region: 'Asia-Pacific', name: 'NIKKEI 225', symbol: '^N225' },
+  ];
+
+  tableBody.innerHTML = skeletonIndices
+    .map(
+      (item) => `
+      <tr class="markets-index-row skeleton-row" data-sym="${item.symbol}">
+        <td>
+          <div class="region-badge">
+            <span class="region-tag ${item.tagClass}">${item.tag}</span>
+            <span>${item.region}<small class="market-session-label">SYNCING...</small></span>
+          </div>
+        </td>
+        <td>
+          <strong style="color: var(--text); font-weight: 600;">${item.name}</strong>
+        </td>
+        <td>
+          <span style="font-family: var(--font-mono); color: var(--accent); font-size: 11.5px; font-weight: 600;">${item.symbol}</span>
+        </td>
+        <td class="text-right">
+          <div class="benchmark-skeleton-pill"></div>
+        </td>
+        <td class="text-right">
+          <div class="benchmark-skeleton-pill short"></div>
+        </td>
+        <td class="text-right">
+          <div class="benchmark-skeleton-pill short"></div>
+        </td>
+        <td>
+          <div class="benchmark-skeleton-bar"></div>
+        </td>
+        <td class="text-right">
+          <button class="ghost-btn markets-table-action-btn" disabled>...</button>
+        </td>
+      </tr>
+    `
+    )
+    .join('');
+}
+
 // Render Markets State Bar
 function renderMarketStateBar(data) {
   const sessionDot = document.getElementById('mkt-session-dot');
@@ -5143,9 +5229,21 @@ function renderMarketStateBar(data) {
   const lastUpdated = document.getElementById('mkt-last-updated');
 
   const telemetry = getMarketSessionTelemetry();
+  const indices = data?.macro?.Indices || [];
+  const validPriceCount = indices.filter((i) => typeof i.price === 'number' && Number.isFinite(i.price) && i.price > 0).length;
+  const isStale = Boolean(data?.is_stale || data?.hero?.is_stale);
+  const isFeedActive = validPriceCount > 0;
 
   if (sessionDot) {
-    sessionDot.className = `mkt-session-dot ${telemetry.nseIsOpen ? '' : 'closed'}`;
+    if (!telemetry.nseIsOpen) {
+      sessionDot.className = 'mkt-session-dot closed';
+    } else if (isFeedActive && !isStale) {
+      sessionDot.className = 'mkt-session-dot';
+    } else if (isFeedActive && isStale) {
+      sessionDot.className = 'mkt-session-dot stale';
+    } else {
+      sessionDot.className = 'mkt-session-dot offline';
+    }
   }
   if (sessionName) {
     sessionName.textContent = `NSE INDIA: ${telemetry.nse}`;
@@ -5157,11 +5255,10 @@ function renderMarketStateBar(data) {
 
   // Compute Benchmark Advance / Decline
   if (breadthVal) {
-    const indices = data?.macro?.Indices || [];
     let adv = 0;
     let dec = 0;
     let flt = 0;
-    const knownChanges = indices.filter((i) => Number.isFinite(i.change_pct));
+    const knownChanges = indices.filter((i) => typeof i.change_pct === 'number' && Number.isFinite(i.change_pct));
     knownChanges.forEach((i) => {
       const p = i.change_pct;
       if (p > 0.05) adv++;
@@ -5170,20 +5267,25 @@ function renderMarketStateBar(data) {
     });
     breadthVal.textContent = knownChanges.length
       ? `${adv} ADV · ${dec} DEC · ${flt} FLT${knownChanges.length < indices.length ? ` · ${indices.length - knownChanges.length} N/A` : ''}`
-      : '—';
+      : (isFeedActive ? '0 ADV · 0 DEC' : 'FEED OFFLINE');
   }
 
   if (feedSource) {
-    const src = data?.hero?.source;
-    feedSource.textContent = `${src ? src.toUpperCase() : 'FEED UNAVAILABLE'}${data?.is_stale || data?.hero?.is_stale ? ' · STALE' : ''}`;
-    feedSource.classList.toggle('is-stale', Boolean(data?.is_stale || data?.hero?.is_stale));
+    const src = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
+    if (!isFeedActive) {
+      feedSource.textContent = 'UNAVAILABLE';
+      feedSource.className = 'mkt-state-val-mono is-stale';
+    } else {
+      feedSource.textContent = `${src.toUpperCase()}${isStale ? ' (CACHED)' : ''}`;
+      feedSource.className = `mkt-state-val-mono ${isStale ? 'is-stale' : ''}`;
+    }
   }
 
   if (lastUpdated) {
-    const timestamp = data?.last_successful_update || data?.last_updated;
+    const timestamp = data?.last_successful_update || data?.last_updated || data?.hero?.retrieved_at;
     lastUpdated.textContent = timestamp
       ? new Date(timestamp).toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
-      : 'NO SUCCESSFUL UPDATE';
+      : (isFeedActive ? 'CACHED SNAPSHOT' : 'AWAITING SYNC');
     lastUpdated.title = data?.last_attempted_at
       ? `Last fetch attempt: ${new Date(data.last_attempted_at).toLocaleString()}`
       : 'No refresh attempt timestamp available';
@@ -5486,15 +5588,55 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
   const tableBody = document.getElementById('markets-indices-table-body');
   const secGrid = document.getElementById('sector-intelligence-grid');
 
-  // Ensure live macro/indices data is ready in marketDataCache (cached for 60s)
   const now = Date.now();
-  if (!marketDataCache?.macro || force || (now - lastMarketOverviewFetchTime > 60000)) {
+  const hasCachedIndices = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
+
+  // If no cached data in memory, check persistent storage
+  if (!hasCachedIndices) {
+    const persisted = loadPersistedMarketSnapshot();
+    if (persisted?.macro?.Indices?.some((i) => typeof i.price === 'number' && i.price > 0)) {
+      marketDataCache = persisted;
+    }
+  }
+
+  // Render compact skeleton placeholders immediately if table is unpopulated
+  if (tableBody && !tableBody.querySelector('.markets-index-row:not(.skeleton-row)')) {
+    const hasAnyPrice = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
+    if (!hasAnyPrice) {
+      renderBenchmarkSkeleton(tableBody);
+    }
+  }
+
+  // Ensure live macro/indices data is ready in marketDataCache (cached for 60s)
+  if (!hasCachedIndices || force || (now - lastMarketOverviewFetchTime > 60000)) {
     try {
-      marketDataCache = await api.getMarketOverview();
+      const incoming = await api.getMarketOverview();
       lastMarketOverviewFetchTime = now;
+      const incomingHasPrices = (incoming?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
+      if (incomingHasPrices) {
+        marketDataCache = incoming;
+        persistMarketSnapshot(incoming);
+      } else if (hasCachedIndices) {
+        // Retain usable cache marked as stale rather than destroying data
+        marketDataCache.is_stale = true;
+      } else {
+        const persisted = loadPersistedMarketSnapshot();
+        marketDataCache = persisted || incoming;
+        // If cold container warming is underway, politely retry in 3.5s once
+        if (incoming?.market_status === 'unavailable' && !loadAndRenderSectorsAndMarketMap._scheduledRetry) {
+          loadAndRenderSectorsAndMarketMap._scheduledRetry = true;
+          setTimeout(async () => {
+            loadAndRenderSectorsAndMarketMap._scheduledRetry = false;
+            await loadAndRenderSectorsAndMarketMap(true);
+          }, 3500);
+        }
+      }
       renderMarketTicker(marketDataCache);
     } catch (e) {
       console.warn('Could not fetch market overview for indices table:', e);
+      if (hasCachedIndices) {
+        marketDataCache.is_stale = true;
+      }
     }
   }
 
@@ -5524,14 +5666,40 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       asia: sessionTelemetry.tyo,
     };
 
+    const isValidPrice = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+    const isValidNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
     const processedBenchmarks = benchmarkMeta.map((m) => {
       const live = lookup.get(m.symbol);
-      const rawPrice = live?.price != null ? live.price : (m.symbol === '^NSEI' && marketDataCache?.hero?.price != null ? marketDataCache.hero.price : null);
-      const rawChg = live?.change != null ? live.change : (m.symbol === '^NSEI' && marketDataCache?.hero?.change != null ? marketDataCache.hero.change : null);
-      const rawPct = live?.change_pct != null ? live.change_pct : (m.symbol === '^NSEI' && marketDataCache?.hero?.change_pct != null ? marketDataCache.hero.change_pct : null);
-      const rawHigh = live?.high != null ? live.high : (m.symbol === '^NSEI' && marketDataCache?.hero?.high != null ? marketDataCache.hero.high : null);
-      const rawLow = live?.low != null ? live.low : (m.symbol === '^NSEI' && marketDataCache?.hero?.low != null ? marketDataCache.hero.low : null);
-      const source = m.symbol === '^NSEI' ? (marketDataCache?.hero?.source || 'Direct NSE') : 'yfinance';
+      let rawPrice = null;
+      let rawChg = null;
+      let rawPct = null;
+      let rawHigh = null;
+      let rawLow = null;
+      let source = m.symbol === '^NSEI' ? (marketDataCache?.hero?.source || 'NSE Direct') : 'yfinance';
+      let sourceTimestamp = null;
+      let isStale = Boolean(marketDataCache?.is_stale);
+
+      if (live) {
+        if (isValidPrice(live.price)) rawPrice = live.price;
+        if (isValidNum(live.change)) rawChg = live.change;
+        if (isValidNum(live.change_pct)) rawPct = live.change_pct;
+        if (isValidPrice(live.high)) rawHigh = live.high;
+        if (isValidPrice(live.low)) rawLow = live.low;
+        if (live.source) source = live.source;
+        if (live.source_timestamp) sourceTimestamp = live.source_timestamp;
+        if (live.is_stale) isStale = true;
+      } else if (m.symbol === '^NSEI' && marketDataCache?.hero) {
+        const h = marketDataCache.hero;
+        if (isValidPrice(h.price)) rawPrice = h.price;
+        if (isValidNum(h.change)) rawChg = h.change;
+        if (isValidNum(h.change_pct)) rawPct = h.change_pct;
+        if (isValidPrice(h.high)) rawHigh = h.high;
+        if (isValidPrice(h.low)) rawLow = h.low;
+        if (h.source) source = h.source;
+        if (h.retrieved_at) sourceTimestamp = h.retrieved_at;
+        if (h.is_stale) isStale = true;
+      }
 
       return {
         ...m,
@@ -5540,9 +5708,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         change_pct: rawPct,
         high: rawHigh,
         low: rawLow,
-        source: live?.source || source,
-        source_timestamp: live?.source_timestamp || null,
-        is_stale: Boolean(live?.is_stale || marketDataCache?.is_stale),
+        source,
+        source_timestamp: sourceTimestamp,
+        is_stale: isStale,
         session_status: sessionByRegion[m.regionCode] || 'UNAVAILABLE',
       };
     });
@@ -5550,18 +5718,20 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     tableBody.innerHTML = processedBenchmarks
       .map((m, idx) => {
         const isIndia = m.curr === '₹' || m.regionCode === 'india';
-        const priceDisplay = m.price != null
+        const hasValidPrice = m.price != null;
+        const priceDisplay = hasValidPrice
           ? `${m.curr}${m.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : '—';
         const hasChange = m.change_pct != null;
-        const isUp = hasChange && m.change_pct >= 0;
-        const sign = isUp ? '+' : '−';
+        const isUp = hasChange && m.change_pct > 0.0001;
+        const isDown = hasChange && m.change_pct < -0.0001;
+        const sign = isUp ? '+' : isDown ? '−' : '';
         const chgDisplay = m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—';
-        const pctDisplay = m.change_pct != null ? `${isUp ? '+' : ''}${m.change_pct.toFixed(2)}%` : '—';
-        const chgClass = !hasChange ? 'chg-neutral' : isUp ? 'chg-up' : 'chg-down';
+        const pctDisplay = hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : '—';
+        const chgClass = !hasChange ? 'chg-neutral' : isUp ? 'chg-up' : isDown ? 'chg-down' : 'chg-neutral';
 
         let rangeHtml = '';
-        if (m.high != null && m.low != null && m.high > m.low && m.price != null) {
+        if (m.high != null && m.low != null && m.high > m.low && m.price != null && m.price >= m.low && m.price <= m.high) {
           const rangePct = Math.min(100, Math.max(0, ((m.price - m.low) / (m.high - m.low)) * 100));
           const lowFmt = `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
           const highFmt = `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -5574,9 +5744,11 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               <span class="range-bound high">${highFmt}</span>
             </div>
           `;
+        } else if (hasValidPrice) {
+          const availability = m.is_stale ? 'EOD CLOSE' : 'Active Session';
+          rangeHtml = `<span class="market-data-state ${m.is_stale ? 'is-stale eod-close' : ''}" title="${m.source || 'Market feed'}${m.source_timestamp ? ` · ${m.source_timestamp}` : ''}">${availability}</span>`;
         } else {
-          const availability = m.is_stale ? 'Stale snapshot' : m.price == null ? 'Data unavailable' : 'Range unavailable';
-          rangeHtml = `<span class="market-data-state ${m.is_stale ? 'is-stale' : ''}" title="${m.source || 'Market feed'}${m.source_timestamp ? ` · ${m.source_timestamp}` : ''}">${availability}</span>`;
+          rangeHtml = `<span class="market-data-state unavailable" title="Market feed offline or initializing">Feed unavailable</span>`;
         }
 
         const isDefaultActive = idx === 0;
@@ -5602,7 +5774,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               ${chgDisplay}
             </td>
             <td class="text-right">
-              <span class="tape-chg ${chgClass}">${hasChange ? `${isUp ? '+' : '−'}${Math.abs(m.change_pct).toFixed(2)}%` : '—'}</span>
+              <span class="tape-chg ${chgClass}">${pctDisplay}</span>
             </td>
             <td>
               ${rangeHtml}

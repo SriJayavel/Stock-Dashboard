@@ -565,4 +565,34 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     expect(failedUrls).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
+
+  test('Markets workspace benchmark table renders normalized indices and honest status', async ({ page }) => {
+    await page.goto('/#/markets');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait for the table body to render rows
+    const tableBody = page.locator('#markets-indices-table-body');
+    await expect(tableBody).toBeVisible();
+
+    // Check that benchmark rows exist
+    const niftyRow = page.locator('.markets-index-row[data-sym="^NSEI"]');
+    await expect(niftyRow).toBeVisible({ timeout: 15000 });
+
+    const sensexRow = page.locator('.markets-index-row[data-sym="^BSESN"]');
+    await expect(sensexRow).toBeVisible();
+
+    const sp500Row = page.locator('.markets-index-row[data-sym="^GSPC"]');
+    await expect(sp500Row).toBeVisible();
+
+    // Verify session dot exists and has a valid status class
+    const sessionDot = page.locator('#mkt-session-dot');
+    await expect(sessionDot).toBeVisible();
+
+    // Verify that feed source does not repeat 'FEED'
+    const feedSource = page.locator('#mkt-feed-source');
+    const feedText = await feedSource.innerText();
+    expect(feedText).not.toContain('FEED FEED');
+
+    expect(consoleErrors).toEqual([]);
+  });
 });

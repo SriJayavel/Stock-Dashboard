@@ -1203,8 +1203,26 @@ def get_market_overview(refresh: bool = False) -> dict:
                 except Exception as exc:
                     logger.debug("Batch ticker lookup failed for %s: %s", sym, exc)
             if ticker is None:
-                ticker = yf.Ticker(sym, session=_yf_session)
-            quote = _macro_quote(ticker, sym)
+                try:
+                    ticker = yf.Ticker(sym, session=_yf_session)
+                except Exception as yf_err:
+                    logger.debug("Individual ticker creation failed for %s: %s", sym, yf_err)
+                    ticker = None
+            quote = _macro_quote(ticker, sym) if ticker is not None else None
+            if quote is None and sym == "^NSEI" and hero_nifty and hero_nifty.get("price") is not None:
+                quote = {
+                    "symbol": "^NSEI",
+                    "name": "NIFTY 50",
+                    "price": hero_nifty["price"],
+                    "change": hero_nifty.get("change"),
+                    "change_pct": hero_nifty.get("change_pct"),
+                    "high": hero_nifty.get("high"),
+                    "low": hero_nifty.get("low"),
+                    "source": hero_nifty.get("source", "NSE Direct"),
+                    "source_timestamp": hero_nifty.get("retrieved_at"),
+                    "freshness": hero_nifty.get("freshness", "DELAYED"),
+                    "is_stale": False,
+                }
             if quote:
                 quote["name"] = m["name"]
                 macro_results[cat].append(quote)
@@ -1212,20 +1230,28 @@ def get_market_overview(refresh: bool = False) -> dict:
             logger.debug("Failed fetching macro asset %s: %s", sym, e)
             continue
 
-    # If any macro category failed completely, check for stale real cache rather than inventing fictional numbers
+    # Bidirectional sync: If hero_nifty lacked price but ^NSEI quote succeeded in macro loop
+    if (not hero_nifty or hero_nifty.get("price") is None) and macro_results["Indices"]:
+        for idx in macro_results["Indices"]:
+            if idx.get("symbol") == "^NSEI" and idx.get("price") is not None:
+                hero_nifty = dict(idx)
+                break
+
+    # If any macro category failed completely, or individual symbols experienced partial failure,
+    # supplement from stale real cache rather than inventing fictional numbers or leaving gaps.
     stale_market = cache.get("market", "overview_stale")
     if stale_market and stale_market.get("macro"):
-        for cat in macro_results:
-            if not macro_results[cat] and stale_market["macro"].get(cat):
-                macro_results[cat] = [
-                    {
-                        **item,
+        for cat, items in macro_results.items():
+            existing_syms = {item["symbol"] for item in items}
+            stale_items = stale_market["macro"].get(cat) or []
+            for s_item in stale_items:
+                if s_item.get("symbol") not in existing_syms and s_item.get("price") is not None:
+                    items.append({
+                        **s_item,
                         "is_stale": True,
                         "freshness": "STALE",
-                        "retrieved_at": item.get("retrieved_at") or stale_market.get("last_updated"),
-                    }
-                    for item in stale_market["macro"][cat]
-                ]
+                        "retrieved_at": s_item.get("retrieved_at") or stale_market.get("last_updated"),
+                    })
 
     # Top Trending & Community Leaders
     trending = sorted(

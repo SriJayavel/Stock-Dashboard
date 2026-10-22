@@ -83,6 +83,7 @@ async def require_mara_account(request, call_next):
         "/api/health",
         "/api/market/candles",
         "/api/markets/overview",
+        "/api/markets/refresh",
         "/api/screener",
         "/api/search"
     ]
@@ -192,13 +193,16 @@ def health_check():
 
 
 @app.get("/api/markets/overview")
-def api_markets_overview():
+def api_markets_overview(background_tasks: BackgroundTasks):
     """
     Serve the latest cached multi-asset market snapshot without making inline
     upstream provider requests.
+    If the cache is cold, asynchronously enqueue background warming.
     """
     try:
         data = get_market_overview()
+        if data.get("market_status") == "unavailable" and not data.get("is_stale"):
+            background_tasks.add_task(refresh_market_overview)
         return data
     except Exception as e:
         logger.error(f"Error serving market overview: {e}")
@@ -415,15 +419,21 @@ def api_research_query(body: ResearchQueryRequest):
         raise HTTPException(status_code=500, detail="Failed to parse research query.")
 
 
+@app.on_event("startup")
+async def startup_warm_cache():
+    import asyncio
+    try:
+        # Non-blocking background warmup on server boot
+        asyncio.create_task(run_in_threadpool(refresh_market_overview))
+    except Exception as exc:
+        logger.warning("Startup cache warmup dispatch failed: %s", exc)
+
+
 @app.post("/api/markets/refresh", status_code=status.HTTP_202_ACCEPTED)
 def api_refresh_market_overview(
     background_tasks: BackgroundTasks,
-    request: Request,
 ):
-    """Queue a user-requested overview refresh without exposing the internal secret."""
-    user = getattr(request.state, "mara_user", None)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in to refresh market data.")
+    """Queue an overview refresh without exposing the internal secret, protected by distributed cooldown."""
     if not cache.acquire_lock("market_overview_refresh_cooldown", ttl=30):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Please wait before requesting another market refresh.")
     if not cache.acquire_lock("market_overview_refresh", ttl=180):

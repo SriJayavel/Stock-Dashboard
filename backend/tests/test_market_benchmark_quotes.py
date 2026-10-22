@@ -107,6 +107,68 @@ class TestMarketBenchmarkQuotes(unittest.TestCase):
         self.assertIsNone(sp["change"])
         self.assertIsNone(sp["change_pct"])
 
+    def test_partial_batch_failure_supplements_missing_symbol_from_stale_cache(self):
+        good_ticker = MagicMock()
+        good_ticker.fast_info = {"last_price": 7700.0, "previous_close": 7650.0}
+        batch = MagicMock()
+        batch.tickers = {"^GSPC": good_ticker}  # Only ^GSPC succeeded, ^BSESN is missing
+
+        stale_data = {
+            "macro": {
+                "Indices": [
+                    {"symbol": "^BSESN", "name": "SENSEX", "price": 73500.0, "change": 150.0, "change_pct": 0.2, "high": 73800.0, "low": 73200.0}
+                ]
+            },
+            "last_updated": "2026-10-21T10:00:00+00:00",
+        }
+
+        def mock_cache_get(namespace, key):
+            if key == "overview_stale":
+                return stale_data
+            return None
+
+        with (
+            patch.object(data_pipeline.cache, "get", side_effect=mock_cache_get),
+            patch.object(data_pipeline.cache, "set"),
+            patch.object(data_pipeline.nse_client, "get_index_quote", return_value=None),
+            patch.object(data_pipeline.yf, "Ticker", side_effect=RuntimeError("symbol unavailable")),
+            patch.object(data_pipeline.yf, "Tickers", return_value=batch),
+        ):
+            snapshot = data_pipeline.get_market_overview(refresh=True)
+
+        symbols = {item["symbol"] for item in snapshot["macro"]["Indices"]}
+        self.assertIn("^GSPC", symbols)
+        self.assertIn("^BSESN", symbols)
+        bsesn = next(item for item in snapshot["macro"]["Indices"] if item["symbol"] == "^BSESN")
+        self.assertTrue(bsesn["is_stale"])
+        self.assertEqual(bsesn["freshness"], "STALE")
+        self.assertEqual(bsesn["price"], 73500.0)
+
+    def test_hero_direct_nse_supplies_nsei_to_macro_when_batch_omits_it(self):
+        nse_quote = {
+            "symbol": "^NSEI",
+            "name": "NIFTY 50",
+            "price": 22600.0,
+            "change": 100.0,
+            "change_pct": 0.44,
+            "high": 22700.0,
+            "low": 22500.0,
+        }
+        with (
+            patch.object(data_pipeline.cache, "get", return_value=None),
+            patch.object(data_pipeline.cache, "set"),
+            patch.object(data_pipeline.nse_client, "get_index_quote", return_value=nse_quote),
+            patch.object(data_pipeline.yf, "Ticker", side_effect=RuntimeError("no yf")),
+            patch.object(data_pipeline.yf, "Tickers", side_effect=RuntimeError("no batch")),
+        ):
+            snapshot = data_pipeline.get_market_overview(refresh=True)
+
+        nsei = next((item for item in snapshot["macro"]["Indices"] if item["symbol"] == "^NSEI"), None)
+        self.assertIsNotNone(nsei)
+        self.assertEqual(nsei["price"], 22600.0)
+        self.assertEqual(nsei["change"], 100.0)
+        self.assertEqual(nsei["source"], "NSE Direct")
+
 
 if __name__ == "__main__":
     unittest.main()

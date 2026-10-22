@@ -78,6 +78,27 @@ class TestMarketOverviewCacheOnly(unittest.TestCase):
         yf_ticker.assert_not_called()
         yf_tickers.assert_not_called()
 
+    def test_cold_cache_overview_enqueues_background_warmth(self):
+        from unittest.mock import MagicMock
+        from backend import main
+        bg_tasks = MagicMock()
+        unavailable_data = {"market_status": "unavailable", "is_stale": False}
+        with patch.object(main, "get_market_overview", return_value=unavailable_data):
+            res = main.api_markets_overview(bg_tasks)
+        self.assertEqual(res["market_status"], "unavailable")
+        bg_tasks.add_task.assert_called_once_with(main.refresh_market_overview)
+
+    def test_guest_analyst_can_trigger_rate_limited_refresh(self):
+        from unittest.mock import MagicMock
+        from backend import main
+        bg_tasks = MagicMock()
+        with (
+            patch.object(main.cache, "acquire_lock", return_value=True),
+        ):
+            res = main.api_refresh_market_overview(bg_tasks)
+        self.assertEqual(res["status"], "accepted")
+        bg_tasks.add_task.assert_called_once_with(main.refresh_market_overview, lock_acquired=True)
+
 
 if __name__ == "__main__":
     unittest.main()

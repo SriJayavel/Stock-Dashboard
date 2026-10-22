@@ -35,6 +35,7 @@ class Settings(BaseSettings):
         "https://stock-dashboard-five-nu.vercel.app",
         "https://mara-stock-dashboard.vercel.app",
         "https://mara-dashboard.vercel.app",
+        "https://mara-stock-terminal.vercel.app",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
