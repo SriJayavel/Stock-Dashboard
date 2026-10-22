@@ -5231,34 +5231,39 @@ function renderMarketStateBar(data) {
   const isStale = Boolean(data?.is_stale || data?.hero?.is_stale);
   const isFeedActive = validPriceCount > 0;
 
-  // Compact status hierarchy: LIVE (verified fresh feed) | DELAYED (provider delayed) | CACHED (reused snapshot) | OFFLINE (no usable snapshot)
+  // 4-tier feed status hierarchy — driven exclusively by backend-asserted fields.
+  // LIVE:    feed_health contains at least one 'LIVE' value (backend confirmed fresh quote).
+  // DELAYED: feed_health contains at least one 'DELAYED' (yfinance / exchange-delayed provider).
+  // CACHED:  is_stale flag set — pipeline is returning a persisted snapshot, not a fresh fetch.
+  // OFFLINE: no valid prices at all in any index — feed is cold or entirely unavailable.
+  //
+  // NEVER infer LIVE from hero.source name or retrieval time alone.
   let feedStatus = 'OFFLINE';
   let dotStatusClass = 'offline';
   const feedHealthValues = Object.values(data?.feed_health || {});
-  const hasLiveFeed = feedHealthValues.some((v) => v === 'LIVE') || (data?.hero?.source === 'NSE Direct' && !isStale && isFeedActive);
+  const hasLiveFeed = feedHealthValues.some((v) => v === 'LIVE');
   const hasDelayedFeed = feedHealthValues.some((v) => v === 'DELAYED');
 
   if (!isFeedActive) {
     feedStatus = 'OFFLINE';
     dotStatusClass = 'offline';
   } else if (isStale) {
+    // Backend marked snapshot as stale — report CACHED even if source claims DELAYED
     feedStatus = 'CACHED';
     dotStatusClass = 'stale';
   } else if (hasLiveFeed) {
     feedStatus = 'LIVE';
-    dotStatusClass = ''; // standard green dot
-  } else if (hasDelayedFeed || data?.hero?.source === 'yfinance' || isFeedActive) {
+    dotStatusClass = ''; // standard pulsing green dot
+  } else if (hasDelayedFeed || isFeedActive) {
+    // Any active feed without explicit LIVE confirmation is DELAYED (yfinance default)
     feedStatus = 'DELAYED';
     dotStatusClass = 'delayed';
   }
 
-  // Session Dot: indicates feed connectivity, with dim indicator if exchange itself is closed
+  // Session Dot reflects FEED CONNECTIVITY only.
+  // Exchange open/closed hours are already shown in SESSION NAME and GLOBAL DESKS — do not duplicate here.
   if (sessionDot) {
-    if (!telemetry.nseIsOpen && feedStatus === 'CACHED') {
-      sessionDot.className = 'mkt-session-dot closed';
-    } else {
-      sessionDot.className = dotStatusClass ? `mkt-session-dot ${dotStatusClass}` : 'mkt-session-dot';
-    }
+    sessionDot.className = dotStatusClass ? `mkt-session-dot ${dotStatusClass}` : 'mkt-session-dot';
   }
 
   if (sessionName) {
