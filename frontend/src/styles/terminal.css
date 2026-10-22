@@ -1794,11 +1794,16 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 }
 .mkt-session-dot.stale {
   background: #f59e0b;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 5px rgba(245, 158, 11, 0.35);
+}
+/* DELAYED — provider-sourced data with known propagation lag */
+.mkt-session-dot.delayed {
+  background: #38bdf8;
+  box-shadow: 0 0 5px rgba(56, 189, 248, 0.35);
 }
 .mkt-session-dot.offline {
-  background: var(--loss);
-  box-shadow: 0 0 5px rgba(255, 82, 82, 0.35);
+  background: #6b7280;
+  box-shadow: none;
 }
 .mkt-session-dot.closed {
   background: var(--text-dim);
@@ -1969,9 +1974,10 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   text-align: right;
 }
 .markets-data-table td {
-  padding: 10px 12px;
+  padding: 7px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   color: var(--text);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   vertical-align: middle;
 }
@@ -2074,11 +2080,11 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: var(--font-size-sm);
 }
 
-/* Improved focus states for keyboard navigation */
+/* Keyboard navigation: Enter/Space opens chart analysis workstation. Double-click also navigates. */
 .markets-data-table tbody tr:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-  background: rgba(41, 98, 255, 0.1);
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+  background: rgba(91, 156, 246, 0.08);
 }
 .markets-data-table tbody tr:focus-visible td {
   background: transparent;
@@ -2123,25 +2129,39 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .tag-eu { background: rgba(167, 139, 250, 0.08); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.2); }
 .tag-ap { background: rgba(52, 211, 153, 0.08); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.2); }
 
-/* Table Action Button */
-.markets-table-action-btn {
-  height: 24px;
-  padding: 0 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  color: #94a3b8;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+/* Tape Change Badges — restrained TradingView-style palette */
+.tape-chg {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 5px;
+  border-radius: 3px;
   white-space: nowrap;
 }
-.markets-table-action-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.16);
+.chg-up,
+.tape-chg.chg-up {
+  color: var(--gain);
+  background: var(--gain-bg);
 }
+.chg-down,
+.tape-chg.chg-down {
+  color: var(--loss);
+  background: var(--loss-bg);
+}
+.chg-neutral,
+.tape-chg.chg-neutral {
+  color: var(--text-dim);
+  background: transparent;
+}
+
+/* Feed-status label colours on .mkt-state-val-mono */
+.mkt-state-val-mono.live    { color: var(--gain); }
+.mkt-state-val-mono.delayed { color: #38bdf8; }
+.mkt-state-val-mono.cached  { color: #f59e0b; }
+.mkt-state-val-mono.offline { color: var(--text-dim); }
+.mkt-state-val-mono.is-stale { color: #f59e0b; }
 
 /* Ghost Button for Analyze Actions (Phase 2) */
 .ghost-btn {

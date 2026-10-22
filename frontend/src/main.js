@@ -5210,9 +5210,6 @@ function renderBenchmarkSkeleton(tableBody) {
         <td>
           <div class="benchmark-skeleton-bar"></div>
         </td>
-        <td class="text-right">
-          <button class="ghost-btn markets-table-action-btn" disabled>...</button>
-        </td>
       </tr>
     `
     )
@@ -5234,17 +5231,36 @@ function renderMarketStateBar(data) {
   const isStale = Boolean(data?.is_stale || data?.hero?.is_stale);
   const isFeedActive = validPriceCount > 0;
 
+  // Compact status hierarchy: LIVE (verified fresh feed) | DELAYED (provider delayed) | CACHED (reused snapshot) | OFFLINE (no usable snapshot)
+  let feedStatus = 'OFFLINE';
+  let dotStatusClass = 'offline';
+  const feedHealthValues = Object.values(data?.feed_health || {});
+  const hasLiveFeed = feedHealthValues.some((v) => v === 'LIVE') || (data?.hero?.source === 'NSE Direct' && !isStale && isFeedActive);
+  const hasDelayedFeed = feedHealthValues.some((v) => v === 'DELAYED');
+
+  if (!isFeedActive) {
+    feedStatus = 'OFFLINE';
+    dotStatusClass = 'offline';
+  } else if (isStale) {
+    feedStatus = 'CACHED';
+    dotStatusClass = 'stale';
+  } else if (hasLiveFeed) {
+    feedStatus = 'LIVE';
+    dotStatusClass = ''; // standard green dot
+  } else if (hasDelayedFeed || data?.hero?.source === 'yfinance' || isFeedActive) {
+    feedStatus = 'DELAYED';
+    dotStatusClass = 'delayed';
+  }
+
+  // Session Dot: indicates feed connectivity, with dim indicator if exchange itself is closed
   if (sessionDot) {
-    if (!telemetry.nseIsOpen) {
+    if (!telemetry.nseIsOpen && feedStatus === 'CACHED') {
       sessionDot.className = 'mkt-session-dot closed';
-    } else if (isFeedActive && !isStale) {
-      sessionDot.className = 'mkt-session-dot';
-    } else if (isFeedActive && isStale) {
-      sessionDot.className = 'mkt-session-dot stale';
     } else {
-      sessionDot.className = 'mkt-session-dot offline';
+      sessionDot.className = dotStatusClass ? `mkt-session-dot ${dotStatusClass}` : 'mkt-session-dot';
     }
   }
+
   if (sessionName) {
     sessionName.textContent = `NSE INDIA: ${telemetry.nse}`;
   }
@@ -5271,21 +5287,22 @@ function renderMarketStateBar(data) {
   }
 
   if (feedSource) {
-    const src = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
-    if (!isFeedActive) {
-      feedSource.textContent = 'UNAVAILABLE';
-      feedSource.className = 'mkt-state-val-mono is-stale';
-    } else {
-      feedSource.textContent = `${src.toUpperCase()}${isStale ? ' (CACHED)' : ''}`;
-      feedSource.className = `mkt-state-val-mono ${isStale ? 'is-stale' : ''}`;
-    }
+    const rawSrc = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
+    const srcLabel = rawSrc ? rawSrc.toUpperCase() : 'DATA FEED';
+    feedSource.textContent = `${srcLabel} · ${feedStatus}`;
+    feedSource.className = `mkt-state-val-mono ${feedStatus.toLowerCase()}`;
   }
 
   if (lastUpdated) {
     const timestamp = data?.last_successful_update || data?.last_updated || data?.hero?.retrieved_at;
-    lastUpdated.textContent = timestamp
-      ? new Date(timestamp).toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
-      : (isFeedActive ? 'CACHED SNAPSHOT' : 'AWAITING SYNC');
+    if (timestamp) {
+      const d = new Date(timestamp);
+      lastUpdated.textContent = isNaN(d.getTime())
+        ? timestamp
+        : d.toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' });
+    } else {
+      lastUpdated.textContent = isFeedActive ? 'CACHED SNAPSHOT' : 'AWAITING SYNC';
+    }
     lastUpdated.title = data?.last_attempted_at
       ? `Last fetch attempt: ${new Date(data.last_attempted_at).toLocaleString()}`
       : 'No refresh attempt timestamp available';
@@ -5754,7 +5771,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         const isDefaultActive = idx === 0;
 
         return `
-          <tr class="markets-index-row ${isDefaultActive ? 'active-row' : ''}" data-region="${m.regionCode}" data-sym="${m.symbol}">
+          <tr class="markets-index-row ${isDefaultActive ? 'active-row' : ''}" 
+              data-region="${m.regionCode}" 
+              data-sym="${m.symbol}" 
+              tabindex="0" 
+              role="row" 
+              aria-label="${m.name} (${m.symbol}) ${m.region}: ${priceDisplay}, change ${pctDisplay}">
             <td>
               <div class="region-badge" title="Scheduled hours only; exchange holiday status is not checked in the browser.">
                 <span class="region-tag ${m.tagClass}">${m.tag}</span>
@@ -5779,9 +5801,6 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             <td>
               ${rangeHtml}
             </td>
-            <td class="text-right">
-              <button class="ghost-btn markets-table-action-btn" data-sym="${m.symbol}" title="Analyze ${m.name}">Analyze ↗</button>
-            </td>
           </tr>
         `;
       })
@@ -5792,26 +5811,37 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       renderMarketInspector('index', processedBenchmarks[0]);
     }
 
-    // Wire Row Clicks: Select row, update Inspector, DO NOT NAVIGATE
+    // Wire Row Interactions:
+    // Single Click: Inspect security context
+    // Double Click: Open chart analysis workstation
+    // Keyboard Enter / Space: Open chart analysis workstation
     tableBody.querySelectorAll('.markets-index-row').forEach((row) => {
-      row.addEventListener('click', () => {
+      const sym = row.getAttribute('data-sym');
+      const found = processedBenchmarks.find((b) => b.symbol === sym);
+
+      const activateRow = () => {
         tableBody.querySelectorAll('.markets-index-row').forEach((r) => r.classList.remove('active-row'));
         row.classList.add('active-row');
-        const sym = row.getAttribute('data-sym');
-        const found = processedBenchmarks.find((b) => b.symbol === sym);
         if (found) {
           renderMarketInspector('index', found);
         }
-      });
-    });
+      };
 
-    // Wire Action Button: Intentional Navigation to Analyze Workstation
-    tableBody.querySelectorAll('.markets-table-action-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const sym = btn.getAttribute('data-sym');
+      row.addEventListener('click', activateRow);
+
+      row.addEventListener('dblclick', () => {
         if (sym) {
           router.navigate(router.formatSymbolRoute(sym, 'chart'));
+        }
+      });
+
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activateRow();
+          if (sym) {
+            router.navigate(router.formatSymbolRoute(sym, 'chart'));
+          }
         }
       });
     });

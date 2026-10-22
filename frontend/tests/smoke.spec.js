@@ -574,7 +574,7 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     const tableBody = page.locator('#markets-indices-table-body');
     await expect(tableBody).toBeVisible();
 
-    // Check that benchmark rows exist
+    // Check that all 7 benchmark rows exist (7 indices, no more)
     const niftyRow = page.locator('.markets-index-row[data-sym="^NSEI"]');
     await expect(niftyRow).toBeVisible({ timeout: 15000 });
 
@@ -584,14 +584,28 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     const sp500Row = page.locator('.markets-index-row[data-sym="^GSPC"]');
     await expect(sp500Row).toBeVisible();
 
+    // Verify 7-column thead (Action column removed)
+    const thCount = await page.locator('#markets-indices-table thead tr th').count();
+    expect(thCount).toBe(7);
+
+    // Per-row "Analyze" action buttons must not exist in the table body
+    const actionBtns = page.locator('#markets-indices-table-body .markets-table-action-btn');
+    await expect(actionBtns).toHaveCount(0);
+
+    // Each real (non-skeleton) row should have tabindex="0" for keyboard navigation
+    const firstRealRow = page.locator('.markets-index-row:not(.skeleton-row)').first();
+    await expect(firstRealRow).toHaveAttribute('tabindex', '0');
+
     // Verify session dot exists and has a valid status class
     const sessionDot = page.locator('#mkt-session-dot');
     await expect(sessionDot).toBeVisible();
 
-    // Verify that feed source does not repeat 'FEED'
+    // Feed source should display the 4-tier status (LIVE, DELAYED, CACHED, or OFFLINE), never "FEED FEED"
     const feedSource = page.locator('#mkt-feed-source');
     const feedText = await feedSource.innerText();
     expect(feedText).not.toContain('FEED FEED');
+    const validStatuses = ['LIVE', 'DELAYED', 'CACHED', 'OFFLINE'];
+    expect(validStatuses.some((s) => feedText.includes(s))).toBe(true);
 
     expect(consoleErrors).toEqual([]);
   });
