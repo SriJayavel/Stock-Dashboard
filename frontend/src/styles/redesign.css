@@ -69,7 +69,14 @@ html.light-theme {
   --font-sans: "Inter", "JetBrains Mono", "SF Pro Text", sans-serif;
   --font-mono: "JetBrains Mono", "Inter", "SF Pro Text", monospace;
   --shadow-dropdown: 0 18px 48px rgba(0, 0, 0, 0.08);
+  --shell-header-h: 56px;
   --shell-status-bar-h: 28px;
+  --shell-rail-w: 64px;
+  --shell-workspace-bar-h: 46px;
+  --shell-context-panel-w: 360px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   /* Region colors */
   --region-india: #d97706;
   --region-india-rgb: 217, 119, 6;
@@ -1571,36 +1578,6 @@ textarea {
 .mara-status-bar {
   border-bottom-left-radius: var(--radius-md) !important;
   border-bottom-right-radius: var(--radius-md) !important;
-}
-
-/* MARA workspace refresh: a quiet, persistent navigation rail and data-led shell. */
-html:not(.light-theme) {
-  --bg: #111215;
-  --bg-deep: #16171B;
-  --bg-canvas: #111215;
-  --surface: #1C1E23;
-  --surface-solid: #1C1E23;
-  --surface-card: #1C1E23;
-  --surface-hover: #23262D;
-  --border: #2A2D35;
-  --border-strong: #2A2D35;
-  --text: #E0E2EC;
-  --text-dim: #A0A4B8;
-  --text-muted: #7A8198;
-  --accent: #34D399;
-  --accent-rgb: 52, 211, 153;
-  --accent-cyan: #34D399;
-  --accent-blue: #34D399;
-  --gain: #34D399;
-  --loss: #F87171;
-  --gain-bg: rgba(52, 211, 153, .12);
-  --loss-bg: rgba(248, 113, 113, .12);
-  --font-sans: "Inter", "JetBrains Mono", "SF Pro Text", sans-serif;
-  --shell-rail-w: 64px;
-}
-
-html:not(.light-theme) .mara-app {
-  background: var(--bg);
 }
 
 .mara-unified-header {
