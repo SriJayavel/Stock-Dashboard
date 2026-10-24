@@ -21,6 +21,7 @@ import {
 } from './indicators.js';
 import { router } from './router.js';
 import { auth, getAccountStorageKey } from './auth.js';
+import { toast, toastSuccess, toastError, toastWarning, toastInfo, toastLoading, resolveLoadingToast, clearToasts } from './toast.js';
 
 let chartInstance = null;
 let currentSymbol = null;
@@ -219,6 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Primary Workspace Switcher
 export async function setWorkspace(workspaceName, subTab = null) {
+  const previousWorkspace = currentActiveWorkspace;
   currentActiveWorkspace = workspaceName;
 
   // 1. Top workspace navigation buttons
@@ -268,6 +270,14 @@ export async function setWorkspace(workspaceName, subTab = null) {
     // Await data loading so the feed shows immediately when user opens Markets
     await loadMarketOverview(true); // force refresh on workspace switch
     await loadAndRenderSectorsAndMarketMap(true);
+
+    // Initialize WebSocket for live market updates
+    initMarketWebSocket();
+  } else if (previousWorkspace === 'markets' && workspaceName !== 'markets') {
+    // Cleanup WebSocket when leaving markets workspace
+    const { marketWS } = await import('./api.js');
+    marketWS.disconnect();
+    marketWSConnected = false;
   } else if (workspaceName === 'discover') {
     if (subTab) {
       const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
@@ -285,6 +295,38 @@ export async function setWorkspace(workspaceName, subTab = null) {
       loadAndRenderMacroExplorer(currentSymbol);
     }
     loadAndRenderCorrelation(activeCorrelationPeriod);
+  }
+
+  // 5. Focus management - move focus to first interactive element in new workspace
+  // Defer to next tick to ensure DOM is updated
+  requestAnimationFrame(() => {
+    focusFirstInteractiveInWorkspace(workspaceName);
+  });
+}
+
+/**
+ * Focus the first interactive element in a workspace for accessibility
+ */
+function focusFirstInteractiveInWorkspace(workspaceName) {
+  const activeView = document.querySelector(`#workspace-${workspaceName}.active`);
+  if (!activeView) return;
+
+  // Define focusable selectors per workspace
+  const focusSelectors = {
+    markets: '.benchmark-filter-btn.active, .benchmark-row[data-sym], .sector-tile, .macro-asset-row',
+    discover: '.screener-tab-btn.active, .screener-table tbody tr[tabindex="0"], #toggle-screener-builder-btn',
+    analyze: '.interval-btn.active, .range-btn.active, #tv-rail-crosshair, #tv-tb-symbol-btn',
+    compare: '.corr-tf-btn.active, .peer-table-wrapper [tabindex="0"]',
+    research: '.ws-sub-btn.active, .news-grid [tabindex="0"], #scenario-rev-slider',
+    monitor: '.ws-sub-btn.active, .watchlist-items-list [tabindex="0"], #ws-alert-sym-input'
+  };
+
+  const selector = focusSelectors[workspaceName];
+  if (!selector) return;
+
+  const focusable = activeView.querySelector(selector);
+  if (focusable) {
+    focusable.focus({ preventScroll: true });
   }
 }
 window.setWorkspace = setWorkspace;
@@ -2186,28 +2228,26 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// Mara Lightweight Stackable Toast System
+// Mara Toast System - Uses unified toast.js
 export function showToast(message, type = 'info', duration = 3000) {
-  const container = document.getElementById('apex-toast-container');
-  if (!container) return;
-  const toast = document.createElement('div');
-  toast.className = `apex-toast apex-toast-${type}`;
-  toast.innerHTML = `
-    <span>${message}</span>
-    <button style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; line-height:1;" aria-label="Dismiss">✕</button>
-  `;
-  const dismissBtn = toast.querySelector('button');
-  let timer = null;
-  const dismiss = () => {
-    if (timer) clearTimeout(timer);
-    toast.classList.add('toast-hiding');
-    setTimeout(() => {
-      if (toast.parentNode) toast.parentNode.removeChild(toast);
-    }, 200);
+  // Map old type names to new ones
+  const typeMap = {
+    'danger': 'error',
+    'info': 'info',
+    'success': 'success',
+    'warning': 'warning',
   };
-  if (dismissBtn) dismissBtn.addEventListener('click', dismiss);
-  timer = setTimeout(dismiss, duration);
-  container.appendChild(toast);
+  const mappedType = typeMap[type] || 'info';
+
+  if (mappedType === 'success') {
+    toastSuccess('', message, { duration });
+  } else if (mappedType === 'error') {
+    toastError('', message, { duration });
+  } else if (mappedType === 'warning') {
+    toastWarning('', message, { duration });
+  } else {
+    toastInfo('', message, { duration });
+  }
 }
 
 // Watchlist Controls & Drawer Setup
@@ -3000,8 +3040,28 @@ async function loadMarketOverview(force = false) {
 
     // Render Macro Cards
     renderMacroCards();
+
+    // Hide skeleton screens when data is loaded
+    const skeleton = document.getElementById('markets-skeleton');
+    if (skeleton) {
+      skeleton.classList.add('loaded');
+    }
   } catch (err) {
     console.error('Failed to load market overview:', err);
+    // Show user-friendly error toast
+    toastError('Market data unavailable', 'Unable to load market overview. Check your connection.', {
+      duration: 6000,
+      action: {
+        label: 'Retry',
+        onClick: () => loadMarketOverview(true)
+      }
+    });
+    // Also show skeleton as error state
+    const skeleton = document.getElementById('markets-skeleton');
+    if (skeleton) {
+      skeleton.classList.add('error');
+      skeleton.setAttribute('aria-label', 'Failed to load market data');
+    }
   }
 }
 
@@ -4235,7 +4295,8 @@ async function loadScreener(universe = 'indian_leaders') {
   const tbody = document.getElementById('screener-table-body');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">Scanning market universe...</td></tr>';
+  // Show skeleton rows while loading
+  tbody.innerHTML = renderScreenerSkeleton(7);
 
   try {
     const data = await api.getScreener(universe);
@@ -4250,7 +4311,28 @@ async function loadScreener(universe = 'indian_leaders') {
   } catch (err) {
     console.error('Failed to load screener:', err);
     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--loss); padding: 20px;">Unable to load screener data.</td></tr>';
+    toastError('Screener unavailable', 'Unable to load screener data. Check your connection.', {
+      duration: 6000,
+      action: { label: 'Retry', onClick: () => loadScreener(universe) }
+    });
   }
+}
+
+/**
+ * Render skeleton rows for screener table
+ */
+function renderScreenerSkeleton(rowCount = 7) {
+  const skeletonRow = () => `
+    <tr class="screener-skeleton-row">
+      <td><div class="skeleton-cell" style="width: 80px; height: 16px;"></div></td>
+      <td><div class="skeleton-cell" style="width: 180px; height: 16px;"></div></td>
+      <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+      <td><div class="skeleton-cell" style="width: 80px; height: 16px;"></div></td>
+      <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
+      <td><div class="skeleton-cell" style="width: 80px; height: 28px;"></div></td>
+    </tr>
+  `;
+  return Array.from({ length: rowCount }, skeletonRow).join('');
 }
 
 // Render Screener Table Rows
@@ -5326,10 +5408,10 @@ function renderMarketStateBar(data) {
     refreshBtn.addEventListener('click', async () => {
       refreshBtn.classList.add('spinning');
       refreshBtn.disabled = true;
+      const loadingToast = toastLoading('Refreshing market data...', 'Fetching latest market snapshot from cloud');
       try {
         const previousAttempt = marketDataCache?.last_attempted_at;
         await api.refreshMarketOverview();
-        showToast('Market feed refresh started.', 'info');
         let refreshed = false;
         for (let attempt = 0; attempt < 15; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -5340,24 +5422,238 @@ function renderMarketStateBar(data) {
             renderMarketTicker(latest);
             renderMacroRadarPanels();
             refreshed = true;
-            showToast(Object.values(latest.feed_health || {}).some((state) => state === 'DELAYED')
-              ? 'Market feeds refreshed; at least one category has data.'
-              : 'Refresh completed; feeds remain stale or offline.',
-            Object.values(latest.feed_health || {}).some((state) => state === 'DELAYED') ? 'success' : 'warning');
+            const hasDelayed = Object.values(latest.feed_health || {}).some((state) => state === 'DELAYED');
+            resolveLoadingToast(loadingToast, {
+              type: hasDelayed ? 'success' : 'warning',
+              title: hasDelayed ? 'Market feeds refreshed' : 'Refresh completed',
+              message: hasDelayed
+                ? 'At least one category has live data'
+                : 'Feeds remain stale or offline',
+            });
             break;
           }
         }
-        if (!refreshed) showToast('Refresh is still running. Market data will update when it completes.', 'info');
+        if (!refreshed) {
+          resolveLoadingToast(loadingToast, {
+            type: 'info',
+            title: 'Refresh in progress',
+            message: 'Market data will update when it completes',
+          });
+        }
         await loadMarketOverview(true);
         await loadAndRenderSectorsAndMarketMap(true);
       } catch (error) {
-        showToast(error.message || 'Market refresh failed.', 'error');
+        resolveLoadingToast(loadingToast, {
+          type: 'error',
+          title: 'Refresh failed',
+          message: error.message || 'Market refresh failed',
+        });
       } finally {
         refreshBtn.classList.remove('spinning');
         refreshBtn.disabled = false;
       }
     });
   }
+
+  // Export CSV button
+  const exportCsvBtn = document.getElementById('mkt-export-csv-btn');
+  if (exportCsvBtn && !exportCsvBtn.dataset.bound) {
+    exportCsvBtn.dataset.bound = 'true';
+    exportCsvBtn.addEventListener('click', () => exportMarketsData('csv'));
+  }
+
+  // Export PNG button
+  const exportPngBtn = document.getElementById('mkt-export-png-btn');
+  if (exportPngBtn && !exportPngBtn.dataset.bound) {
+    exportPngBtn.dataset.bound = 'true';
+    exportPngBtn.addEventListener('click', () => exportMarketsData('png'));
+  }
+}
+
+// Export Markets Data (CSV/PNG)
+function exportMarketsData(format) {
+  // marketDataCache is in module scope
+  if (!marketDataCache) {
+    showToast('No market data available to export.', 'warning');
+    return;
+  }
+
+  if (format === 'csv') {
+    exportMarketsCSV(marketDataCache);
+  } else if (format === 'png') {
+    exportMarketsPNG(marketDataCache);
+  }
+}
+
+function exportMarketsCSV(data) {
+  const rows = [];
+
+  // Headers
+  rows.push(['Section', 'Symbol', 'Name', 'Price', 'Change', 'Change %', 'Region', 'Timestamp'].join(','));
+
+  // Benchmark Indices
+  if (data.indices) {
+    data.indices.forEach((idx) => {
+      const price = idx.price != null ? idx.price.toFixed(2) : '';
+      const change = idx.change != null ? idx.change.toFixed(2) : '';
+      const changePct = idx.change_pct != null ? idx.change_pct.toFixed(2) : '';
+      rows.push(['Benchmark', idx.symbol, `"${idx.name}"`, price, change, changePct, idx.region || '', data.last_attempted_at || ''].join(','));
+    });
+  }
+
+  // Sector Data
+  if (data.sectors) {
+    data.sectors.forEach((sector) => {
+      rows.push(['Sector', sector.sector, `"${sector.display_name}"`, '', sector.performance_24h_pct?.toFixed(2) || '', '', sector.region || '', data.last_attempted_at || ''].join(','));
+    });
+  }
+
+  // Macro Data
+  const macroCategories = ['Forex', 'Commodities', 'Crypto'];
+  macroCategories.forEach((cat) => {
+    const items = data.macro?.[cat] || [];
+    items.forEach((item) => {
+      const price = item.price != null ? item.price.toFixed(4) : '';
+      const change = item.change != null ? item.change.toFixed(4) : '';
+      const changePct = item.change_pct != null ? item.change_pct.toFixed(2) : '';
+      rows.push(['Macro', item.symbol, `"${item.name || item.symbol}"`, price, change, changePct, cat, item.retrieved_at || item.source_timestamp || ''].join(','));
+    });
+  });
+
+  const csvContent = rows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `markets-snapshot-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast('Markets data exported as CSV.', 'success');
+}
+
+async function exportMarketsPNG(data) {
+  try {
+    // Create a temporary canvas to capture the markets view
+    const marketsView = document.getElementById('workspace-markets');
+    if (!marketsView) {
+      showToast('Markets view not found.', 'error');
+      return;
+    }
+
+    // Use html2canvas if available, otherwise fallback
+    if (typeof html2canvas !== 'undefined') {
+      const canvas = await html2canvas(marketsView, {
+        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#131722',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      });
+
+      const link = document.createElement('a');
+      link.download = `markets-snapshot-${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('Markets snapshot exported as PNG.', 'success');
+    } else {
+      // Fallback: create a simple data-driven PNG using canvas
+      await exportMarketsPNGCanvas(data);
+    }
+  } catch (error) {
+    console.error('PNG export failed:', error);
+    showToast('PNG export failed. Try CSV instead.', 'error');
+  }
+}
+
+async function exportMarketsPNGCanvas(data) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const width = 1200;
+  const height = 800;
+  canvas.width = width;
+  canvas.height = height;
+
+  // Background
+  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#131722';
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, width, height);
+
+  // Title
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#ffffff';
+  ctx.font = 'bold 24px var(--font-sans)';
+  ctx.fillText('Markets Snapshot', 40, 50);
+
+  // Timestamp
+  ctx.font = '14px var(--font-mono)';
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg-muted') || '#888888';
+  ctx.fillText(`Generated: ${new Date().toLocaleString()}`, 40, 80);
+
+  let yPos = 120;
+
+  // Benchmark Indices
+  if (data.indices && data.indices.length > 0) {
+    ctx.font = 'bold 16px var(--font-sans)';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#ffffff';
+    ctx.fillText('Benchmark Indices', 40, yPos);
+    yPos += 30;
+
+    ctx.font = '12px var(--font-mono)';
+    const colWidths = [120, 200, 100, 100, 100, 100];
+    const headers = ['Symbol', 'Name', 'Price', 'Change', 'Change %', 'Region'];
+
+    headers.forEach((h, i) => {
+      ctx.fillText(h, 40 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), yPos);
+    });
+    yPos += 20;
+
+    data.indices.slice(0, 10).forEach((idx) => {
+      if (yPos > height - 50) return;
+      const price = idx.price != null ? idx.price.toFixed(2) : '—';
+      const change = idx.change != null ? (idx.change >= 0 ? '+' : '') + idx.change.toFixed(2) : '—';
+      const changePct = idx.change_pct != null ? (idx.change_pct >= 0 ? '+' : '') + idx.change_pct.toFixed(2) + '%' : '—';
+      const rowData = [idx.symbol, idx.name.slice(0, 20), price, change, changePct, idx.region || ''];
+      rowData.forEach((d, i) => {
+        ctx.fillText(d, 40 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), yPos);
+      });
+      yPos += 20;
+    });
+    yPos += 20;
+  }
+
+  // Sector Performance
+  if (data.sectors && data.sectors.length > 0) {
+    if (yPos > height - 150) {
+      // Need more space, skip
+    } else {
+      ctx.font = 'bold 16px var(--font-sans)';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#ffffff';
+      ctx.fillText('Sector Performance', 40, yPos);
+      yPos += 30;
+
+      ctx.font = '12px var(--font-mono)';
+      const sectorHeaders = ['Sector', 'Performance', 'Leader', 'Constituents'];
+      const sectorColWidths = [200, 120, 150, 100];
+
+      sectorHeaders.forEach((h, i) => {
+        ctx.fillText(h, 40 + sectorColWidths.slice(0, i).reduce((a, b) => a + b, 0), yPos);
+      });
+      yPos += 20;
+
+      data.sectors.slice(0, 8).forEach((sector) => {
+        if (yPos > height - 50) return;
+        const perf = sector.performance_24h_pct != null ? (sector.performance_24h_pct >= 0 ? '+' : '') + sector.performance_24h_pct.toFixed(2) + '%' : '—';
+        const rowData = [sector.display_name, perf, sector.leading_asset || '—', sector.constituents?.length || 0];
+        rowData.forEach((d, i) => {
+          ctx.fillText(d, 40 + sectorColWidths.slice(0, i).reduce((a, b) => a + b, 0), yPos);
+        });
+        yPos += 20;
+      });
+    }
+  }
+
+  const link = document.createElement('a');
+  link.download = `markets-snapshot-${new Date().toISOString().slice(0, 10)}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('Markets snapshot exported as PNG.', 'success');
 }
 
 // Dynamic Context Inspector Dossier Renderer for Markets
@@ -5612,6 +5908,354 @@ export function renderMarketInspector(type, data) {
   }
 }
 
+// ===== Market WebSocket Integration =====
+let marketWSConnected = false;
+let lastWSStatus = 'disconnected';
+
+async function initMarketWebSocket() {
+  if (marketWSConnected) return;
+
+  try {
+    const { marketWS } = await import('./api.js');
+
+    marketWS.onStatusChange = (status) => {
+      console.log('[MarketWS] Status:', status);
+      updateWSStatusIndicator(status);
+
+      // Show user-friendly toasts for meaningful status transitions
+      if (status !== lastWSStatus) {
+        if (status === 'connected' && lastWSStatus !== 'connected') {
+          toastSuccess('Live feed connected', 'Real-time market data is streaming');
+        } else if (status === 'connecting' && lastWSStatus === 'disconnected') {
+          toastInfo('Connecting to live feed...', '', { duration: 3000 });
+        } else if (status === 'error' && lastWSStatus !== 'error') {
+          toastError('Connection error', 'Attempting to reconnect...', { duration: 5000 });
+        } else if (status === 'disconnected' && lastWSStatus === 'connected') {
+          toastWarning('Live feed disconnected', 'Reconnecting automatically...', { duration: 4000 });
+        }
+        lastWSStatus = status;
+      }
+    };
+
+    marketWS.onPriceUpdate = (symbol, data, timestamp) => {
+      handleLivePriceUpdate(symbol, data, timestamp);
+    };
+
+    marketWS.onMarketStatus = (status, message, timestamp) => {
+      handleMarketStatusChange(status, message, timestamp);
+    };
+
+    await marketWS.connect();
+
+    // Subscribe to all visible symbols
+    const symbols = collectVisibleSymbols();
+    if (symbols.length > 0) {
+      marketWS.subscribe(symbols);
+    }
+
+    marketWSConnected = true;
+    console.log('[MarketWS] Initialized for markets workspace');
+  } catch (e) {
+    console.warn('[MarketWS] Failed to initialize:', e);
+    toastError('Failed to connect', 'Live market feed unavailable', { duration: 5000 });
+  }
+}
+
+function collectVisibleSymbols() {
+  const symbols = new Set();
+
+  // Benchmark table symbols
+  document.querySelectorAll('.benchmark-row[data-sym]').forEach(row => {
+    symbols.add(row.getAttribute('data-sym'));
+  });
+
+  // Sector tiles
+  document.querySelectorAll('.sector-tile[data-sector]').forEach(tile => {
+    const sector = tile.getAttribute('data-sector');
+    const sectorData = cachedSectorData?.find(s => s.sector === sector);
+    if (sectorData?.constituents) {
+      sectorData.constituents.forEach(s => symbols.add(s));
+    }
+    if (sectorData?.leading_asset) symbols.add(sectorData.leading_asset);
+  });
+
+  // Macro panels
+  document.querySelectorAll('.macro-asset-row[data-sym]').forEach(row => {
+    symbols.add(row.getAttribute('data-sym'));
+  });
+
+  return Array.from(symbols);
+}
+
+/**
+ * Refresh WebSocket subscriptions based on currently visible symbols
+ * Unsubscribes from hidden symbols, subscribes to visible ones
+ */
+async function refreshWSSubscriptions() {
+  if (!marketWSConnected) return;
+
+  try {
+    const { marketWS } = await import('./api.js');
+    if (marketWS.ws?.readyState !== WebSocket.OPEN) return;
+
+    const visibleSymbols = new Set(collectVisibleSymbols());
+    const currentSubscriptions = new Set(marketWS.subscriptions);
+
+    // Unsubscribe from symbols no longer visible
+    const toUnsubscribe = [...currentSubscriptions].filter(s => !visibleSymbols.has(s));
+    if (toUnsubscribe.length > 0) {
+      marketWS.unsubscribe(toUnsubscribe);
+    }
+
+    // Subscribe to newly visible symbols
+    const toSubscribe = [...visibleSymbols].filter(s => !currentSubscriptions.has(s));
+    if (toSubscribe.length > 0) {
+      marketWS.subscribe(toSubscribe);
+    }
+  } catch (e) {
+    console.warn('[MarketWS] Failed to refresh subscriptions:', e);
+  }
+}
+
+function updateWSStatusIndicator(status) {
+  const indicator = document.getElementById('ws-status-indicator');
+  if (!indicator) return;
+
+  indicator.setAttribute('data-status', status);
+
+  const labels = {
+    'connected': 'LIVE',
+    'connecting': 'CONNECTING',
+    'disconnected': 'OFFLINE',
+    'error': 'ERROR'
+  };
+  const label = labels[status] || status;
+  indicator.textContent = label;
+  indicator.setAttribute('aria-label', `WebSocket connection: ${label}`);
+}
+
+function handleLivePriceUpdate(symbol, data, timestamp) {
+  // Update benchmark table
+  const benchRow = document.querySelector(`.benchmark-row[data-sym="${symbol}"]`);
+  if (benchRow) {
+    updateBenchmarkRowLive(benchRow, data, timestamp);
+  }
+
+  // Update sector tile
+  const sectorData = cachedSectorData?.find(s => s.constituents?.includes(symbol) || s.leading_asset === symbol);
+  if (sectorData) {
+    const sectorTile = document.querySelector(`.sector-tile[data-sector="${sectorData.sector}"]`);
+    if (sectorTile) {
+      updateSectorTileLive(sectorTile, sectorData, symbol, data);
+    }
+  }
+
+  // Update macro panel rows
+  const macroRow = document.querySelector(`.macro-asset-row[data-sym="${symbol}"]`);
+  if (macroRow) {
+    updateMacroRowLive(macroRow, data, timestamp);
+  }
+
+  // Announce to screen readers via ARIA live region
+  announcePriceChange(symbol, data);
+}
+
+function updateBenchmarkRowLive(row, data, timestamp) {
+  const priceCell = row.querySelector('td:nth-child(4)');
+  const changeCell = row.querySelector('td:nth-child(5)');
+  const pctCell = row.querySelector('td:nth-child(6)');
+  const rangeCell = row.querySelector('td:nth-child(7)');
+
+  if (priceCell && data.price != null) {
+    const oldPrice = parseFloat(priceCell.textContent.replace(/[₹$,]/g, ''));
+    const newPrice = data.price;
+    priceCell.textContent = formatPrice(newPrice, row.getAttribute('data-sym'));
+
+    // Price flash animation
+    priceCell.classList.add(data.price >= (oldPrice || 0) ? 'price-flash-up' : 'price-flash-down');
+    setTimeout(() => priceCell.classList.remove('price-flash-up', 'price-flash-down'), 1000);
+  }
+
+  if (changeCell && data.change != null) {
+    const sign = data.change >= 0 ? '+' : '';
+    changeCell.textContent = `${sign}${data.change.toFixed(2)}`;
+    changeCell.className = `tape-chg ${data.change >= 0 ? 'chg-up' : 'chg-down'}`;
+  }
+
+  if (pctCell && data.change_pct != null) {
+    const sign = data.change_pct >= 0 ? '+' : '';
+    pctCell.textContent = `${sign}${data.change_pct.toFixed(2)}%`;
+    pctCell.className = `tape-chg ${data.change_pct >= 0 ? 'chg-up' : 'chg-down'}`;
+  }
+
+  // Update staleness badge
+  updateRowStalenessBadge(row, data.freshness || 'LIVE', timestamp);
+}
+
+function updateSectorTileLive(tile, sectorData, updatedSymbol, data) {
+  // Update sector return if the updated symbol is the leader
+  if (sectorData.leading_asset === updatedSymbol) {
+    const returnEl = tile.querySelector('.sector-return');
+    if (returnEl && data.change_pct != null) {
+      const sign = data.change_pct >= 0 ? '+' : '';
+      returnEl.textContent = `${sign}${data.change_pct.toFixed(2)}%`;
+      returnEl.className = `sector-return ${data.change_pct >= 0 ? 'gain' : 'loss'}`;
+    }
+  }
+
+  // Update breadth if we have advancing/declining
+  if (data.freshness) {
+    updateTileStalenessBadge(tile, data.freshness);
+  }
+}
+
+function updateMacroRowLive(row, data, timestamp) {
+  const priceEl = row.querySelector('.macro-asset-price');
+  const changeEl = row.querySelector('.tape-chg');
+  const freshnessEl = row.querySelector('.macro-asset-freshness');
+
+  if (priceEl && data.price != null) {
+    const oldPrice = parseFloat(priceEl.textContent.replace(/[₹$,]/g, ''));
+    priceEl.textContent = formatMacroPrice(data.price, row.getAttribute('data-sym'));
+
+    priceEl.classList.add(data.price >= (oldPrice || 0) ? 'price-flash-up' : 'price-flash-down');
+    setTimeout(() => priceEl.classList.remove('price-flash-up', 'price-flash-down'), 1000);
+  }
+
+  if (changeEl && data.change_pct != null) {
+    const sign = data.change_pct >= 0 ? '+' : '−';
+    changeEl.textContent = `${sign}${Math.abs(data.change_pct).toFixed(2)}%`;
+    changeEl.className = `tape-chg ${data.change_pct >= 0 ? 'chg-up' : 'chg-down'}`;
+  }
+
+  // Update freshness timestamp
+  if (freshnessEl && timestamp) {
+    const ageMs = Date.now() - new Date(timestamp).getTime();
+    const ageSec = Math.floor(ageMs / 1000);
+    const ageMin = Math.floor(ageSec / 60);
+
+    let freshnessText = 'Just now';
+    let freshnessClass = 'live';
+
+    if (ageSec < 30) {
+      freshnessText = 'Just now';
+      freshnessClass = 'live';
+    } else if (ageMin < 1) {
+      freshnessText = `${ageSec}s ago`;
+      freshnessClass = 'live';
+    } else if (ageMin < 60) {
+      freshnessText = `${ageMin}m ago`;
+      freshnessClass = ageMin < 5 ? 'live' : 'delayed';
+    } else {
+      const ageHour = Math.floor(ageMin / 60);
+      freshnessText = `${ageHour}h ago`;
+      freshnessClass = 'delayed';
+    }
+
+    freshnessEl.textContent = freshnessText;
+    freshnessEl.className = `macro-asset-freshness ${freshnessClass}`;
+  }
+
+  updateRowStalenessBadge(row, data.freshness || 'LIVE', timestamp);
+}
+
+function updateRowStalenessBadge(row, freshness, timestamp) {
+  let badge = row.querySelector('.staleness-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'staleness-badge';
+    const lastCell = row.querySelector('td:last-child');
+    if (lastCell) lastCell.appendChild(badge);
+  }
+
+  const statusMap = {
+    'LIVE': { text: 'LIVE', class: 'stale-live' },
+    'DELAYED': { text: 'DELAYED', class: 'stale-delayed' },
+    'STALE': { text: 'STALE', class: 'stale-stale' },
+    'OFFLINE': { text: 'OFFLINE', class: 'stale-offline' }
+  };
+
+  const status = statusMap[freshness] || { text: freshness, class: 'stale-unknown' };
+  badge.textContent = status.text;
+  badge.className = `staleness-badge ${status.class}`;
+}
+
+function updateTileStalenessBadge(tile, freshness) {
+  let badge = tile.querySelector('.staleness-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'staleness-badge';
+    tile.querySelector('.sector-tile-header')?.appendChild(badge);
+  }
+
+  const statusMap = {
+    'LIVE': { text: 'LIVE', class: 'stale-live' },
+    'DELAYED': { text: 'DELAYED', class: 'stale-delayed' },
+    'STALE': { text: 'STALE', class: 'stale-stale' },
+    'OFFLINE': { text: 'OFFLINE', class: 'stale-offline' }
+  };
+
+  const status = statusMap[freshness] || { text: freshness, class: 'stale-unknown' };
+  badge.textContent = status.text;
+  badge.className = `staleness-badge ${status.class}`;
+}
+
+function handleMarketStatusChange(status, message, timestamp) {
+  // Update feed status in status strip
+  const feedEl = document.getElementById('mkt-feed-source');
+  if (feedEl) {
+    const statusMap = {
+      'live': 'LIVE',
+      'delayed': 'DELAYED',
+      'stale': 'CACHED',
+      'unavailable': 'OFFLINE'
+    };
+    feedEl.textContent = `${statusMap[status] || status.toUpperCase()} ${message ? '— ' + message : ''}`;
+  }
+
+  const sessionDot = document.getElementById('mkt-session-dot');
+  if (sessionDot) {
+    sessionDot.className = 'status-session-dot';
+    if (status === 'live') sessionDot.classList.add('live');
+    else if (status === 'delayed') sessionDot.classList.add('delayed');
+    else if (status === 'stale') sessionDot.classList.add('stale');
+    else if (status === 'unavailable') sessionDot.classList.add('offline');
+  }
+}
+
+function announcePriceChange(symbol, data) {
+  const liveRegion = getOrCreateLiveRegion();
+  if (data.change_pct != null) {
+    const direction = data.change_pct >= 0 ? 'up' : 'down';
+    liveRegion.textContent = `${symbol} ${direction} ${Math.abs(data.change_pct).toFixed(2)} percent`;
+  }
+}
+
+function getOrCreateLiveRegion() {
+  let region = document.getElementById('market-live-region');
+  if (!region) {
+    region = document.createElement('div');
+    region.id = 'market-live-region';
+    region.setAttribute('role', 'status');
+    region.setAttribute('aria-live', 'polite');
+    region.setAttribute('aria-atomic', 'true');
+    region.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;';
+    document.body.appendChild(region);
+  }
+  return region;
+}
+
+function formatPrice(price, symbol) {
+  if (price == null) return '—';
+  if (symbol?.includes('USDINR') || symbol?.endsWith('.NS') || symbol?.endsWith('.BO')) {
+    return `₹${price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (symbol?.includes('=X')) {
+    return price.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  }
+  return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 async function loadAndRenderSectorsAndMarketMap(force = false) {
   const tableBody = document.getElementById('markets-indices-table-body');
   const secGrid = document.getElementById('sector-intelligence-grid');
@@ -5821,6 +6465,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             <td>
               ${rangeHtml}
             </td>
+            <td>
+              <canvas class="benchmark-sparkline loading" width="140" height="32" aria-label="${m.name} intraday trend"></canvas>
+            </td>
           </tr>
         `;
       })
@@ -5835,13 +6482,24 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     // Single Click: Inspect security context
     // Double Click: Open chart analysis workstation
     // Keyboard Enter / Space: Open chart analysis workstation
-    tableBody.querySelectorAll('.benchmark-row').forEach((row) => {
+    // Arrow keys: Navigate between rows (roving tabindex)
+    const benchmarkRows = Array.from(tableBody.querySelectorAll('.benchmark-row'));
+    benchmarkRows.forEach((row, idx) => {
       const sym = row.getAttribute('data-sym');
       const found = processedBenchmarks.find((b) => b.symbol === sym);
 
+      // Roving tabindex - only first row is in tab order initially
+      row.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+      row.setAttribute('role', 'row');
+
       const activateRow = () => {
-        tableBody.querySelectorAll('.benchmark-row').forEach((r) => r.classList.remove('active-row'));
+        benchmarkRows.forEach((r) => {
+          r.classList.remove('active-row');
+          r.setAttribute('tabindex', '-1');
+        });
         row.classList.add('active-row');
+        row.setAttribute('tabindex', '0');
+        row.focus({ preventScroll: true });
         if (found) {
           renderMarketInspector('index', found);
         }
@@ -5862,6 +6520,22 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           if (sym) {
             router.navigate(router.formatSymbolRoute(sym, 'chart'));
           }
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const currentIdx = benchmarkRows.indexOf(row);
+          const nextIdx = e.key === 'ArrowDown'
+            ? Math.min(currentIdx + 1, benchmarkRows.length - 1)
+            : Math.max(currentIdx - 1, 0);
+          benchmarkRows[nextIdx].focus({ preventScroll: true });
+          activateRow.call(benchmarkRows[nextIdx]);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          benchmarkRows[0].focus({ preventScroll: true });
+          activateRow.call(benchmarkRows[0]);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          benchmarkRows[benchmarkRows.length - 1].focus({ preventScroll: true });
+          activateRow.call(benchmarkRows[benchmarkRows.length - 1]);
         }
       });
     });
@@ -5869,7 +6543,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     // Wire Filter Buttons
     const filterBtns = document.querySelectorAll('#markets-indices-filter .benchmark-filter-btn');
     filterBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         filterBtns.forEach((b) => {
           b.classList.remove('active');
           b.setAttribute('aria-selected', 'false');
@@ -5884,6 +6558,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             row.style.display = 'none';
           }
         });
+        // Update WebSocket subscriptions for visible symbols
+        await refreshWSSubscriptions();
       });
     });
   }
@@ -5957,20 +6633,58 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     `;
 
     // Row Click: Inspect constituent, DO NOT NAVIGATE
-    bodyEl.querySelectorAll('.constituent-row').forEach((row) => {
-      row.addEventListener('click', () => {
-        bodyEl.querySelectorAll('.constituent-row').forEach((r) => r.classList.remove('active-row'));
-        row.classList.add('active-row');
-        const sym = row.getAttribute('data-sym');
-        if (sym) {
-          const idx = (sector.constituents || []).indexOf(sym);
-          const roleName = idx === 0 ? 'Primary Sector Anchor' : idx < 3 ? 'Core Component Leader' : 'Constituent Peer';
-          renderMarketInspector('constituent', {
-            symbol: sym,
-            role: roleName,
-            sectorName: sector.display_name,
-            proxy: proxyStr,
-          });
+    const constituentRows = Array.from(bodyEl.querySelectorAll('.constituent-row'));
+    constituentRows.forEach((row, idx) => {
+      row.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+    });
+
+    const activateConstituentRow = (row) => {
+      constituentRows.forEach((r) => {
+        r.classList.remove('active-row');
+        r.setAttribute('tabindex', '-1');
+      });
+      row.classList.add('active-row');
+      row.setAttribute('tabindex', '0');
+      row.focus({ preventScroll: true });
+      const sym = row.getAttribute('data-sym');
+      if (sym) {
+        const idx = (sector.constituents || []).indexOf(sym);
+        const roleName = idx === 0 ? 'Primary Sector Anchor' : idx < 3 ? 'Core Component Leader' : 'Constituent Peer';
+        renderMarketInspector('constituent', {
+          symbol: sym,
+          role: roleName,
+          sectorName: sector.display_name,
+          proxy: proxyStr,
+        });
+      }
+    };
+
+    constituentRows.forEach((row) => {
+      row.addEventListener('click', () => activateConstituentRow(row));
+
+      row.addEventListener('keydown', (e) => {
+        const currentIdx = constituentRows.indexOf(row);
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activateConstituentRow(row);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const nextIdx = Math.min(currentIdx + 1, constituentRows.length - 1);
+          constituentRows[nextIdx].focus({ preventScroll: true });
+          activateConstituentRow(constituentRows[nextIdx]);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prevIdx = Math.max(currentIdx - 1, 0);
+          constituentRows[prevIdx].focus({ preventScroll: true });
+          activateConstituentRow(constituentRows[prevIdx]);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          constituentRows[0].focus({ preventScroll: true });
+          activateConstituentRow(constituentRows[0]);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          constituentRows[constituentRows.length - 1].focus({ preventScroll: true });
+          activateConstituentRow(constituentRows[constituentRows.length - 1]);
         }
       });
     });
@@ -6081,22 +6795,80 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         .join('');
 
       // Wire tile click -> select sector and update Context Inspector
-      secGrid.querySelectorAll('.sector-tile').forEach((tile) => {
-        const handleActivate = () => {
-          const secName = tile.getAttribute('data-sector');
-          const found = sectorData.find((s) => s.sector === secName);
-          if (found) {
-            currentSelectedSector = found;
-            secGrid.querySelectorAll('.sector-tile').forEach((t) => t.classList.toggle('active-sector', t.getAttribute('data-sector') === secName));
-            renderSelectedSectorDetail(found);
-            renderMarketInspector('sector', found);
+      const sectorTiles = Array.from(secGrid.querySelectorAll('.sector-tile'));
+      const sectorCols = 4; // Grid columns (matches CSS grid-template-columns)
+
+      // Initialize roving tabindex for sector tiles
+      sectorTiles.forEach((tile, idx) => {
+        tile.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+      });
+
+      const activateSectorTile = (tile) => {
+        const secName = tile.getAttribute('data-sector');
+        const found = sectorData.find((s) => s.sector === secName);
+        if (found) {
+          // Add expand animation
+          tile.classList.add('expanding');
+          setTimeout(() => tile.classList.remove('expanding'), 200);
+
+          currentSelectedSector = found;
+          sectorTiles.forEach((t) => t.classList.toggle('active-sector', t.getAttribute('data-sector') === secName));
+
+          // Update roving tabindex
+          sectorTiles.forEach((t) => t.setAttribute('tabindex', '-1'));
+          tile.setAttribute('tabindex', '0');
+          tile.focus({ preventScroll: true });
+
+          // Animate detail panel
+          const detailSection = document.getElementById('sector-detail-section');
+          if (detailSection) {
+            detailSection.classList.add('sector-detail-expanded');
+            detailSection.offsetHeight;
+            detailSection.classList.remove('sector-detail-expanded');
           }
-        };
+
+          renderSelectedSectorDetail(found);
+          renderMarketInspector('sector', found);
+        }
+      };
+
+      sectorTiles.forEach((tile, idx) => {
+        const handleActivate = () => activateSectorTile(tile);
+
         tile.addEventListener('click', handleActivate);
+
         tile.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             handleActivate();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            const nextIdx = Math.min(idx + 1, sectorTiles.length - 1);
+            sectorTiles[nextIdx].focus({ preventScroll: true });
+            activateSectorTile(sectorTiles[nextIdx]);
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const prevIdx = Math.max(idx - 1, 0);
+            sectorTiles[prevIdx].focus({ preventScroll: true });
+            activateSectorTile(sectorTiles[prevIdx]);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const nextIdx = Math.min(idx + sectorCols, sectorTiles.length - 1);
+            sectorTiles[nextIdx].focus({ preventScroll: true });
+            activateSectorTile(sectorTiles[nextIdx]);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prevIdx = Math.max(idx - sectorCols, 0);
+            sectorTiles[prevIdx].focus({ preventScroll: true });
+            activateSectorTile(sectorTiles[prevIdx]);
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            sectorTiles[0].focus({ preventScroll: true });
+            activateSectorTile(sectorTiles[0]);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            sectorTiles[sectorTiles.length - 1].focus({ preventScroll: true });
+            activateSectorTile(sectorTiles[sectorTiles.length - 1]);
           }
         });
       });
@@ -6113,6 +6885,136 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
   // 4. Render Cross-Asset Macro Radar Lists
   renderMacroRadarPanels();
+
+  // Hide skeleton screens when data is loaded
+  const skeleton = document.getElementById('markets-skeleton');
+  if (skeleton) {
+    skeleton.classList.add('loaded');
+  }
+
+  // Render sparklines for benchmark rows
+  renderBenchmarkSparklines();
+}
+
+async function renderBenchmarkSparklines() {
+  const rows = document.querySelectorAll('.benchmark-row[data-sym]');
+  if (rows.length === 0) return;
+
+  // Collect unique symbols
+  const symbols = Array.from(new Set(Array.from(rows).map(r => r.getAttribute('data-sym'))));
+
+  try {
+    // Fetch intraday data for all symbols (1D, 1m interval)
+    const promises = symbols.map(sym =>
+      api.getMarketCandles(sym, '1m', '1d').catch(() => null)
+    );
+    const results = await Promise.all(promises);
+
+    const candleData = new Map();
+    results.forEach((data, idx) => {
+      if (data && data.candles && data.candles.length > 0) {
+        candleData.set(symbols[idx], data.candles);
+      }
+    });
+
+    // Render sparkline for each row
+    rows.forEach(row => {
+      const sym = row.getAttribute('data-sym');
+      const canvas = row.querySelector('.benchmark-sparkline');
+      const candles = candleData.get(sym);
+
+      if (canvas && candles && candles.length > 1) {
+        drawSparkline(canvas, candles);
+        canvas.classList.remove('loading');
+      } else if (canvas) {
+        canvas.classList.remove('loading');
+        // Draw empty state
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to render sparklines:', e);
+    // Remove loading state on error
+    rows.forEach(row => {
+      const canvas = row.querySelector('.benchmark-sparkline');
+      if (canvas) canvas.classList.remove('loading');
+    });
+  }
+}
+
+function drawSparkline(canvas, candles) {
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const padding = 2;
+  const plotWidth = width - padding * 2;
+  const plotHeight = height - padding * 2;
+
+  // Get close prices
+  const closes = candles.map(c => c.close).filter(v => v != null && isFinite(v));
+  if (closes.length < 2) return;
+
+  const minPrice = Math.min(...closes);
+  const maxPrice = Math.max(...closes);
+  const priceRange = maxPrice - minPrice || 1;
+
+  // Determine color based on trend
+  const firstClose = closes[0];
+  const lastClose = closes[closes.length - 1];
+  const isUp = lastClose >= firstClose;
+  const lineColor = isUp ? '#22ab94' : '#f23645';
+  const fillColor = isUp ? 'rgba(34, 171, 148, 0.12)' : 'rgba(242, 54, 69, 0.12)';
+
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+
+  // Draw fill area
+  ctx.beginPath();
+  ctx.moveTo(padding, height - padding);
+
+  closes.forEach((close, i) => {
+    const x = padding + (i / (closes.length - 1)) * plotWidth;
+    const y = height - padding - ((close - minPrice) / priceRange) * plotHeight;
+    if (i === 0) {
+      ctx.lineTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+
+  ctx.lineTo(padding + plotWidth, height - padding);
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  // Draw line
+  ctx.beginPath();
+  closes.forEach((close, i) => {
+    const x = padding + (i / (closes.length - 1)) * plotWidth;
+    const y = height - padding - ((close - minPrice) / priceRange) * plotHeight;
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Draw current price dot
+  const lastX = padding + plotWidth;
+  const lastY = height - padding - ((lastClose - minPrice) / priceRange) * plotHeight;
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+  ctx.fillStyle = lineColor;
+  ctx.fill();
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#131722';
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }
 
 function formatMacroPrice(price, symbol = '') {
@@ -6145,30 +7047,104 @@ function renderMacroRadarPanels() {
         const chgPct = it.change_pct != null ? `${sign}${Math.abs(it.change_pct).toFixed(2)}%` : '—';
         const priceFmt = formatMacroPrice(it.price, it.symbol);
 
+        // Calculate relative time
+        let freshnessClass = 'offline';
+        let freshnessText = 'Offline';
+        const timestamp = it.retrieved_at || it.source_timestamp;
+        if (timestamp) {
+          const ageMs = Date.now() - new Date(timestamp).getTime();
+          const ageSec = Math.floor(ageMs / 1000);
+          const ageMin = Math.floor(ageSec / 60);
+          const ageHour = Math.floor(ageMin / 60);
+
+          if (ageSec < 30) {
+            freshnessText = 'Just now';
+            freshnessClass = 'live';
+          } else if (ageMin < 1) {
+            freshnessText = `${ageSec}s ago`;
+            freshnessClass = 'live';
+          } else if (ageMin < 60) {
+            freshnessText = `${ageMin}m ago`;
+            freshnessClass = ageMin < 5 ? 'live' : 'delayed';
+          } else if (ageHour < 24) {
+            freshnessText = `${ageHour}h ago`;
+            freshnessClass = 'delayed';
+          } else {
+            const ageDays = Math.floor(ageHour / 24);
+            freshnessText = `${ageDays}d ago`;
+            freshnessClass = 'stale';
+          }
+        } else if (it.freshness) {
+          freshnessText = it.freshness;
+          freshnessClass = it.freshness === 'LIVE' ? 'live' :
+                           it.freshness === 'DELAYED' ? 'delayed' :
+                           it.freshness === 'STALE' ? 'stale' : 'offline';
+        }
+
         return `
-          <div class="macro-asset-row" data-sym="${it.symbol}" data-category="${category}">
+          <div class="macro-asset-row" data-sym="${it.symbol}" data-category="${category}" tabindex="-1" role="button" aria-label="${it.name || it.symbol}, ${priceFmt}, change ${chgPct}, ${freshnessText}">
             <div class="macro-asset-ident">
               <span class="macro-asset-name">${it.name || it.symbol}</span>
-              <span class="macro-asset-sym" title="${it.retrieved_at || it.source_timestamp || 'Timestamp unavailable'}">${it.symbol} · ${it.freshness || (it.is_stale ? 'STALE' : 'DELAYED')}</span>
+              <span class="macro-asset-sym" title="${timestamp || 'Timestamp unavailable'}">${it.symbol}</span>
             </div>
             <div class="macro-asset-values">
               <span class="macro-asset-price">${priceFmt}</span>
               <span class="tape-chg ${chgClass}" style="font-size: 10.5px; padding: 1px 6px;">${chgPct}</span>
+              <span class="macro-asset-freshness ${freshnessClass}" title="${timestamp || 'Timestamp unavailable'}">${freshnessText}</span>
             </div>
           </div>
         `;
       })
       .join('');
 
+    // Wire keyboard navigation for macro asset rows (roving tabindex)
+    const macroRows = Array.from(container.querySelectorAll('.macro-asset-row'));
+    macroRows.forEach((row, idx) => {
+      row.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+    });
+
+    const activateMacroRow = (row) => {
+      macroRows.forEach((r) => {
+        r.classList.remove('active-row');
+        r.setAttribute('tabindex', '-1');
+      });
+      row.classList.add('active-row');
+      row.setAttribute('tabindex', '0');
+      row.focus({ preventScroll: true });
+      const sym = row.getAttribute('data-sym');
+      const found = items.find((i) => i.symbol === sym);
+      if (found) {
+        renderMarketInspector('macro', { ...found, category });
+      }
+    };
+
     // Row Click: Inspect Macro Asset, DO NOT NAVIGATE
-    container.querySelectorAll('.macro-asset-row').forEach((row) => {
-      row.addEventListener('click', () => {
-        document.querySelectorAll('.macro-asset-row').forEach((r) => r.classList.remove('active-row'));
-        row.classList.add('active-row');
-        const sym = row.getAttribute('data-sym');
-        const found = items.find((i) => i.symbol === sym);
-        if (found) {
-          renderMarketInspector('macro', { ...found, category });
+    macroRows.forEach((row) => {
+      row.addEventListener('click', () => activateMacroRow(row));
+
+      row.addEventListener('keydown', (e) => {
+        const currentIdx = macroRows.indexOf(row);
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activateMacroRow(row);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const nextIdx = Math.min(currentIdx + 1, macroRows.length - 1);
+          macroRows[nextIdx].focus({ preventScroll: true });
+          activateMacroRow(macroRows[nextIdx]);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prevIdx = Math.max(currentIdx - 1, 0);
+          macroRows[prevIdx].focus({ preventScroll: true });
+          activateMacroRow(macroRows[prevIdx]);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          macroRows[0].focus({ preventScroll: true });
+          activateMacroRow(macroRows[0]);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          macroRows[macroRows.length - 1].focus({ preventScroll: true });
+          activateMacroRow(macroRows[macroRows.length - 1]);
         }
       });
     });
@@ -6189,7 +7165,8 @@ async function loadAndRenderCorrelation(period = '1y') {
   const container = document.getElementById('correlation-matrix-container');
   if (!container) return;
 
-  container.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px;">Computing Pearson correlation matrix...</div>';
+  // Show skeleton while loading
+  container.innerHTML = renderCorrelationSkeleton(5);
 
   try {
     const data = await api.getCorrelationMatrix(['TCS.NS', 'INFY.NS', '^NSEI', 'GC=F', 'BTC-USD'], period);
@@ -6232,7 +7209,28 @@ async function loadAndRenderCorrelation(period = '1y') {
   } catch (err) {
     console.error('Correlation error:', err);
     container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--accent-red);">Unable to calculate correlation matrix.</div>';
+    toastError('Correlation unavailable', 'Unable to calculate correlation matrix.', {
+      duration: 6000,
+      action: { label: 'Retry', onClick: () => loadAndRenderCorrelation(period) }
+    });
   }
+}
+
+/**
+ * Render skeleton for correlation matrix
+ */
+function renderCorrelationSkeleton(symbolCount = 5) {
+  const header = '<thead><tr><th><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></th>' +
+    Array.from({ length: symbolCount }, () => '<th><div class="skeleton-cell" style="width: 60px; height: 16px;"></div></th>').join('') +
+    '</tr></thead>';
+
+  const rows = Array.from({ length: symbolCount }, () =>
+    '<tr><th><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></th>' +
+    Array.from({ length: symbolCount }, () => '<td><div class="skeleton-cell" style="width: 60px; height: 16px;"></div></td>').join('') +
+    '</tr>'
+  ).join('');
+
+  return `<table class="correlation-table skeleton-table">${header}<tbody>${rows}</tbody></table>`;
 }
 
 // Forward Valuation Scenario Sandbox (Tab 10)

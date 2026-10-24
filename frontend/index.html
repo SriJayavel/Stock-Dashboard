@@ -275,6 +275,16 @@
                 <h1>Markets</h1>
                 <p>Global benchmarks and cross-asset performance from the latest available snapshot.</p>
               </div>
+              <div class="markets-page-actions" style="display: flex; gap: 8px; align-items: center;">
+                <button class="ws-action-btn" id="mkt-export-csv-btn" type="button" title="Export markets data as CSV" aria-label="Export markets data as CSV">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width: 16px; height: 16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                  <span>CSV</span>
+                </button>
+                <button class="ws-action-btn" id="mkt-export-png-btn" type="button" title="Export markets snapshot as PNG" aria-label="Export markets snapshot as PNG">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width: 16px; height: 16px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span>PNG</span>
+                </button>
+              </div>
             </header>
             <!-- MARKETS STATE / SESSION CONTEXT BAR -->
             <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
@@ -296,9 +306,112 @@
                   <span class="status-feed-text" id="mkt-feed-source">LIVE</span>
                 </div>
                 <span class="status-updated" id="mkt-last-updated">—</span>
+                <div class="ws-status-indicator" id="ws-status-indicator" data-status="disconnected" aria-live="polite" aria-atomic="true">○ OFFLINE</div>
                 <button class="status-reload-btn" id="mkt-refresh-btn" type="button" title="Refresh market feeds" aria-label="Refresh market feeds">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                 </button>
+              </div>
+            </div>
+
+            <!-- SKELETON SCREENS - Match final layout exactly -->
+            <div class="markets-skeleton" id="markets-skeleton" aria-hidden="true" role="status" aria-label="Loading market data">
+              <!-- Skeleton: Benchmark Board -->
+              <div class="ws-section-block">
+                <div class="section-sub-header skeleton-header">
+                  <div class="skeleton-title"></div>
+                  <div class="skeleton-caption"></div>
+                  <div class="skeleton-filter-bar"></div>
+                </div>
+                <div class="benchmark-board-wrapper">
+                  <div class="benchmark-table-skeleton">
+                    <div class="skeleton-row skeleton-header-row">
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                    </div>
+                    <div class="skeleton-row" style="--row-count: 7;">
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                      <div class="skeleton-cell"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Skeleton: Sector Matrix -->
+              <div class="ws-section-block">
+                <div class="section-sub-header skeleton-header">
+                  <div class="skeleton-title"></div>
+                  <div class="skeleton-caption"></div>
+                  <div class="skeleton-legend"></div>
+                </div>
+                <div class="sector-matrix-grid-skeleton" role="grid" aria-label="Sector performance matrix">
+                  <div class="skeleton-sector-row" style="--tile-count: 4;">
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                  </div>
+                  <div class="skeleton-sector-row" style="--tile-count: 4;">
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                  </div>
+                  <div class="skeleton-sector-row" style="--tile-count: 4;">
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                    <div class="skeleton-tile"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Skeleton: Cross-Asset Macro Radar -->
+              <div class="ws-section-block">
+                <div class="section-sub-header skeleton-header">
+                  <div class="skeleton-title"></div>
+                  <div class="skeleton-caption"></div>
+                </div>
+                <div class="macro-panels-grid-skeleton">
+                  <div class="macro-panel-skeleton">
+                    <div class="skeleton-panel-header"></div>
+                    <div class="skeleton-panel-body" style="--row-count: 4;">
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                    </div>
+                  </div>
+                  <div class="macro-panel-skeleton">
+                    <div class="skeleton-panel-header"></div>
+                    <div class="skeleton-panel-body" style="--row-count: 4;">
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                    </div>
+                  </div>
+                  <div class="macro-panel-skeleton">
+                    <div class="skeleton-panel-header"></div>
+                    <div class="skeleton-panel-body" style="--row-count: 4;">
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                      <div class="skeleton-asset-row"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -329,11 +442,12 @@
                       <th scope="col" class="text-right" style="width: 120px;">Net Change</th>
                       <th scope="col" class="text-right" style="width: 115px;">Change %</th>
                       <th scope="col" style="width: 240px;">Session Range</th>
+                      <th scope="col" style="width: 140px;">Intraday</th>
                     </tr>
                   </thead>
                   <tbody id="markets-indices-table-body">
                     <tr class="loading-row">
-                      <td colspan="7" class="table-loading-cell">Loading global benchmark feed...</td>
+                      <td colspan="8" class="table-loading-cell">Loading global benchmark feed...</td>
                     </tr>
                   </tbody>
                 </table>

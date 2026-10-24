@@ -8,7 +8,7 @@ FastAPI Backend for Mara Market Intelligence:
 import os
 import logging
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Header, Depends, Query, status, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, Header, Depends, Query, status, BackgroundTasks, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -16,6 +16,10 @@ from starlette.staticfiles import StaticFiles
 
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
+import asyncio
+import json
+from typing import Set, Dict, List, Optional
+from datetime import datetime
 from backend.auth import verify_access_token
 
 from backend.config import settings
@@ -140,6 +144,168 @@ def verify_internal_secret(x_internal_secret: Optional[str] = Header(None)):
             detail="Forbidden: Invalid or missing internal secret header (X-Internal-Secret)",
         )
     return True
+
+
+# ===== WebSocket Manager for Live Market Data =====
+class MarketWebSocketManager:
+    """Manages WebSocket connections for live market data push."""
+
+    def __init__(self):
+        self.active_connections: Dict[str, Set[WebSocket]] = {}  # symbol -> set of websockets
+        self.connection_symbols: Dict[WebSocket, Set[str]] = {}  # websocket -> set of symbols
+        self._heartbeat_task: Optional[asyncio.Task] = None
+
+    async def connect(self, websocket: WebSocket, symbols: List[str]):
+        await websocket.accept()
+        self.connection_symbols[websocket] = set(symbols)
+        for symbol in symbols:
+            if symbol not in self.active_connections:
+                self.active_connections[symbol] = set()
+            self.active_connections[symbol].add(websocket)
+        logger.info(f"WebSocket connected for symbols: {symbols}")
+
+        # Start heartbeat if not running
+        if self._heartbeat_task is None or self._heartbeat_task.done():
+            self._heartbeat_task = asyncio.create_task(self._heartbeat())
+
+    def disconnect(self, websocket: WebSocket):
+        symbols = self.connection_symbols.pop(websocket, set())
+        for symbol in symbols:
+            if symbol in self.active_connections:
+                self.active_connections[symbol].discard(websocket)
+                if not self.active_connections[symbol]:
+                    del self.active_connections[symbol]
+        logger.info(f"WebSocket disconnected, was subscribed to: {symbols}")
+
+    async def subscribe(self, websocket: WebSocket, symbols: List[str]):
+        for symbol in symbols:
+            if symbol not in self.active_connections:
+                self.active_connections[symbol] = set()
+            self.active_connections[symbol].add(websocket)
+        self.connection_symbols[websocket].update(symbols)
+        logger.info(f"WebSocket subscribed to: {symbols}")
+
+    async def unsubscribe(self, websocket: WebSocket, symbols: List[str]):
+        for symbol in symbols:
+            if symbol in self.active_connections:
+                self.active_connections[symbol].discard(websocket)
+                if not self.active_connections[symbol]:
+                    del self.active_connections[symbol]
+        self.connection_symbols[websocket].difference_update(symbols)
+        logger.info(f"WebSocket unsubscribed from: {symbols}")
+
+    async def broadcast_price_update(self, symbol: str, data: dict):
+        """Broadcast price update to all connections subscribed to symbol."""
+        if symbol not in self.active_connections:
+            return
+        disconnected = set()
+        message = json.dumps({
+            "type": "price_update",
+            "symbol": symbol,
+            "data": data,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        })
+        for ws in self.active_connections[symbol].copy():
+            try:
+                await ws.send_text(message)
+            except Exception:
+                disconnected.add(ws)
+        # Clean up disconnected
+        for ws in disconnected:
+            self.disconnect(ws)
+
+    async def broadcast_market_status(self, status: str, message: str = ""):
+        """Broadcast market status change to all connections."""
+        all_ws = set()
+        for ws_set in self.active_connections.values():
+            all_ws.update(ws_set)
+
+        msg = json.dumps({
+            "type": "market_status",
+            "status": status,
+            "message": message,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        })
+        disconnected = set()
+        for ws in all_ws:
+            try:
+                await ws.send_text(msg)
+            except Exception:
+                disconnected.add(ws)
+        for ws in disconnected:
+            self.disconnect(ws)
+
+    async def _heartbeat(self):
+        """Send periodic heartbeat to detect dead connections."""
+        while True:
+            await asyncio.sleep(30)  # 30 second heartbeat
+            all_ws = set()
+            for ws_set in self.active_connections.values():
+                all_ws.update(ws_set)
+
+            if not all_ws:
+                break
+
+            msg = json.dumps({
+                "type": "heartbeat",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            })
+            disconnected = set()
+            for ws in all_ws:
+                try:
+                    await ws.send_text(msg)
+                except Exception:
+                    disconnected.add(ws)
+            for ws in disconnected:
+                self.disconnect(ws)
+
+
+market_ws_manager = MarketWebSocketManager()
+
+
+@app.websocket("/ws/markets")
+async def markets_websocket(websocket: WebSocket):
+    """WebSocket endpoint for live market data.
+
+    Client sends JSON messages:
+    - {"action": "subscribe", "symbols": ["AAPL", "TCS.NS"]}
+    - {"action": "unsubscribe", "symbols": ["AAPL"]}
+    - {"action": "ping"}
+
+    Server sends:
+    - {"type": "price_update", "symbol": "AAPL", "data": {...}, "timestamp": "..."}
+    - {"type": "market_status", "status": "live", "message": "...", "timestamp": "..."}
+    - {"type": "heartbeat", "timestamp": "..."}
+    """
+    await market_ws_manager.connect(websocket, [])
+    try:
+        while True:
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                action = msg.get("action")
+                symbols = msg.get("symbols", [])
+
+                if action == "subscribe":
+                    await market_ws_manager.subscribe(websocket, symbols)
+                elif action == "unsubscribe":
+                    await market_ws_manager.unsubscribe(websocket, symbols)
+                elif action == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong", "timestamp": datetime.utcnow().isoformat() + "Z"}))
+            except json.JSONDecodeError:
+                pass
+    except WebSocketDisconnect:
+        market_ws_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        market_ws_manager.disconnect(websocket)
+
+
+# Helper function to push price updates from cache refresh
+async def push_price_updates(symbol_data: dict):
+    """Call this from cache refresh to push live updates."""
+    for symbol, data in symbol_data.items():
+        await market_ws_manager.broadcast_price_update(symbol, data)
 
 
 @app.get("/api/health")
@@ -429,6 +595,33 @@ async def startup_warm_cache():
         logger.warning("Startup cache warmup dispatch failed: %s", exc)
 
 
+async def _refresh_and_push():
+    """Background task: refresh market overview and push updates via WebSocket."""
+    try:
+        data = await run_in_threadpool(refresh_market_overview, lock_acquired=True)
+        # Push price updates for all symbols in the refreshed data
+        if data and data.get("macro"):
+            for category, items in data["macro"].items():
+                for item in items:
+                    symbol = item.get("symbol")
+                    if symbol:
+                        await market_ws_manager.broadcast_price_update(symbol, item)
+        # Also push hero if present
+        if data and data.get("hero"):
+            hero = data["hero"]
+            symbol = hero.get("symbol")
+            if symbol:
+                await market_ws_manager.broadcast_price_update(symbol, hero)
+        # Broadcast market status
+        await market_ws_manager.broadcast_market_status(
+            data.get("market_status", "live") if data else "unavailable",
+            "Market data refreshed"
+        )
+        logger.info("Market overview refreshed and WebSocket updates pushed")
+    except Exception as e:
+        logger.error(f"Error in refresh and push: {e}")
+
+
 @app.post("/api/markets/refresh", status_code=status.HTTP_202_ACCEPTED)
 def api_refresh_market_overview(
     background_tasks: BackgroundTasks,
@@ -439,8 +632,35 @@ def api_refresh_market_overview(
     if not cache.acquire_lock("market_overview_refresh", ttl=180):
         cache.release_lock("market_overview_refresh_cooldown")
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="A market refresh is already running.")
-    background_tasks.add_task(refresh_market_overview, lock_acquired=True)
+    background_tasks.add_task(_refresh_and_push)
     return {"status": "accepted", "message": "Market overview refresh started."}
+
+
+async def _warm_all_caches_and_push():
+    """Background task: warm all caches and push updates via WebSocket."""
+    try:
+        data = await run_in_threadpool(warm_all_caches)
+        # warm_all_caches doesn't return the data, so we need to fetch it
+        from backend.services.data_pipeline import get_market_overview
+        overview = await run_in_threadpool(get_market_overview, refresh=False)
+        if overview and overview.get("macro"):
+            for category, items in overview["macro"].items():
+                for item in items:
+                    symbol = item.get("symbol")
+                    if symbol:
+                        await market_ws_manager.broadcast_price_update(symbol, item)
+        if overview and overview.get("hero"):
+            hero = overview["hero"]
+            symbol = hero.get("symbol")
+            if symbol:
+                await market_ws_manager.broadcast_price_update(symbol, hero)
+        await market_ws_manager.broadcast_market_status(
+            overview.get("market_status", "live") if overview else "unavailable",
+            "Scheduled cache warming complete"
+        )
+        logger.info("Scheduled cache warming complete and WebSocket updates pushed")
+    except Exception as e:
+        logger.error(f"Error in warm all caches and push: {e}")
 
 
 @app.post("/internal/refresh-cache", status_code=status.HTTP_202_ACCEPTED)
@@ -454,7 +674,7 @@ def api_refresh_cache(
     Dispatches jittered cache warming asynchronously in background.
     """
     logger.info("Enqueuing scheduled external cache warming in background...")
-    background_tasks.add_task(warm_all_caches)
+    background_tasks.add_task(_warm_all_caches_and_push)
     return {
         "status": "accepted",
         "message": "Scheduled cache warming dispatched in background.",

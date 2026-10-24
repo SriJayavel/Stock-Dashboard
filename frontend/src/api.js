@@ -9,6 +9,8 @@ import { auth, getAuthToken } from './auth.js';
 // Falls back to empty string in development to use Vite's dev proxy.
 const RAW_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
 const API_BASE = RAW_BASE ? RAW_BASE.replace(/\/+$/, '') : '';
+const WS_BASE = RAW_BASE ? RAW_BASE.replace(/^http/, 'ws').replace(/\/+$/, '') :
+  (typeof window !== 'undefined' ? `ws://${window.location.host}` : '');
 
 class ApiClient {
   constructor() {
@@ -174,3 +176,161 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
+
+// ===== Market WebSocket Client =====
+export class MarketWebSocket {
+  constructor() {
+    this.ws = null;
+    this.subscriptions = new Set();
+    this.handlers = new Map(); // symbol -> Set of callbacks
+    this.onStatusChange = null;
+    this.onPriceUpdate = null;
+    this.onMarketStatus = null;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 10;
+    this.reconnectDelay = 1000;
+    this.heartbeatInterval = null;
+    this.isConnecting = false;
+  }
+
+  connect() {
+    if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) return Promise.resolve();
+
+    this.isConnecting = true;
+    const wsUrl = `${WS_BASE}/ws/markets`;
+
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(wsUrl);
+
+        this.ws.onopen = () => {
+          console.log('[MarketWS] Connected');
+          this.isConnecting = false;
+          this.reconnectAttempts = 0;
+          this._setStatus('connected');
+          this._send({ action: 'subscribe', symbols: Array.from(this.subscriptions) });
+          resolve();
+        };
+
+        this.ws.onclose = (event) => {
+          console.log('[MarketWS] Disconnected:', event.code, event.reason);
+          this.isConnecting = false;
+          this._clearHeartbeat();
+          this._setStatus('disconnected');
+          this._scheduleReconnect();
+        };
+
+        this.ws.onerror = (error) => {
+          console.error('[MarketWS] Error:', error);
+          this._setStatus('error');
+          if (this.isConnecting) {
+            this.isConnecting = false;
+            reject(error);
+          }
+        };
+
+        this.ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            this._handleMessage(msg);
+          } catch (e) {
+            console.warn('[MarketWS] Invalid message:', event.data);
+          }
+        };
+      } catch (e) {
+        this.isConnecting = false;
+        reject(e);
+      }
+    });
+  }
+
+  _setStatus(status) {
+    if (typeof this.onStatusChange === 'function') {
+      this.onStatusChange(status);
+    }
+  }
+
+  _scheduleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('[MarketWS] Max reconnect attempts reached');
+      return;
+    }
+    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts) + Math.random() * 1000;
+    this.reconnectAttempts++;
+    console.log(`[MarketWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    setTimeout(() => this.connect(), delay);
+  }
+
+  _clearHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  _send(msg) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  subscribe(symbols) {
+    const newSymbols = Array.from(symbols).filter(s => !this.subscriptions.has(s));
+    if (newSymbols.length === 0) return;
+
+    newSymbols.forEach(s => this.subscriptions.add(s));
+    this._send({ action: 'subscribe', symbols: newSymbols });
+  }
+
+  unsubscribe(symbols) {
+    const toRemove = Array.from(symbols).filter(s => this.subscriptions.has(s));
+    if (toRemove.length === 0) return;
+
+    toRemove.forEach(s => this.subscriptions.delete(s));
+    this._send({ action: 'unsubscribe', symbols: toRemove });
+  }
+
+  _handleMessage(msg) {
+    switch (msg.type) {
+      case 'price_update':
+        if (this.onPriceUpdate) {
+          this.onPriceUpdate(msg.symbol, msg.data, msg.timestamp);
+        }
+        // Also call symbol-specific handlers
+        const handlers = this.handlers.get(msg.symbol);
+        if (handlers) {
+          handlers.forEach(cb => cb(msg.data, msg.timestamp));
+        }
+        break;
+      case 'market_status':
+        if (this.onMarketStatus) {
+          this.onMarketStatus(msg.status, msg.message, msg.timestamp);
+        }
+        break;
+      case 'heartbeat':
+      case 'pong':
+        // Connection alive
+        break;
+    }
+  }
+
+  onPriceUpdate(symbol, callback) {
+    if (!this.handlers.has(symbol)) {
+      this.handlers.set(symbol, new Set());
+    }
+    this.handlers.get(symbol).add(callback);
+    return () => this.handlers.get(symbol)?.delete(callback);
+  }
+
+  disconnect() {
+    this._clearHeartbeat();
+    if (this.ws) {
+      this.ws.close(1000, 'Client disconnect');
+      this.ws = null;
+    }
+    this.subscriptions.clear();
+    this.handlers.clear();
+  }
+}
+
+export const marketWS = new MarketWebSocket();
