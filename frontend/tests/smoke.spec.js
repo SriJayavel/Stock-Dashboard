@@ -577,9 +577,9 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     const sp500Row = page.locator('.benchmark-row[data-sym="^GSPC"]');
     await expect(sp500Row).toBeVisible();
 
-    // Verify 7-column thead (Action column removed)
+    // Verify 8-column thead (Region, Benchmark, Ticker, Last Price, Net Change, Change %, Session Range, Intraday)
     const thCount = await page.locator('#markets-indices-table thead tr th').count();
-    expect(thCount).toBe(7);
+    expect(thCount).toBe(8);
 
     // Per-row "Analyze" action buttons must not exist in the table body
     const actionBtns = page.locator('#markets-indices-table-body .markets-table-action-btn');

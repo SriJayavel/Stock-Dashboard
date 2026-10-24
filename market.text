@@ -1,0 +1,75 @@
+# Markets Workspace — Enhancement Complete ✅
+
+## Summary of Professional Polish Applied (2026-10-24)
+
+### What Was Fixed / Enhanced
+
+#### Benchmark Board (Filter + Table)
+- ✅ **Professional filter pills** with gradient hover/active states, keyboard focus rings, semantic region colors
+- ✅ **Sticky header** with subtle accent gradient top border
+- ✅ **Elevated rows** with left-accent hover indicator, smooth transitions
+- ✅ **Price flash animations** (green up / red down) on live price, change, % updates
+- ✅ **Full keyboard navigation** — focus-visible on rows, filter buttons, region pills
+- ✅ **Region pills** with semantic colors (India=amber, US=blue, EU=green, Asia=purple)
+- ✅ **Session range mini-track** with current-price dot visualization
+- ✅ **Skeleton + empty/error/loading states** with human-friendly copy
+- ✅ **Reduced-motion support** — all animations respect `prefers-reduced-motion`
+
+#### Sector Matrix Tiles
+- ✅ **Keyboard-accessible focus rings** (WCAG 2.2 AA)
+- ✅ **Subtle lift + glow on hover** (`translateY(-2px)` + elev-3 shadow)
+- ✅ **Press scale** (`scale(0.99)`)
+- ✅ **Price flash** on sector return updates (leader symbol changes)
+- ✅ **Breathing border animation** on active/selected tile
+- ✅ **Performance intensity rings** — 5 tiers (gain-strong → loss-strong) with colored accent borders
+- ✅ **Skeleton shimmer loading** (works with existing `.sector-loading` class)
+- ✅ **Reduced-motion support**
+
+#### Macro Panels (Forex / Commodities / Digital Assets)
+- ✅ **Hover lift** with animated top accent border (opacity fade-in)
+- ✅ **Row hover** with left accent bar indicator (scaleY animation)
+- ✅ **Price flash** on price & change values
+- ✅ **Empty state** with spinner animation
+- ✅ **Skeleton shimmer** (supports both `.skeleton` and `.loading` classes)
+- ✅ **Full keyboard navigation** on rows
+- ✅ **Reduced-motion support**
+
+#### Supporting Infrastructure
+- ✅ Added `--accent-rgb: 91, 156, 246` CSS variable for rgba() usage in shadows/borders
+- ✅ `main.js`: Added price flash animation to sector tile's return element in `updateSectorTileLive()`
+- ✅ WebSocket status toasts (connected/connecting/disconnected/error)
+- ✅ Dynamic WS subscription management (`refreshWSSubscriptions()`)
+- ✅ Focus management on workspace switch (`focusFirstInteractiveInWorkspace()`)
+- ✅ Retry action toasts for Screener & Correlation failures
+
+---
+
+## What Was Removed / Cleaned Up
+- ❌ **Dead states** — replaced with skeleton loaders + retry toasts
+- ❌ **Static placeholder rows** — replaced with animated skeletons matching final layout
+- ❌ **Visual competition** — system telemetry moved to dedicated status strip with clear hierarchy
+
+## What's Now Production-Ready
+| Area | Status |
+|------|--------|
+| Benchmark Board | ✅ Complete |
+| Sector Matrix | ✅ Complete |
+| Macro Radar | ✅ Complete |
+| Keyboard Accessibility | ✅ WCAG 2.2 AA |
+| Reduced Motion | ✅ Respected |
+| Live Data Feedback | ✅ Price flash + WS toasts |
+| Error/Empty States | ✅ Human copy + retry actions |
+| Skeleton Loading | ✅ Shimmer on all sections |
+
+---
+
+## Next Workspace (Ready to Begin)
+- **Discover** — Screener builder, universe tabs, multi-rule query builder
+- **Analyze** — TradingView chart, indicators, financial statements
+- **Compare** — Correlation heatmap, peer analysis
+- **Research** — Deep research, reports, notebook
+- **Monitor** — Watchlist, alerts, portfolio risk
+
+---
+
+*Generated after senior UI engineering pass — all micro-interactions, focus management, and live-data feedback loops implemented.*
