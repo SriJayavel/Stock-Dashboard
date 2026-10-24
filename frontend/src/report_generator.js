@@ -97,7 +97,7 @@ ${timeline
 ## 5. SECTOR PEER BENCHMARKING
 | Symbol | Entity | Market Cap | Price | Trailing P/E | ROE | Net Margin | Debt/Equity |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **${symbol} ★** | ${name} | ${stockData?.market_cap_str || '—'} | ${curr}${price} | ${stockData?.pe_trailing ? `${stockData.pe_trailing}x` : '—'} | ${stockData?.roe ? `${stockData.roe}%` : '—'} | ${timeline[timeline.length - 1]?.calculated_metrics?.net_margin_pct ? `${timeline[timeline.length - 1].calculated_metrics.net_margin_pct}%` : '—'} | ${stockData?.debt_to_equity ? `${stockData.debt_to_equity}x` : '0.00x'} |
+| **${symbol}** | ${name} | ${stockData?.market_cap_str || '—'} | ${curr}${price} | ${stockData?.pe_trailing ? `${stockData.pe_trailing}x` : '—'} | ${stockData?.roe ? `${stockData.roe}%` : '—'} | ${timeline[timeline.length - 1]?.calculated_metrics?.net_margin_pct ? `${timeline[timeline.length - 1].calculated_metrics.net_margin_pct}%` : '—'} | ${stockData?.debt_to_equity ? `${stockData.debt_to_equity}x` : '0.00x'} |
 ${peers
   .map(
     (p) =>

@@ -8,10 +8,112 @@
   padding: 8px 16px;
   z-index: 1000;
   border-radius: var(--radius-sm);
-  transition: top 0.2s ease-out;
+  transition: top 0.15s ease-out;
 }
 .skip-to-content-link:focus {
   top: 0;
+}
+
+/* ============================================================================
+   Theme Switch Transition Suppression
+   Prevents smearing when toggling themes by disabling transitions temporarily
+   ============================================================================ */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* ============================================================================
+   GPU Compositing Hints - will-change for transform/opacity only
+   ============================================================================ */
+.will-change-transform {
+  will-change: transform;
+}
+.will-change-opacity {
+  will-change: opacity;
+}
+.will-change-transform-opacity {
+  will-change: transform, opacity;
+}
+
+/* Remove will-change after animation completes */
+.will-change-transform:not(:hover):not(:active):not(:focus),
+.will-change-opacity:not(:hover):not(:active):not(:focus),
+.will-change-transform-opacity:not(:hover):not(:active):not(:focus) {
+  will-change: auto;
+}
+
+/* ============================================================================
+   Optical Alignment Utilities
+   For icon buttons that need manual centering nudges
+   ============================================================================ */
+.optical-center-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.optical-center-icon svg {
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   Image Outline for Consistent Depth (Dark Mode)
+   ============================================================================ */
+img,
+.video-frame,
+.chart-canvas-wrapper canvas {
+  outline: 1px solid oklch(1 0 0 / 0.1);
+}
+
+/* Light mode image outline */
+html.light-theme img,
+html.light-theme .video-frame,
+html.light-theme .chart-canvas-wrapper canvas {
+  outline: 1px solid oklch(0 0 0 / 0.1);
+}
+
+/* ============================================================================
+   Scale on Press (0.96) - Applied to all interactive buttons
+   ============================================================================ */
+button:active,
+[role="button"]:active,
+.tv-btn:active,
+.tv-tb-btn:active,
+.tv-tb-icon-btn:active,
+.tv-rail-btn:active,
+.ws-tab-btn:active,
+.tv-drawer-tab-btn:active,
+.screener-tab-btn:active,
+.mara-ws-tab-btn:active,
+.top-nav-btn:active,
+.watchlist-nav-toggle-btn:active,
+.auth-submit-button:active,
+.auth-guest-button:active,
+.tv-modal-close-btn:active,
+.pane-btn:active,
+.tv-ind-action-btn:active,
+.tv-ind-fav-btn:active,
+.tv-btn-primary:active,
+.tv-btn-secondary:active,
+.tv-ind-tab:active,
+.star-toggle-btn:active,
+.wl-btn:active,
+.wl-item-del-btn:active,
+.close-drawer-btn:active,
+.tv-scale-btn:active,
+.tv-ind-btn:active,
+.tf-btn:active,
+.interval-btn:active,
+.range-btn:active {
+  transform: scale(0.96);
+  transition-duration: 0.08s;
+}
+
+/* Disable scale on press for elements that need it */
+.no-scale-on-press:active {
+  transform: none;
 }
 
 /* Mara email account entry: uses the existing terminal color tokens. */
@@ -2175,7 +2277,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-weight: 500;
   font-family: var(--font-mono);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
@@ -2781,7 +2883,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 .wl-btn:hover {
   background: var(--surface-hover);
@@ -2875,7 +2977,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border: 1px solid transparent;
   padding: 2px 6px;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -2909,7 +3011,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 .tv-tb-icon-btn:hover {
   background: var(--surface-hover);
@@ -2942,7 +3044,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   padding: 2px 6px;
   border-radius: 3px;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 .interval-btn:hover, .range-btn:hover {
   color: #ffffff;
@@ -3152,7 +3254,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border: none;
   border-radius: 3px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
   white-space: nowrap;
 }
 .ws-tab-btn:hover {
@@ -3327,7 +3429,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   height: 34px;
   padding: 0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3400,7 +3502,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border-radius: 50%;
   color: var(--text-dim);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3447,7 +3549,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: var(--font-size-sm);
   color: var(--text-dim);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
   user-select: none;
   position: relative;
   overflow: hidden;
@@ -3489,7 +3591,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 12px;
   color: var(--accent);
   visibility: hidden;
-  transition: all 0.25s ease;
+  transition: visibility 0.15s ease, opacity 0.15s ease;
   position: relative;
   display: flex;
   align-items: center;
@@ -3515,7 +3617,6 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   height: 10px;
   border-radius: 50%;
   margin-left: auto;
-  transition: all 0.25s ease;
   position: relative;
 }
 
@@ -3587,7 +3688,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   justify-content: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
@@ -3672,7 +3773,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   color: var(--text-dim);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
   position: relative;
   overflow: hidden;
 }
@@ -3739,7 +3840,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   align-items: center;
   justify-content: center;
   background: transparent;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
 }
 
 .tv-pane-splitter::after {
@@ -3748,7 +3849,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   height: 2px;
   background: rgba(255, 255, 255, 0.25);
   border-radius: 1px;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
 }
 
 .tv-pane-splitter:hover,
@@ -3761,7 +3862,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   background: var(--accent);
   width: 54px;
   height: 3px;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, width 0.15s ease, height 0.15s ease;
 }
 
 /* 3. Top-Left Corner Legend Overlay */
@@ -3888,7 +3989,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   padding: 2px 6px;
   border-radius: 2px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.15s ease, border-color 0.15s ease;
   position: relative;
   overflow: hidden;
 }
@@ -4011,7 +4112,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-weight: 600;
   padding: 4px 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .tv-drawer-tab-btn:hover {
@@ -4158,7 +4259,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border: 1px solid #181920;
   border-radius: var(--radius-md);
   padding: 14px 16px;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   position: relative;
   overflow: hidden;
   backdrop-filter: saturate(180%) blur(20px);
@@ -4221,7 +4322,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border-left: 3px solid var(--accent-blue);
   border-radius: var(--radius-sm);
   padding: 12px 16px;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   position: relative;
   overflow: hidden;
   backdrop-filter: saturate(180%) blur(20px);
@@ -4281,7 +4382,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   color: var(--text-dim);
   border: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .watchlist-nav-toggle-btn:hover {
@@ -4302,7 +4403,8 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease, color 0.15s ease;
+  position: relative;
 }
 
 .star-toggle-btn:hover {
@@ -4314,6 +4416,40 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border-color: var(--accent);
   color: var(--accent);
   background: #1c1c1c;
+}
+
+.star-toggle-btn .star-icon {
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  transition: opacity 0.15s cubic-bezier(0.2, 0, 0, 1), transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.star-toggle-btn .star-icon--outline {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.star-toggle-btn .star-icon--filled {
+  opacity: 0;
+  transform: scale(0.25);
+}
+
+.star-toggle-btn.starred .star-icon--outline {
+  opacity: 0;
+  transform: scale(0.25);
+}
+
+.star-toggle-btn.starred .star-icon--filled {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.tv-ind-tab .star-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: middle;
 }
 
 /* Watchlist Drawer & Backdrop */
@@ -4380,7 +4516,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   padding: 3px 8px;
   border-radius: 3px;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
 .tv-drawer-tab-btn:hover {
   color: #ffffff;
@@ -4530,7 +4666,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   background: var(--surface);
   color: var(--text-dim);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .wl-btn:hover {
@@ -4563,7 +4699,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .wl-item-row:hover {
@@ -4627,7 +4763,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   padding: 4px;
   border-radius: 4px;
   line-height: 1;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .wl-item-del-btn:hover {
@@ -4670,7 +4806,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .screener-tab-btn:hover {
@@ -4798,7 +4934,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -4865,10 +5001,9 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   flex: 1;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* fadeIn converted to CSS transition for interruptibility.
+   Usage: add .fade-enter class, then remove on next frame to trigger enter.
+   For exit: add .fade-exit class. */
 
 /* Financial Statements Timeline */
 .timeline-card-header {
@@ -5267,7 +5402,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 14px;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   cursor: pointer;
   position: relative;
 }
@@ -5292,7 +5427,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 11px;
   font-family: var(--font-mono);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .sector-sym-btn:hover {
@@ -5419,7 +5554,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-weight: 500;
   color: var(--text-dim);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
   white-space: nowrap;
 }
 
@@ -5737,7 +5872,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .filing-doc-link:hover {
@@ -5866,17 +6001,21 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   color: var(--text);
   opacity: 0;
   transform: translateY(8px);
-  animation: toast-in 0.09s ease-out forwards;
-  transition: opacity 0.1s ease, transform 0.1s ease;
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
   backdrop-filter: saturate(180%) blur(20px);
   border-left-width: 3px;
   position: relative;
   overflow: hidden;
 }
 
+.apex-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .apex-toast {
-    animation: none;
+    transition: none;
     opacity: 1;
     transform: none;
   }
@@ -5958,18 +6097,10 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23eab308' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'%3E%3C/path%3E%3Cline x1='12' y1='9' x2='12' y2='13'%3E%3C/line%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E");
 }
 
-@keyframes toast-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 
 
 
 button, input, select { font: inherit; }
-button:active { transform: scale(0.99); }
 
 /* Watchlist Drawer Empty State */
 .watchlist-empty-state {
@@ -6190,7 +6321,7 @@ button:active { transform: scale(0.99); }
   font-size: 11px;
   pointer-events: auto;
   gap: 12px;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease;
   user-select: none;
   position: relative;
   overflow: hidden;
@@ -6259,7 +6390,7 @@ button:active { transform: scale(0.99); }
   align-items: center;
   justify-content: center;
   line-height: 1;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -6491,7 +6622,7 @@ button:active { transform: scale(0.99); }
   border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -6542,7 +6673,7 @@ button:active { transform: scale(0.99); }
   border: 1px solid transparent;
   background: #141414;
   margin-bottom: 8px;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   overflow: hidden;
   backdrop-filter: saturate(180%) blur(20px);
@@ -6584,7 +6715,7 @@ button:active { transform: scale(0.99); }
   font-size: var(--font-size-lg);
   cursor: pointer;
   padding: 2px 4px;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -6713,7 +6844,7 @@ button:active { transform: scale(0.99); }
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -6778,7 +6909,6 @@ button:active { transform: scale(0.99); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -6813,7 +6943,6 @@ button:active { transform: scale(0.99); }
   font-size: 13px;
   color: var(--text);
   text-align: right;
-  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -6842,7 +6971,6 @@ button:active { transform: scale(0.99); }
   font-size: 11px;
   color: var(--text-dim);
   line-height: 1.4;
-  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -6893,7 +7021,7 @@ button:active { transform: scale(0.99); }
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, opacity 0.2s ease;
   position: relative;
   overflow: hidden;
 }

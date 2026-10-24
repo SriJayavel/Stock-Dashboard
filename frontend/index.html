@@ -118,7 +118,10 @@
         <!-- Active Security Context -->
         <div class="mara-active-asset-strip" id="header-active-asset">
           <span class="mara-asset-sym" id="stock-symbol">TCS.NS</span>
-          <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Toggle Watchlist">★</button>
+          <button id="stock-watchlist-star-btn" class="star-toggle-btn" title="Toggle Watchlist" aria-pressed="false">
+  <svg class="star-icon star-icon--outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+  <svg class="star-icon star-icon--filled" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+</button>
           <span class="mara-asset-name" id="stock-name">Tata Consultancy Services</span>
           <span class="mara-asset-price" id="stock-current-price">—</span>
           <span class="mara-asset-badge chg-neutral" id="stock-change-badge">
@@ -1177,15 +1180,15 @@
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">1M Return</span>
-              <strong class="kpi-val chg-up" id="snapshot-return-1m">▲ +3.4%</strong>
+              <strong class="kpi-val chg-up" id="snapshot-return-1m">+3.4%</strong>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">3M Return</span>
-              <strong class="kpi-val chg-up" id="snapshot-return-3m">▲ +8.2%</strong>
+              <strong class="kpi-val chg-up" id="snapshot-return-3m">+8.2%</strong>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">1Y Max DD</span>
-              <strong class="kpi-val chg-down" id="snapshot-drawdown">▼ −6.2%</strong>
+              <strong class="kpi-val chg-down" id="snapshot-drawdown">−6.2%</strong>
             </div>
           </div>
         </div>
@@ -1201,22 +1204,22 @@
               <div class="tape-item" data-symbol="^NSEI">
                 <span class="tape-sym">NIFTY 50</span>
                 <span class="tape-val" id="hero-price">₹22,421.95</span>
-                <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">▼ −0.88%</span></span>
+                <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">−0.88%</span></span>
               </div>
               <div class="tape-item" data-symbol="^BSESN">
                 <span class="tape-sym">SENSEX</span>
                 <span class="tape-val">71,909.70</span>
-                <span class="tape-chg chg-down">▼ −0.79%</span>
+                <span class="tape-chg chg-down">−0.79%</span>
               </div>
               <div class="tape-item" data-symbol="^NSEBANK">
                 <span class="tape-sym">BANK NIFTY</span>
                 <span class="tape-val">54,450.75</span>
-                <span class="tape-chg chg-down">▼ −0.33%</span>
+                <span class="tape-chg chg-down">−0.33%</span>
               </div>
               <div class="tape-item" data-symbol="^GSPC">
                 <span class="tape-sym">S&P 500</span>
                 <span class="tape-val">5,751.20</span>
-                <span class="tape-chg chg-down">▼ −0.25%</span>
+                <span class="tape-chg chg-down">−0.25%</span>
               </div>
               <div class="tape-item" data-symbol="^IXIC">
                 <span class="tape-sym">NASDAQ</span>
@@ -1328,7 +1331,10 @@
         </div>
         <div class="tv-ind-tabs" id="tv-ind-category-tabs">
           <button class="tv-ind-tab active" data-category="all">All (37)</button>
-          <button class="tv-ind-tab" data-category="favorites">★ Favorites (<span id="tv-fav-count">0</span>)</button>
+          <button class="tv-ind-tab" data-category="favorites">
+            <svg class="star-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            Favorites (<span id="tv-fav-count">0</span>)
+          </button>
           <button class="tv-ind-tab" data-category="overlay">Overlays</button>
           <button class="tv-ind-tab" data-category="momentum">Momentum</button>
           <button class="tv-ind-tab" data-category="trend">Trend</button>

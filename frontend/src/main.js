@@ -1307,8 +1307,9 @@ function renderIndicatorList() {
       return `
         <div class="tv-ind-card" data-ind-id="${ind.id}">
           <div class="tv-ind-card-left">
-            <button class="tv-ind-fav-btn ${isFav ? 'favorited' : ''}" data-fav-id="${ind.id}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
-              ${isFav ? '★' : '☆'}
+            <button class="tv-ind-fav-btn ${isFav ? 'favorited' : ''}" data-fav-id="${ind.id}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${isFav}">
+              <svg class="star-icon star-icon--outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              <svg class="star-icon star-icon--filled" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" style="width:14px;height:14px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             </button>
             <div class="tv-ind-info">
               <div class="tv-ind-name-row">
@@ -2055,7 +2056,7 @@ export function syncHeaderPriceFromQuote(quote, currSym = '₹') {
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
     // Add redundant cue for accessibility - visual symbol in badge
-    stockChangeBadge.textContent = isUp ? '▲' : '▼';
+    stockChangeBadge.textContent = isUp ? '+' : '−';
     // Also keep data attribute for programmatic access
     stockChangeBadge.setAttribute('data-change', isUp ? 'up' : 'down');
   }
@@ -2411,9 +2412,11 @@ function updateStarBtn() {
   const isStarred = watchlist.hasSymbol(currentSymbol);
   if (isStarred) {
     starBtn.classList.add('starred');
+    starBtn.setAttribute('aria-pressed', 'true');
     starBtn.title = 'Remove from Watchlist';
   } else {
     starBtn.classList.remove('starred');
+    starBtn.setAttribute('aria-pressed', 'false');
     starBtn.title = 'Add to Watchlist';
   }
 }
@@ -2435,7 +2438,7 @@ async function refreshWatchlistUI() {
   if (symbols.length === 0) {
     listContainer.innerHTML = `
       <div class="watchlist-empty-state" style="padding: 24px 12px; text-align: center;">
-        <div style="font-size: 22px; color: var(--text-dim); margin-bottom: 6px;">☆</div>
+        <svg class="star-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:22px;height:22px;color:var(--text-dim);margin-bottom:6px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
         <div class="watchlist-empty-text" style="font-weight: 500; color: var(--text); font-size: 13px;">Watchlist is empty</div>
         <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 14px;">Press ⌘K to search and add assets, or pick a quick suggestion:</div>
         <div class="watchlist-empty-suggestions" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 12px;">
@@ -2527,7 +2530,7 @@ function renderWatchlistRows(quotes) {
         const isPending = item.status === 'pending';
         const isUp = (item.change || 0) >= 0;
         const chgClass = isUp ? 'chg-up' : 'chg-down';
-        const chgGlyph = isUp ? '▲ +' : '▼ ';
+        const chgGlyph = isUp ? '+ ' : '− ';
         const curr = item.currency_symbol || getCurrencySymbol(item.symbol, item.currency);
         const decimals = sym.includes('=X') ? 4 : 2;
 
@@ -2636,7 +2639,7 @@ function renderWatchlistRows(quotes) {
             const sym = item.symbol;
             const isUp = (item.change || 0) >= 0;
             const chgClass = isUp ? 'chg-up' : 'chg-down';
-            const chgGlyph = isUp ? '▲ +' : '▼ ';
+            const chgGlyph = isUp ? '+ ' : '− ';
             const curr = item.currency_symbol || getCurrencySymbol(sym, item.currency);
             const decimals = sym.includes('=X') ? 4 : 2;
             const isPending = item.status === 'pending';
@@ -3447,7 +3450,7 @@ function renderStockOverview(data) {
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
     // Add redundant cue for accessibility
-    stockChangeBadge.textContent = isUp ? '▲' : '▼';
+    stockChangeBadge.textContent = isUp ? '+' : '−';
   }
 
   // Sync TradingView Chrome Top Bar & Corner Legend
@@ -3652,7 +3655,7 @@ function renderValuationGrid(data) {
       },
       {
         label: 'Day Movement',
-        val: data.change_pct != null ? `${(isUp ? '▲ +' : '▼ ')}${Math.abs(data.change_pct).toFixed(2)}%` : '—',
+        val: data.change_pct != null ? `${(isUp ? '+ ' : '− ')}${Math.abs(data.change_pct).toFixed(2)}%` : '—',
         sub: isUp ? 'Bullish Session' : 'Bearish Session',
       },
       {
@@ -4276,7 +4279,7 @@ function renderScreenerTable(items) {
     .map((item) => {
       const isUp = (item.change_pct || 0) >= 0;
       const chgClass = isUp ? 'chg-up' : 'chg-down';
-      const chgGlyph = isUp ? '▲ +' : '▼ ';
+      const chgGlyph = isUp ? '+ ' : '− ';
       const currSym = item.currency_symbol || getCurrencySymbol(item.symbol, item.currency);
       const priceStr = item.price != null ? `${currSym}${item.price.toFixed(item.symbol.includes('=X') ? 4 : 2)}` : '—';
       const chgStr = item.change_pct != null ? `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%` : '—';
@@ -5471,7 +5474,7 @@ export function renderMarketInspector(type, data) {
           </div>
           <div class="inspector-stat">
             <span class="label">Rotation Bias</span>
-            <span class="val" style="color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Net Bullish' : '▼ Net Bearish'}</span>
+            <span class="val" style="color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '+ Net Bullish' : '− Net Bearish'}</span>
           </div>
           <div class="inspector-stat">
             <span class="label">Benchmark ETF</span>
@@ -6030,7 +6033,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               </div>
               <div class="hm-footer-bar">
                 <span>${s.constituents?.length || 0} Constituents${stateClass === 'hm-unavailable' ? ' (unavailable)' : stateClass === 'hm-empty' ? ' (no data)' : ''}</span>
-                <span style="font-family: var(--font-mono); font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '▲ Net Bullish' : '▼ Net Bearish'}</span>
+                <span style="font-family: var(--font-mono); font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '+ Net Bullish' : '− Net Bearish'}</span>
               </div>
             </div>
           `;
@@ -6512,7 +6515,9 @@ function refreshAlertsUI() {
             ${a.triggered ? `Triggered at ${new Date(a.triggeredAt).toLocaleTimeString()}` : `Active. Created ${new Date(a.createdAt).toLocaleDateString()}`}
           </div>
         </div>
-        <button class="alert-delete-btn" type="button" onclick="window.apexDeleteAlert('${a.id}')" aria-label="Delete alert" title="Delete alert">×</button>
+        <button class="alert-delete-btn" type="button" onclick="window.apexDeleteAlert('${a.id}')" aria-label="Delete alert" title="Delete alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
     `
     )

@@ -165,8 +165,12 @@ export class TerminalChart {
         <span id="subpane-unavail-${inst.instanceId}" style="display:none;color:#fb7185;font-size:11px"></span>
       </div>
       <div class="pane-hdr-actions">
-        <button class="pane-btn-eye" aria-label="Toggle ${inst.name}" style="opacity:0.7;transition:opacity 0.2s">◉</button>
-        <button class="pane-btn-close" aria-label="Remove ${inst.name}" style="opacity:0.7;transition:opacity 0.2s">×</button>
+        <button class="pane-btn-eye" aria-label="Toggle ${inst.name}" style="opacity:0.7;transition:opacity 0.2s">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </button>
+        <button class="pane-btn-close" aria-label="Remove ${inst.name}" style="opacity:0.7;transition:opacity 0.2s">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
     `;
 
@@ -758,7 +762,7 @@ export class TerminalChart {
         <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">H:</span> <span class="val">${(bar.high ?? o).toFixed(2)}</span></span>
         <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">L:</span> <span class="val">${(bar.low ?? o).toFixed(2)}</span></span>
         <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">C:</span> <span class="val" style="color:${color};font-weight:600;">${c.toFixed(2)}</span></span>
-        <span class="legend-item" style="margin: 0 8px; color:${color};font-weight:600;">${up ? '▲ +' : '▼ '}${(o ? (c - o) / o * 100 : 0).toFixed(2)}%</span>
+        <span class="legend-item" style="margin: 0 8px; color:${color};font-weight:600;">${up ? '+ ' : '− '}${(o ? (c - o) / o * 100 : 0).toFixed(2)}%</span>
       </div>
     `;
   }
