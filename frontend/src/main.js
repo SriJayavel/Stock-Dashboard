@@ -6098,8 +6098,15 @@ function updateSectorTileLive(tile, sectorData, updatedSymbol, data) {
     const returnEl = tile.querySelector('.sector-return');
     if (returnEl && data.change_pct != null) {
       const sign = data.change_pct >= 0 ? '+' : '';
+      const oldValue = parseFloat(returnEl.textContent.replace(/[+%]/g, ''));
       returnEl.textContent = `${sign}${data.change_pct.toFixed(2)}%`;
       returnEl.className = `sector-return ${data.change_pct >= 0 ? 'gain' : 'loss'}`;
+
+      // Price flash animation on sector return
+      if (oldValue != null && !isNaN(oldValue)) {
+        returnEl.classList.add(data.change_pct >= oldValue ? 'price-flash-up' : 'price-flash-down');
+        setTimeout(() => returnEl.classList.remove('price-flash-up', 'price-flash-down'), 1000);
+      }
     }
   }
 
