@@ -1,226 +1,329 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth, setupMockApi, DEFAULT_BENCHMARKS } from './helpers/mockApi.js';
 
-// Isolated test: bypasses auth gate by injecting a guest session into localStorage
-// then navigates directly to /#/markets and verifies Phase 2 table structure.
-
-test.describe('Phase 2 Markets Workspace — Auth-Bypassed Structural Tests', () => {
+test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification', () => {
 
   test.beforeEach(async ({ page }) => {
-    // Inject guest session so auth gate auto-dismisses (supabase key not set = guest bypass in auth.js)
-    // Also set an empty watchlist and preferences so cold-start state is clean
+    // Deterministic test auth bypass (strictly unavailable in production builds)
+    await setupTestAuth(page);
+    // Clear localStorage to prevent test interference from previous snapshots
     await page.addInitScript(() => {
-      // Suppress Supabase so auth.js hits the !supabase branch → immediate guest bypass
-      window.__VITE_SUPABASE_URL__ = '';
-      window.__VITE_SUPABASE_ANON_KEY__ = '';
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {}
     });
-    // Override env vars by patching import.meta.env via page evaluation after load
   });
 
-  test('7-column header structure (no Action column)', async ({ page }) => {
-    // Force supabase to be unavailable so auth.js auto-passes as guest
-    await page.route('**/supabase.co/**', route => route.abort());
-
+  test('1. Table header contains exactly 7 columns and body has zero Action buttons', async ({ page }) => {
+    await setupMockApi(page);
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
 
-    // Wait for auth gate to clear (guest bypass) — the gate should hide quickly
-    await page.waitForTimeout(2000);
+    // Wait for the table to render
+    const table = page.locator('#markets-indices-table');
+    await expect(table).toBeVisible({ timeout: 10000 });
 
-    // Check the auth gate is dismissed
-    const authGate = page.locator('#auth-gate');
-    const authClass = await authGate.getAttribute('class');
-    console.log('auth-gate class:', authClass);
-
-    // Check table header col count
+    // Assert exact 7 columns in the header
     const headers = page.locator('#markets-indices-table thead tr th');
-    const count = await headers.count();
-    console.log('th count:', count);
-    expect(count).toBe(7);
-  });
+    await expect(headers).toHaveCount(7);
 
-  test('No per-row Analyze action buttons in table body', async ({ page }) => {
-    await page.route('**/supabase.co/**', route => route.abort());
-    await page.goto('/#/markets');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2000);
+    // Verify header column titles
+    const headerTexts = await headers.allInnerTexts();
+    expect(headerTexts).toEqual(['REGION', 'BENCHMARK INDEX', 'TICKER', 'LAST PRICE', 'NET CHANGE', 'PREV. CLOSE %', 'SESSION RANGE']);
 
+    // Assert zero per-row Analyze action buttons in tbody
     const actionBtns = page.locator('#markets-indices-table-body .markets-table-action-btn');
-    const btnCount = await actionBtns.count();
-    console.log('Action buttons in tbody:', btnCount);
-    expect(btnCount).toBe(0);
+    await expect(actionBtns).toHaveCount(0);
   });
 
-  test('Skeleton rows have 7 columns, no Action td', async ({ page }) => {
-    await page.route('**/supabase.co/**', route => route.abort());
-    // Intercept the markets overview API to return empty response (force skeleton state)
-    await page.route('**/api/markets/overview', route => {
+  test('2. Skeleton state: renders skeleton placeholder rows with exactly 7 cells each', async ({ page }) => {
+    // Intercept overview and delay response to assert skeleton state
+    await page.route('**/supabase.co/**', (route) => route.fulfill({ status: 200, body: '{}' }));
+    await page.route('**/api/markets/overview', async (route) => {
+      // Hold the request open for 1.5 seconds so skeleton can be reliably verified
+      await new Promise((r) => setTimeout(r, 1500));
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          hero: { symbol: '^NSEI', name: 'NIFTY 50', price: null, status: 'unavailable', freshness: 'OFFLINE', is_stale: false, retrieved_at: null },
+          hero: { symbol: '^NSEI', name: 'NIFTY 50', price: null, status: 'unavailable', freshness: 'OFFLINE', is_stale: false },
           macro: { Indices: [], Forex: [], Commodities: [], Crypto: [] },
           feed_health: { Indices: 'OFFLINE', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
-          trending: [], market_status: 'unavailable',
-          last_attempted_at: null, last_successful_update: null, last_updated: null, is_stale: false,
+          market_status: 'unavailable',
+          is_stale: false,
         }),
       });
     });
 
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(3000);
 
-    // Check skeleton rows — each should have 7 tds
+    // Assert skeleton rows exist without conditional checks
     const skeletonRows = page.locator('.markets-index-row.skeleton-row');
-    const rowCount = await skeletonRows.count();
-    console.log('Skeleton rows rendered:', rowCount);
+    await expect(skeletonRows.first()).toBeVisible({ timeout: 8000 });
+    const skeletonCount = await skeletonRows.count();
+    expect(skeletonCount).toBe(7);
 
-    if (rowCount > 0) {
-      const firstRowTds = skeletonRows.first().locator('td');
-      const tdCount = await firstRowTds.count();
-      console.log('td count in first skeleton row:', tdCount);
-      expect(tdCount).toBe(7);
-
-      // Confirm no disabled action button in skeleton rows
-      const actionInSkeleton = skeletonRows.first().locator('.markets-table-action-btn');
-      expect(await actionInSkeleton.count()).toBe(0);
+    // Assert every skeleton row has exactly 7 cells and zero action buttons
+    for (let i = 0; i < skeletonCount; i++) {
+      const row = skeletonRows.nth(i);
+      const cells = row.locator('td');
+      await expect(cells).toHaveCount(7);
+      const rowActionBtns = row.locator('.markets-table-action-btn');
+      await expect(rowActionBtns).toHaveCount(0);
     }
   });
 
-  test('Populated rows: tabindex=0, role=row on tr elements', async ({ page }) => {
-    await page.route('**/supabase.co/**', route => route.abort());
-    // Provide mock populated data
-    await page.route('**/api/markets/overview', route => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          hero: { symbol: '^NSEI', name: 'NIFTY 50', price: 24500.5, status: 'delayed', freshness: 'DELAYED', is_stale: false, source: 'yfinance', retrieved_at: '2026-10-22T07:00:00Z' },
-          macro: {
-            Indices: [
-              { symbol: '^NSEI', name: 'NIFTY 50', price: 24500.5, change: 120.5, change_pct: 0.49, high: 24600, low: 24300, source: 'yfinance', is_stale: false },
-              { symbol: '^BSESN', name: 'SENSEX', price: 80500.0, change: 400.0, change_pct: 0.50, high: 80800, low: 80100, source: 'yfinance', is_stale: false },
-            ],
-            Forex: [], Commodities: [], Crypto: []
-          },
-          feed_health: { Indices: 'DELAYED', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
-          trending: [], market_status: 'open',
-          last_attempted_at: '2026-10-22T07:00:00Z', last_successful_update: '2026-10-22T07:00:00Z', last_updated: '2026-10-22T07:00:00Z', is_stale: false,
-        }),
-      });
+  test('3. Populated state: asserts real benchmark rows exist, each having 7 cells, role="row", and tabindex="0"', async ({ page }) => {
+    await setupMockApi(page);
+    await page.goto('/#/markets');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait for real populated rows
+    const realRows = page.locator('.markets-index-row:not(.skeleton-row)');
+    await expect(realRows.first()).toBeVisible({ timeout: 10000 });
+
+    const rowCount = await realRows.count();
+    expect(rowCount).toBe(7);
+
+    // Check specific critical benchmarks
+    const niftyRow = page.locator('.markets-index-row[data-sym="^NSEI"]');
+    const sensexRow = page.locator('.markets-index-row[data-sym="^BSESN"]');
+    const sp500Row = page.locator('.markets-index-row[data-sym="^GSPC"]');
+
+    await expect(niftyRow).toBeVisible();
+    await expect(sensexRow).toBeVisible();
+    await expect(sp500Row).toBeVisible();
+
+    // Verify cell count, accessibility semantics, and keyboard focusability on every populated row
+    for (let i = 0; i < rowCount; i++) {
+      const row = realRows.nth(i);
+      await expect(row.locator('td')).toHaveCount(7);
+      await expect(row).toHaveAttribute('role', 'row');
+      await expect(row).toHaveAttribute('tabindex', '0');
+    }
+
+    // Verify price formatting is rendered
+    const niftyPrice = niftyRow.locator('td').nth(3);
+    await expect(niftyPrice).toContainText('₹24,850.25');
+  });
+
+  test('4. Pointer & keyboard interactions: single-click inspects, double-click & Enter/Space navigate', async ({ page }) => {
+    await setupMockApi(page);
+    await page.goto('/#/markets');
+    await page.waitForLoadState('domcontentloaded');
+
+    const realRows = page.locator('.markets-index-row:not(.skeleton-row)');
+    await expect(realRows.first()).toBeVisible({ timeout: 10000 });
+
+    const secondRow = realRows.nth(1); // ^BSESN
+    const secondSym = await secondRow.getAttribute('data-sym');
+    expect(secondSym).toBe('^BSESN');
+
+    // 4a. Single-click: Selects and updates Context Inspector WITHOUT navigating away
+    await secondRow.click();
+    await expect(secondRow).toHaveClass(/active-row/);
+    expect(page.url()).toContain('#/markets'); // Did not navigate away
+
+    // Check Context Inspector content was populated for ^BSESN (SENSEX)
+    const inspectorActionBtn = page.locator('#inspector-action-btn');
+    await expect(inspectorActionBtn).toBeAttached();
+    await expect(inspectorActionBtn).toContainText('Analyze SENSEX');
+
+    // Open context panel if closed to verify visible inspector button
+    const isPanelOpen = await page.locator('.mara-app').evaluate((el) => el.classList.contains('context-panel-open'));
+    if (!isPanelOpen) {
+      await page.locator('#mara-context-toggle').click();
+    }
+    await expect(inspectorActionBtn).toBeVisible();
+
+    // 4b. Keyboard focus is visible
+    await secondRow.focus();
+    await expect(secondRow).toBeFocused();
+
+    // 4c. Double-click: Navigates to chart analysis workstation
+    await secondRow.dblclick();
+    await page.waitForURL(/#\/symbol\/.*\/chart/, { timeout: 8000 });
+    expect(page.url()).toMatch(/#\/symbol\/(\^BSESN|%5EBSESN)\/chart/);
+
+    // 4d. Keyboard Enter: Returns to markets and tests Enter key navigation
+    await page.goto('/#/markets');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#workspace-markets')).toHaveClass(/active/, { timeout: 10000 });
+    const firstRow = page.locator('.markets-index-row[data-sym="^NSEI"]');
+    await expect(firstRow).toBeVisible({ timeout: 10000 });
+    await firstRow.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForURL(/#\/symbol\/.*\/chart/, { timeout: 8000 });
+    expect(page.url()).toMatch(/#\/symbol\/(\^NSEI|%5ENSEI)\/chart/);
+
+    // 4e. Keyboard Space: Returns to markets and tests Space key navigation
+    await page.goto('/#/markets');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#workspace-markets')).toHaveClass(/active/, { timeout: 10000 });
+    const thirdRow = page.locator('.markets-index-row[data-sym="^NSEBANK"]');
+    await expect(thirdRow).toBeVisible({ timeout: 10000 });
+    await thirdRow.focus();
+    await page.keyboard.press('Space');
+    await page.waitForURL(/#\/symbol\/.*\/chart/, { timeout: 8000 });
+    expect(page.url()).toMatch(/#\/symbol\/(\^NSEBANK|%5ENSEBANK)\/chart/);
+  });
+
+  test('5. Feed status bar: DELAYED label when feed_health indicates delayed data', async ({ page }) => {
+    await setupMockApi(page, {
+      marketsOverview: {
+        hero: { symbol: '^NSEI', name: 'NIFTY 50', price: 24850.25, status: 'delayed', freshness: 'DELAYED', is_stale: false, source: 'yfinance', retrieved_at: new Date().toISOString() },
+        macro: { Indices: DEFAULT_BENCHMARKS, Forex: [], Commodities: [], Crypto: [] },
+        feed_health: { Indices: 'DELAYED', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
+        market_status: 'open',
+        last_successful_update: new Date().toISOString(),
+        is_stale: false,
+      },
     });
 
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(3000);
-
-    const rows = page.locator('.markets-index-row:not(.skeleton-row)');
-    const count = await rows.count();
-    console.log('Populated rows:', count);
-
-    if (count > 0) {
-      const tabIdx = await rows.first().getAttribute('tabindex');
-      const role = await rows.first().getAttribute('role');
-      console.log('tabindex:', tabIdx, 'role:', role);
-      expect(tabIdx).toBe('0');
-      expect(role).toBe('row');
-
-      // Verify 7 tds per populated row
-      const tds = rows.first().locator('td');
-      expect(await tds.count()).toBe(7);
-    }
-  });
-
-  // Helper: dismiss auth gate via Guest button
-  async function enterAsGuest(page) {
-    const guestBtn = page.locator('#auth-guest-button');
-    await guestBtn.waitFor({ state: 'visible', timeout: 8000 });
-    await guestBtn.click();
-    // Wait for auth gate to hide (body.auth-required removed)
-    await page.waitForFunction(() => !document.body.classList.contains('auth-required'), { timeout: 10000 });
-  }
-
-  test('Feed status bar: DELAYED label when feed_health=DELAYED', async ({ page }) => {
-    await page.route('**/api/markets/overview', route => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          hero: { symbol: '^NSEI', name: 'NIFTY 50', price: 24500.5, status: 'delayed', freshness: 'DELAYED', is_stale: false, source: 'yfinance', retrieved_at: '2026-10-22T07:00:00Z' },
-          macro: { Indices: [{ symbol: '^NSEI', name: 'NIFTY 50', price: 24500.5, change: 120, change_pct: 0.49, source: 'yfinance', is_stale: false }], Forex: [], Commodities: [], Crypto: [] },
-          feed_health: { Indices: 'DELAYED', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
-          trending: [], market_status: 'open',
-          last_attempted_at: '2026-10-22T07:00:00Z', last_successful_update: '2026-10-22T07:00:00Z', last_updated: '2026-10-22T07:00:00Z', is_stale: false,
-        }),
-      });
-    });
-
-    await page.goto('/#/markets');
-    await page.waitForLoadState('domcontentloaded');
-    await enterAsGuest(page);
-    await page.waitForTimeout(2000);
 
     const feedEl = page.locator('#mkt-feed-source');
+    await expect(feedEl).toBeVisible({ timeout: 10000 });
     const feedText = await feedEl.innerText();
-    console.log('Feed source text:', feedText);
     expect(feedText).toContain('DELAYED');
     expect(feedText).not.toContain('LIVE');
     expect(feedText).not.toContain('FEED FEED');
+
+    const sessionDot = page.locator('#mkt-session-dot');
+    await expect(sessionDot).toHaveClass(/delayed/);
   });
 
-  test('Feed status bar: OFFLINE label when feed_health=all OFFLINE', async ({ page }) => {
-    await page.route('**/api/markets/overview', route => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          hero: { symbol: '^NSEI', name: 'NIFTY 50', price: null, status: 'unavailable', freshness: 'OFFLINE', is_stale: false, source: null, retrieved_at: null },
-          macro: { Indices: [], Forex: [], Commodities: [], Crypto: [] },
-          feed_health: { Indices: 'OFFLINE', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
-          trending: [], market_status: 'unavailable',
-          last_attempted_at: null, last_successful_update: null, last_updated: null, is_stale: false,
-        }),
-      });
+  test('6. Feed status bar: CACHED label when is_stale=true with valid cached prices', async ({ page }) => {
+    await setupMockApi(page, {
+      marketsOverview: {
+        hero: { symbol: '^NSEI', name: 'NIFTY 50', price: 24300.0, status: 'stale', freshness: 'CACHED', is_stale: true, source: 'yfinance', retrieved_at: '2026-10-22T03:00:00Z' },
+        macro: {
+          Indices: DEFAULT_BENCHMARKS.map((b) => ({ ...b, is_stale: true })),
+          Forex: [], Commodities: [], Crypto: []
+        },
+        feed_health: { Indices: 'STALE', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
+        market_status: 'closed',
+        last_successful_update: '2026-10-22T03:00:00Z',
+        last_updated: '2026-10-22T03:00:00Z',
+        is_stale: true,
+      },
     });
 
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
-    await enterAsGuest(page);
-    await page.waitForTimeout(2000);
 
     const feedEl = page.locator('#mkt-feed-source');
+    await expect(feedEl).toBeVisible({ timeout: 10000 });
     const feedText = await feedEl.innerText();
-    console.log('Feed source text (offline):', feedText);
+    expect(feedText).toContain('CACHED');
+    expect(feedText).not.toContain('LIVE');
+
+    const sessionDot = page.locator('#mkt-session-dot');
+    await expect(sessionDot).toHaveClass(/stale/);
+  });
+
+  test('7. Feed status bar: OFFLINE label and empty/offline state when no prices are available', async ({ page }) => {
+    await setupMockApi(page, {
+      marketsOverview: {
+        hero: { symbol: '^NSEI', name: 'NIFTY 50', price: null, status: 'unavailable', freshness: 'OFFLINE', is_stale: false, source: null, retrieved_at: null },
+        macro: { Indices: [], Forex: [], Commodities: [], Crypto: [] },
+        feed_health: { Indices: 'OFFLINE', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
+        market_status: 'unavailable',
+        last_successful_update: null,
+        last_updated: null,
+        is_stale: false,
+      },
+    });
+
+    await page.goto('/#/markets');
+    await page.waitForLoadState('domcontentloaded');
+
+    const feedEl = page.locator('#mkt-feed-source');
+    await expect(feedEl).toBeVisible({ timeout: 10000 });
+    const feedText = await feedEl.innerText();
     expect(feedText).toContain('OFFLINE');
     expect(feedText).not.toContain('LIVE');
     expect(feedText).not.toContain('DELAYED');
+
+    const sessionDot = page.locator('#mkt-session-dot');
+    await expect(sessionDot).toHaveClass(/offline/);
+
+    const breadthEl = page.locator('#mkt-breadth-val');
+    await expect(breadthEl).toContainText('FEED OFFLINE');
+
+    // Benchmark rows show empty/unavailable state
+    const firstRow = page.locator('.markets-index-row').first();
+    await expect(firstRow).toBeVisible();
+    await expect(firstRow.locator('td').nth(3)).toContainText('—');
+    await expect(firstRow.locator('td').nth(6)).toContainText('Feed unavailable');
   });
 
-  test('Feed status bar: CACHED label when is_stale=true with active prices', async ({ page }) => {
-    await page.route('**/api/markets/overview', route => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          hero: { symbol: '^NSEI', name: 'NIFTY 50', price: 24300.0, status: 'stale', freshness: 'STALE', is_stale: true, source: 'yfinance', retrieved_at: '2026-10-22T03:00:00Z' },
-          macro: { Indices: [{ symbol: '^NSEI', name: 'NIFTY 50', price: 24300.0, change: -50, change_pct: -0.21, source: 'yfinance', is_stale: true }], Forex: [], Commodities: [], Crypto: [] },
-          feed_health: { Indices: 'STALE', Forex: 'OFFLINE', Commodities: 'OFFLINE', Crypto: 'OFFLINE' },
-          trending: [], market_status: 'closed',
-          last_attempted_at: '2026-10-22T03:00:00Z', last_successful_update: '2026-10-22T03:00:00Z', last_updated: '2026-10-22T03:00:00Z', is_stale: true,
-        }),
-      });
+  test('8. Feed status bar: Recent timestamp alone never classifies feed as LIVE without explicit provider confirmation', async ({ page }) => {
+    await setupMockApi(page, {
+      marketsOverview: {
+        hero: {
+          symbol: '^NSEI',
+          name: 'NIFTY 50',
+          price: 24850.25,
+          status: 'delayed',
+          freshness: 'DELAYED',
+          is_stale: false,
+          source: 'yfinance',
+          retrieved_at: new Date().toISOString(), // fresh timestamp
+        },
+        macro: { Indices: DEFAULT_BENCHMARKS, Forex: [], Commodities: [], Crypto: [] },
+        feed_health: { Indices: 'DELAYED', Forex: 'DELAYED', Commodities: 'DELAYED', Crypto: 'DELAYED' },
+        market_status: 'open',
+        last_successful_update: new Date().toISOString(), // fresh timestamp
+        is_stale: false,
+      },
     });
 
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
-    await enterAsGuest(page);
-    await page.waitForTimeout(2000);
 
     const feedEl = page.locator('#mkt-feed-source');
-    const feedText = await feedEl.innerText();
-    console.log('Feed source text (cached):', feedText);
-    expect(feedText).toContain('CACHED');
-    expect(feedText).not.toContain('LIVE');
+    await expect(feedEl).toBeVisible({ timeout: 10000 });
+    const text = await feedEl.innerText();
+    expect(text).toContain('DELAYED');
+    expect(text).not.toContain('LIVE');
+  });
+
+  test('9. Feed status bar: LIVE label rendered when explicit backend feed_health=LIVE is confirmed', async ({ page }) => {
+    await setupMockApi(page, {
+      marketsOverview: {
+        hero: {
+          symbol: '^NSEI',
+          name: 'NIFTY 50',
+          price: 24850.25,
+          status: 'live',
+          freshness: 'LIVE',
+          is_stale: false,
+          source: 'NSE Direct',
+          retrieved_at: new Date().toISOString(),
+        },
+        macro: { Indices: DEFAULT_BENCHMARKS, Forex: [], Commodities: [], Crypto: [] },
+        feed_health: { Indices: 'LIVE', Forex: 'DELAYED', Commodities: 'DELAYED', Crypto: 'DELAYED' },
+        market_status: 'open',
+        last_successful_update: new Date().toISOString(),
+        is_stale: false,
+      },
+    });
+
+    await page.goto('/#/markets');
+    await page.waitForLoadState('domcontentloaded');
+
+    const feedEl = page.locator('#mkt-feed-source');
+    await expect(feedEl).toBeVisible({ timeout: 10000 });
+    const text = await feedEl.innerText();
+    expect(text).toContain('LIVE');
+
+    const sessionDot = page.locator('#mkt-session-dot');
+    await expect(sessionDot).not.toHaveClass(/offline/);
+    await expect(sessionDot).not.toHaveClass(/stale/);
+    await expect(sessionDot).not.toHaveClass(/delayed/);
   });
 });

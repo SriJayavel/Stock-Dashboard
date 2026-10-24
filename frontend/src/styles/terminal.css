@@ -3840,7 +3840,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   min-height: 28px;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  display: none !important;
+  display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 12px;

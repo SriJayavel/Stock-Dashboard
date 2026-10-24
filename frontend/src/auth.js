@@ -26,6 +26,15 @@ class MaraAccount {
     document.getElementById('auth-gate')?.classList.remove('auth-gate-hidden');
     document.getElementById('auth-signout')?.addEventListener('click', () => this.signOut());
     this.bindForm();
+    // Explicit test-only authentication bypass: strictly unavailable in production builds
+    if (import.meta.env.MODE !== 'production' && typeof window !== 'undefined' && (window.__MARA_TEST_AUTH__ || window.__PLAYWRIGHT_TEST__)) {
+      this.setSession({
+        user: { id: 'test_analyst', email: 'test@mara.terminal', user_metadata: { full_name: 'Test Analyst' } },
+        access_token: 'test_analyst_token',
+      });
+      this.enterApp();
+      return true;
+    }
 
     if (!supabase) {
       this.setSession({ user: { id: 'guest_analyst', email: 'Guest Analyst' }, access_token: '' });

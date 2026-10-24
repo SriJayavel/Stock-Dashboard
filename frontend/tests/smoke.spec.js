@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth, setupMockApi } from './helpers/mockApi.js';
 
 test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
   let consoleErrors = [];
   let failedUrls = [];
 
   test.beforeEach(async ({ page }) => {
+    await setupTestAuth(page);
+    await setupMockApi(page);
     consoleErrors = [];
     failedUrls = [];
     page.on('console', (msg) => {
@@ -30,14 +33,15 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
 
   test('Complete interactive controls audit and status bar honesty', async ({ page }) => {
     // 1. Initial Load
+    const initialHistoryPromise = page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
+    await initialHistoryPromise;
 
     // Wait for the primary price display to populate (allow up to 30s for cold session handshake)
     const priceEl = page.locator('#stock-current-price');
     await expect(priceEl).not.toHaveText('₹0.00', { timeout: 30000 });
     await expect(priceEl).not.toHaveText('—');
-    await page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
 
     // 2. Status Bar Honesty Verification
     const statusEl = page.locator('#tv-bb-status');
@@ -78,8 +82,9 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await expect(dropdown).not.toHaveClass(/open/);
 
     // Brand click should load benchmark
+    const brandHistoryPromise = page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
     await page.locator('#brand-home-btn').click();
-    await page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
+    await brandHistoryPromise;
 
     // 4. Watchlist & Alerts Drawer
     const drawer = page.locator('#watchlist-drawer');
@@ -138,17 +143,17 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     page.on('request', historyListener);
 
     // Client-side Interval buttons (D, W, M)
-    const intW = page.locator('.interval-btn[data-interval="W"]');
+    const intW = page.locator('.interval-btn[data-interval="1wk"], .interval-btn[data-interval="W"]');
     await intW.click();
     await expect(intW).toHaveClass(/active/);
     await expect(page.locator('#tv-leg-interval')).toHaveText('1W');
 
-    const intM = page.locator('.interval-btn[data-interval="M"]');
+    const intM = page.locator('.interval-btn[data-interval="1mo"], .interval-btn[data-interval="M"]');
     await intM.click();
     await expect(intM).toHaveClass(/active/);
     await expect(page.locator('#tv-leg-interval')).toHaveText('1M');
 
-    const intD = page.locator('.interval-btn[data-interval="D"]');
+    const intD = page.locator('.interval-btn[data-interval="1d"], .interval-btn[data-interval="D"]');
     await intD.click();
     await expect(intD).toHaveClass(/active/);
     await expect(page.locator('#tv-leg-interval')).toHaveText('1D');
@@ -318,27 +323,10 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await page.keyboard.press('Escape');
     await expect(indModal).not.toHaveClass(/open/);
 
-    // 8. Workspace Navigation Tabs
-    const tabsToTest = [
-      'overview',
-      'fundamentals',
-      'valuation',
-      'peers',
-      'correlation',
-      'sectors',
-      'earnings',
-      'news',
-      'whatchanged',
-      'anomalies',
-      'lab',
-      'quality',
-      'notebook',
-      'report',
-      'chart',
-    ];
-
-    for (const tabName of tabsToTest) {
-      const tabBtn = page.locator(`.ws-tab-btn[data-tab="${tabName}"]`);
+    // 8. Analyze Workspace Sub-Tabs
+    const analyzeTabs = ['chart', 'overview', 'fundamentals', 'valuation'];
+    for (const tabName of analyzeTabs) {
+      const tabBtn = page.locator(`.ws-sub-btn[data-analyze-tab="${tabName}"]`);
       await tabBtn.click();
       await expect(tabBtn).toHaveClass(/active/);
       const panel = page.locator(`#panel-${tabName}`);
@@ -346,52 +334,43 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
       expect(page.url()).toContain(tabName);
     }
 
-    // 8b. Top-Level Views Switcher & Hash Routing
-    const topTerminal = page.locator('#top-view-terminal');
-    const topScreener = page.locator('#top-view-screener');
-    const topSectors = page.locator('#top-view-sectors');
+    // 8b. Institutional Workspaces Navigation
+    // 1. Discover / Screener
+    const wsDiscover = page.locator('#ws-btn-discover');
+    await wsDiscover.click();
+    await expect(wsDiscover).toHaveClass(/active/);
+    await expect(page.locator('#workspace-discover')).toHaveClass(/active/);
+    expect(page.url()).toContain('discover');
 
-    await topScreener.click();
-    await expect(topScreener).toHaveClass(/active/);
-    expect(page.url()).toContain('#/screener');
+    // 2. Markets
+    const wsMarkets = page.locator('#ws-btn-markets');
+    await wsMarkets.click();
+    await expect(wsMarkets).toHaveClass(/active/);
+    await expect(page.locator('#workspace-markets')).toHaveClass(/active/);
+    expect(page.url()).toContain('markets');
 
-    await topSectors.click();
-    await expect(topSectors).toHaveClass(/active/);
-    await expect(page.locator('#panel-sectors')).toHaveClass(/active/);
-
-    // Verify Sector Heatmap cards and constituent drilldown
-    const sectorCards = page.locator('.sector-card');
-    await expect(sectorCards.first()).toBeVisible({ timeout: 10000 });
-    expect(await sectorCards.count()).toBeGreaterThanOrEqual(6);
-
-    // Click a constituent pill from the sector card -> loads stock into Terminal Chart
-    const infyPill = page.locator('.sector-sym-btn[data-sym="INFY.NS"]').first();
-    await expect(infyPill).toBeVisible();
-    await infyPill.click();
-    await expect(page.locator('#panel-chart')).toHaveClass(/active/);
-    expect(page.url()).toContain('INFY.NS');
-
-    // Return to Sectors
-    await topSectors.click();
-    await expect(page.locator('#panel-sectors')).toHaveClass(/active/);
-
-    // Click a sector card to test selection and constituent breakdown table
-    const techCard = page.locator('.sector-card[data-sector="Technology"]');
-    await techCard.click();
-    await expect(techCard).toHaveClass(/selected/);
+    // Sector heatmap interaction in Markets
+    const sectorTiles = page.locator('.hm-tile[data-sector]');
+    await expect(sectorTiles.first()).toBeVisible({ timeout: 10000 });
+    const techTile = page.locator('.hm-tile[data-sector="Technology"]');
+    await techTile.click();
+    await expect(techTile).toHaveClass(/active-hm-cell/);
     await expect(page.locator('#sector-detail-title')).toContainText('Information Technology');
 
-    await topTerminal.click();
-    await expect(topTerminal).toHaveClass(/active/);
+    // 3. Return to Analyze (Core Terminal)
+    const wsAnalyze = page.locator('#ws-btn-analyze');
+    await wsAnalyze.click();
+    await expect(wsAnalyze).toHaveClass(/active/);
+    await expect(page.locator('#workspace-analyze')).toHaveClass(/active/);
 
     // Browser History (Back / Forward)
     await page.goBack();
-    await expect(page.locator('#panel-sectors')).toHaveClass(/active/);
+    await expect(page.locator('#workspace-markets')).toHaveClass(/active/);
     await page.goForward();
-    await expect(topTerminal).toHaveClass(/active/);
+    await expect(page.locator('#workspace-analyze')).toHaveClass(/active/);
 
     // Ensure chart panel is active for chart toolbar controls
-    await page.locator('.ws-tab-btn[data-tab="chart"]').click();
+    await page.locator('.ws-sub-btn[data-analyze-tab="chart"]').click();
     await expect(page.locator('#panel-chart')).toHaveClass(/active/);
 
     // 9. Specialized Subsystem Checks
@@ -410,16 +389,22 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await closeDrawerBtn.click();
     await expect(drawer).not.toHaveClass(/open/);
 
-    // Correlation Period Buttons
-    await page.locator('.ws-tab-btn[data-tab="correlation"]').click();
+    // Compare Workspace: Correlation Multi-Asset Matrix & Period Buttons
+    await page.locator('#ws-btn-compare').click();
+    await expect(page.locator('#workspace-compare')).toHaveClass(/active/);
     for (const period of ['6mo', '3mo', '1mo', '1y']) {
       const periodBtn = page.locator(`.corr-tf-btn[data-period="${period}"]`);
       await periodBtn.click();
       await expect(periodBtn).toHaveClass(/active/);
     }
 
-    // Scenario Lab
-    await page.locator('.ws-tab-btn[data-tab="lab"]').click();
+    // Research Workspace: Scenarios, Notebook, and Report Subsystems
+    await page.locator('#ws-btn-research').click();
+    await expect(page.locator('#workspace-research')).toHaveClass(/active/);
+
+    // Scenario Lab sub-tab
+    await page.locator('.ws-sub-btn[data-research-tab="lab"]').click();
+    await expect(page.locator('#panel-lab')).toHaveClass(/active/);
     const revSlider = page.locator('#scenario-rev-slider');
     await revSlider.fill('15');
     await revSlider.dispatchEvent('input');
@@ -431,16 +416,20 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await expect(page.locator('#backtest-results-container')).toContainText('Strategy Win Rate', { timeout: 5000 });
 
     // Research Notebook Inputs & Export
-    await page.locator('.ws-tab-btn[data-tab="notebook"]').click();
+    await page.locator('.ws-sub-btn[data-research-tab="notebook"]').click();
+    await expect(page.locator('#panel-notebook')).toHaveClass(/active/);
     const thesisArea = page.locator('#nb-thesis');
     await thesisArea.fill('Test Thesis: Leading market share with robust balance sheet.');
     await page.locator('#export-notebook-btn').click();
 
     // Research Report Buttons
-    await page.locator('.ws-tab-btn[data-tab="report"]').click();
+    await page.locator('.ws-sub-btn[data-research-tab="report"]').click();
+    await expect(page.locator('#panel-report')).toHaveClass(/active/);
     await expect(page.locator('#report-rendered-preview')).toBeVisible();
 
-    // Screener Card Universes & Query Builder
+    // Discover Workspace: Screener Universes & Query Builder
+    await page.locator('#ws-btn-discover').click();
+    await expect(page.locator('#workspace-discover')).toHaveClass(/active/);
     const usScreenerTab = page.locator('.screener-tab-btn[data-universe="us_mega_caps"]');
     await usScreenerTab.click();
     await expect(usScreenerTab).toHaveClass(/active/);
@@ -485,9 +474,10 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
   });
 
   test('Phase 5: Global keyboard shortcuts (/ search, Esc dismiss, number keys)', async ({ page }) => {
+    const histPromise = page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
+    await histPromise;
 
     const searchInput = page.locator('#global-search-input');
     const drawer = page.locator('#watchlist-drawer');
@@ -521,12 +511,13 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
   });
 
   test('Phase 5: Preference persistence across page reloads (interval, range, chart type, drawer)', async ({ page }) => {
+    const histPromise = page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
+    await histPromise;
 
-    // Switch interval to 'W'
-    const intW = page.locator('.interval-btn[data-interval="W"]');
+    // Switch interval to '1wk' / 'W'
+    const intW = page.locator('.interval-btn[data-interval="1wk"], .interval-btn[data-interval="W"]');
     await intW.click();
     await expect(intW).toHaveClass(/active/);
 
@@ -541,12 +532,13 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await expect(railChartType).toHaveAttribute('data-type', 'line');
 
     // Reload page to test persistence
+    const reloadHistPromise = page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
     await page.reload();
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForResponse((res) => res.url().includes('/history') && res.status() === 200, { timeout: 30000 });
+    await reloadHistPromise;
 
-    // Assert that 'W', '5Y', and 'line' were restored from localStorage!
-    await expect(page.locator('.interval-btn[data-interval="W"]')).toHaveClass(/active/);
+    // Assert that 'W' (or '1wk'), '5Y', and 'line' were restored from localStorage!
+    await expect(page.locator('.interval-btn[data-interval="1wk"], .interval-btn[data-interval="W"]')).toHaveClass(/active/);
     await expect(page.locator('.range-btn[data-range="5Y"]')).toHaveClass(/active/);
     await expect(page.locator('#tv-rail-chart-type')).toHaveAttribute('data-type', 'line');
 
@@ -569,6 +561,7 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
   test('Markets workspace benchmark table renders normalized indices and honest status', async ({ page }) => {
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#workspace-markets')).toHaveClass(/active/, { timeout: 15000 });
 
     // Wait for the table body to render rows
     const tableBody = page.locator('#markets-indices-table-body');

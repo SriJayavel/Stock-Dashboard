@@ -2854,6 +2854,7 @@ async function loadMarketOverview(force = false) {
     return;
   }
   try {
+    const data = await api.getMarketOverview();
     const prevHero = (marketDataCache?.hero?.price != null) ? marketDataCache.hero : loadPersistedMarketSnapshot()?.hero;
     const hasLiveIndices = (data?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
     if (hasLiveIndices) {
