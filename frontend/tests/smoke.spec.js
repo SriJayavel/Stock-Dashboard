@@ -595,6 +595,14 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
 
     // Feed source should display the 4-tier status (LIVE, DELAYED, CACHED, or OFFLINE), never "FEED FEED"
     const feedSource = page.locator('#mkt-feed-source');
+
+    // Wait for feed status to be valid (WebSocket may need time to connect)
+    await expect.poll(async () => {
+      const text = await feedSource.innerText();
+      const validStatuses = ['LIVE', 'DELAYED', 'CACHED', 'OFFLINE'];
+      return validStatuses.some(s => text.includes(s)) && !text.includes('FEED FEED');
+    }, { timeout: 15000, message: 'Feed status did not become valid' }).toBe(true);
+
     const feedText = await feedSource.innerText();
     expect(feedText).not.toContain('FEED FEED');
     const validStatuses = ['LIVE', 'DELAYED', 'CACHED', 'OFFLINE'];
