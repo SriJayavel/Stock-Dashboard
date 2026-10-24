@@ -5189,7 +5189,7 @@ function renderBenchmarkSkeleton(tableBody) {
   tableBody.innerHTML = skeletonIndices
     .map(
       (item) => `
-      <tr class="markets-index-row skeleton-row" data-sym="${item.symbol}">
+      <tr class="benchmark-row skeleton-row" data-sym="${item.symbol}">
         <td>
           <div class="region-badge">
             <span class="region-tag ${item.tagClass}">${item.tag}</span>
@@ -5220,12 +5220,15 @@ function renderBenchmarkSkeleton(tableBody) {
     .join('');
 }
 
-// Render Markets State Bar
+// Render Markets Status Strip
 function renderMarketStateBar(data) {
   const sessionDot = document.getElementById('mkt-session-dot');
   const sessionName = document.getElementById('mkt-session-name');
-  const globalStatus = document.getElementById('mkt-global-status');
-  const breadthVal = document.getElementById('mkt-breadth-val');
+  const nseStatus = document.getElementById('mkt-nse-status');
+  const nyseStatus = document.getElementById('mkt-nyse-status');
+  const lseStatus = document.getElementById('mkt-lse-status');
+  const tyoStatus = document.getElementById('mkt-tyo-status');
+  const feedDot = document.getElementById('mkt-feed-dot');
   const feedSource = document.getElementById('mkt-feed-source');
   const lastUpdated = document.getElementById('mkt-last-updated');
 
@@ -5267,39 +5270,38 @@ function renderMarketStateBar(data) {
   // Session Dot reflects FEED CONNECTIVITY only.
   // Exchange open/closed hours are already shown in SESSION NAME and GLOBAL DESKS — do not duplicate here.
   if (sessionDot) {
-    sessionDot.className = dotStatusClass ? `mkt-session-dot ${dotStatusClass}` : 'mkt-session-dot';
+    // Map feed status to session dot status classes
+    const sessionDotClass = {
+      'LIVE': 'live',
+      'DELAYED': 'delayed',
+      'CACHED': 'stale',
+      'OFFLINE': 'offline'
+    }[feedStatus] || 'closed';
+    sessionDot.className = `status-session-dot ${sessionDotClass}`;
   }
 
   if (sessionName) {
     sessionName.textContent = `NSE INDIA: ${telemetry.nse}`;
   }
-  if (globalStatus) {
-    globalStatus.textContent = `NSE ${telemetry.nse} · NYSE ${telemetry.nyse} · LSE ${telemetry.lse} · TYO ${telemetry.tyo}`;
-    globalStatus.title = 'Scheduled exchange hours are DST-aware; browser status does not validate official exchange holidays.';
-  }
 
-  // Compute Benchmark Advance / Decline
-  if (breadthVal) {
-    let adv = 0;
-    let dec = 0;
-    let flt = 0;
-    const knownChanges = indices.filter((i) => typeof i.change_pct === 'number' && Number.isFinite(i.change_pct));
-    knownChanges.forEach((i) => {
-      const p = i.change_pct;
-      if (p > 0.05) adv++;
-      else if (p < -0.05) dec++;
-      else flt++;
-    });
-    breadthVal.textContent = knownChanges.length
-      ? `${adv} ADV · ${dec} DEC · ${flt} FLT${knownChanges.length < indices.length ? ` · ${indices.length - knownChanges.length} N/A` : ''}`
-      : (isFeedActive ? '0 ADV · 0 DEC' : 'FEED OFFLINE');
-  }
+  // Update individual global desk statuses
+  if (nseStatus) nseStatus.textContent = telemetry.nse;
+  if (nyseStatus) nyseStatus.textContent = telemetry.nyse;
+  if (lseStatus) lseStatus.textContent = telemetry.lse;
+  if (tyoStatus) tyoStatus.textContent = telemetry.tyo;
 
-  if (feedSource) {
+  if (feedDot && feedSource) {
     const rawSrc = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
     const srcLabel = rawSrc ? rawSrc.toUpperCase() : 'DATA FEED';
     feedSource.textContent = `${srcLabel} · ${feedStatus}`;
-    feedSource.className = `mkt-state-val-mono ${feedStatus.toLowerCase()}`;
+    // Map feed status to feed dot classes
+    const feedDotClass = {
+      'LIVE': 'live',
+      'DELAYED': 'stale',
+      'CACHED': 'stale',
+      'OFFLINE': 'offline'
+    }[feedStatus] || 'offline';
+    feedDot.className = `status-feed-dot ${feedDotClass}`;
   }
 
   if (lastUpdated) {
@@ -5626,7 +5628,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
   }
 
   // Render compact skeleton placeholders immediately if table is unpopulated
-  if (tableBody && !tableBody.querySelector('.markets-index-row:not(.skeleton-row)')) {
+  if (tableBody && !tableBody.querySelector('.benchmark-row:not(.skeleton-row)')) {
     const hasAnyPrice = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
     if (!hasAnyPrice) {
       renderBenchmarkSkeleton(tableBody);
@@ -5779,29 +5781,38 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
         const isDefaultActive = idx === 0;
 
+        // Map region codes to benchmark region tag classes
+        const regionTagClass = {
+          'india': 'india',
+          'americas': 'americas',
+          'europe': 'europe',
+          'asia': 'asia',
+          'asia-pacific': 'asia'
+        }[m.regionCode] || 'india';
+
         return `
-          <tr class="markets-index-row ${isDefaultActive ? 'active-row' : ''}" 
-              data-region="${m.regionCode}" 
-              data-sym="${m.symbol}" 
-              tabindex="0" 
-              role="row" 
+          <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}"
+              data-region="${m.regionCode}"
+              data-sym="${m.symbol}"
+              tabindex="0"
+              role="row"
               aria-label="${m.name} (${m.symbol}) ${m.region}: ${priceDisplay}, change ${pctDisplay}">
             <td>
-              <div class="region-badge" title="Scheduled hours only; exchange holiday status is not checked in the browser.">
-                <span class="region-tag ${m.tagClass}">${m.tag}</span>
-                <span>${m.region}<small class="market-session-label">${m.session_status}</small></span>
+              <div class="benchmark-region" title="Scheduled hours only; exchange holiday status is not checked in the browser.">
+                <span class="benchmark-region-tag ${regionTagClass}">${m.tag}</span>
+                <span class="benchmark-region-name">${m.region}</span>
               </div>
             </td>
             <td>
-              <strong style="color: var(--text); font-weight: 600;">${m.name}</strong>
+              <strong style="color: var(--fg); font-weight: 600;">${m.name}</strong>
             </td>
             <td>
-              <span style="font-family: var(--font-mono); color: var(--accent); font-size: 11.5px; font-weight: 600;">${m.symbol}</span>
+              <span style="font-family: var(--font-mono); color: var(--accent-primary); font-size: 11.5px; font-weight: 600;">${m.symbol}</span>
             </td>
-            <td class="text-right" style="font-family: var(--font-mono); font-weight: 700; color: var(--text);">
+            <td class="text-right" style="font-family: var(--font-mono); font-weight: 700; color: var(--fg);">
               ${priceDisplay}
             </td>
-            <td class="text-right" style="font-family: var(--font-mono); color: var(--text-dim);">
+            <td class="text-right" style="font-family: var(--font-mono); color: var(--fg-muted);">
               ${chgDisplay}
             </td>
             <td class="text-right">
@@ -5824,12 +5835,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     // Single Click: Inspect security context
     // Double Click: Open chart analysis workstation
     // Keyboard Enter / Space: Open chart analysis workstation
-    tableBody.querySelectorAll('.markets-index-row').forEach((row) => {
+    tableBody.querySelectorAll('.benchmark-row').forEach((row) => {
       const sym = row.getAttribute('data-sym');
       const found = processedBenchmarks.find((b) => b.symbol === sym);
 
       const activateRow = () => {
-        tableBody.querySelectorAll('.markets-index-row').forEach((r) => r.classList.remove('active-row'));
+        tableBody.querySelectorAll('.benchmark-row').forEach((r) => r.classList.remove('active-row'));
         row.classList.add('active-row');
         if (found) {
           renderMarketInspector('index', found);
@@ -5856,13 +5867,17 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     });
 
     // Wire Filter Buttons
-    const filterBtns = document.querySelectorAll('#markets-indices-filter .markets-filter-btn');
+    const filterBtns = document.querySelectorAll('#markets-indices-filter .benchmark-filter-btn');
     filterBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        filterBtns.forEach((b) => b.classList.remove('active'));
+        filterBtns.forEach((b) => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
         btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
         const region = btn.getAttribute('data-region');
-        tableBody.querySelectorAll('.markets-index-row').forEach((row) => {
+        tableBody.querySelectorAll('.benchmark-row').forEach((row) => {
           if (region === 'all' || row.getAttribute('data-region') === region) {
             row.style.display = '';
           } else {
@@ -5884,18 +5899,19 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     titleEl.textContent = `${sector.display_name} Constituents`;
     const proxyStr = [sector.indian_proxy, sector.benchmark_etf].filter(Boolean).join(' · ');
     metaEl.innerHTML = `
-      ${proxyStr ? `Benchmark: <span style="font-family: var(--font-mono); color: var(--accent);">${proxyStr}</span> · ` : ''}
+      ${proxyStr ? `Benchmark: <span style="font-family: var(--font-mono); color: var(--accent-primary);">${proxyStr}</span> · ` : ''}
       Sector Anchor: <span style="font-family: var(--font-mono); color: var(--gain); font-weight: 600;">${sector.leading_asset}</span> ·
       ${sector.constituents?.length || 0} Tracked Equities
     `;
 
     bodyEl.innerHTML = `
-      <table class="markets-data-table">
+      <table class="constituent-table">
         <thead>
           <tr>
             <th style="width: 140px;">Symbol</th>
             <th>Constituent Role</th>
             <th style="width: 160px;">Benchmark Proxy</th>
+            <th style="width: 90px;">Weight</th>
             <th class="text-right" style="width: 130px;">Status</th>
             <th class="text-right" style="width: 100px;">Action</th>
           </tr>
@@ -5906,27 +5922,31 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               const isLeader = sym === sector.leading_asset;
               const isCurrent = sym === currentSymbol;
               const roleName = idx === 0 ? 'Primary Sector Anchor' : idx < 3 ? 'Core Component Leader' : 'Constituent Peer';
+              const weight = sector.weights?.[sym] ? `${sector.weights[sym].toFixed(2)}%` : '—';
 
               return `
-                <tr class="sector-constituent-row" data-sym="${sym}">
+                <tr class="constituent-row" data-sym="${sym}">
                   <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-family: var(--font-mono); font-weight: 700; color: ${isCurrent ? 'var(--accent)' : '#ffffff'}; font-size: 12.5px;">${sym}</span>
+                      <span class="constituent-symbol ${isCurrent ? 'active' : ''}">${sym}</span>
                       ${isLeader ? `<span class="region-tag tag-in">Leader</span>` : ''}
                       ${isCurrent ? `<span class="region-tag tag-ap">Active</span>` : ''}
                     </div>
                   </td>
-                  <td style="color: var(--text-dim); font-size: 11.5px;">
+                  <td class="constituent-role">
                     ${roleName}
                   </td>
-                  <td style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">
+                  <td class="constituent-proxy">
                     ${proxyStr || 'Sector Cohort'}
                   </td>
-                  <td class="text-right">
-                    <span class="tape-chg chg-neutral" style="font-size: 10px; padding: 1px 6px;">Tracked</span>
+                  <td class="constituent-weight text-right">
+                    ${weight}
                   </td>
                   <td class="text-right">
-                    <button class="ghost-btn markets-table-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
+                    <span class="constituent-status">Tracked</span>
+                  </td>
+                  <td class="text-right">
+                    <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
                   </td>
                 </tr>
               `;
@@ -5937,9 +5957,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     `;
 
     // Row Click: Inspect constituent, DO NOT NAVIGATE
-    bodyEl.querySelectorAll('.sector-constituent-row').forEach((row) => {
+    bodyEl.querySelectorAll('.constituent-row').forEach((row) => {
       row.addEventListener('click', () => {
-        bodyEl.querySelectorAll('.sector-constituent-row').forEach((r) => r.classList.remove('active-row'));
+        bodyEl.querySelectorAll('.constituent-row').forEach((r) => r.classList.remove('active-row'));
         row.classList.add('active-row');
         const sym = row.getAttribute('data-sym');
         if (sym) {
@@ -5969,7 +5989,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       searchInput.value = '';
       searchInput.oninput = () => {
         const q = (searchInput.value || '').trim().toUpperCase();
-        bodyEl.querySelectorAll('.sector-constituent-row').forEach((row) => {
+        bodyEl.querySelectorAll('.constituent-row').forEach((row) => {
           const sym = row.getAttribute('data-sym') || '';
           row.style.display = sym.toUpperCase().includes(q) ? '' : 'none';
         });
@@ -5977,10 +5997,10 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     }
   }
 
-  // 3. Render Sector Performance Heatmap Matrix
+  // 3. Render Sector Performance Matrix
   if (secGrid) {
     // Show loading state
-    secGrid.innerHTML = '<div class="hm-tile hm-loading" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--text-dim);"><span>Loading sector data...</span></div>';
+    secGrid.innerHTML = '<div class="sector-tile sector-loading" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--fg-muted);"><span>Loading sector data...</span></div>';
 
     try {
       if (!cachedSectorData || force || (now - lastSectorIntelligenceFetchTime > 60000)) {
@@ -5996,7 +6016,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
       if (sectorData.length === 0) {
         // Empty state
-        secGrid.innerHTML = '<div class="hm-tile hm-empty" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--text-muted);"><span style="font-weight: 500; margin-bottom: 4px;">No sector data available</span><span style="font-size: 11px;">Sector intelligence feed returned no data.</span><span style="font-size: 10px; margin-top: 4px;">Last checked: ' + new Date().toLocaleTimeString() + '</span></div>';
+        secGrid.innerHTML = '<div class="sector-tile sector-empty" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--fg-muted);"><span style="font-weight: 500; margin-bottom: 4px;">No sector data available</span><span style="font-size: 11px;">Sector intelligence feed returned no data.</span><span style="font-size: 10px; margin-top: 4px;">Last checked: ' + new Date().toLocaleTimeString() + '</span></div>';
         return;
       }
 
@@ -6007,33 +6027,53 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           const isSelected = currentSelectedSector?.sector === s.sector;
           const proxy = s.indian_proxy || s.benchmark_etf || 'SECTOR';
 
-          let intensityClass = 'hm-neutral';
-          if (perf >= 1.5) intensityClass = 'hm-gain-strong';
-          else if (perf >= 0.2) intensityClass = 'hm-gain-mod';
-          else if (perf <= -1.5) intensityClass = 'hm-loss-strong';
-          else if (perf <= -0.2) intensityClass = 'hm-loss-mod';
+          // Determine performance intensity class
+          let intensityClass = 'sector-neutral';
+          if (perf >= 1.5) intensityClass = 'sector-gain-strong';
+          else if (perf >= 0.2) intensityClass = 'sector-gain-mod';
+          else if (perf <= -1.5) intensityClass = 'sector-loss-strong';
+          else if (perf <= -0.2) intensityClass = 'sector-loss-mod';
 
           // Determine tile state
           let stateClass = '';
           if (s.constituents === undefined || s.constituents === null) {
-            stateClass = 'hm-unavailable';
+            stateClass = 'sector-unavailable';
           } else if (s.constituents.length === 0) {
-            stateClass = 'hm-empty';
+            stateClass = 'sector-empty';
           }
 
+          // Breadth data (advancing/declining)
+          const advancing = s.advancing || 0;
+          const declining = s.declining || 0;
+          const total = advancing + declining;
+          const breadthPct = total > 0 ? Math.round((advancing / total) * 100) : 50;
+          const breadthGain = advancing >= declining;
+
+          // Region badge
+          const region = (s.region || '').toLowerCase();
+          const regionBadge = region ? `<span class="sector-region-badge ${region}">${region.toUpperCase()}</span>` : '';
+
+          const returnClass = isUp ? 'gain' : isUp === false ? 'loss' : 'neutral';
+
           return `
-            <div class="hm-tile ${intensityClass} ${isSelected ? 'active-hm-cell' : ''} ${stateClass}" data-sector="${s.sector}" tabindex="0" role="button" aria-label="${s.display_name}, ${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%${stateClass ? ', ' + stateClass.replace('hm-', '') : ''}" title="Click or press Enter to inspect ${s.display_name}">
-              <div class="hm-tile-header">
-                <span class="hm-sector-name">${s.display_name}</span>
-                <span class="hm-sector-perf ${isUp ? 'text-gain' : 'text-loss'}">${isUp ? '+' : ''}${perf.toFixed(2)}%</span>
+            <div class="sector-tile ${intensityClass} ${isSelected ? 'active-sector' : ''} ${stateClass}" data-sector="${s.sector}" tabindex="0" role="button" aria-label="${s.display_name}, ${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%${stateClass ? ', ' + stateClass.replace('sector-', '') : ''}" title="Click or press Enter to inspect ${s.display_name}">
+              <div class="sector-tile-header">
+                <span class="sector-name">${s.display_name}</span>
+                ${regionBadge}
               </div>
-              <div class="hm-meta-line">
-                <span class="hm-proxy-tag">${proxy}</span>
-                <span class="hm-leader-tag">Leader: <strong>${s.leading_asset || '—'}</strong></span>
+              <div class="sector-tile-body">
+                <div class="sector-return ${returnClass}">${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%</div>
+                <div class="sector-breadth">
+                  <div class="sector-breadth-bar ${breadthGain ? 'gain' : 'loss'}" style="width: ${breadthPct}%;"></div>
+                </div>
+                <div class="sector-breadth-label">
+                  <span class="advancing">${advancing} Adv</span>
+                  <span class="declining">${declining} Dec</span>
+                </div>
               </div>
-              <div class="hm-footer-bar">
-                <span>${s.constituents?.length || 0} Constituents${stateClass === 'hm-unavailable' ? ' (unavailable)' : stateClass === 'hm-empty' ? ' (no data)' : ''}</span>
-                <span style="font-family: var(--font-mono); font-size: 10px; color: ${isUp ? 'var(--gain)' : 'var(--loss)'};">${isUp ? '+ Net Bullish' : '− Net Bearish'}</span>
+              <div class="sector-tile-footer">
+                <span class="sector-meta">${s.constituents?.length || 0} Constituents</span>
+                <span class="sector-meta">${s.leading_asset || '—'} Leader</span>
               </div>
             </div>
           `;
@@ -6041,13 +6081,13 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         .join('');
 
       // Wire tile click -> select sector and update Context Inspector
-      secGrid.querySelectorAll('.hm-tile').forEach((tile) => {
+      secGrid.querySelectorAll('.sector-tile').forEach((tile) => {
         const handleActivate = () => {
           const secName = tile.getAttribute('data-sector');
           const found = sectorData.find((s) => s.sector === secName);
           if (found) {
             currentSelectedSector = found;
-            secGrid.querySelectorAll('.hm-tile').forEach((t) => t.classList.toggle('active-hm-cell', t.getAttribute('data-sector') === secName));
+            secGrid.querySelectorAll('.sector-tile').forEach((t) => t.classList.toggle('active-sector', t.getAttribute('data-sector') === secName));
             renderSelectedSectorDetail(found);
             renderMarketInspector('sector', found);
           }
@@ -6067,7 +6107,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     } catch (e) {
       console.warn('Failed sector intelligence load:', e);
       // Show error state
-      secGrid.innerHTML = '<div class="hm-tile hm-error" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--text-dim);"><span style="font-weight: 500; margin-bottom: 4px; color: var(--loss);">Failed to load sector data</span><span style="font-size: 11px;">The sector intelligence feed is currently unreachable.</span><span style="font-size: 10px; margin-top: 4px;">Last attempt: ' + new Date().toLocaleTimeString() + '</span></div>';
+      secGrid.innerHTML = '<div class="sector-tile sector-error" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--fg-muted);"><span style="font-weight: 500; margin-bottom: 4px; color: var(--loss);">Failed to load sector data</span><span style="font-size: 11px;">The sector intelligence feed is currently unreachable.</span><span style="font-size: 10px; margin-top: 4px;">Last attempt: ' + new Date().toLocaleTimeString() + '</span></div>';
     }
   }
 
@@ -6094,7 +6134,7 @@ function renderMacroRadarPanels() {
 
   const renderList = (container, items, category) => {
     if (!items || items.length === 0) {
-      container.innerHTML = '<div style="padding: 12px; color: var(--text-dim); font-size: 11px;">Feed offline</div>';
+      container.innerHTML = '<div class="macro-empty">Feed offline</div>';
       return;
     }
     container.innerHTML = items

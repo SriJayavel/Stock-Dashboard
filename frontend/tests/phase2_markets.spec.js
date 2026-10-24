@@ -60,7 +60,7 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
     await page.waitForLoadState('domcontentloaded');
 
     // Assert skeleton rows exist without conditional checks
-    const skeletonRows = page.locator('.markets-index-row.skeleton-row');
+    const skeletonRows = page.locator('.benchmark-row.skeleton-row');
     await expect(skeletonRows.first()).toBeVisible({ timeout: 8000 });
     const skeletonCount = await skeletonRows.count();
     expect(skeletonCount).toBe(7);
@@ -81,16 +81,16 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
     await page.waitForLoadState('domcontentloaded');
 
     // Wait for real populated rows
-    const realRows = page.locator('.markets-index-row:not(.skeleton-row)');
+    const realRows = page.locator('.benchmark-row:not(.skeleton-row)');
     await expect(realRows.first()).toBeVisible({ timeout: 10000 });
 
     const rowCount = await realRows.count();
     expect(rowCount).toBe(7);
 
     // Check specific critical benchmarks
-    const niftyRow = page.locator('.markets-index-row[data-sym="^NSEI"]');
-    const sensexRow = page.locator('.markets-index-row[data-sym="^BSESN"]');
-    const sp500Row = page.locator('.markets-index-row[data-sym="^GSPC"]');
+    const niftyRow = page.locator('.benchmark-row[data-sym="^NSEI"]');
+    const sensexRow = page.locator('.benchmark-row[data-sym="^BSESN"]');
+    const sp500Row = page.locator('.benchmark-row[data-sym="^GSPC"]');
 
     await expect(niftyRow).toBeVisible();
     await expect(sensexRow).toBeVisible();
@@ -114,7 +114,7 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
 
-    const realRows = page.locator('.markets-index-row:not(.skeleton-row)');
+    const realRows = page.locator('.benchmark-row:not(.skeleton-row)');
     await expect(realRows.first()).toBeVisible({ timeout: 10000 });
 
     const secondRow = realRows.nth(1); // ^BSESN
@@ -151,7 +151,7 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#workspace-markets')).toHaveClass(/active/, { timeout: 10000 });
-    const firstRow = page.locator('.markets-index-row[data-sym="^NSEI"]');
+    const firstRow = page.locator('.benchmark-row[data-sym="^NSEI"]');
     await expect(firstRow).toBeVisible({ timeout: 10000 });
     await firstRow.focus();
     await page.keyboard.press('Enter');
@@ -162,7 +162,7 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#workspace-markets')).toHaveClass(/active/, { timeout: 10000 });
-    const thirdRow = page.locator('.markets-index-row[data-sym="^NSEBANK"]');
+    const thirdRow = page.locator('.benchmark-row[data-sym="^NSEBANK"]');
     await expect(thirdRow).toBeVisible({ timeout: 10000 });
     await thirdRow.focus();
     await page.keyboard.press('Space');
@@ -255,7 +255,7 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
     await expect(breadthEl).toContainText('FEED OFFLINE');
 
     // Benchmark rows show empty/unavailable state
-    const firstRow = page.locator('.markets-index-row').first();
+    const firstRow = page.locator('.benchmark-row').first();
     await expect(firstRow).toBeVisible();
     await expect(firstRow.locator('td').nth(3)).toContainText('—');
     await expect(firstRow.locator('td').nth(6)).toContainText('Feed unavailable');

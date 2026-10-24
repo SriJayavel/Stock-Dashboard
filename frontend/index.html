@@ -277,71 +277,62 @@
               </div>
             </header>
             <!-- MARKETS STATE / SESSION CONTEXT BAR -->
-            <div class="markets-state-bar" id="markets-state-bar">
-              <div class="markets-state-left">
-                <div class="markets-state-item">
-                  <span class="mkt-session-dot" id="mkt-session-dot"></span>
-                  <span class="mkt-state-title" id="mkt-session-name">NSE INDIA: REGULAR SESSION</span>
+            <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
+              <div class="status-strip-left">
+                <div class="status-session">
+                  <span class="status-session-dot" id="mkt-session-dot" aria-hidden="true"></span>
+                  <span class="status-session-name" id="mkt-session-name">NSE INDIA: REGULAR SESSION</span>
                 </div>
-                <div class="markets-state-sep"></div>
-                <div class="markets-state-item">
-                  <span class="mkt-state-label">GLOBAL DESKS</span>
-                  <span class="mkt-state-val" id="mkt-global-status">NSE OPEN · NYSE PRE · LSE OPEN · TYO CLOSED</span>
-                </div>
-                <div class="markets-state-sep"></div>
-                <div class="markets-state-item">
-                  <span class="mkt-state-label">BENCHMARK BREADTH</span>
-                  <span class="mkt-state-val" id="mkt-breadth-val">-- ADV · -- DEC</span>
+                <div class="status-desks" id="status-desks">
+                  <span class="status-desk"><span class="status-desk-label">NSE</span><span class="status-desk-val" id="mkt-nse-status">OPEN</span></span>
+                  <span class="status-desk"><span class="status-desk-label">NYSE</span><span class="status-desk-val" id="mkt-nyse-status">PRE</span></span>
+                  <span class="status-desk"><span class="status-desk-label">LSE</span><span class="status-desk-val" id="mkt-lse-status">OPEN</span></span>
+                  <span class="status-desk"><span class="status-desk-label">TYO</span><span class="status-desk-val" id="mkt-tyo-status">CLOSED</span></span>
                 </div>
               </div>
-              <div class="markets-state-right">
-                <div class="markets-state-item">
-                  <span class="mkt-state-label">FEED</span>
-                  <span class="mkt-state-val-mono" id="mkt-feed-source"></span>
+              <div class="status-strip-right">
+                <div class="status-feed">
+                  <span class="status-feed-dot" id="mkt-feed-dot" aria-hidden="true"></span>
+                  <span class="status-feed-text" id="mkt-feed-source">LIVE</span>
                 </div>
-                <div class="markets-state-sep"></div>
-                <div class="markets-state-item">
-                  <span class="mkt-state-label">UPDATED</span>
-                  <span class="mkt-state-val-mono" id="mkt-last-updated">SYNCED</span>
-                </div>
-                <button class="markets-sync-btn" id="mkt-refresh-btn" type="button" title="Refresh the market feeds and reload the latest snapshot.">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                  <span>RELOAD</span>
+                <span class="status-updated" id="mkt-last-updated">—</span>
+                <button class="status-reload-btn" id="mkt-refresh-btn" type="button" title="Refresh market feeds" aria-label="Refresh market feeds">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                 </button>
               </div>
             </div>
 
-            <!-- SECTION 1: GLOBAL BENCHMARK INDICES (COMPACT FINANCIAL DATA TABLE) -->
+            <!-- SECTION 1: GLOBAL BENCHMARK INDICES (BENCHMARK BOARD) -->
             <div class="ws-section-block">
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h3 class="section-sub-title">Global Benchmark Indices</h3>
                   <span class="section-sub-caption">Latest available benchmark snapshot across India, Americas, Europe, and Asia-Pacific. Click a row to inspect or analyze it.</span>
                 </div>
-                <div class="markets-filter-strip" id="markets-indices-filter">
-                  <button class="markets-filter-btn active" data-region="all">All (7)</button>
-                  <button class="markets-filter-btn" data-region="india">India (3)</button>
-                  <button class="markets-filter-btn" data-region="americas">Americas (2)</button>
-                  <button class="markets-filter-btn" data-region="europe">Europe (1)</button>
-                  <button class="markets-filter-btn" data-region="asia">Asia (1)</button>
+                <div class="benchmark-board-filter" id="markets-indices-filter">
+                  <button class="benchmark-filter-btn active" data-region="all" role="tab" aria-selected="true">All</button>
+                  <button class="benchmark-filter-btn" data-region="india" role="tab" aria-selected="false">India</button>
+                  <button class="benchmark-filter-btn" data-region="americas" role="tab" aria-selected="false">Americas</button>
+                  <button class="benchmark-filter-btn" data-region="europe" role="tab" aria-selected="false">Europe</button>
+                  <button class="benchmark-filter-btn" data-region="asia" role="tab" aria-selected="false">Asia</button>
                 </div>
               </div>
 
-              <div class="markets-table-wrapper">
-                <table class="markets-data-table" id="markets-indices-table">
+              <div class="benchmark-board-wrapper" id="markets-indices-board">
+                <table class="benchmark-board-table" id="markets-indices-table">
                   <thead>
                     <tr>
-                      <th style="width: 140px;">Region</th>
-                      <th>Benchmark Index</th>
-                      <th style="width: 100px;">Ticker</th>
-                      <th class="text-right" style="width: 120px;">Last Price</th>
-                      <th class="text-right" style="width: 110px;">Net Change</th>
-                      <th class="text-right" style="width: 105px;">Prev. Close %</th>
-                      <th style="width: 220px;">Session Range</th>
+                      <th scope="col" style="width: 160px;">Region</th>
+                      <th scope="col">Benchmark Index</th>
+                      <th scope="col" style="width: 100px;">Ticker</th>
+                      <th scope="col" class="text-right" style="width: 130px;">Last Price</th>
+                      <th scope="col" class="text-right" style="width: 120px;">Net Change</th>
+                      <th scope="col" class="text-right" style="width: 115px;">Change %</th>
+                      <th scope="col" style="width: 240px;">Session Range</th>
                     </tr>
                   </thead>
                   <tbody id="markets-indices-table-body">
-                    <tr>
+                    <tr class="loading-row">
                       <td colspan="7" class="table-loading-cell">Loading global benchmark feed...</td>
                     </tr>
                   </tbody>
@@ -349,25 +340,25 @@
               </div>
             </div>
 
-            <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP -->
+            <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP (SECTOR MATRIX) -->
             <div class="ws-section-block">
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h3 class="section-sub-title">Sector Rotation &amp; Performance Heatmap</h3>
                   <span class="section-sub-caption">Proportional sector return matrix. Color intensity maps to 24H return. Click any cell to inspect constituent breadth.</span>
                 </div>
-                <div class="heatmap-legend">
+                <div class="sector-matrix-legend" id="sector-matrix-legend" role="img" aria-label="Sector return legend">
                   <span class="legend-label">Return:</span>
-                  <span class="heatmap-swatch hm-swatch-deep-loss">&le; -1.5%</span>
-                  <span class="heatmap-swatch hm-swatch-mod-loss">-0.5%</span>
-                  <span class="heatmap-swatch hm-swatch-neutral">Flat</span>
-                  <span class="heatmap-swatch hm-swatch-mod-gain">+0.5%</span>
-                  <span class="heatmap-swatch hm-swatch-deep-gain">&ge; +1.5%</span>
+                  <span class="sector-swatch sector-swatch-deep-loss" aria-label="Strong loss">&le; -1.5%</span>
+                  <span class="sector-swatch sector-swatch-mod-loss" aria-label="Moderate loss">-0.5%</span>
+                  <span class="sector-swatch sector-swatch-neutral" aria-label="Flat">Flat</span>
+                  <span class="sector-swatch sector-swatch-mod-gain" aria-label="Moderate gain">+0.5%</span>
+                  <span class="sector-swatch sector-swatch-deep-gain" aria-label="Strong gain">&ge; +1.5%</span>
                 </div>
               </div>
 
-              <!-- Authentic Financial Sector Heatmap Grid -->
-              <div class="sector-heatmap-matrix" id="sector-intelligence-grid">
+              <!-- Authentic Financial Sector Matrix Grid -->
+              <div class="sector-matrix-grid" id="sector-intelligence-grid" role="grid" aria-label="Sector performance matrix">
                 <!-- Populated dynamically via loadAndRenderSectorsAndMarketMap -->
               </div>
             </div>
@@ -379,12 +370,12 @@
                   <h3 class="section-sub-title" id="sector-detail-title">Sector Constituents</h3>
                   <span class="section-sub-caption" id="sector-detail-meta">Loading constituent telemetry...</span>
                 </div>
-                <div class="table-quick-search-wrap">
-                  <label for="sector-constituent-search" class="auth-field-label">Filter Constituents</label>
-                  <input type="text" id="sector-constituent-search" class="markets-table-search" placeholder="Filter constituents..." autocomplete="off" />
+                <div class="constituent-search-wrap">
+                  <label for="sector-constituent-search" class="constituent-search-label">Filter Constituents</label>
+                  <input type="text" id="sector-constituent-search" class="constituent-search" placeholder="Filter constituents..." autocomplete="off" />
                 </div>
               </div>
-              <div class="markets-table-wrapper" id="sector-detail-body">
+              <div class="constituent-table-wrap" id="sector-detail-body">
                 <!-- Populated via JavaScript renderSelectedSectorDetail -->
               </div>
             </div>
@@ -397,9 +388,9 @@
                   <span class="section-sub-caption">Spot currencies, sovereign commodities, and digital asset markets</span>
                 </div>
               </div>
-              <div class="macro-radar-matrix">
-                <!-- Macro Column 1: Forex Major Pairs -->
-                <div class="macro-radar-panel">
+              <div class="macro-panels-grid">
+                <!-- Macro Panel 1: Forex Major Pairs -->
+                <div class="macro-panel">
                   <div class="macro-panel-header">
                     <div class="macro-panel-title">Forex Major Pairs</div>
                     <span class="macro-panel-badge">FX Spot</span>
@@ -409,8 +400,8 @@
                   </div>
                 </div>
 
-                <!-- Macro Column 2: Commodities -->
-                <div class="macro-radar-panel">
+                <!-- Macro Panel 2: Commodities -->
+                <div class="macro-panel">
                   <div class="macro-panel-header">
                     <div class="macro-panel-title">Commodities</div>
                     <span class="macro-panel-badge">Futures</span>
@@ -420,8 +411,8 @@
                   </div>
                 </div>
 
-                <!-- Macro Column 3: Digital Assets -->
-                <div class="macro-radar-panel">
+                <!-- Macro Panel 3: Digital Assets -->
+                <div class="macro-panel">
                   <div class="macro-panel-header">
                     <div class="macro-panel-title">Digital Assets</div>
                     <span class="macro-panel-badge">24H Spot</span>

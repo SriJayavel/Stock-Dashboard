@@ -568,13 +568,13 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await expect(tableBody).toBeVisible();
 
     // Check that all 7 benchmark rows exist (7 indices, no more)
-    const niftyRow = page.locator('.markets-index-row[data-sym="^NSEI"]');
+    const niftyRow = page.locator('.benchmark-row[data-sym="^NSEI"]');
     await expect(niftyRow).toBeVisible({ timeout: 15000 });
 
-    const sensexRow = page.locator('.markets-index-row[data-sym="^BSESN"]');
+    const sensexRow = page.locator('.benchmark-row[data-sym="^BSESN"]');
     await expect(sensexRow).toBeVisible();
 
-    const sp500Row = page.locator('.markets-index-row[data-sym="^GSPC"]');
+    const sp500Row = page.locator('.benchmark-row[data-sym="^GSPC"]');
     await expect(sp500Row).toBeVisible();
 
     // Verify 7-column thead (Action column removed)
@@ -586,7 +586,7 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await expect(actionBtns).toHaveCount(0);
 
     // Each real (non-skeleton) row should have tabindex="0" for keyboard navigation
-    const firstRealRow = page.locator('.markets-index-row:not(.skeleton-row)').first();
+    const firstRealRow = page.locator('.benchmark-row:not(.skeleton-row)').first();
     await expect(firstRealRow).toHaveAttribute('tabindex', '0');
 
     // Verify session dot exists and has a valid status class
