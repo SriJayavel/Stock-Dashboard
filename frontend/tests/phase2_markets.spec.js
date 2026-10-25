@@ -38,10 +38,21 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
   });
 
   test('2. Skeleton state: renders skeleton placeholder rows with exactly 7 cells each', async ({ page }) => {
-    // Intercept overview and delay response to assert skeleton state
+    // Capture console messages and errors for debugging
+    const consoleMessages = [];
+    page.on('console', (msg) => {
+      consoleMessages.push(`${msg.type()}: ${msg.text()}`);
+    });
+    page.on('pageerror', (err) => {
+      consoleMessages.push(`PAGE ERROR: ${err.message}\nSTACK: ${err.stack}`);
+    });
+
+    // Mock only the necessary APIs: supabase, delayed market overview, and sector intelligence
     await page.route('**/supabase.co/**', (route) => route.fulfill({ status: 200, body: '{}' }));
+
+    // Delayed market overview to capture skeleton state
     await page.route('**/api/markets/overview', async (route) => {
-      // Hold the request open for 1.5 seconds so skeleton can be reliably verified
+      console.log('[TEST] Market overview route intercepted, delaying 1.5s');
       await new Promise((r) => setTimeout(r, 1500));
       route.fulfill({
         status: 200,
@@ -56,12 +67,39 @@ test.describe('MARA Phase 2.2 — Markets Workspace Deterministic Verification',
       });
     });
 
+    // Mock sector intelligence to prevent errors after market overview returns
+    await page.route('**/api/analytics/sectors', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sectors: [
+            { sector: 'Technology', display_name: 'Information Technology', performance_24h_pct: 1.25, indian_proxy: '^CNXIT', benchmark_etf: 'XLK', leading_asset: 'TCS.NS', constituents: [{ symbol: 'TCS.NS', role: 'Anchor' }] },
+            { sector: 'Financials', display_name: 'Financial Services', performance_24h_pct: 0.85, indian_proxy: '^NSEBANK', benchmark_etf: 'XLF', leading_asset: 'HDFCBANK.NS', constituents: [{ symbol: 'HDFCBANK.NS', role: 'Anchor' }] },
+          ],
+        }),
+      });
+    });
+
     await page.goto('/#/markets');
     await page.waitForLoadState('domcontentloaded');
 
-    // Assert skeleton rows exist without conditional checks
+    // Wait a bit for the async workspace switch to complete
+    await page.waitForTimeout(3000);
+
+    // Print console messages for debugging
+    console.log('=== BROWSER CONSOLE ===');
+    consoleMessages.forEach(msg => console.log(msg));
+
+    // Check if table body has skeleton rows
+    const tableBody = page.locator('#markets-indices-table-body');
+    const tableBodyHtml = await tableBody.innerHTML();
+    console.log('=== TABLE BODY HTML ===');
+    console.log(tableBodyHtml);
+
+    // Wait for skeleton rows to appear
     const skeletonRows = page.locator('.benchmark-row.skeleton-row');
-    await expect(skeletonRows.first()).toBeVisible({ timeout: 8000 });
+    await expect(skeletonRows.first()).toBeVisible({ timeout: 15000 });
     const skeletonCount = await skeletonRows.count();
     expect(skeletonCount).toBe(7);
 

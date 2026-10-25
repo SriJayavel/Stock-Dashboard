@@ -305,6 +305,7 @@
                   <span class="status-feed-dot" id="mkt-feed-dot" aria-hidden="true"></span>
                   <span class="status-feed-text" id="mkt-feed-source">LIVE</span>
                 </div>
+                <span class="status-breadth" id="mkt-breadth-val">—</span>
                 <span class="status-updated" id="mkt-last-updated">—</span>
                 <div class="ws-status-indicator" id="ws-status-indicator" data-status="disconnected" aria-live="polite" aria-atomic="true">○ OFFLINE</div>
                 <button class="status-reload-btn" id="mkt-refresh-btn" type="button" title="Refresh market feeds" aria-label="Refresh market feeds">
@@ -440,14 +441,13 @@
                       <th scope="col" style="width: 100px;">Ticker</th>
                       <th scope="col" class="text-right" style="width: 130px;">Last Price</th>
                       <th scope="col" class="text-right" style="width: 120px;">Net Change</th>
-                      <th scope="col" class="text-right" style="width: 115px;">Change %</th>
+                      <th scope="col" class="text-right" style="width: 115px;">Prev. Close %</th>
                       <th scope="col" style="width: 240px;">Session Range</th>
-                      <th scope="col" style="width: 140px;">Intraday</th>
                     </tr>
                   </thead>
                   <tbody id="markets-indices-table-body">
                     <tr class="loading-row">
-                      <td colspan="8" class="table-loading-cell">Loading global benchmark feed...</td>
+                      <td colspan="7" class="table-loading-cell">Loading global benchmark feed...</td>
                     </tr>
                   </tbody>
                 </table>

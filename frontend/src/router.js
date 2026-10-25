@@ -15,6 +15,19 @@ export class HashRouter {
     this.isNavigating = false;
 
     window.addEventListener('hashchange', () => this.handleHashChange());
+    // pageshow fires on navigation including hash changes that don't trigger hashchange
+    window.addEventListener('pageshow', () => this.handlePageshow());
+  }
+
+  handlePageshow() {
+    // Check if hash has changed without triggering hashchange
+    const currentHash = window.location.hash;
+    if (this._ignoreHash && currentHash === this._ignoreHash) {
+      return;
+    }
+    if (currentHash && currentHash !== this.currentRoute?.raw) {
+      this.handleHashChange();
+    }
   }
 
   /**
@@ -175,7 +188,7 @@ export class HashRouter {
    * @param {string} path - e.g. "/symbol/TCS.NS/valuation"
    * @param {boolean} replace - Replace browser history entry instead of pushing
    */
-  navigate(path, replace = false) {
+  async navigate(path, replace = false) {
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
     const targetHash = `#${cleanPath}`;
 
@@ -190,7 +203,9 @@ export class HashRouter {
 
     const route = this.parseHash(targetHash);
     this.currentRoute = route;
-    this.notify(route);
+    this._ignoreHash = targetHash; // Mark this hash as self-triggered
+    await this.notify(route);
+    this._ignoreHash = null;
 
     setTimeout(() => {
       this.isNavigating = false;
@@ -200,21 +215,29 @@ export class HashRouter {
   /**
    * Handle native browser hashchange event (back/forward or manual address bar edit)
    */
-  handleHashChange() {
-    if (this.isNavigating) return;
-    const route = this.parseHash(window.location.hash);
+  async handleHashChange() {
+    const currentHash = window.location.hash;
+    // Ignore hashchanges we triggered ourselves via navigate()
+    if (this._ignoreHash && currentHash === this._ignoreHash) {
+      return;
+    }
+    const route = this.parseHash(currentHash);
     this.currentRoute = route;
-    this.notify(route);
+    await this.notify(route);
   }
 
-  notify(route) {
-    this.listeners.forEach((callback) => {
-      try {
-        callback(route);
-      } catch (err) {
-        console.error('Error in route change listener:', err);
-      }
-    });
+  async notify(route) {
+    await Promise.all(
+      Array.from(this.listeners).map((callback) => {
+        try {
+          const result = callback(route);
+          return result instanceof Promise ? result : Promise.resolve();
+        } catch (err) {
+          console.error('Error in route change listener:', err);
+          return Promise.resolve();
+        }
+      })
+    );
   }
 
   /**
@@ -223,14 +246,14 @@ export class HashRouter {
    * If hash exists, dispatches the parsed route.
    * @param {Object} fallback - { symbol: 'TCS.NS', tab: 'chart' }
    */
-  init(fallback = { symbol: 'TCS.NS', tab: 'chart' }) {
+  async init(fallback = { symbol: 'TCS.NS', tab: 'chart' }) {
     const current = this.parseHash(window.location.hash);
     if (current.type === 'root' || current.type === 'unknown') {
       const defaultPath = this.formatSymbolRoute(fallback.symbol, fallback.tab);
       this.navigate(defaultPath, true);
     } else {
       this.currentRoute = current;
-      this.notify(current);
+      await this.notify(current);
     }
   }
 }

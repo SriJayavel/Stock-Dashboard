@@ -200,7 +200,7 @@ async function startApp() {
 
   window.apexRouter = router;
   // Initialize router immediately so the active asset chart mounts without waiting for macro overview
-  router.init({ symbol: 'TCS.NS', tab: 'chart' });
+  await router.init({ symbol: 'TCS.NS', tab: 'chart' });
 
   // Fetch secondary feeds concurrently in background
   Promise.allSettled([
@@ -267,9 +267,14 @@ export async function setWorkspace(workspaceName, subTab = null) {
     setMonitorSubTab(targetSub);
   } else if (workspaceName === 'markets') {
     // Use traditional markets view to properly utilize redesign.css with Signal Sigma design
+    // Render skeleton immediately for benchmark table while data loads
+    const tableBody = document.getElementById('markets-indices-table-body');
+    if (tableBody && !tableBody.querySelector('.benchmark-row:not(.skeleton-row)')) {
+      renderBenchmarkSkeleton(tableBody);
+    }
     // Await data loading so the feed shows immediately when user opens Markets
     await loadMarketOverview(true); // force refresh on workspace switch
-    await loadAndRenderSectorsAndMarketMap(true);
+    await loadAndRenderSectorsAndMarketMap(false); // use cached data from loadMarketOverview
 
     // Initialize WebSocket for live market updates
     initMarketWebSocket();
@@ -732,7 +737,8 @@ export function syncChartControlsToPreferences() {
       .map(part => part.charAt(0))
       .join('')
       .toUpperCase();
-    railChartType.querySelector('.tv-tb-symbol').textContent = buttonContent;
+    const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
+    if (railChartTypeSymbol) railChartTypeSymbol.textContent = buttonContent;
   }
 
   // 4. Sync Scale buttons (log / pct)
@@ -1694,7 +1700,8 @@ function setupTradingViewChromeControls() {
       .map(part => part.charAt(0))
       .join('')
       .toUpperCase();
-    railChartType.querySelector('.tv-tb-symbol').textContent = initialButtonContent;
+    const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
+    if (railChartTypeSymbol) railChartTypeSymbol.textContent = initialButtonContent;
 
     let lastClick = 0;
     railChartType.addEventListener('click', (e) => {
@@ -1713,7 +1720,8 @@ function setupTradingViewChromeControls() {
             .map(part => part.charAt(0))
             .join('')
             .toUpperCase();
-          railChartType.querySelector('.tv-tb-symbol').textContent = buttonContent;
+          const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
+          if (railChartTypeSymbol) railChartTypeSymbol.textContent = buttonContent;
           if (chartInstance) {
             chartInstance.setChartType(nextType);
           }
@@ -1731,7 +1739,8 @@ function setupTradingViewChromeControls() {
             .map(part => part.charAt(0))
             .join('')
             .toUpperCase();
-          railChartType.querySelector('.tv-tb-symbol').textContent = buttonContent;
+          const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
+          if (railChartTypeSymbol) railChartTypeSymbol.textContent = buttonContent;
           if (chartInstance) {
             chartInstance.setChartType(nextType);
           }
@@ -2889,6 +2898,7 @@ function renderMarketTicker(data) {
 }
 
 // Load and Render Market Overview
+let lastMarketOverviewFetchDuration = 0;
 async function loadMarketOverview(force = false) {
   const now = Date.now();
   if (!force && marketDataCache?.macro && (now - lastMarketOverviewFetchTime < 60000)) {
@@ -2896,8 +2906,10 @@ async function loadMarketOverview(force = false) {
     renderMarketTicker(marketDataCache);
     return;
   }
+  const fetchStart = Date.now();
   try {
     const data = await api.getMarketOverview();
+    lastMarketOverviewFetchDuration = Date.now() - fetchStart;
     const prevHero = (marketDataCache?.hero?.price != null) ? marketDataCache.hero : loadPersistedMarketSnapshot()?.hero;
     const hasLiveIndices = (data?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
     if (hasLiveIndices) {
@@ -5386,6 +5398,26 @@ function renderMarketStateBar(data) {
     feedDot.className = `status-feed-dot ${feedDotClass}`;
   }
 
+  // Update market breadth indicator
+  const breadthVal = document.getElementById('mkt-breadth-val');
+  if (breadthVal) {
+    if (!isFeedActive) {
+      breadthVal.textContent = 'FEED OFFLINE';
+    } else if (isStale) {
+      breadthVal.textContent = 'STALE DATA';
+    } else {
+      // Calculate breadth from indices if available
+      const advancing = indices.filter((i) => typeof i.change === 'number' && i.change > 0).length;
+      const declining = indices.filter((i) => typeof i.change === 'number' && i.change < 0).length;
+      const total = advancing + declining;
+      if (total > 0) {
+        breadthVal.textContent = `${advancing} ↑ / ${declining} ↓`;
+      } else {
+        breadthVal.textContent = '—';
+      }
+    }
+  }
+
   if (lastUpdated) {
     const timestamp = data?.last_successful_update || data?.last_updated || data?.hero?.retrieved_at;
     if (timestamp) {
@@ -6269,6 +6301,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
   const now = Date.now();
   const hasCachedIndices = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
+  // Check if we have ANY market data cache (even empty) to avoid refetching immediately after loadMarketOverview
+  const hasAnyMarketCache = Boolean(marketDataCache?.macro?.Indices);
 
   // If no cached data in memory, check persistent storage
   if (!hasCachedIndices) {
@@ -6278,16 +6312,14 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     }
   }
 
-  // Render compact skeleton placeholders immediately if table is unpopulated
-  if (tableBody && !tableBody.querySelector('.benchmark-row:not(.skeleton-row)')) {
-    const hasAnyPrice = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
-    if (!hasAnyPrice) {
-      renderBenchmarkSkeleton(tableBody);
-    }
+  // Render compact skeleton placeholders immediately if table is unpopulated AND no cache exists
+  if (tableBody && !marketDataCache && !tableBody.querySelector('.benchmark-row:not(.skeleton-row)')) {
+    renderBenchmarkSkeleton(tableBody);
   }
 
   // Ensure live macro/indices data is ready in marketDataCache (cached for 60s)
-  if (!hasCachedIndices || force || (now - lastMarketOverviewFetchTime > 60000)) {
+  // Don't refetch if we already have cache (even empty) unless forced or expired
+  if ((!hasAnyMarketCache && !hasCachedIndices) || force || (now - lastMarketOverviewFetchTime > 60000)) {
     try {
       const incoming = await api.getMarketOverview();
       lastMarketOverviewFetchTime = now;
@@ -6334,7 +6366,13 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
   ];
 
   // 1. Populate Global Benchmark Indices Table
-  if (tableBody) {
+  // Render benchmark rows if we have market data cache (even empty - shows "—" for missing prices)
+  // Only show skeleton when there's no cache at all (initial load) OR when still loading (slow fetch)
+  const hasAnyValidPrice = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
+  const isSlowFetch = lastMarketOverviewFetchDuration > 1000; // Fetch took >1s, likely loading state
+  const shouldShowSkeleton = !hasAnyValidPrice && !force && isSlowFetch;
+
+  if (tableBody && marketDataCache && !shouldShowSkeleton) {
     const liveIndices = (marketDataCache?.macro?.Indices || []);
     const lookup = new Map(liveIndices.map((i) => [i.symbol, i]));
     const sessionTelemetry = getMarketSessionTelemetry();
@@ -6472,9 +6510,6 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             <td>
               ${rangeHtml}
             </td>
-            <td>
-              <canvas class="benchmark-sparkline loading" width="140" height="32" aria-label="${m.name} intraday trend"></canvas>
-            </td>
           </tr>
         `;
       })
@@ -6495,17 +6530,15 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       const sym = row.getAttribute('data-sym');
       const found = processedBenchmarks.find((b) => b.symbol === sym);
 
-      // Roving tabindex - only first row is in tab order initially
-      row.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+      // All benchmark rows are focusable (tabindex="0") for accessibility
+      row.setAttribute('tabindex', '0');
       row.setAttribute('role', 'row');
 
       const activateRow = () => {
         benchmarkRows.forEach((r) => {
           r.classList.remove('active-row');
-          r.setAttribute('tabindex', '-1');
         });
         row.classList.add('active-row');
-        row.setAttribute('tabindex', '0');
         row.focus({ preventScroll: true });
         if (found) {
           renderMarketInspector('index', found);
@@ -6546,7 +6579,6 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         }
       });
     });
-
     // Wire Filter Buttons
     const filterBtns = document.querySelectorAll('#markets-indices-filter .benchmark-filter-btn');
     filterBtns.forEach((btn) => {
@@ -6569,7 +6601,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         await refreshWSSubscriptions();
       });
     });
-  }
+  } // Close if (tableBody && marketDataCache)
 
   // 2. Render Sector Constituents Detail Function
   function renderSelectedSectorDetail(sector) {
@@ -6899,8 +6931,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     skeleton.classList.add('loaded');
   }
 
-  // Render sparklines for benchmark rows
-  renderBenchmarkSparklines();
+  // Sparklines removed - Intraday column no longer in table
+  // renderBenchmarkSparklines();
 }
 
 async function renderBenchmarkSparklines() {
