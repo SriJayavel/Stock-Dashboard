@@ -1789,6 +1789,12 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 
 .ws-section-block {
   margin-bottom: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-hairline);
+}
+.ws-section-block:first-child {
+  padding-top: 0;
+  border-top: none;
 }
 .section-sub-header {
   display: flex;
@@ -2695,9 +2701,9 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   letter-spacing: 0.3px;
 }
 .market-data-state.unavailable {
-  background: var(--surface-2);
-  color: var(--fg-subtle);
-  border: 1px solid var(--border-soft);
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--loss);
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
 .market-data-state.eod-close {
   background: rgba(245, 158, 11, 0.12);
