@@ -472,10 +472,18 @@ html.light-theme .mara-unified-header {
 
 .ws-section-block {
   margin-bottom: 24px;
-  padding: 0;
+  padding-top: 24px;
+  padding-bottom: 0;
   background: transparent;
-  border: 0;
+  border-top: 1px solid var(--border-hairline);
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
   box-shadow: none;
+}
+.ws-section-block:first-child {
+  padding-top: 0;
+  border-top: none;
 }
 
 .section-sub-header {
