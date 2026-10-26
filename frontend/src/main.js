@@ -5736,7 +5736,6 @@ function stopMarketTimelineUpdater() {
     exportPngBtn.dataset.bound = 'true';
     exportPngBtn.addEventListener('click', () => exportMarketsData('png'));
   }
-}
 
 // Export Markets Data (CSV/PNG)
 function exportMarketsData(format) {
