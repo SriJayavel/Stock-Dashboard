@@ -845,7 +845,7 @@ def compute_cached_portfolio_risk(positions: List[Dict[str, Any]], period: str =
 
 
 def get_sector_intelligence() -> Dict[str, Any]:
-    """Return performance and constituent summaries for benchmark sectors."""
+    """Return performance and constituent summaries for benchmark sectors with market breadth."""
     cache_key = "sectors_intelligence"
     cached = cache.get("analytics", cache_key)
     if cached:
@@ -853,16 +853,39 @@ def get_sector_intelligence() -> Dict[str, Any]:
 
     sectors_out = []
     for sec_name, meta in BENCHMARK_SECTORS.items():
+        constituents = meta["constituents"]
+        advancing = 0
+        declining = 0
+        unchanged = 0
+        constituent_perf = []
+
+        # Calculate breadth across all constituents
+        for sym in constituents:
+            try:
+                t = yf.Ticker(sym, session=_yf_session)
+                fast = getattr(t, "fast_info", {})
+                last_p = getattr(fast, "last_price", 0.0) or getattr(fast, "lastPrice", 0.0)
+                prev_c = getattr(fast, "previous_close", 0.0) or getattr(fast, "previousClose", 0.0)
+                if last_p and prev_c and prev_c > 0:
+                    pct = ((last_p - prev_c) / prev_c) * 100
+                    constituent_perf.append({"symbol": sym, "change_pct": round(pct, 2)})
+                    if pct > 0.1:
+                        advancing += 1
+                    elif pct < -0.1:
+                        declining += 1
+                    else:
+                        unchanged += 1
+            except Exception:
+                pass
+
+        # Sector performance from leading asset
         perf_pct = 0.0
-        try:
-            t = yf.Ticker(meta["constituents"][0])
-            fast = getattr(t, "fast_info", {})
-            last_p = getattr(fast, "last_price", 0.0) or getattr(fast, "lastPrice", 0.0)
-            prev_c = getattr(fast, "previous_close", 0.0) or getattr(fast, "previousClose", 0.0)
-            if last_p and prev_c and prev_c > 0:
-                perf_pct = round(((last_p - prev_c) / prev_c) * 100, 2)
-        except Exception:
-            pass
+        if constituent_perf:
+            leading = next((c for c in constituent_perf if c["symbol"] == meta["constituents"][0]), None)
+            if leading:
+                perf_pct = leading["change_pct"]
+            else:
+                perf_pct = round(sum(c["change_pct"] for c in constituent_perf) / len(constituent_perf), 2)
 
         sectors_out.append({
             "sector": sec_name,
@@ -870,8 +893,14 @@ def get_sector_intelligence() -> Dict[str, Any]:
             "benchmark_etf": meta.get("benchmark_etf", ""),
             "indian_proxy": meta.get("indian_proxy", ""),
             "performance_24h_pct": perf_pct,
-            "constituents": meta["constituents"],
+            "constituents": constituents,
             "leading_asset": meta["constituents"][0],
+            "advancing": advancing,
+            "declining": declining,
+            "unchanged": unchanged,
+            "total_constituents": len(constituents),
+            "breadth_pct": round((advancing / len(constituents)) * 100, 1) if constituents else 0,
+            "constituent_performance": constituent_perf,
         })
 
     result = {

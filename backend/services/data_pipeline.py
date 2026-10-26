@@ -944,18 +944,67 @@ def refresh_market_overview(lock_acquired: bool = False) -> dict:
         cache.release_lock("market_overview_refresh")
 
 
+def _wrap_weekend_snapshot(snapshot: dict) -> dict:
+    """
+    Wrap a snapshot for weekend display - marks data as from last trading session
+    and adds weekend indicator.
+    """
+    from datetime import datetime
+    weekend_snapshot = dict(snapshot)
+    weekend_snapshot["is_weekend"] = True
+    weekend_snapshot["weekend_notice"] = "Markets closed — showing last trading session data (Friday close)"
+
+    # Mark all data as weekend/stale
+    if "hero" in weekend_snapshot and weekend_snapshot["hero"]:
+        weekend_snapshot["hero"] = dict(weekend_snapshot["hero"])
+        weekend_snapshot["hero"]["is_weekend"] = True
+        weekend_snapshot["hero"]["freshness"] = "WEEKEND"
+
+    if "macro" in weekend_snapshot:
+        weekend_snapshot["macro"] = {}
+        for category, items in snapshot.get("macro", {}).items():
+            weekend_snapshot["macro"][category] = [
+                {**item, "is_weekend": True, "freshness": "WEEKEND", "is_stale": True}
+                for item in items
+            ]
+
+    if "feed_health" in weekend_snapshot:
+        weekend_snapshot["feed_health"] = {
+            category: "WEEKEND" for category in weekend_snapshot["feed_health"]
+        }
+
+    weekend_snapshot["market_status"] = "weekend"
+    return weekend_snapshot
+
+
 def get_market_overview(refresh: bool = False) -> dict:
     """
     Serve the cached market snapshot to web requests. Upstream market providers are
     contacted only by the scheduled cache warmer (refresh=True), not by page loads.
+    On weekends, serves last available data (Friday close) with weekend indicator.
     """
+    from datetime import datetime
+    import pytz
+
+    # Check if it's weekend (Saturday/Sunday) in UTC
+    utc_now = datetime.utcnow()
+    is_weekend = utc_now.weekday() >= 5  # 5=Saturday, 6=Sunday
+
     cached = cache.get("market", "overview")
     if cached and not refresh:
+        # On weekends, ensure we have data even if cache expired
+        if is_weekend and not cached.get("macro", {}).get("Indices"):
+            # Try to get stale cached data for weekend display
+            stale = cache.get("market", "overview_stale")
+            if stale and stale.get("macro", {}).get("Indices"):
+                return _wrap_weekend_snapshot(stale)
         return cached
 
     if not refresh:
         stale = cache.get("market", "overview_stale")
         if stale:
+            if is_weekend:
+                return _wrap_weekend_snapshot(stale)
             stale_snapshot = dict(stale)
             stale_snapshot["is_stale"] = True
             stale_snapshot["hero"] = {
@@ -978,6 +1027,11 @@ def get_market_overview(refresh: bool = False) -> dict:
                 category: "STALE" for category in stale_snapshot["macro"]
             }
             return stale_snapshot
+        # No cache at all - check for persisted snapshot (weekend fallback)
+        persisted = loadPersistedMarketSnapshot() if 'loadPersistedMarketSnapshot' in globals() else None
+        if persisted and persisted.get("macro", {}).get("Indices"):
+            if is_weekend:
+                return _wrap_weekend_snapshot(persisted)
         return {
             "hero": {
                 "symbol": "^NSEI",

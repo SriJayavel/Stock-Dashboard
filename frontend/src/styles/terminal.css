@@ -3229,6 +3229,20 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 }
 .sector-breadth-label .advancing { color: var(--gain); }
 .sector-breadth-label .declining { color: var(--loss); }
+.sector-breadth-label .unchanged { color: var(--fg-muted); }
+
+.sector-sparkline-wrap {
+  height: 28px;
+  margin-top: 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.sector-sparkline {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 
 .sector-tile-footer {
   display: flex;
@@ -3255,6 +3269,10 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   font-size: 10px;
   color: var(--fg-subtle);
   font-family: var(--font-mono);
+}
+.sector-meta.breadth-pct {
+  color: var(--fg-muted);
+  font-weight: 600;
 }
 
 /* Skeleton loading for sector tiles */

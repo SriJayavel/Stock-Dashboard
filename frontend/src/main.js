@@ -278,11 +278,17 @@ export async function setWorkspace(workspaceName, subTab = null) {
 
     // Initialize WebSocket for live market updates
     initMarketWebSocket();
+
+    // Start market hours timeline updater
+    startMarketTimelineUpdater();
   } else if (previousWorkspace === 'markets' && workspaceName !== 'markets') {
     // Cleanup WebSocket when leaving markets workspace
     const { marketWS } = await import('./api.js');
     marketWS.disconnect();
     marketWSConnected = false;
+
+    // Stop market hours timeline updater
+    stopMarketTimelineUpdater();
   } else if (workspaceName === 'discover') {
     if (subTab) {
       const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
@@ -5486,6 +5492,236 @@ function renderMarketStateBar(data) {
       }
     });
   }
+}
+
+// Render Market Hours Timeline
+function renderMarketHoursTimeline() {
+  const container = document.getElementById('market-timeline-grid');
+  if (!container) return;
+
+  const now = new Date();
+  const markets = [
+    {
+      id: 'nse',
+      name: 'NSE India',
+      tz: 'Asia/Kolkata',
+      open: '09:15',
+      close: '15:30',
+      preOpen: '09:00',
+      postClose: '16:00',
+      currency: '₹',
+      flag: '🇮🇳'
+    },
+    {
+      id: 'nyse',
+      name: 'NYSE / NASDAQ',
+      tz: 'America/New_York',
+      open: '09:30',
+      close: '16:00',
+      preOpen: '04:00',
+      postClose: '20:00',
+      currency: '$',
+      flag: '🇺🇸'
+    },
+    {
+      id: 'lse',
+      name: 'London SE',
+      tz: 'Europe/London',
+      open: '08:00',
+      close: '16:30',
+      preOpen: '07:00',
+      postClose: '17:00',
+      currency: '£',
+      flag: '🇬🇧'
+    },
+    {
+      id: 'tyo',
+      name: 'Tokyo SE',
+      tz: 'Asia/Tokyo',
+      open: '09:00',
+      close: '15:00',
+      preOpen: '08:00',
+      postClose: '15:30',
+      currency: '¥',
+      flag: '🇯🇵',
+      lunch: { start: '11:30', end: '12:30' }
+    },
+    {
+      id: 'hkex',
+      name: 'Hong Kong EX',
+      tz: 'Asia/Hong_Kong',
+      open: '09:30',
+      close: '16:00',
+      preOpen: '09:00',
+      postClose: '16:30',
+      currency: 'HK$',
+      flag: '🇭🇰',
+      lunch: { start: '12:00', end: '13:00' }
+    },
+    {
+      id: 'sse',
+      name: 'Shanghai SE',
+      tz: 'Asia/Shanghai',
+      open: '09:30',
+      close: '15:00',
+      preOpen: '09:15',
+      postClose: '15:30',
+      currency: '¥',
+      flag: '🇨🇳',
+      lunch: { start: '11:30', end: '13:00' }
+    },
+  ];
+
+  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+
+  container.innerHTML = markets.map(market => {
+    // Get current time in market's timezone
+    const marketTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: market.tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      weekday: 'short',
+    }).format(now);
+
+    const [weekday, time] = marketTime.split(', ');
+    const [hours, minutes] = time.split(':').map(Number);
+    const currentMinutes = hours * 60 + minutes;
+
+    // Parse trading hours
+    const [openH, openM] = market.open.split(':').map(Number);
+    const [closeH, closeM] = market.close.split(':').map(Number);
+    const [preOpenH, preOpenM] = market.preOpen.split(':').map(Number);
+    const [postCloseH, postCloseM] = market.postClose.split(':').map(Number);
+
+    const preOpenMinutes = preOpenH * 60 + preOpenM;
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+    const postCloseMinutes = postCloseH * 60 + postCloseM;
+
+    let sessionState = 'CLOSED';
+    let sessionClass = 'closed';
+    let progress = 0;
+    let nextEvent = '';
+
+    if (isWeekend) {
+      sessionState = 'WEEKEND';
+      sessionClass = 'weekend';
+      nextEvent = 'Opens Monday';
+    } else if (currentMinutes < preOpenMinutes) {
+      sessionState = 'PRE-MARKET SOON';
+      sessionClass = 'pre-soon';
+      progress = Math.max(0, (currentMinutes - (preOpenMinutes - 120)) / 120 * 100);
+      nextEvent = `Pre-market opens at ${market.preOpen}`;
+    } else if (currentMinutes < openMinutes) {
+      sessionState = 'PRE-MARKET';
+      sessionClass = 'pre-market';
+      progress = (currentMinutes - preOpenMinutes) / (openMinutes - preOpenMinutes) * 100;
+      nextEvent = `Regular session at ${market.open}`;
+    } else if (market.lunch) {
+      const [lunchStartH, lunchStartM] = market.lunch.start.split(':').map(Number);
+      const [lunchEndH, lunchEndM] = market.lunch.end.split(':').map(Number);
+      const lunchStartMin = lunchStartH * 60 + lunchStartM;
+      const lunchEndMin = lunchEndH * 60 + lunchEndM;
+
+      if (currentMinutes >= lunchStartMin && currentMinutes < lunchEndMin) {
+        sessionState = 'LUNCH BREAK';
+        sessionClass = 'lunch';
+        progress = (currentMinutes - lunchStartMin) / (lunchEndMin - lunchStartMin) * 100;
+        nextEvent = `Resumes at ${market.lunch.end}`;
+      } else if (currentMinutes < closeMinutes) {
+        sessionState = 'OPEN';
+        sessionClass = 'open';
+        const sessionElapsed = currentMinutes - openMinutes;
+        const totalSession = closeMinutes - openMinutes - (lunchEndMin - lunchStartMin);
+        const sessionElapsedAdj = currentMinutes > lunchEndMin ? sessionElapsed - (lunchEndMin - lunchStartMin) : sessionElapsed;
+        progress = Math.max(0, Math.min(100, (sessionElapsedAdj / totalSession) * 100));
+        nextEvent = `Closes at ${market.close}`;
+      } else if (currentMinutes < postCloseMinutes) {
+        sessionState = 'AFTER-HOURS';
+        sessionClass = 'after-hours';
+        progress = (currentMinutes - closeMinutes) / (postCloseMinutes - closeMinutes) * 100;
+        nextEvent = `After-hours ends at ${market.postClose}`;
+      } else {
+        sessionState = 'CLOSED';
+        sessionClass = 'closed';
+        nextEvent = `Opens tomorrow at ${market.preOpen}`;
+      }
+    } else {
+      if (currentMinutes < closeMinutes) {
+        sessionState = 'OPEN';
+        sessionClass = 'open';
+        progress = (currentMinutes - openMinutes) / (closeMinutes - openMinutes) * 100;
+        nextEvent = `Closes at ${market.close}`;
+      } else if (currentMinutes < postCloseMinutes) {
+        sessionState = 'AFTER-HOURS';
+        sessionClass = 'after-hours';
+        progress = (currentMinutes - closeMinutes) / (postCloseMinutes - closeMinutes) * 100;
+        nextEvent = `After-hours ends at ${market.postClose}`;
+      } else {
+        sessionState = 'CLOSED';
+        sessionClass = 'closed';
+        nextEvent = `Opens tomorrow at ${market.preOpen}`;
+      }
+    }
+
+    // Weekend overrides
+    if (isWeekend) {
+      sessionState = 'WEEKEND';
+      sessionClass = 'weekend';
+      progress = 0;
+      nextEvent = 'Opens Monday';
+    }
+
+    return `
+      <div class="market-timeline-row ${sessionClass}" data-market="${market.id}" role="listitem">
+        <div class="market-timeline-header">
+          <span class="market-flag">${market.flag}</span>
+          <span class="market-name">${market.name}</span>
+          <span class="market-timezone">${weekday} ${time}</span>
+        </div>
+        <div class="market-timeline-track">
+          <div class="market-timeline-bar">
+            <div class="market-timeline-progress" style="width: ${progress}%;"></div>
+            ${!isWeekend ? `
+              <div class="market-timeline-markers">
+                <span class="market-marker pre-market" style="left: ${(preOpenMinutes / (24*60)) * 100}%;" title="Pre-market: ${market.preOpen}">${market.preOpen}</span>
+                <span class="market-marker regular" style="left: ${(openMinutes / (24*60)) * 100}%;" title="Open: ${market.open}">${market.open}</span>
+                <span class="market-marker regular" style="left: ${(closeMinutes / (24*60)) * 100}%;" title="Close: ${market.close}">${market.close}</span>
+                <span class="market-marker after-hours" style="left: ${(postCloseMinutes / (24*60)) * 100}%;" title="After-hours ends: ${market.postClose}">${market.postClose}</span>
+                ${market.lunch ? `
+                  <span class="market-marker lunch" style="left: ${(parseInt(market.lunch.start.split(':')[0])*60 + parseInt(market.lunch.start.split(':')[1])) / (24*60) * 100}%;" title="Lunch: ${market.lunch.start}">${market.lunch.start}</span>
+                  <span class="market-marker lunch" style="left: ${(parseInt(market.lunch.end.split(':')[0])*60 + parseInt(market.lunch.end.split(':')[1])) / (24*60) * 100}%;" title="Resume: ${market.lunch.end}">${market.lunch.end}</span>
+                ` : ''}
+              </div>
+            ` : ''}
+            ${!isWeekend && currentMinutes >= preOpenMinutes && currentMinutes <= postCloseMinutes ? `
+              <div class="market-timeline-now" style="left: ${(currentMinutes / (24*60)) * 100}%;" title="Current time: ${time}"></div>
+            ` : ''}
+          </div>
+        </div>
+        <div class="market-timeline-status">
+          <span class="market-status-badge ${sessionClass}">${sessionState}</span>
+          <span class="market-next-event">${nextEvent}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Initialize market hours timeline updates (every minute)
+let marketTimelineInterval = null;
+function startMarketTimelineUpdater() {
+  if (marketTimelineInterval) clearInterval(marketTimelineInterval);
+  renderMarketHoursTimeline();
+  marketTimelineInterval = setInterval(renderMarketHoursTimeline, 60000);
+}
+function stopMarketTimelineUpdater() {
+  if (marketTimelineInterval) {
+    clearInterval(marketTimelineInterval);
+    marketTimelineInterval = null;
+  }
+}
 
   // Export CSV button
   const exportCsvBtn = document.getElementById('mkt-export-csv-btn');
@@ -6798,7 +7034,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           // Breadth data (advancing/declining)
           const advancing = s.advancing || 0;
           const declining = s.declining || 0;
-          const total = advancing + declining;
+          const unchanged = s.unchanged || 0;
+          const total = advancing + declining + unchanged;
           const breadthPct = total > 0 ? Math.round((advancing / total) * 100) : 50;
           const breadthGain = advancing >= declining;
 
@@ -6808,8 +7045,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
           const returnClass = isUp ? 'gain' : isUp === false ? 'loss' : 'neutral';
 
+          // Generate sparkline data from constituent performance
+          const sparklineData = s.constituent_performance || [];
+          const sparklineId = `sparkline-${s.sector.replace(/\s+/g, '-')}`;
+
           return `
-            <div class="sector-tile ${intensityClass} ${isSelected ? 'active-sector' : ''} ${stateClass}" data-sector="${s.sector}" tabindex="0" role="button" aria-label="${s.display_name}, ${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%${stateClass ? ', ' + stateClass.replace('sector-', '') : ''}" title="Click or press Enter to inspect ${s.display_name}">
+            <div class="sector-tile ${intensityClass} ${isSelected ? 'active-sector' : ''} ${stateClass}" data-sector="${s.sector}" tabindex="0" role="button" aria-label="${s.display_name}, ${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%, Breadth: ${breadthPct}% adv${stateClass ? ', ' + stateClass.replace('sector-', '') : ''}" title="Click or press Enter to inspect ${s.display_name}">
               <div class="sector-tile-header">
                 <span class="sector-name">${s.display_name}</span>
                 ${regionBadge}
@@ -6822,11 +7063,17 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
                 <div class="sector-breadth-label">
                   <span class="advancing">${advancing} Adv</span>
                   <span class="declining">${declining} Dec</span>
+                  ${unchanged > 0 ? `<span class="unchanged">${unchanged} Unch</span>` : ''}
                 </div>
+                ${sparklineData.length > 0 ? `
+                <div class="sector-sparkline-wrap" title="Constituent performance distribution">
+                  <canvas class="sector-sparkline" id="${sparklineId}" width="120" height="28" aria-label="Performance distribution"></canvas>
+                </div>` : ''}
               </div>
               <div class="sector-tile-footer">
                 <span class="sector-meta">${s.constituents?.length || 0} Constituents</span>
                 <span class="sector-meta">${s.leading_asset || '—'} Leader</span>
+                <span class="sector-meta breadth-pct">${breadthPct}% Breadth</span>
               </div>
             </div>
           `;
@@ -6915,6 +7162,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       if (currentSelectedSector) {
         renderSelectedSectorDetail(currentSelectedSector);
       }
+
+      // Render sector sparklines
+      renderSectorSparklines(sectorData);
     } catch (e) {
       console.warn('Failed sector intelligence load:', e);
       // Show error state
@@ -6933,6 +7183,64 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
   // Sparklines removed - Intraday column no longer in table
   // renderBenchmarkSparklines();
+}
+
+// Render sector performance sparklines
+function renderSectorSparklines(sectorData) {
+  if (!sectorData || sectorData.length === 0) return;
+
+  sectorData.forEach((s) => {
+    const canvas = document.getElementById(`sparkline-${s.sector.replace(/\s+/g, '-')}`);
+    if (!canvas) return;
+
+    const perfData = s.constituent_performance || [];
+    if (perfData.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const width = rect.width;
+    const height = rect.height;
+    const padding = 2;
+
+    // Clear
+    ctx.clearRect(0, 0, width, height);
+
+    // Sort by performance
+    const sorted = [...perfData].sort((a, b) => a.change_pct - b.change_pct);
+    const maxAbs = Math.max(
+      Math.abs(sorted[0].change_pct),
+      Math.abs(sorted[sorted.length - 1].change_pct)
+    ) || 1;
+
+    const barWidth = (width - padding * 2) / sorted.length;
+
+    // Draw zero line
+    const zeroY = height / 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, zeroY);
+    ctx.lineTo(width - padding, zeroY);
+    ctx.stroke();
+
+    // Draw bars
+    sorted.forEach((d, i) => {
+      const x = padding + i * barWidth;
+      const barH = Math.min((Math.abs(d.change_pct) / maxAbs) * (height / 2 - padding), height / 2 - padding);
+      const y = d.change_pct >= 0 ? zeroY - barH : zeroY;
+      const h = Math.max(barH, 1);
+
+      ctx.fillStyle = d.change_pct >= 0
+        ? 'rgba(34, 171, 148, 0.8)'
+        : 'rgba(242, 54, 69, 0.8)';
+      ctx.fillRect(x + 0.5, y, barWidth - 1, h);
+    });
+  });
 }
 
 async function renderBenchmarkSparklines() {
