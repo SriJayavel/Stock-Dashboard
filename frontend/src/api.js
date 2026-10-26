@@ -9,8 +9,14 @@ import { auth, getAuthToken } from './auth.js';
 // Falls back to empty string in development to use Vite's dev proxy.
 const RAW_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
 const API_BASE = RAW_BASE ? RAW_BASE.replace(/\/+$/, '') : '';
-const WS_BASE = RAW_BASE ? RAW_BASE.replace(/^http/, 'ws').replace(/\/+$/, '') :
-  (typeof window !== 'undefined' ? `ws://${window.location.host}` : '');
+
+// Determine WebSocket protocol based on page protocol (wss for HTTPS, ws for HTTP)
+const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+const WS_PROTOCOL = isSecure ? 'wss:' : 'ws:';
+
+const WS_BASE = RAW_BASE
+  ? RAW_BASE.replace(/^http/, WS_PROTOCOL.replace(':', '')).replace(/\/+$/, '')
+  : (typeof window !== 'undefined' ? `${WS_PROTOCOL}//${window.location.host}` : '');
 
 class ApiClient {
   constructor() {

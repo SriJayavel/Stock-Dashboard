@@ -5575,24 +5575,35 @@ function renderMarketHoursTimeline() {
   const isWeekend = now.getDay() === 0 || now.getDay() === 6;
 
   container.innerHTML = markets.map(market => {
-    // Get current time in market's timezone
-    const marketTime = new Intl.DateTimeFormat('en-US', {
-      timeZone: market.tz,
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-      weekday: 'short',
-    }).format(now);
+    // Get current time in market's timezone - robust parsing
+    let currentMinutes = 0;
+    try {
+      const marketTime = new Intl.DateTimeFormat('en-US', {
+        timeZone: market.tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+        weekday: 'short',
+      }).format(now);
 
-    const [weekday, time] = marketTime.split(', ');
-    const [hours, minutes] = time.split(':').map(Number);
-    const currentMinutes = hours * 60 + minutes;
+      // Parse format like "Mon, 14:30" or "Mon 14:30" (locale variations)
+      const timeMatch = marketTime.match(/(\d{1,2}):(\d{2})/);
+      if (timeMatch) {
+        const hours = parseInt(timeMatch[1], 10);
+        const minutes = parseInt(timeMatch[2], 10);
+        currentMinutes = hours * 60 + minutes;
+      }
+    } catch (e) {
+      console.warn(`Failed to parse time for ${market.tz}:`, e);
+      // Fallback: use UTC time
+      currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+    }
 
     // Parse trading hours
-    const [openH, openM] = market.open.split(':').map(Number);
-    const [closeH, closeM] = market.close.split(':').map(Number);
-    const [preOpenH, preOpenM] = market.preOpen.split(':').map(Number);
-    const [postCloseH, postCloseM] = market.postClose.split(':').map(Number);
+    const [openH, openM] = (market.open || '09:00').split(':').map(Number);
+    const [closeH, closeM] = (market.close || '17:00').split(':').map(Number);
+    const [preOpenH, preOpenM] = (market.preOpen || '08:00').split(':').map(Number);
+    const [postCloseH, postCloseM] = (market.postClose || '18:00').split(':').map(Number);
 
     const preOpenMinutes = preOpenH * 60 + preOpenM;
     const openMinutes = openH * 60 + openM;
@@ -5619,8 +5630,8 @@ function renderMarketHoursTimeline() {
       progress = (currentMinutes - preOpenMinutes) / (openMinutes - preOpenMinutes) * 100;
       nextEvent = `Regular session at ${market.open}`;
     } else if (market.lunch) {
-      const [lunchStartH, lunchStartM] = market.lunch.start.split(':').map(Number);
-      const [lunchEndH, lunchEndM] = market.lunch.end.split(':').map(Number);
+      const [lunchStartH, lunchStartM] = (market.lunch.start || '12:00').split(':').map(Number);
+      const [lunchEndH, lunchEndM] = (market.lunch.end || '13:00').split(':').map(Number);
       const lunchStartMin = lunchStartH * 60 + lunchStartM;
       const lunchEndMin = lunchEndH * 60 + lunchEndM;
 
@@ -5678,7 +5689,7 @@ function renderMarketHoursTimeline() {
         <div class="market-timeline-header">
           <span class="market-flag">${market.flag}</span>
           <span class="market-name">${market.name}</span>
-          <span class="market-timezone">${weekday} ${time}</span>
+          <span class="market-timezone">${market.tz.replace(/_/g, ' ')}</span>
         </div>
         <div class="market-timeline-track">
           <div class="market-timeline-bar">
@@ -5689,14 +5700,20 @@ function renderMarketHoursTimeline() {
                 <span class="market-marker regular" style="left: ${(openMinutes / (24*60)) * 100}%;" title="Open: ${market.open}">${market.open}</span>
                 <span class="market-marker regular" style="left: ${(closeMinutes / (24*60)) * 100}%;" title="Close: ${market.close}">${market.close}</span>
                 <span class="market-marker after-hours" style="left: ${(postCloseMinutes / (24*60)) * 100}%;" title="After-hours ends: ${market.postClose}">${market.postClose}</span>
-                ${market.lunch ? `
-                  <span class="market-marker lunch" style="left: ${(parseInt(market.lunch.start.split(':')[0])*60 + parseInt(market.lunch.start.split(':')[1])) / (24*60) * 100}%;" title="Lunch: ${market.lunch.start}">${market.lunch.start}</span>
-                  <span class="market-marker lunch" style="left: ${(parseInt(market.lunch.end.split(':')[0])*60 + parseInt(market.lunch.end.split(':')[1])) / (24*60) * 100}%;" title="Resume: ${market.lunch.end}">${market.lunch.end}</span>
-                ` : ''}
+                ${market.lunch ? (() => {
+                  const [lsH, lsM] = (market.lunch.start || '12:00').split(':').map(Number);
+                  const [leH, leM] = (market.lunch.end || '13:00').split(':').map(Number);
+                  const lsMin = lsH * 60 + lsM;
+                  const leMin = leH * 60 + leM;
+                  return `
+                  <span class="market-marker lunch" style="left: ${(lsMin / (24*60)) * 100}%;" title="Lunch: ${market.lunch.start}">${market.lunch.start}</span>
+                  <span class="market-marker lunch" style="left: ${(leMin / (24*60)) * 100}%;" title="Resume: ${market.lunch.end}">${market.lunch.end}</span>
+                  `;
+                })() : ''}
               </div>
             ` : ''}
             ${!isWeekend && currentMinutes >= preOpenMinutes && currentMinutes <= postCloseMinutes ? `
-              <div class="market-timeline-now" style="left: ${(currentMinutes / (24*60)) * 100}%;" title="Current time: ${time}"></div>
+              <div class="market-timeline-now" style="left: ${(currentMinutes / (24*60)) * 100}%;" title="Current time"></div>
             ` : ''}
           </div>
         </div>
