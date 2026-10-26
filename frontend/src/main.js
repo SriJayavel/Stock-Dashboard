@@ -281,6 +281,9 @@ export async function setWorkspace(workspaceName, subTab = null) {
 
     // Start market hours timeline updater
     startMarketTimelineUpdater();
+
+    // Bind export buttons (idempotent via dataset.bound)
+    bindMarketExportButtons();
   } else if (previousWorkspace === 'markets' && workspaceName !== 'markets') {
     // Cleanup WebSocket when leaving markets workspace
     const { marketWS } = await import('./api.js');
@@ -5481,14 +5484,28 @@ function renderMarketStateBar(data) {
         await loadMarketOverview(true);
         await loadAndRenderSectorsAndMarketMap(true);
       } catch (error) {
+        // Handle 429 rate limit specifically
+        const isRateLimited = error.message && error.message.includes('429');
         resolveLoadingToast(loadingToast, {
           type: 'error',
-          title: 'Refresh failed',
-          message: error.message || 'Market refresh failed',
+          title: isRateLimited ? 'Rate limited' : 'Refresh failed',
+          message: isRateLimited
+            ? 'Too many refresh requests. Please wait a moment before trying again.'
+            : (error.message || 'Market refresh failed'),
         });
+        if (isRateLimited) {
+          // Keep button disabled for 30 seconds on rate limit
+          refreshBtn.classList.add('rate-limited');
+          setTimeout(() => {
+            refreshBtn.classList.remove('rate-limited');
+            refreshBtn.disabled = false;
+          }, 30000);
+        }
       } finally {
-        refreshBtn.classList.remove('spinning');
-        refreshBtn.disabled = false;
+        if (!refreshBtn.classList.contains('rate-limited')) {
+          refreshBtn.classList.remove('spinning');
+          refreshBtn.disabled = false;
+        }
       }
     });
   }
@@ -5740,19 +5757,20 @@ function stopMarketTimelineUpdater() {
   }
 }
 
-  // Export CSV button
+// Bind market export buttons (idempotent)
+function bindMarketExportButtons() {
   const exportCsvBtn = document.getElementById('mkt-export-csv-btn');
   if (exportCsvBtn && !exportCsvBtn.dataset.bound) {
     exportCsvBtn.dataset.bound = 'true';
     exportCsvBtn.addEventListener('click', () => exportMarketsData('csv'));
   }
 
-  // Export PNG button
   const exportPngBtn = document.getElementById('mkt-export-png-btn');
   if (exportPngBtn && !exportPngBtn.dataset.bound) {
     exportPngBtn.dataset.bound = 'true';
     exportPngBtn.addEventListener('click', () => exportMarketsData('png'));
   }
+}
 
 // Export Markets Data (CSV/PNG)
 function exportMarketsData(format) {
@@ -6428,7 +6446,11 @@ function updateMacroRowLive(row, data, timestamp) {
     let freshnessText = 'Just now';
     let freshnessClass = 'live';
 
-    if (ageSec < 30) {
+    // Check if data has explicit freshness state (e.g., WEEKEND)
+    if (data.freshness === 'WEEKEND') {
+      freshnessText = 'WEEKEND';
+      freshnessClass = 'weekend';
+    } else if (ageSec < 30) {
       freshnessText = 'Just now';
       freshnessClass = 'live';
     } else if (ageMin < 1) {
@@ -6463,7 +6485,8 @@ function updateRowStalenessBadge(row, freshness, timestamp) {
     'LIVE': { text: 'LIVE', class: 'stale-live' },
     'DELAYED': { text: 'DELAYED', class: 'stale-delayed' },
     'STALE': { text: 'STALE', class: 'stale-stale' },
-    'OFFLINE': { text: 'OFFLINE', class: 'stale-offline' }
+    'OFFLINE': { text: 'OFFLINE', class: 'stale-offline' },
+    'WEEKEND': { text: 'WEEKEND', class: 'stale-weekend' }
   };
 
   const status = statusMap[freshness] || { text: freshness, class: 'stale-unknown' };
@@ -6483,7 +6506,8 @@ function updateTileStalenessBadge(tile, freshness) {
     'LIVE': { text: 'LIVE', class: 'stale-live' },
     'DELAYED': { text: 'DELAYED', class: 'stale-delayed' },
     'STALE': { text: 'STALE', class: 'stale-stale' },
-    'OFFLINE': { text: 'OFFLINE', class: 'stale-offline' }
+    'OFFLINE': { text: 'OFFLINE', class: 'stale-offline' },
+    'WEEKEND': { text: 'WEEKEND', class: 'stale-weekend' }
   };
 
   const status = statusMap[freshness] || { text: freshness, class: 'stale-unknown' };
@@ -6499,7 +6523,8 @@ function handleMarketStatusChange(status, message, timestamp) {
       'live': 'LIVE',
       'delayed': 'DELAYED',
       'stale': 'CACHED',
-      'unavailable': 'OFFLINE'
+      'unavailable': 'OFFLINE',
+      'weekend': 'WEEKEND'
     };
     feedEl.textContent = `${statusMap[status] || status.toUpperCase()} ${message ? '— ' + message : ''}`;
   }
@@ -6510,6 +6535,7 @@ function handleMarketStatusChange(status, message, timestamp) {
     if (status === 'live') sessionDot.classList.add('live');
     else if (status === 'delayed') sessionDot.classList.add('delayed');
     else if (status === 'stale') sessionDot.classList.add('stale');
+    else if (status === 'weekend') sessionDot.classList.add('weekend');
     else if (status === 'unavailable') sessionDot.classList.add('offline');
   }
 }
@@ -7025,76 +7051,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         return;
       }
 
-      secGrid.innerHTML = sectorData
-        .map((s) => {
-          const perf = s.performance_24h_pct || 0;
-          const isUp = perf >= 0;
-          const isSelected = currentSelectedSector?.sector === s.sector;
-          const proxy = s.indian_proxy || s.benchmark_etf || 'SECTOR';
-
-          // Determine performance intensity class
-          let intensityClass = 'sector-neutral';
-          if (perf >= 1.5) intensityClass = 'sector-gain-strong';
-          else if (perf >= 0.2) intensityClass = 'sector-gain-mod';
-          else if (perf <= -1.5) intensityClass = 'sector-loss-strong';
-          else if (perf <= -0.2) intensityClass = 'sector-loss-mod';
-
-          // Determine tile state
-          let stateClass = '';
-          if (s.constituents === undefined || s.constituents === null) {
-            stateClass = 'sector-unavailable';
-          } else if (s.constituents.length === 0) {
-            stateClass = 'sector-empty';
-          }
-
-          // Breadth data (advancing/declining)
-          const advancing = s.advancing || 0;
-          const declining = s.declining || 0;
-          const unchanged = s.unchanged || 0;
-          const total = advancing + declining + unchanged;
-          const breadthPct = total > 0 ? Math.round((advancing / total) * 100) : 50;
-          const breadthGain = advancing >= declining;
-
-          // Region badge
-          const region = (s.region || '').toLowerCase();
-          const regionBadge = region ? `<span class="sector-region-badge ${region}">${region.toUpperCase()}</span>` : '';
-
-          const returnClass = isUp ? 'gain' : isUp === false ? 'loss' : 'neutral';
-
-          // Generate sparkline data from constituent performance
-          const sparklineData = s.constituent_performance || [];
-          const sparklineId = `sparkline-${s.sector.replace(/\s+/g, '-')}`;
-
-          return `
-            <div class="sector-tile ${intensityClass} ${isSelected ? 'active-sector' : ''} ${stateClass}" data-sector="${s.sector}" tabindex="0" role="button" aria-label="${s.display_name}, ${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%, Breadth: ${breadthPct}% adv${stateClass ? ', ' + stateClass.replace('sector-', '') : ''}" title="Click or press Enter to inspect ${s.display_name}">
-              <div class="sector-tile-header">
-                <span class="sector-name">${s.display_name}</span>
-                ${regionBadge}
-              </div>
-              <div class="sector-tile-body">
-                <div class="sector-return ${returnClass}">${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%</div>
-                <div class="sector-breadth">
-                  <div class="sector-breadth-bar ${breadthGain ? 'gain' : 'loss'}" style="width: ${breadthPct}%;"></div>
-                </div>
-                <div class="sector-breadth-label">
-                  <span class="advancing">${advancing} Adv</span>
-                  <span class="declining">${declining} Dec</span>
-                  ${unchanged > 0 ? `<span class="unchanged">${unchanged} Unch</span>` : ''}
-                </div>
-                ${sparklineData.length > 0 ? `
-                <div class="sector-sparkline-wrap" title="Constituent performance distribution">
-                  <canvas class="sector-sparkline" id="${sparklineId}" width="120" height="28" aria-label="Performance distribution"></canvas>
-                </div>` : ''}
-              </div>
-              <div class="sector-tile-footer">
-                <span class="sector-meta">${s.constituents?.length || 0} Constituents</span>
-                <span class="sector-meta">${s.leading_asset || '—'} Leader</span>
-                <span class="sector-meta breadth-pct">${breadthPct}% Breadth</span>
-              </div>
-            </div>
-          `;
-        })
-        .join('');
+      // Use the dedicated renderSectorMatrix function
+      renderSectorMatrix(sectorData);
 
       // Wire tile click -> select sector and update Context Inspector
       const sectorTiles = Array.from(secGrid.querySelectorAll('.sector-tile'));
@@ -7202,6 +7160,152 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 }
 
 // Render sector performance sparklines
+// ===== SECTOR MATRIX RENDERER =====
+function renderSectorMatrix(sectorData) {
+  const grid = document.getElementById('sector-intelligence-grid');
+  if (!grid) return;
+
+  if (!sectorData || sectorData.length === 0) {
+    grid.innerHTML = `
+      <div class="sector-tile sector-unavailable" style="grid-column: 1 / -1; text-align: center; padding: 32px;">
+        <div style="font-size: 16px; font-weight: 600; color: var(--fg-muted);">No sector data available</div>
+        <div style="font-size: 12px; color: var(--fg-subtle); margin-top: 8px;">Sector intelligence feed may be initializing</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Sort sectors by performance (best first)
+  const sortedSectors = [...sectorData].sort((a, b) => {
+    const perfA = a.performance_24h_pct ?? a.return_pct ?? 0;
+    const perfB = b.performance_24h_pct ?? b.return_pct ?? 0;
+    return perfB - perfA;
+  });
+
+  const performanceClass = (pct) => {
+    if (pct >= 1.5) return 'sector-gain-strong';
+    if (pct >= 0.5) return 'sector-gain-mod';
+    if (pct > -0.5) return 'sector-neutral';
+    if (pct > -1.5) return 'sector-loss-mod';
+    return 'sector-loss-strong';
+  };
+
+  const breadthBarClass = (pct) => {
+    if (pct >= 60) return 'gain';
+    if (pct >= 40) return 'neutral';
+    return 'loss';
+  };
+
+  const regionBadgeClass = (region) => {
+    const map = { 'in': 'india', 'us': 'americas', 'eu': 'europe', 'ap': 'asia', 'asia': 'asia' };
+    return map[region] || 'india';
+  };
+
+  const regionLabel = (region) => {
+    const map = { 'in': 'IN', 'us': 'US', 'eu': 'EU', 'ap': 'AP', 'asia': 'AP' };
+    return map[region] || 'IN';
+  };
+
+  grid.innerHTML = sortedSectors.map((s) => {
+    const perf = s.performance_24h_pct ?? s.return_pct ?? 0;
+    const advancing = s.advancing ?? 0;
+    const declining = s.declining ?? 0;
+    const unchanged = s.unchanged ?? 0;
+    const total = s.total_constituents ?? (advancing + declining + unchanged);
+    const breadthPct = total > 0 ? Math.round((advancing / total) * 100) : 0;
+    const hasConstituentPerf = s.constituent_performance && s.constituent_performance.length > 0;
+    const sparklineId = `sparkline-${s.sector.replace(/\s+/g, '-')}`;
+    const perfClass = performanceClass(perf);
+    const sign = perf >= 0 ? '+' : '';
+
+    return `
+      <div class="sector-tile ${perfClass}"
+           data-sector="${s.sector}"
+           tabindex="0"
+           role="button"
+           aria-label="${s.display_name || s.sector}, ${sign}${perf.toFixed(2)}%, Breadth: ${breadthPct}% advancing"
+           title="Click to inspect ${s.display_name || s.sector} constituents">
+        <div class="sector-tile-header">
+          <span class="sector-name">${s.display_name || s.sector}</span>
+          <span class="sector-region-badge ${regionBadgeClass(s.region)}">${regionLabel(s.region)}</span>
+        </div>
+        <div class="sector-tile-body">
+          <span class="sector-return ${perf >= 0.05 ? 'gain' : perf <= -0.05 ? 'loss' : 'neutral'}">
+            ${sign}${perf.toFixed(2)}%
+          </span>
+          <div class="sector-breadth">
+            <div class="sector-breadth-bar ${breadthBarClass(breadthPct)}" style="width: ${breadthPct}%"></div>
+          </div>
+          <div class="sector-breadth-label">
+            <span class="advancing">${advancing}</span>
+            <span class="declining">${declining}</span>
+            ${unchanged > 0 ? `<span class="unchanged">${unchanged}</span>` : ''}
+          </div>
+          ${hasConstituentPerf ? `
+          <div class="sector-sparkline-wrap" title="Constituent performance distribution">
+            <canvas class="sector-sparkline" id="${sparklineId}" width="120" height="28" aria-label="Performance distribution"></canvas>
+          </div>` : ''}
+        </div>
+        <div class="sector-tile-footer">
+          <span class="sector-meta">${total} Constituents</span>
+          <span class="sector-meta">${s.leading_asset || '—'} Leader</span>
+          <span class="sector-meta breadth-pct">${breadthPct}% Breadth</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Wire click/keyboard handlers for sector tiles
+  const tiles = Array.from(grid.querySelectorAll('.sector-tile:not(.sector-unavailable):not(.sector-error):not(.sector-empty):not(.sector-loading)'));
+  tiles.forEach((tile, idx) => {
+    const sectorName = tile.getAttribute('data-sector');
+    const sector = sortedSectors.find(s => s.sector === sectorName);
+    if (!sector) return;
+
+    tile.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+
+    const activateTile = () => {
+      tiles.forEach(t => {
+        t.classList.remove('active-sector');
+        t.setAttribute('tabindex', '-1');
+      });
+      tile.classList.add('active-sector');
+      tile.setAttribute('tabindex', '0');
+      tile.focus({ preventScroll: true });
+      renderSelectedSectorDetail(sector);
+    };
+
+    tile.addEventListener('click', activateTile);
+    tile.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateTile();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const nextIdx = Math.min(idx + 1, tiles.length - 1);
+        tiles[nextIdx].focus({ preventScroll: true });
+        activateTile.call(tiles[nextIdx]);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prevIdx = Math.max(idx - 1, 0);
+        tiles[prevIdx].focus({ preventScroll: true });
+        activateTile.call(tiles[prevIdx]);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        tiles[0].focus({ preventScroll: true });
+        activateTile.call(tiles[0]);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        tiles[tiles.length - 1].focus({ preventScroll: true });
+        activateTile.call(tiles[tiles.length - 1]);
+      }
+    });
+  });
+
+  // Render sparklines after DOM insertion
+  requestAnimationFrame(() => renderSectorSparklines(sortedSectors));
+}
+
 function renderSectorSparklines(sectorData) {
   if (!sectorData || sectorData.length === 0) return;
 
@@ -7441,7 +7545,8 @@ function renderMacroRadarPanels() {
           freshnessText = it.freshness;
           freshnessClass = it.freshness === 'LIVE' ? 'live' :
                            it.freshness === 'DELAYED' ? 'delayed' :
-                           it.freshness === 'STALE' ? 'stale' : 'offline';
+                           it.freshness === 'STALE' ? 'stale' :
+                           it.freshness === 'WEEKEND' ? 'weekend' : 'offline';
         }
 
         return `

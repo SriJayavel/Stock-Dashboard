@@ -1905,6 +1905,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .status-session-dot.post-market { color: var(--warning); }
 .status-session-dot.closed { color: var(--fg-subtle); box-shadow: none; }
 .status-session-dot.delayed { color: var(--accent-primary); }
+.status-session-dot.weekend { color: var(--region-asia); }
 
 .status-session-dot.live::after {
   content: '';
@@ -2218,6 +2219,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 .status-session-dot.post-market { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
 .status-session-dot.closed { background: var(--fg-subtle); }
 .status-session-dot.delayed { background: var(--accent-primary); box-shadow: 0 0 8px var(--accent-primary); }
+.status-session-dot.weekend { background: var(--region-asia); box-shadow: 0 0 8px var(--region-asia); }
 
 .status-session-name {
   font-size: 12px;
@@ -3826,6 +3828,18 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
+}
+.ws-action-btn.rate-limited,
+.ws-action-btn.rate-limited:hover {
+  background: var(--surface);
+  border-color: var(--warning);
+  color: var(--warning);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.ws-action-btn.rate-limited::after {
+  content: '⏱';
+  margin-left: 4px;
 }
 
 /* Screener Controls & Table */
@@ -9226,6 +9240,12 @@ html.light-theme .ghost-btn.disabled {
   border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
+.staleness-badge.stale-weekend {
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--region-asia);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
 /* ============================================================================
    PRICE FLASH ANIMATIONS
    ============================================================================ */
@@ -9533,6 +9553,10 @@ html.light-theme .macro-asset-row.selected {
 
 .macro-asset-freshness.offline {
   color: var(--fg-muted);
+}
+
+.macro-asset-freshness.weekend {
+  color: var(--region-asia);
 }
 
 /* ============================================================================
