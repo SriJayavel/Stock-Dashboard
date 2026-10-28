@@ -281,9 +281,6 @@ export async function setWorkspace(workspaceName, subTab = null) {
 
     // Start market hours timeline updater
     startMarketTimelineUpdater();
-
-    // Bind export buttons (idempotent via dataset.bound)
-    bindMarketExportButtons();
   } else if (previousWorkspace === 'markets' && workspaceName !== 'markets') {
     // Cleanup WebSocket when leaving markets workspace
     const { marketWS } = await import('./api.js');
@@ -5243,6 +5240,9 @@ function getMarketSessionTelemetry() {
     lse: lseStatus,
     tyo: tyoStatus,
     nseIsOpen: nse.open,
+    nyseIsOpen: nyse.open,
+    lseIsOpen: lse.open,
+    tyoIsOpen: tyoOpen,
     isLive: nse.open || nyse.open || lse.open || tyoOpen,
   };
 }
@@ -5323,6 +5323,163 @@ function renderBenchmarkSkeleton(tableBody) {
     .join('');
 }
 
+// Render Mini Sparkline for Benchmark Indices Table
+function renderMiniSparkline(container, data, isPositive) {
+  if (!container || !data || data.length < 2) return;
+
+  const canvas = document.createElement('canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const width = container.clientWidth || 80;
+  const height = container.clientHeight || 28;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  canvas.style.display = 'block';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // Clear container and add canvas
+  container.innerHTML = '';
+  container.appendChild(canvas);
+
+  // Calculate data bounds
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min;
+  if (range === 0) return;
+
+  const color = isPositive ? 'var(--gain)' : 'var(--loss)';
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, color);
+  gradient.addColorStop(1, 'transparent');
+
+  // Draw area
+  ctx.beginPath();
+  ctx.moveTo(0, height);
+
+  data.forEach((value, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((value - min) / range) * height * 0.85; // 85% height for padding
+    if (i === 0) {
+      ctx.lineTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+
+  ctx.lineTo(width, height);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Draw line
+  ctx.beginPath();
+  data.forEach((value, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((value - min) / range) * height * 0.85;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// Update Benchmark Table Footer
+function updateBenchmarkFooter(benchmarks, marketDataCache) {
+  const liveCountEl = document.getElementById('benchmarks-count');
+  const lastRefreshEl = document.getElementById('benchmarks-source');
+  const feedStatusEl = document.getElementById('benchmarks-status');
+
+  if (!liveCountEl || !lastRefreshEl || !feedStatusEl) return;
+
+  const liveCount = benchmarks.filter(b => b.price != null && b.price > 0).length;
+  liveCountEl.textContent = `${liveCount} / ${benchmarks.length} Live`;
+
+  const lastRefresh = marketDataCache?.retrieved_at
+    ? new Date(marketDataCache.retrieved_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    : '—';
+  lastRefreshEl.textContent = `Source: ${lastRefresh}`;
+
+  // Feed status based on backend feed_health
+  const feedHealthValues = Object.values(marketDataCache?.feed_health || {});
+  const hasLiveFeed = feedHealthValues.some((v) => v === 'LIVE');
+  const hasDelayedFeed = feedHealthValues.some((v) => v === 'DELAYED');
+  const isStale = Boolean(marketDataCache?.is_stale);
+
+  // Reset classes
+  feedStatusEl.classList.remove('live', 'delayed', 'cached', 'offline');
+
+  if (isStale) {
+    feedStatusEl.textContent = 'Cached';
+    feedStatusEl.classList.add('cached');
+  } else if (hasLiveFeed) {
+    feedStatusEl.textContent = 'Live';
+    feedStatusEl.classList.add('live');
+  } else if (hasDelayedFeed) {
+    feedStatusEl.textContent = 'Delayed';
+    feedStatusEl.classList.add('delayed');
+  } else {
+    feedStatusEl.textContent = 'Offline';
+    feedStatusEl.classList.add('offline');
+  }
+}
+
+// Wire Benchmark Toolbar Buttons
+function wireBenchmarkToolbar() {
+  const refreshBtn = document.getElementById('benchmarks-refresh-btn');
+  const exportBtn = document.getElementById('benchmarks-export-btn');
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.classList.add('spinning');
+      refreshBtn.disabled = true;
+      refreshBtn.setAttribute('aria-busy', 'true');
+
+      try {
+        await loadAndRenderSectorsAndMarketMap(true);
+      } finally {
+        refreshBtn.classList.remove('spinning');
+        refreshBtn.disabled = false;
+        refreshBtn.setAttribute('aria-busy', 'false');
+      }
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const table = document.getElementById('markets-indices-table');
+      if (!table) return;
+
+      const rows = Array.from(table.querySelectorAll('tbody tr.benchmark-row:not([style*="display: none"])'));
+      const headers = ['Region', 'Name', 'Symbol', 'Price', 'Change', 'Change %', 'High', 'Low', 'Sparkline', 'Updated'];
+
+      const csvData = [headers.join(',')];
+      rows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        const rowData = cells.map(cell => {
+          // Skip sparkline column (index 8) or get text content
+          if (cell.classList.contains('col-sparkline')) return '';
+          return `"${cell.textContent.trim().replace(/"/g, '""')}"`;
+        });
+        csvData.push(rowData.join(','));
+      });
+
+      const blob = new Blob([csvData.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `benchmark-indices-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    });
+  }
+}
+
 // Render Markets Status Strip
 function renderMarketStateBar(data) {
   const sessionDot = document.getElementById('mkt-session-dot');
@@ -5335,7 +5492,18 @@ function renderMarketStateBar(data) {
   const feedSource = document.getElementById('mkt-feed-source');
   const lastUpdated = document.getElementById('mkt-last-updated');
 
+  // Debug: verify DOM elements exist
+  console.log('[MarketStatus] DOM elements found:', {
+    sessionDot: !!sessionDot,
+    sessionName: !!sessionName,
+    nseStatus: !!nseStatus,
+    nyseStatus: !!nyseStatus,
+    lseStatus: !!lseStatus,
+    tyoStatus: !!tyoStatus
+  });
+
   const telemetry = getMarketSessionTelemetry();
+  console.log('[MarketStatus] Telemetry:', telemetry);
   const indices = data?.macro?.Indices || [];
   const validPriceCount = indices.filter((i) => typeof i.price === 'number' && Number.isFinite(i.price) && i.price > 0).length;
   const isStale = Boolean(data?.is_stale || data?.hero?.is_stale);
@@ -5384,7 +5552,26 @@ function renderMarketStateBar(data) {
   }
 
   if (sessionName) {
-    sessionName.textContent = `NSE INDIA: ${telemetry.nse}`;
+    // Show global market session summary instead of just NSE India
+    const openExchanges = [];
+    if (telemetry.nseIsOpen) openExchanges.push('NSE');
+    if (telemetry.nyseIsOpen) openExchanges.push('NYSE');
+    if (telemetry.lseIsOpen) openExchanges.push('LSE');
+    if (telemetry.tyoIsOpen) openExchanges.push('TYO');
+
+    if (openExchanges.length > 0) {
+      sessionName.textContent = `GLOBAL MARKETS: ${openExchanges.join(', ')} OPEN`;
+    } else {
+      // Check if any are in pre-market or after-hours
+      const preMarket = [];
+      if (telemetry.nse === 'PRE-MKT') preMarket.push('NSE');
+      if (telemetry.nyse === 'PRE-MKT') preMarket.push('NYSE');
+      if (preMarket.length > 0) {
+        sessionName.textContent = `PRE-MARKET: ${preMarket.join(', ')} ACTIVE`;
+      } else {
+        sessionName.textContent = 'GLOBAL MARKETS: CLOSED';
+      }
+    }
   }
 
   // Update individual global desk statuses
@@ -5511,109 +5698,60 @@ function renderMarketStateBar(data) {
   }
 }
 
-// Render Market Hours Timeline
+// Render Market Hours Timeline - Professional Trading Terminal Style
 function renderMarketHoursTimeline() {
-  const container = document.getElementById('market-timeline-grid');
+  renderMarketHoursTimelinePro();
+}
+
+// Professional Market Hours Timeline Renderer
+function renderMarketHoursTimelinePro() {
+  const container = document.getElementById('market-timeline-professional');
+  const timeDisplay = document.getElementById('timeline-current-time');
   if (!container) return;
 
   const now = new Date();
   const markets = [
-    {
-      id: 'nse',
-      name: 'NSE India',
-      tz: 'Asia/Kolkata',
-      open: '09:15',
-      close: '15:30',
-      preOpen: '09:00',
-      postClose: '16:00',
-      currency: '₹',
-      flag: '🇮🇳'
-    },
-    {
-      id: 'nyse',
-      name: 'NYSE / NASDAQ',
-      tz: 'America/New_York',
-      open: '09:30',
-      close: '16:00',
-      preOpen: '04:00',
-      postClose: '20:00',
-      currency: '$',
-      flag: '🇺🇸'
-    },
-    {
-      id: 'lse',
-      name: 'London SE',
-      tz: 'Europe/London',
-      open: '08:00',
-      close: '16:30',
-      preOpen: '07:00',
-      postClose: '17:00',
-      currency: '£',
-      flag: '🇬🇧'
-    },
-    {
-      id: 'tyo',
-      name: 'Tokyo SE',
-      tz: 'Asia/Tokyo',
-      open: '09:00',
-      close: '15:00',
-      preOpen: '08:00',
-      postClose: '15:30',
-      currency: '¥',
-      flag: '🇯🇵',
-      lunch: { start: '11:30', end: '12:30' }
-    },
-    {
-      id: 'hkex',
-      name: 'Hong Kong EX',
-      tz: 'Asia/Hong_Kong',
-      open: '09:30',
-      close: '16:00',
-      preOpen: '09:00',
-      postClose: '16:30',
-      currency: 'HK$',
-      flag: '🇭🇰',
-      lunch: { start: '12:00', end: '13:00' }
-    },
-    {
-      id: 'sse',
-      name: 'Shanghai SE',
-      tz: 'Asia/Shanghai',
-      open: '09:30',
-      close: '15:00',
-      preOpen: '09:15',
-      postClose: '15:30',
-      currency: '¥',
-      flag: '🇨🇳',
-      lunch: { start: '11:30', end: '13:00' }
-    },
+    { id: 'nse', name: 'NSE India', tz: 'Asia/Kolkata', open: '09:15', close: '15:30', preOpen: '09:00', postClose: '16:00', flag: '🇮🇳', currency: '₹' },
+    { id: 'nyse', name: 'NYSE / NASDAQ', tz: 'America/New_York', open: '09:30', close: '16:00', preOpen: '04:00', postClose: '20:00', flag: '🇺🇸', currency: '$' },
+    { id: 'lse', name: 'London SE', tz: 'Europe/London', open: '08:00', close: '16:30', preOpen: '07:00', postClose: '17:00', flag: '🇬🇧', currency: '£' },
+    { id: 'tyo', name: 'Tokyo SE', tz: 'Asia/Tokyo', open: '09:00', close: '15:00', preOpen: '08:00', postClose: '15:30', flag: '🇯🇵', currency: '¥', lunch: { start: '11:30', end: '12:30' } },
+    { id: 'hkex', name: 'Hong Kong EX', tz: 'Asia/Hong_Kong', open: '09:30', close: '16:00', preOpen: '09:00', postClose: '16:30', flag: '🇭🇰', currency: 'HK$', lunch: { start: '12:00', end: '13:00' } },
+    { id: 'sse', name: 'Shanghai SE', tz: 'Asia/Shanghai', open: '09:30', close: '15:00', preOpen: '09:15', postClose: '15:30', flag: '🇨🇳', currency: '¥', lunch: { start: '11:30', end: '13:00' } },
+    { id: 'tsx', name: 'Toronto SE', tz: 'America/Toronto', open: '09:30', close: '16:00', preOpen: '07:00', postClose: '17:00', flag: '🇨🇦', currency: 'C$' },
+    { id: 'asx', name: 'Australian SE', tz: 'Australia/Sydney', open: '10:00', close: '16:00', preOpen: '07:00', postClose: '16:10', flag: '🇦🇺', currency: 'A$' },
   ];
 
   const isWeekend = now.getDay() === 0 || now.getDay() === 6;
 
+  // Update current UTC time display
+  if (timeDisplay) {
+    const utcTime = now.toISOString().slice(11, 19);
+    const timeValue = timeDisplay.querySelector('.timeline-time-value');
+    if (timeValue) timeValue.textContent = utcTime;
+  }
+
   container.innerHTML = markets.map(market => {
-    // Get current time in market's timezone - robust parsing
+    // Get current time in market's timezone
     let currentMinutes = 0;
+    let currentTimeStr = '--:--';
     try {
-      const marketTime = new Intl.DateTimeFormat('en-US', {
+      const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: market.tz,
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
         hourCycle: 'h23',
-        weekday: 'short',
-      }).format(now);
-
-      // Parse format like "Mon, 14:30" or "Mon 14:30" (locale variations)
-      const timeMatch = marketTime.match(/(\d{1,2}):(\d{2})/);
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        currentMinutes = hours * 60 + minutes;
-      }
+      }).formatToParts(now);
+      const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+      const hours = parseInt(values.hour, 10);
+      const minutes = parseInt(values.minute, 10);
+      const seconds = parseInt(values.second, 10);
+      currentMinutes = hours * 60 + minutes;
+      currentTimeStr = `${values.hour}:${values.minute}:${values.second}`;
     } catch (e) {
       console.warn(`Failed to parse time for ${market.tz}:`, e);
-      // Fallback: use UTC time
       currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+      currentTimeStr = now.toISOString().slice(11, 19);
     }
 
     // Parse trading hours
@@ -5627,10 +5765,87 @@ function renderMarketHoursTimeline() {
     const closeMinutes = closeH * 60 + closeM;
     const postCloseMinutes = postCloseH * 60 + postCloseM;
 
+    const totalDayMinutes = 24 * 60;
+
+    // Calculate session blocks for visual timeline
+    const sessions = [];
+    if (!isWeekend) {
+      // Pre-market
+      if (preOpenMinutes < openMinutes) {
+        sessions.push({
+          type: 'pre-market',
+          start: preOpenMinutes / totalDayMinutes * 100,
+          width: (openMinutes - preOpenMinutes) / totalDayMinutes * 100,
+          label: market.preOpen
+        });
+      }
+      // Regular session (with lunch break handling)
+      if (market.lunch) {
+        const [lunchStartH, lunchStartM] = (market.lunch.start || '12:00').split(':').map(Number);
+        const [lunchEndH, lunchEndM] = (market.lunch.end || '13:00').split(':').map(Number);
+        const lunchStartMin = lunchStartH * 60 + lunchStartM;
+        const lunchEndMin = lunchEndH * 60 + lunchEndM;
+
+        // Morning session
+        if (openMinutes < lunchStartMin) {
+          sessions.push({
+            type: 'regular',
+            start: openMinutes / totalDayMinutes * 100,
+            width: (lunchStartMin - openMinutes) / totalDayMinutes * 100,
+            label: market.open
+          });
+        }
+        // Lunch break
+        sessions.push({
+          type: 'lunch',
+          start: lunchStartMin / totalDayMinutes * 100,
+          width: (lunchEndMin - lunchStartMin) / totalDayMinutes * 100,
+          label: market.lunch.start
+        });
+        // Afternoon session
+        if (lunchEndMin < closeMinutes) {
+          sessions.push({
+            type: 'regular',
+            start: lunchEndMin / totalDayMinutes * 100,
+            width: (closeMinutes - lunchEndMin) / totalDayMinutes * 100,
+            label: market.lunch.end
+          });
+        }
+      } else {
+        // Continuous regular session
+        sessions.push({
+          type: 'regular',
+          start: openMinutes / totalDayMinutes * 100,
+          width: (closeMinutes - openMinutes) / totalDayMinutes * 100,
+          label: market.open
+        });
+      }
+      // After-hours
+      if (closeMinutes < postCloseMinutes) {
+        sessions.push({
+          type: 'after-hours',
+          start: closeMinutes / totalDayMinutes * 100,
+          width: (postCloseMinutes - closeMinutes) / totalDayMinutes * 100,
+          label: market.close
+        });
+      }
+      // Closed periods (before pre-market and after post-close)
+      if (preOpenMinutes > 0) {
+        sessions.unshift({ type: 'closed', start: 0, width: preOpenMinutes / totalDayMinutes * 100 });
+      }
+      if (postCloseMinutes < totalDayMinutes) {
+        sessions.push({ type: 'closed', start: postCloseMinutes / totalDayMinutes * 100, width: (totalDayMinutes - postCloseMinutes) / totalDayMinutes * 100 });
+      }
+    } else {
+      sessions.push({ type: 'closed', start: 0, width: 100 });
+    }
+
+    // Determine current session state
     let sessionState = 'CLOSED';
     let sessionClass = 'closed';
-    let progress = 0;
     let nextEvent = '';
+    let showCurrentMarker = false;
+    let markerPosition = 0;
 
     if (isWeekend) {
       sessionState = 'WEEKEND';
@@ -5639,12 +5854,12 @@ function renderMarketHoursTimeline() {
     } else if (currentMinutes < preOpenMinutes) {
       sessionState = 'PRE-MARKET SOON';
       sessionClass = 'pre-soon';
-      progress = Math.max(0, (currentMinutes - (preOpenMinutes - 120)) / 120 * 100);
       nextEvent = `Pre-market opens at ${market.preOpen}`;
     } else if (currentMinutes < openMinutes) {
       sessionState = 'PRE-MARKET';
       sessionClass = 'pre-market';
-      progress = (currentMinutes - preOpenMinutes) / (openMinutes - preOpenMinutes) * 100;
+      showCurrentMarker = true;
+      markerPosition = currentMinutes / totalDayMinutes * 100;
       nextEvent = `Regular session at ${market.open}`;
     } else if (market.lunch) {
       const [lunchStartH, lunchStartM] = (market.lunch.start || '12:00').split(':').map(Number);
@@ -5655,20 +5870,20 @@ function renderMarketHoursTimeline() {
       if (currentMinutes >= lunchStartMin && currentMinutes < lunchEndMin) {
         sessionState = 'LUNCH BREAK';
         sessionClass = 'lunch';
-        progress = (currentMinutes - lunchStartMin) / (lunchEndMin - lunchStartMin) * 100;
+        showCurrentMarker = true;
+        markerPosition = currentMinutes / totalDayMinutes * 100;
         nextEvent = `Resumes at ${market.lunch.end}`;
       } else if (currentMinutes < closeMinutes) {
         sessionState = 'OPEN';
         sessionClass = 'open';
-        const sessionElapsed = currentMinutes - openMinutes;
-        const totalSession = closeMinutes - openMinutes - (lunchEndMin - lunchStartMin);
-        const sessionElapsedAdj = currentMinutes > lunchEndMin ? sessionElapsed - (lunchEndMin - lunchStartMin) : sessionElapsed;
-        progress = Math.max(0, Math.min(100, (sessionElapsedAdj / totalSession) * 100));
+        showCurrentMarker = true;
+        markerPosition = currentMinutes / totalDayMinutes * 100;
         nextEvent = `Closes at ${market.close}`;
       } else if (currentMinutes < postCloseMinutes) {
         sessionState = 'AFTER-HOURS';
         sessionClass = 'after-hours';
-        progress = (currentMinutes - closeMinutes) / (postCloseMinutes - closeMinutes) * 100;
+        showCurrentMarker = true;
+        markerPosition = currentMinutes / totalDayMinutes * 100;
         nextEvent = `After-hours ends at ${market.postClose}`;
       } else {
         sessionState = 'CLOSED';
@@ -5679,12 +5894,14 @@ function renderMarketHoursTimeline() {
       if (currentMinutes < closeMinutes) {
         sessionState = 'OPEN';
         sessionClass = 'open';
-        progress = (currentMinutes - openMinutes) / (closeMinutes - openMinutes) * 100;
+        showCurrentMarker = true;
+        markerPosition = currentMinutes / totalDayMinutes * 100;
         nextEvent = `Closes at ${market.close}`;
       } else if (currentMinutes < postCloseMinutes) {
         sessionState = 'AFTER-HOURS';
         sessionClass = 'after-hours';
-        progress = (currentMinutes - closeMinutes) / (postCloseMinutes - closeMinutes) * 100;
+        showCurrentMarker = true;
+        markerPosition = currentMinutes / totalDayMinutes * 100;
         nextEvent = `After-hours ends at ${market.postClose}`;
       } else {
         sessionState = 'CLOSED';
@@ -5693,62 +5910,61 @@ function renderMarketHoursTimeline() {
       }
     }
 
-    // Weekend overrides
-    if (isWeekend) {
-      sessionState = 'WEEKEND';
-      sessionClass = 'weekend';
-      progress = 0;
-      nextEvent = 'Opens Monday';
+    // Build session blocks HTML
+    const sessionBlocksHtml = sessions.map(s => {
+      if (s.width < 0.5) return '';
+      const label = s.label ? `<span>${s.label}</span>` : '';
+      return `<div class="timeline-session-block ${s.type}" style="left: ${s.start}%; width: ${s.width}%;" data-label="${s.label || ''}">${label}</div>`;
+    }).join('');
+
+    // Build session labels (key times)
+    const labelTimes = [];
+    if (!isWeekend) {
+      labelTimes.push({ time: preOpenMinutes, label: market.preOpen });
+      labelTimes.push({ time: openMinutes, label: market.open });
+      if (market.lunch) {
+        const [lsH, lsM] = (market.lunch.start || '12:00').split(':').map(Number);
+        const [leH, leM] = (market.lunch.end || '13:00').split(':').map(Number);
+        labelTimes.push({ time: lsH * 60 + lsM, label: market.lunch.start });
+        labelTimes.push({ time: leH * 60 + leM, label: market.lunch.end });
+      }
+      labelTimes.push({ time: closeMinutes, label: market.close });
+      labelTimes.push({ time: postCloseMinutes, label: market.postClose });
     }
+    const labelsHtml = labelTimes.map(l => `<span style="left: ${l.time / totalDayMinutes * 100}%;">${l.label}</span>`).join('');
 
     return `
-      <div class="market-timeline-row ${sessionClass}" data-market="${market.id}" role="listitem">
-        <div class="market-timeline-header">
-          <span class="market-flag">${market.flag}</span>
-          <span class="market-name">${market.name}</span>
-          <span class="market-timezone">${market.tz.replace(/_/g, ' ')}</span>
-        </div>
-        <div class="market-timeline-track">
-          <div class="market-timeline-bar">
-            <div class="market-timeline-progress" style="width: ${progress}%;"></div>
-            ${!isWeekend ? `
-              <div class="market-timeline-markers">
-                <span class="market-marker pre-market" style="left: ${(preOpenMinutes / (24*60)) * 100}%;" title="Pre-market: ${market.preOpen}">${market.preOpen}</span>
-                <span class="market-marker regular" style="left: ${(openMinutes / (24*60)) * 100}%;" title="Open: ${market.open}">${market.open}</span>
-                <span class="market-marker regular" style="left: ${(closeMinutes / (24*60)) * 100}%;" title="Close: ${market.close}">${market.close}</span>
-                <span class="market-marker after-hours" style="left: ${(postCloseMinutes / (24*60)) * 100}%;" title="After-hours ends: ${market.postClose}">${market.postClose}</span>
-                ${market.lunch ? (() => {
-                  const [lsH, lsM] = (market.lunch.start || '12:00').split(':').map(Number);
-                  const [leH, leM] = (market.lunch.end || '13:00').split(':').map(Number);
-                  const lsMin = lsH * 60 + lsM;
-                  const leMin = leH * 60 + leM;
-                  return `
-                  <span class="market-marker lunch" style="left: ${(lsMin / (24*60)) * 100}%;" title="Lunch: ${market.lunch.start}">${market.lunch.start}</span>
-                  <span class="market-marker lunch" style="left: ${(leMin / (24*60)) * 100}%;" title="Resume: ${market.lunch.end}">${market.lunch.end}</span>
-                  `;
-                })() : ''}
-              </div>
-            ` : ''}
-            ${!isWeekend && currentMinutes >= preOpenMinutes && currentMinutes <= postCloseMinutes ? `
-              <div class="market-timeline-now" style="left: ${(currentMinutes / (24*60)) * 100}%;" title="Current time"></div>
-            ` : ''}
+      <div class="timeline-exchange-card ${sessionClass}" data-market="${market.id}" role="listitem">
+        <div class="timeline-exchange-header">
+          <span class="timeline-flag">${market.flag}</span>
+          <div class="timeline-exchange-info">
+            <div class="timeline-exchange-name">${market.name}</div>
+            <div class="timeline-exchange-tz">${market.tz.replace(/_/g, ' ')}</div>
           </div>
+          <span class="timeline-exchange-status ${sessionClass}">${sessionState}</span>
         </div>
-        <div class="market-timeline-status">
-          <span class="market-status-badge ${sessionClass}">${sessionState}</span>
-          <span class="market-next-event">${nextEvent}</span>
+        <div class="timeline-visual-track" role="img" aria-label="${market.name} trading sessions">
+          <div class="timeline-sessions">${sessionBlocksHtml}</div>
+          ${showCurrentMarker ? `
+            <div class="timeline-current-marker" style="left: ${markerPosition}%;" data-time="${currentTimeStr}" title="Current time: ${currentTimeStr} ${market.tz}"></div>
+          ` : ''}
+        </div>
+        <div class="timeline-session-labels">${labelsHtml}</div>
+        <div class="timeline-next-event">
+          <svg class="event-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span class="event-text">${nextEvent}</span>
         </div>
       </div>
     `;
   }).join('');
 }
 
-// Initialize market hours timeline updates (every minute)
+// Initialize market hours timeline updates (every 30 seconds for smooth current time marker)
 let marketTimelineInterval = null;
 function startMarketTimelineUpdater() {
   if (marketTimelineInterval) clearInterval(marketTimelineInterval);
-  renderMarketHoursTimeline();
-  marketTimelineInterval = setInterval(renderMarketHoursTimeline, 60000);
+  renderMarketHoursTimelinePro();
+  marketTimelineInterval = setInterval(renderMarketHoursTimelinePro, 30000);
 }
 function stopMarketTimelineUpdater() {
   if (marketTimelineInterval) {
@@ -5757,23 +5973,11 @@ function stopMarketTimelineUpdater() {
   }
 }
 
-// Bind market export buttons (idempotent)
-function bindMarketExportButtons() {
-  const exportCsvBtn = document.getElementById('mkt-export-csv-btn');
-  if (exportCsvBtn && !exportCsvBtn.dataset.bound) {
-    exportCsvBtn.dataset.bound = 'true';
-    exportCsvBtn.addEventListener('click', () => exportMarketsData('csv'));
-  }
+// ===== Market WebSocket Integration =====
+let marketWSConnected = false;
+let lastWSStatus = 'disconnected';
 
-  const exportPngBtn = document.getElementById('mkt-export-png-btn');
-  if (exportPngBtn && !exportPngBtn.dataset.bound) {
-    exportPngBtn.dataset.bound = 'true';
-    exportPngBtn.addEventListener('click', () => exportMarketsData('png'));
-  }
-}
-
-// Export Markets Data (CSV/PNG)
-function exportMarketsData(format) {
+async function initMarketWebSocket() {
   // marketDataCache is in module scope
   if (!marketDataCache) {
     showToast('No market data available to export.', 'warning');
@@ -6641,28 +6845,38 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     { name: 'NASDAQ Composite', symbol: '^IXIC', region: 'Americas', regionCode: 'americas', tag: 'US', tagClass: 'tag-us', curr: '$' },
     { name: 'FTSE 100', symbol: '^FTSE', region: 'Europe', regionCode: 'europe', tag: 'UK', tagClass: 'tag-eu', curr: '£' },
     { name: 'NIKKEI 225', symbol: '^N225', region: 'Asia-Pacific', regionCode: 'asia', tag: 'JP', tagClass: 'tag-ap', curr: '¥' },
+    { name: 'HANG SENG', symbol: '^HSI', region: 'Asia-Pacific', regionCode: 'asia', tag: 'HK', tagClass: 'tag-ap', curr: 'HK$' },
+    { name: 'SHANGHAI COMP', symbol: '^SSEC', region: 'Asia-Pacific', regionCode: 'asia', tag: 'CN', tagClass: 'tag-ap', curr: '¥' },
+    { name: 'DAX', symbol: '^GDAXI', region: 'Europe', regionCode: 'europe', tag: 'DE', tagClass: 'tag-eu', curr: '€' },
+    { name: 'CAC 40', symbol: '^FCHI', region: 'Europe', regionCode: 'europe', tag: 'FR', tagClass: 'tag-eu', curr: '€' },
+    { name: 'TSX COMPOSITE', symbol: '^GSPTSE', region: 'Americas', regionCode: 'americas', tag: 'CA', tagClass: 'tag-us', curr: 'C$' },
+    { name: 'ASX 200', symbol: '^AXJO', region: 'Asia-Pacific', regionCode: 'asia', tag: 'AU', tagClass: 'tag-ap', curr: 'A$' },
   ];
 
-  // 1. Populate Global Benchmark Indices Table
-  // Render benchmark rows if we have market data cache (even empty - shows "—" for missing prices)
-  // Only show skeleton when there's no cache at all (initial load) OR when still loading (slow fetch)
+  // 1. Populate Global Benchmark Indices Table - Professional Version
   const hasAnyValidPrice = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
-  const isSlowFetch = lastMarketOverviewFetchDuration > 1000; // Fetch took >1s, likely loading state
-  const shouldShowSkeleton = !hasAnyValidPrice && !force && isSlowFetch;
+  const isSlowFetch = lastMarketOverviewFetchDuration > 1000;
+  const shouldShowSkeleton = !marketDataCache && !hasAnyValidPrice && !force && isSlowFetch;
 
-  if (tableBody && marketDataCache && !shouldShowSkeleton) {
+  const sessionTelemetry = getMarketSessionTelemetry();
+  const sessionByRegion = {
+    india: sessionTelemetry.nse,
+    americas: sessionTelemetry.nyse,
+    europe: sessionTelemetry.lse,
+    asia: sessionTelemetry.tyo,
+  };
+
+  const isValidPrice = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  const isValidNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
+  // Always render benchmark table if tableBody exists
+  if (tableBody) {
     const liveIndices = (marketDataCache?.macro?.Indices || []);
     const lookup = new Map(liveIndices.map((i) => [i.symbol, i]));
-    const sessionTelemetry = getMarketSessionTelemetry();
-    const sessionByRegion = {
-      india: sessionTelemetry.nse,
-      americas: sessionTelemetry.nyse,
-      europe: sessionTelemetry.lse,
-      asia: sessionTelemetry.tyo,
-    };
 
-    const isValidPrice = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
-    const isValidNum = (v) => typeof v === 'number' && Number.isFinite(v);
+    if (shouldShowSkeleton) {
+      renderBenchmarkSkeleton(tableBody);
+    } else {
 
     const processedBenchmarks = benchmarkMeta.map((m) => {
       const live = lookup.get(m.symbol);
@@ -6723,32 +6937,10 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         const sign = isUp ? '+' : isDown ? '−' : '';
         const chgDisplay = m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—';
         const pctDisplay = hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : '—';
-        const chgClass = !hasChange ? 'chg-neutral' : isUp ? 'chg-up' : isDown ? 'chg-down' : 'chg-neutral';
+        const chgClass = !hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '';
+        const pctClass = !hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '';
 
-        let rangeHtml = '';
-        if (m.high != null && m.low != null && m.high > m.low && m.price != null && m.price >= m.low && m.price <= m.high) {
-          const rangePct = Math.min(100, Math.max(0, ((m.price - m.low) / (m.high - m.low)) * 100));
-          const lowFmt = `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-          const highFmt = `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-          rangeHtml = `
-            <div class="session-range-cell">
-              <span class="range-bound low">${lowFmt}</span>
-              <div class="mini-range-track">
-                <div class="mini-range-dot" style="left: ${rangePct}%;"></div>
-              </div>
-              <span class="range-bound high">${highFmt}</span>
-            </div>
-          `;
-        } else if (hasValidPrice) {
-          const availability = m.is_stale ? 'EOD CLOSE' : 'Active Session';
-          rangeHtml = `<span class="market-data-state ${m.is_stale ? 'is-stale eod-close' : ''}" title="${m.source || 'Market feed'}${m.source_timestamp ? ` · ${m.source_timestamp}` : ''}">${availability}</span>`;
-        } else {
-          rangeHtml = `<span class="market-data-state unavailable" title="Market feed offline or initializing">Feed unavailable</span>`;
-        }
-
-        const isDefaultActive = idx === 0;
-
-        // Map region codes to benchmark region tag classes
+        // Region badge
         const regionTagClass = {
           'india': 'india',
           'americas': 'americas',
@@ -6757,6 +6949,26 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           'asia-pacific': 'asia'
         }[m.regionCode] || 'india';
 
+        // Updated timestamp
+        const updatedDisplay = m.source_timestamp
+          ? new Date(m.source_timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+          : (m.is_stale ? 'Stale' : '—');
+
+        // High/Low display
+        const highDisplay = m.high != null
+          ? `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : '—';
+        const lowDisplay = m.low != null
+          ? `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : '—';
+
+        // Sparkline data attribute for canvas rendering
+        const sparklineDataAttr = m.sparkline_data
+          ? `data-sparkline="${JSON.stringify(m.sparkline_data).replace(/"/g, '"')}"`
+          : '';
+
+        const isDefaultActive = idx === 0;
+
         return `
           <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}"
               data-region="${m.regionCode}"
@@ -6764,39 +6976,47 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               tabindex="0"
               role="row"
               aria-label="${m.name} (${m.symbol}) ${m.region}: ${priceDisplay}, change ${pctDisplay}">
-            <td>
-              <div class="benchmark-region" title="Scheduled hours only; exchange holiday status is not checked in the browser.">
-                <span class="benchmark-region-tag ${regionTagClass}">${m.tag}</span>
-                <span class="benchmark-region-name">${m.region}</span>
-              </div>
+            <td class="col-region">
+              <span class="region-badge ${regionTagClass}">${m.tag}</span>
             </td>
-            <td>
-              <strong style="color: var(--fg); font-weight: 600;">${m.name}</strong>
-            </td>
-            <td>
-              <span style="font-family: var(--font-mono); color: var(--accent-primary); font-size: 11.5px; font-weight: 600;">${m.symbol}</span>
-            </td>
-            <td class="text-right" style="font-family: var(--font-mono); font-weight: 700; color: var(--fg);">
+            <td class="col-name">${m.name}</td>
+            <td class="col-symbol">${m.symbol}</td>
+            <td class="col-price text-right${hasValidPrice && !m.is_stale ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}">
               ${priceDisplay}
             </td>
-            <td class="text-right" style="font-family: var(--font-mono); color: var(--fg-muted);">
-              ${chgDisplay}
+            <td class="col-change text-right ${chgClass}">${chgDisplay}</td>
+            <td class="col-pct text-right ${pctClass}">${pctDisplay}</td>
+            <td class="col-high text-right">${highDisplay}</td>
+            <td class="col-low text-right">${lowDisplay}</td>
+            <td class="col-sparkline">
+              <div class="sparkline-mini" ${sparklineDataAttr} data-symbol="${m.symbol}"></div>
             </td>
-            <td class="text-right">
-              <span class="tape-chg ${chgClass}">${pctDisplay}</span>
-            </td>
-            <td>
-              ${rangeHtml}
-            </td>
+            <td class="col-updated text-right">${updatedDisplay}</td>
           </tr>
         `;
       })
       .join('');
 
+    // Render sparklines for rows with data
+    processedBenchmarks.forEach((m, idx) => {
+      if (m.sparkline_data && m.sparkline_data.length > 1) {
+        const row = tableBody.querySelector(`tr[data-sym="${m.symbol}"]`);
+        if (row) {
+          const canvasContainer = row.querySelector('.sparkline-mini');
+          if (canvasContainer) {
+            renderMiniSparkline(canvasContainer, m.sparkline_data, m.change_pct > 0);
+          }
+        }
+      }
+    });
+
     // Default Context Inspector state on Markets load (NIFTY 50)
     if (processedBenchmarks.length > 0 && currentActiveWorkspace === 'markets') {
       renderMarketInspector('index', processedBenchmarks[0]);
     }
+
+    // Update footer
+    updateBenchmarkFooter(processedBenchmarks, marketDataCache);
 
     // Wire Row Interactions:
     // Single Click: Inspect security context
@@ -6878,8 +7098,13 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         // Update WebSocket subscriptions for visible symbols
         await refreshWSSubscriptions();
       });
-    });
-  } // Close if (tableBody && marketDataCache)
+    }); // Close filterBtns.forEach
+
+    // Wire Toolbar Buttons
+    wireBenchmarkToolbar();
+
+  } // Close else block
+} // Close if (tableBody)
 
   // 2. Render Sector Constituents Detail Function
   function renderSelectedSectorDetail(sector) {
