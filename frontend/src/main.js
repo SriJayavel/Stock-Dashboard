@@ -5973,11 +5973,9 @@ function stopMarketTimelineUpdater() {
   }
 }
 
-// ===== Market WebSocket Integration =====
-let marketWSConnected = false;
-let lastWSStatus = 'disconnected';
+// ===== Market Data Export =====
 
-async function initMarketWebSocket() {
+async function exportMarketsData(format) {
   // marketDataCache is in module scope
   if (!marketDataCache) {
     showToast('No market data available to export.', 'warning');
