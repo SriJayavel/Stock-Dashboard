@@ -622,6 +622,9 @@ html.light-theme .mara-unified-header {
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
+.sector-grid-row {
+  display: contents;
+}
 @media (max-width: 1440px) {
   .sector-matrix-grid { grid-template-columns: repeat(4, 1fr); }
 }

@@ -4386,14 +4386,14 @@ function renderScreenerTable(items) {
       const metricStr = item.market_cap_str || item.volume_str || (item.pe_trailing ? `P/E ${item.pe_trailing}x` : '—');
 
       return `
-        <tr data-symbol="${item.symbol}">
+        <tr data-symbol="${item.symbol}" tabindex="0" role="row" aria-label="${item.name || item.symbol} (${item.symbol}): ${priceStr}, change ${chgStr}">
           <td class="screener-sym-col">${item.symbol}</td>
           <td style="font-weight: 500;">${item.name || item.symbol}</td>
-          <td class="screener-price-col">${priceStr}</td>
+          <td class="screener-price-col" aria-live="polite">${priceStr}</td>
           <td><span class="tape-chg ${chgClass}">${chgStr}</span></td>
           <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metricStr}</td>
           <td>
-            <button class="ghost-btn screener-load-btn" data-symbol="${item.symbol}" title="Analyze ${item.name || item.symbol}">
+            <button class="ghost-btn screener-load-btn" data-symbol="${item.symbol}" aria-label="Analyze ${item.name || item.symbol}">
               Analyze ↗
             </button>
           </td>
@@ -4403,10 +4403,17 @@ function renderScreenerTable(items) {
     .join('');
 
   tbody.querySelectorAll('tr').forEach((row) => {
-    row.addEventListener('click', () => {
+    const activate = () => {
       const sym = row.getAttribute('data-symbol');
       if (sym) {
         router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
+      }
+    };
+    row.addEventListener('click', activate);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate();
       }
     });
   });
@@ -6979,7 +6986,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             </td>
             <td class="col-name">${m.name}</td>
             <td class="col-symbol">${m.symbol}</td>
-            <td class="col-price text-right${hasValidPrice && !m.is_stale ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}">
+            <td class="col-price text-right${hasValidPrice && !m.is_stale ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}" aria-live="polite">
               ${priceDisplay}
             </td>
             <td class="col-change text-right ${chgClass}">${chgDisplay}</td>
@@ -7429,7 +7436,7 @@ function renderSectorMatrix(sectorData) {
     return map[region] || 'IN';
   };
 
-  grid.innerHTML = sortedSectors.map((s) => {
+  grid.innerHTML = sortedSectors.map((s, idx) => {
     const perf = s.performance_24h_pct ?? s.return_pct ?? 0;
     const advancing = s.advancing ?? 0;
     const declining = s.declining ?? 0;
@@ -7441,11 +7448,18 @@ function renderSectorMatrix(sectorData) {
     const perfClass = performanceClass(perf);
     const sign = perf >= 0 ? '+' : '';
 
+    // Wrap every 4 tiles in a row for ARIA grid structure (CSS grid handles visual layout)
+    const isRowStart = idx % 4 === 0;
+    const isRowEnd = idx % 4 === 3 || idx === sortedSectors.length - 1;
+    const rowStart = isRowStart ? '<div role="row" class="sector-grid-row">' : '';
+    const rowEnd = isRowEnd ? '</div>' : '';
+
     return `
+      ${rowStart}
       <div class="sector-tile ${perfClass}"
            data-sector="${s.sector}"
            tabindex="0"
-           role="button"
+           role="gridcell"
            aria-label="${s.display_name || s.sector}, ${sign}${perf.toFixed(2)}%, Breadth: ${breadthPct}% advancing"
            title="Click to inspect ${s.display_name || s.sector} constituents">
         <div class="sector-tile-header">
@@ -7475,6 +7489,7 @@ function renderSectorMatrix(sectorData) {
           <span class="sector-meta breadth-pct">${breadthPct}% Breadth</span>
         </div>
       </div>
+      ${rowEnd}
     `;
   }).join('');
 
