@@ -1,0 +1,13 @@
+# Mara Stock Dashboard - Robots.txt
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://mara-stock-terminal.vercel.app/sitemap.xml
+
+# Disallow private/admin paths
+Disallow: /api/
+Disallow: /auth/
+Disallow: /workspace/
+Disallow: /settings/
+Disallow: /*.json$

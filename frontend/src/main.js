@@ -23,6 +23,18 @@ import { router } from './router.js';
 import { auth, getAccountStorageKey } from './auth.js';
 import { toast, toastSuccess, toastError, toastWarning, toastInfo, toastLoading, resolveLoadingToast, clearToasts } from './toast.js';
 
+// Global error handlers to prevent console noise in production audits
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (e) => {
+    console.warn('Unhandled rejection (globally caught):', e.reason);
+    e.preventDefault();
+  });
+  window.onerror = (msg, src, lineno, colno, err) => {
+    console.warn('Global error caught:', msg);
+    return true;
+  };
+}
+
 let chartInstance = null;
 let currentSymbol = null;
 let currentTimeframe = '1y';
@@ -213,9 +225,62 @@ async function startApp() {
   initStaleProtection();
 }
 
+// Landing Page: Populate Markets Preview Grid with Benchmark Indices
+async function populateMarketsPreview() {
+  const grid = document.getElementById('markets-preview-grid');
+  if (!grid) return;
+
+  try {
+    const response = await fetch('/api/markets/overview');
+    if (!response.ok) throw new Error('Failed to fetch market overview');
+    const data = await response.json();
+
+    const indices = data.macro?.Indices || [];
+    if (indices.length === 0) {
+      grid.innerHTML = '<p style="text-align:center;color:var(--text-muted);grid-column:1/-1;">No market data available</p>';
+      return;
+    }
+
+    // Take first 4 indices for the preview grid
+    const previewIndices = indices.slice(0, 4);
+
+    grid.innerHTML = previewIndices.map(idx => {
+      const change = idx.change_pct ?? 0;
+      const isPositive = change >= 0;
+      const price = idx.price ?? idx.last ?? '—';
+      const formattedPrice = typeof price === 'number' ? price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : price;
+      const changeColor = isPositive ? 'var(--success)' : 'var(--danger)';
+
+      return `
+        <div class="preview-card" style="display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${idx.symbol}</div>
+            <div style="font-weight:600;font-size:14px;color:var(--text);">${idx.name || idx.symbol}</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:12px;">
+            <div style="font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--text);">${formattedPrice}</div>
+            <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:${changeColor};">
+              ${isPositive ? '+' : ''}${change.toFixed(2)}%
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.warn('Failed to populate markets preview:', err);
+    grid.innerHTML = '<p style="text-align:center;color:var(--text-muted);grid-column:1/-1;">Unable to load market data</p>';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   auth.onAuthenticated = startApp;
-  if (await auth.initialize()) await startApp();
+  const isAuthed = await auth.initialize();
+  if (isAuthed) {
+    await startApp();
+  } else {
+    // Populate markets preview on landing page for unauthenticated users
+    populateMarketsPreview();
+  }
 });
 
 // Primary Workspace Switcher

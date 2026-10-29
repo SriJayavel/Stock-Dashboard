@@ -22,8 +22,6 @@ class MaraAccount {
   }
 
   async initialize() {
-    document.body.classList.add('auth-required');
-    document.getElementById('auth-gate')?.classList.remove('auth-gate-hidden');
     document.getElementById('auth-signout')?.addEventListener('click', () => this.signOut());
     this.bindForm();
     // Explicit test-only authentication bypass: strictly unavailable in production builds
@@ -51,7 +49,7 @@ class MaraAccount {
         this.enterApp();
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') this.onAuthenticated?.();
       } else if (event === 'SIGNED_OUT' && this.started) {
-        window.location.assign('/');
+        this.showLandingPage();
       }
     });
 
@@ -66,6 +64,7 @@ class MaraAccount {
       this.enterApp();
       return true;
     }
+    this.showLandingPage();
     this.setMode('signin');
     return false;
   }
@@ -76,7 +75,13 @@ class MaraAccount {
     document.getElementById('auth-mode-signup')?.addEventListener('click', () => this.setMode('signup'));
     document.getElementById('auth-guest-button')?.addEventListener('click', () => this.enterGuestMode());
     document.getElementById('auth-forgot-button')?.addEventListener('click', () => this.setMode('reset'));
-    document.getElementById('auth-back-button')?.addEventListener('click', () => this.setMode('signin'));
+    document.getElementById('auth-back-button')?.addEventListener('click', () => {
+      if (this.mode === 'reset' || this.mode === 'recovery') {
+        this.setMode('signin');
+      } else {
+        this.hideAuthGate();
+      }
+    });
     document.getElementById('auth-password-toggle')?.addEventListener('click', () => {
       const input = document.getElementById('auth-password');
       const button = document.getElementById('auth-password-toggle');
@@ -86,6 +91,47 @@ class MaraAccount {
       button.setAttribute('aria-label', input.type === 'password' ? 'Show password' : 'Hide password');
       button.setAttribute('aria-pressed', String(input.type === 'text'));
     });
+    // Handle "Sign In" links from landing page
+    document.querySelectorAll('a[href="#auth-gate"]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.showAuthGate();
+        history.pushState(null, '', '#auth-gate');
+      });
+    });
+    // Escape key to close auth gate and return to landing
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !document.getElementById('auth-gate')?.classList.contains('auth-gate-hidden')) {
+        if (this.mode === 'reset' || this.mode === 'recovery') {
+          this.setMode('signin');
+        } else {
+          this.hideAuthGate();
+        }
+      }
+    });
+  }
+
+  showAuthGate() {
+    document.getElementById('public-landing')?.classList.add('landing-hidden');
+    const authGate = document.getElementById('auth-gate');
+    authGate?.classList.remove('auth-gate-hidden');
+    // Show back button when opening from landing page
+    const backBtn = document.getElementById('auth-back-button');
+    if (backBtn) {
+      backBtn.removeAttribute('hidden');
+      backBtn.textContent = 'Back to landing';
+    }
+    authGate?.focus();
+  }
+
+  hideAuthGate() {
+    document.getElementById('public-landing')?.classList.remove('landing-hidden');
+    document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
+    const backBtn = document.getElementById('auth-back-button');
+    if (backBtn) {
+      backBtn.setAttribute('hidden', '');
+      backBtn.textContent = 'Back to sign in';
+    }
   }
 
   enterGuestMode() {
@@ -181,13 +227,16 @@ class MaraAccount {
     const forgot = document.getElementById('auth-forgot-button');
     const back = document.getElementById('auth-back-button');
     if (title) title.textContent = recovery ? 'Choose a new password' : reset ? 'Reset your password' : signup ? 'Create your account' : 'Welcome back';
-    if (description) description.textContent = recovery ? 'Set a new password to secure your Mara account.' : reset ? 'Enter your account email and we’ll send a reset link.' : signup ? 'A private market workspace, ready when you are.' : 'Sign in to continue to your market workspace.';
+    if (description) description.textContent = recovery ? 'Set a new password to secure your Mara account.' : reset ? 'Enter your account email and we\'ll send a reset link.' : signup ? 'A private market workspace, ready when you are.' : 'Sign in to continue to your market workspace.';
     if (confirm) confirm.hidden = !(signup || recovery);
     if (password) password.hidden = reset;
     if (passwordInput) passwordInput.autocomplete = signup || recovery ? 'new-password' : 'current-password';
     if (tabs) tabs.hidden = reset || recovery;
     if (forgot) forgot.hidden = signup || reset || recovery;
-    if (back) back.hidden = !(reset || recovery);
+    if (back) {
+      back.hidden = !(reset || recovery);
+      if (reset || recovery) back.textContent = 'Back to sign in';
+    }
     const submit = document.getElementById('auth-submit');
     if (submit) submit.textContent = this.submitLabel();
     document.getElementById('auth-mode-signin')?.classList.toggle('active', mode === 'signin');
@@ -214,10 +263,26 @@ class MaraAccount {
     this.token = session?.access_token || '';
   }
 
+  showLandingPage() {
+    document.body.classList.add('auth-required');
+    document.getElementById('public-landing')?.classList.remove('landing-hidden');
+    document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
+    const account = document.getElementById('auth-account');
+    const avatar = document.getElementById('auth-avatar');
+    const name = document.getElementById('auth-account-name');
+    const signout = document.getElementById('auth-signout');
+    if (account) account.hidden = true;
+    if (avatar) avatar.hidden = true;
+    if (name) name.textContent = '';
+    if (signout) signout.hidden = true;
+  }
+
   enterApp() {
     if (!this.session || this.recoveryPath) return;
     this.started = true;
     document.body.classList.remove('auth-required');
+    document.body.classList.add('authenticated');
+    document.getElementById('public-landing')?.classList.add('landing-hidden');
     document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
     const account = document.getElementById('auth-account');
     const avatar = document.getElementById('auth-avatar');
@@ -253,7 +318,9 @@ class MaraAccount {
     this.session = null;
     this.user = null;
     this.token = '';
-    window.location.assign('/');
+    this.started = false;
+    this.showLandingPage();
+    this.setMode('signin');
   }
 
   async expireToken() {

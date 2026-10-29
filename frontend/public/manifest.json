@@ -1,0 +1,49 @@
+{
+  "name": "Mara Stock Dashboard",
+  "short_name": "Mara Dashboard",
+  "description": "Real-time equities intelligence, TradingView charts, valuation multiples, and institutional analytics for market research.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111215",
+  "theme_color": "#111215",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Markets",
+      "short_name": "Markets",
+      "description": "Global market hours and benchmark indices",
+      "url": "/#/markets",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Screener",
+      "short_name": "Screener",
+      "description": "Dynamic multi-rule stock screener",
+      "url": "/#/screener",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Analyze",
+      "short_name": "Analyze",
+      "description": "Chart analysis workstation",
+      "url": "/#/analyze",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    }
+  ]
+}
