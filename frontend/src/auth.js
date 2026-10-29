@@ -49,7 +49,7 @@ class MaraAccount {
         this.enterApp();
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') this.onAuthenticated?.();
       } else if (event === 'SIGNED_OUT' && this.started) {
-        this.showLandingPage();
+        this.showAuthGate();
       }
     });
 
@@ -64,7 +64,7 @@ class MaraAccount {
       this.enterApp();
       return true;
     }
-    this.showLandingPage();
+    this.showAuthGate();
     this.setMode('signin');
     return false;
   }
@@ -79,7 +79,7 @@ class MaraAccount {
       if (this.mode === 'reset' || this.mode === 'recovery') {
         this.setMode('signin');
       } else {
-        this.hideAuthGate();
+        // No landing page to return to, just keep auth gate shown
       }
     });
     document.getElementById('auth-password-toggle')?.addEventListener('click', () => {
@@ -91,47 +91,25 @@ class MaraAccount {
       button.setAttribute('aria-label', input.type === 'password' ? 'Show password' : 'Hide password');
       button.setAttribute('aria-pressed', String(input.type === 'text'));
     });
-    // Handle "Sign In" links from landing page
-    document.querySelectorAll('a[href="#auth-gate"]').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.showAuthGate();
-        history.pushState(null, '', '#auth-gate');
-      });
-    });
-    // Escape key to close auth gate and return to landing
+    // Escape key to close auth gate (no landing page to return to)
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !document.getElementById('auth-gate')?.classList.contains('auth-gate-hidden')) {
         if (this.mode === 'reset' || this.mode === 'recovery') {
           this.setMode('signin');
-        } else {
-          this.hideAuthGate();
         }
       }
     });
   }
 
   showAuthGate() {
-    document.getElementById('public-landing')?.classList.add('landing-hidden');
     const authGate = document.getElementById('auth-gate');
     authGate?.classList.remove('auth-gate-hidden');
-    // Show back button when opening from landing page
-    const backBtn = document.getElementById('auth-back-button');
-    if (backBtn) {
-      backBtn.removeAttribute('hidden');
-      backBtn.textContent = 'Back to landing';
-    }
-    authGate?.focus();
-  }
-
-  hideAuthGate() {
-    document.getElementById('public-landing')?.classList.remove('landing-hidden');
-    document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
+    // Hide back button since there's no landing page
     const backBtn = document.getElementById('auth-back-button');
     if (backBtn) {
       backBtn.setAttribute('hidden', '');
-      backBtn.textContent = 'Back to sign in';
     }
+    authGate?.focus();
   }
 
   enterGuestMode() {
@@ -263,26 +241,11 @@ class MaraAccount {
     this.token = session?.access_token || '';
   }
 
-  showLandingPage() {
-    document.body.classList.add('auth-required');
-    document.getElementById('public-landing')?.classList.remove('landing-hidden');
-    document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
-    const account = document.getElementById('auth-account');
-    const avatar = document.getElementById('auth-avatar');
-    const name = document.getElementById('auth-account-name');
-    const signout = document.getElementById('auth-signout');
-    if (account) account.hidden = true;
-    if (avatar) avatar.hidden = true;
-    if (name) name.textContent = '';
-    if (signout) signout.hidden = true;
-  }
-
   enterApp() {
     if (!this.session || this.recoveryPath) return;
     this.started = true;
     document.body.classList.remove('auth-required');
     document.body.classList.add('authenticated');
-    document.getElementById('public-landing')?.classList.add('landing-hidden');
     document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
     const account = document.getElementById('auth-account');
     const avatar = document.getElementById('auth-avatar');
@@ -319,7 +282,7 @@ class MaraAccount {
     this.user = null;
     this.token = '';
     this.started = false;
-    this.showLandingPage();
+    this.showAuthGate();
     this.setMode('signin');
   }
 

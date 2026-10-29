@@ -118,7 +118,7 @@ button:active,
 
 /* Mara email account entry: uses the existing terminal color tokens. */
 .auth-required { overflow: hidden; }
-.auth-required > :not(#auth-gate):not(.public-landing) { visibility: hidden; }
+.auth-required > :not(#auth-gate) { visibility: hidden; }
 .auth-gate {
   position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center;
   overflow: auto; padding: 36px 28px; background: var(--bg); color: var(--text);
