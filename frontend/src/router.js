@@ -113,7 +113,7 @@ export class HashRouter {
     }
 
     // Direct ticker shorthand, e.g. #/TCS.NS or #/INFY.NS
-    if (parts.length === 1 && !['markets', 'discover', 'screener', 'sectors', 'terminal', 'analyze', 'compare', 'research', 'monitor'].includes(first)) {
+    if (parts.length === 1 && !['markets', 'discover', 'screener', 'sectors', 'terminal', 'analyze', 'compare', 'research', 'monitor', 'auth-gate'].includes(first)) {
       return {
         type: 'symbol',
         workspace: 'analyze',
