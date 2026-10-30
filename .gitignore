@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Skills directory (old location - root level only)
+/skills/
+
+# Downloaded skills (third-party, don't commit)
+.claude/skills/
+
 # Virtual environments
 venv/
 .venv/
