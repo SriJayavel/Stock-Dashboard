@@ -1,0 +1,65 @@
+# Pre-commit hooks for code quality
+# Install: pip install pre-commit && pre-commit install
+
+repos:
+  # Ruff - fast Python linter/formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # Architecture Enforcement - The "Delete a Feature = Zero Ripple" Rule
+  - repo: local
+    hooks:
+      - id: architecture-enforce
+        name: Architecture Enforcement
+        entry: python -m backend.core.architecture.enforcer
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+
+  # Contract tests - ensure all implementations follow protocols
+  - repo: local
+    hooks:
+      - id: contract-cache-tests
+        name: Contract Tests - Cache
+        entry: pytest backend/tests/contract/test_cache_protocol.py -x -q
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: contract-market-data-tests
+        name: Contract Tests - Market Data
+        entry: pytest backend/tests/contract/test_market_data_protocol.py -x -q
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: contract-auth-tests
+        name: Contract Tests - Auth
+        entry: pytest backend/tests/contract/test_auth_protocol.py -x -q
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: contract-events-tests
+        name: Contract Tests - Events
+        entry: pytest backend/tests/contract/test_events_protocol.py -x -q
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  # Check for common issues
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: detect-private-key

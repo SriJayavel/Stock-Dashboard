@@ -24,7 +24,7 @@
 
   <!-- TradingView Blue Market Path 'M' -->
   <path d="M15 45 L15 22 L27 34 L37 23 L49 35" fill="none" stroke="url(#tvBlueGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#tvGlow)"/>
-  
+
   <!-- Mint Green Market Peak Beacon -->
   <path d="M37 23 L49 13" stroke="#22ab94" stroke-width="4.5" stroke-linecap="round" filter="url(#tvGlow)"/>
   <circle cx="49" cy="13" r="3.5" fill="#22ab94" filter="url(#tvGlow)"/>

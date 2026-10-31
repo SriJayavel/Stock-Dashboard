@@ -1,6 +1,6 @@
 # 📈 Apex Financial Terminal v2.0
 
-> **High-Performance Financial Research Terminal • Decoupled Cloud Architecture**  
+> **High-Performance Financial Research Terminal • Decoupled Cloud Architecture**
 > Built with **FastAPI**, **Vite (Vanilla JS)**, **TradingView Lightweight Charts**, and a **Two-Tier Resilient Cache**.
 
 ---

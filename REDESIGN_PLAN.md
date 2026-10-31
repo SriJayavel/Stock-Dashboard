@@ -68,7 +68,7 @@ The current stock dashboard interface is overly complex with 6 main workspaces (
 
 ### From Design-Taste-Frontend
 - Design Read: Financial dashboard for active traders/investors, with a professional/trustworthy language, leaning toward institutional/data visualization aesthetic
-- Dial Settings: 
+- Dial Settings:
   - DESIGN_VARIANCE: 5 (slightly asymmetric but balanced)
   - MOTION_INTENSITY: 3 (subtle, professional motion)
   - VISUAL_DENSITY: 3 (airy, readable data presentation)

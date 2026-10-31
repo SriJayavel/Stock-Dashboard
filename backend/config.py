@@ -1,8 +1,9 @@
-from pathlib import Path
-import os
-import logging
 import json
+import logging
+import os
+from pathlib import Path
 from typing import Annotated
+
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode
 
@@ -14,13 +15,13 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", os.getenv("SUPABASE_PUBLISHABLE_KEY", ""))
-    
+
     # Path to NSE companies catalog (deterministic from module location)
     COMPANIES_CSV_PATH: str = os.getenv(
         "COMPANIES_CSV_PATH",
-        str(Path(__file__).resolve().parent.parent / "companies.csv")
+        str(Path(__file__).resolve().parent.parent / "companies.csv"),
     )
-    
+
     # Security & CORS (strict explicit origins; no wildcards allowed with credentials)
     CORS_ORIGINS: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
@@ -40,32 +41,32 @@ class Settings(BaseSettings):
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def parse_cors_origins(cls, value):
+    def parse_cors_origins(cls: type["Settings"], value: str | list[str]) -> list[str]:
         if isinstance(value, str):
             value = value.strip()
             if not value:
                 return []
             value = json.loads(value) if value.startswith("[") else value.split(",")
         return [origin.strip().rstrip("/") for origin in value if origin and origin.strip()]
-    
+
     # Internal scheduled refresh secret (used by GitHub Actions / external cron)
     # Default provided ONLY for local development. Prohibited in production.
     INTERNAL_REFRESH_SECRET: str = os.getenv("INTERNAL_REFRESH_SECRET", "dev_secret_local_only")
-    
+
     # Redis Cache (Upstash Redis free tier URL e.g. rediss://default:xxx@xxx.upstash.io:6379)
     REDIS_URL: str = os.getenv("REDIS_URL", "")
-    
+
     # In-memory L1 cache TTLs (seconds)
-    L1_MARKET_OVERVIEW_TTL: int = 300       # 5 minutes
-    L1_STOCK_OVERVIEW_TTL: int = 1800       # 30 minutes
-    L1_STOCK_HISTORY_TTL: int = 1800        # 30 minutes
-    L1_INDICATORS_TTL: int = 3600           # 1 hour
-    L1_SCREENER_TTL: int = 1800             # 30 minutes
+    L1_MARKET_OVERVIEW_TTL: int = 300  # 5 minutes
+    L1_STOCK_OVERVIEW_TTL: int = 1800  # 30 minutes
+    L1_STOCK_HISTORY_TTL: int = 1800  # 30 minutes
+    L1_INDICATORS_TTL: int = 3600  # 1 hour
+    L1_SCREENER_TTL: int = 1800  # 30 minutes
 
     config_errors: list[str] = []
 
     @model_validator(mode="after")
-    def validate_security(self):
+    def validate_security(self: "Settings") -> "Settings":
         insecure_placeholders = [
             "apex_internal_secret_change_in_prod",
             "replace_with_a_secure_generated_secret_token",
@@ -74,34 +75,41 @@ class Settings(BaseSettings):
             "secret",
             "",
         ]
-        
-        errors = []
+
+        errors: list[str] = []
         # Enforce strict secret and distributed cache in production
         if self.ENVIRONMENT == "production":
             if not self.SUPABASE_URL.strip() or not self.SUPABASE_KEY.strip():
                 errors.append(
-                    "FATAL SECURITY MISCONFIGURATION: SUPABASE_URL and SUPABASE_KEY must be configured "
-                    "in production to verify account access."
+                    "FATAL SECURITY MISCONFIGURATION: SUPABASE_URL and SUPABASE_KEY "
+                    "must be configured in production to verify account access."
                 )
-            if not self.INTERNAL_REFRESH_SECRET or self.INTERNAL_REFRESH_SECRET in insecure_placeholders:
+            if (
+                not self.INTERNAL_REFRESH_SECRET
+                or self.INTERNAL_REFRESH_SECRET in insecure_placeholders
+            ):
                 errors.append(
-                    "FATAL SECURITY MISCONFIGURATION: INTERNAL_REFRESH_SECRET must be explicitly set "
-                    "via environment variable in production and cannot use default placeholders."
+                    "FATAL SECURITY MISCONFIGURATION: INTERNAL_REFRESH_SECRET must "
+                    "be explicitly set via environment variable in production and "
+                    "cannot use default placeholders."
                 )
             if not self.REDIS_URL or not self.REDIS_URL.strip():
                 logger.warning(
-                    "NOTICE: REDIS_URL is not configured. Running with high-performance L1 in-memory cache."
+                    "NOTICE: REDIS_URL is not configured. Running with high-performance "
+                    "L1 in-memory cache."
                 )
-        
+
         self.config_errors = errors
         for err in errors:
             logger.error(err)
-        
+
         # Ensure no wildcard in CORS origins when credentials are enabled
         if "*" in self.CORS_ORIGINS:
-            logger.warning("Wildcard '*' detected in CORS_ORIGINS with credentials enabled. Removing wildcard.")
+            logger.warning(
+                "Wildcard '*' detected in CORS_ORIGINS with credentials enabled. Removing wildcard."
+            )
             self.CORS_ORIGINS = [orig for orig in self.CORS_ORIGINS if orig != "*"]
-            
+
         return self
 
     class Config:

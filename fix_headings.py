@@ -1,4 +1,4 @@
-with open(r"C:\Project_Files\Stock-Dashboard\frontend\index.html", "r", encoding="utf-8") as f:
+with open(r"C:\Project_Files\Stock-Dashboard\frontend\index.html", encoding="utf-8") as f:
     content = f.read()
 
 # Fix Sector Rotation heading

@@ -118,7 +118,7 @@ If you still see 404s for /api/* endpoints:
 ## Summary of Local Fixes (Already Completed)
 
 ✅ **MARA-MAIN-CANVAS HTTP 500 Errors**: Fixed by adding NaN detection in `backend/services/data_pipeline.py`
-✅ **Backend Import Issues**: Fixed by creating `backend/services/__init__.py`  
+✅ **Backend Import Issues**: Fixed by creating `backend/services/__init__.py`
 ✅ **Local Backend Functionality**: All endpoints working correctly on localhost:8080
 ✅ **Market Summary Component**: Working when cache is warmed (issue was stale cache, not data feed)
 

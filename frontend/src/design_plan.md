@@ -9,7 +9,7 @@ random.seed(56)  # Character count of user prompt
 # Hero Architecture Options
 hero_options = [
     "Cinematic Center (Highly Preferred)",
-    "Artistic Asymmetry", 
+    "Artistic Asymmetry",
     "Editorial Split"
 ]
 hero_layout = hero_options[random.randint(0, 2)]
@@ -21,7 +21,7 @@ typography_stack = typography_options[random.randint(0, 3)]
 # Component Arsenal Selection (3 Unique Components)
 component_arsenal = [
     "Inline Typography Images",
-    "Horizontal Accordions", 
+    "Horizontal Accordions",
     "Infinite Marquee (Trusted Partners)",
     "Feedback/Testimonial Carousel"
 ]
@@ -66,7 +66,7 @@ Selected GSAP Paradigms: ['Hover Physics', 'Scroll Pinning (GSAP Split)']
 
 ## Bento Density Verification
 - Grid Configuration: Using `grid-flow-dense` (`grid-auto-flow: dense`)
-- Mathematical Proof: 
+- Mathematical Proof:
   - 3-column grid with cards spanning: col-span-{1,2,3} and row-span-{1,2}
   - Total area covered: (2×1 + 1×2 + 1×3) = 7 units
   - Grid capacity: 3 columns × 3 rows = 9 units with flow-fill
@@ -81,7 +81,7 @@ Selected GSAP Paradigms: ['Hover Physics', 'Scroll Pinning (GSAP Split)']
 1. **Typography**: Using Cabinet Grotesk as primary font pairing
 2. **Color System**: Premium financial dashboard palette with deep blues and gold accents
 3. **Motion**: Hover physics on all cards + scroll-pinned analytics panel
-4. **Components**: 
+4. **Components**:
    - Inline typography images in section headings
    - Horizontal accordions for detailed metrics
    - Feedback/testimonial carousel for analyst ratings

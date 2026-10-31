@@ -1,7 +1,7 @@
 # Mara Stock Terminal — Foundation Audit
 
-**Date**: 2026-10-09  
-**Auditor**: Claude Code (via RTK-optimized workflow)  
+**Date**: 2026-10-09
+**Auditor**: Claude Code (via RTK-optimized workflow)
 **Objective**: Assess current UI foundation against planned improvements for simplicity, professionalism, and performance
 
 ## Executive Summary
@@ -29,7 +29,7 @@ Based on comparison with PLAN.md "Phase 1: Foundation Improvements":
 
 #### 2. Spacing & Density Optimization
 - **Current**: `--density-font-ui: 13px` (good increase from 12px)
-- **Opportunity**: 
+- **Opportunity**:
   - Standardize spacing multiples (4px/8px grid)
   - Review component padding/margin consistency
   - Optimize dense tables/lists for readability
@@ -101,7 +101,7 @@ Adopt 4px grid system:
 
 #### D. Color Usage Guidelines
 1. **Primary Accent**: `--accent: #2962ff` (for interactive elements)
-2. **Status Colors**: 
+2. **Status Colors**:
    - Gain: `--gain: #22ab94`
    - Loss: `--loss: #f23645`
    - Warning: `--warning: #fbbf24`

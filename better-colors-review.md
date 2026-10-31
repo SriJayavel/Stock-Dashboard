@@ -9,7 +9,7 @@ The project implements a well-structured color system with:
 ### Primitives (Hue-based naming)
 - **Neutral ramp**: `--color-cold-gray-50` through `--color-cold-gray-950`
 - **Primary/Interactive**: `--color-tv-blue-50` through `--color-tv-blue-900` plus accent variants (`--color-tv-blue-a100` through `--color-tv-blue-a900`)
-- **Bullish telemetry**: 
+- **Bullish telemetry**:
   - Minty green: `--color-minty-green-50` through `--color-minty-green-900`
   - Forest green: `--color-forest-green-400`, `--color-forest-green-500`, `--color-forest-green-800`
 - **Bearish telemetry**: `--color-ripe-red-50` through `--color-ripe-red-900`
@@ -114,13 +114,13 @@ The semantic tokens are correctly applied throughout the stylesheet according to
    box-shadow: 0 0 0 3px rgba(62, 207, 142, .12);
    /* Line 35 - change to (using closest token) */
    box-shadow: 0 0 0 3px rgba(66, 189, 168, .12); /* --color-minty-green-300 */
-   
+
    /* Line 44 - change from */
    fill: rgba(62, 207, 142, .07);
    /* Line 44 - change to (using closest token) */
    fill: rgba(66, 189, 168, .07); /* --color-minty-green-300 */
    ```
-   
+
    Alternatively, if the project supports CSS variable syntax with alpha:
    ```css
    box-shadow: 0 0 0 3px rgba(var(--color-minty-green-300), .12);

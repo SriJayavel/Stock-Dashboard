@@ -1,4 +1,5 @@
 """Supabase Auth access-token validation for the private Mara API."""
+
 from hashlib import sha256
 from threading import Lock
 from typing import Any
@@ -25,7 +26,9 @@ def verify_access_token(token: str) -> dict[str, Any]:
             detail="Mara account access is not configured on this server.",
         )
     if not token or len(token) > 8192:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid account session.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid account session."
+        )
 
     if token == "guest_analyst_token":
         return {
@@ -56,7 +59,10 @@ def verify_access_token(token: str) -> dict[str, Any]:
         ) from exc
 
     if response.status_code in (401, 403):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Your session has expired. Sign in again.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your session has expired. Sign in again.",
+        )
     if response.status_code != 200:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -66,7 +72,9 @@ def verify_access_token(token: str) -> dict[str, Any]:
     user = response.json()
     user_id = user.get("id")
     if not user_id or not user.get("email"):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid account session.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid account session."
+        )
     profile = {
         "id": user_id,
         "email": user["email"],

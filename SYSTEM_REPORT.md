@@ -173,7 +173,7 @@ backend/
 ```mermaid
 graph TD
     Client[Web Browser / Frontend] -->|REST / HTTP| FastAPI[FastAPI Main API /backend/main.py]
-    
+
     subgraph Caching Layer
         FastAPI --> CacheMgr[Cache Manager: cache_manager.py]
         CacheMgr -->|Tier 1: 0ms| L1[In-Memory TTLCache]
@@ -185,7 +185,7 @@ graph TD
         FastAPI --> DataPipe[Data Pipeline: data_pipeline.py]
         DataPipe --> NSE[Direct NSE Fetcher: nse_fetcher.py]
         DataPipe --> YF[yfinance Session Pool]
-        
+
         FastAPI --> RelEngine[Relationship Engine: relationship_engine.py]
         FastAPI --> DeepRes[Deep Research: deep_research.py]
         FastAPI --> ResPipe[Research Pipeline: research_pipeline.py]
@@ -377,4 +377,3 @@ The site-wide terminal modernization was executed across five coordinated engine
 - **Watchlist Empty State & Quick-Add**: Displays quick-add suggestion pills (`+ TCS`, `+ RELIANCE`, `+ INFY`, `+ NVDA`) when the watchlist is empty.
 - **Race Condition Prevention**: Added generation sequence tracking (`watchlistRefreshSeq`) and empty-list guards to prevent stale async batch responses from overwriting the empty state DOM.
 - **Offline / Retry Resilience**: Added floating status banner (`#apex-retry-banner`) with auto-reconnection and user retry action.
-

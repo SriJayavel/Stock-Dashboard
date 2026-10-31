@@ -3,14 +3,14 @@
 ## 1. Separation of Concerns
 - **Implementation Location**: Frontend only (`frontend/src/main.js`, uses `frontend/src/alerts.js`)
 - **Backend Changes**: None (no modifications to `backend/services/` or `backend/main.py`)
-- **Architecture Compliance**: 
+- **Architecture Compliance**:
   - Uses existing client-side alert system (`alertsManager.addAlert()`)
   - Alert system is specified as "100% client-side rule alerts with browser notifications and toast banners (zero server accounts)" in AGENTS.md
   - No backend API calls or data processing involved
 - **Verdict**: PASS - Adheres to separation of concerns by being purely frontend and leveraging existing client-side alert infrastructure
 
 ## 2. Epistemological Contract
-- **Data Flow**: 
+- **Data Flow**:
   - Alert button triggers creation of an alert rule (user action) - classified as [FACT]
   - Alert rule storage: `localStorage` via `alertsManager` (no calculation or interpretation)
   - Alert triggering logic (market data comparison) resides in existing alert system (unmodified)
@@ -22,17 +22,17 @@
 
 ## 3. Upstream Protection & Cache Contracts
 - **API Calls**: Zero - alert button only updates `localStorage` and conditionally refreshes alerts UI
-- **Upstream Impact**: 
+- **Upstream Impact**:
   - No requests to yfinance, NSE fetcher, or other upstream services
   - Does not trigger burst requests or cache misses
   - Relies on existing alert system's market data checking (assumed to follow cache-only batch: "Batch endpoints return cached data immediately and mark misses as status: 'pending' without blocking")
 - **Verdict**: PASS - Complies with upstream protection by making zero API calls and respecting cache contracts
 
 ## 4. Multi-Cloud Deployment
-- **File Changes**: 
+- **File Changes**:
   - Only `frontend/src/main.js` modified (added loading-state alert button handlers)
   - No changes to `Dockerfile`, `backend/requirements.txt`, `package.json`, or deployment configuration
-- **Deployment Impact**: 
+- **Deployment Impact**:
   - Isolated frontend change unaffected by Google Cloud Run or Render Web Service configurations
   - No alteration to build process, dependencies, or container settings
 - **Verdict**: PASS - Zero impact on multi-cloud deployment considerations

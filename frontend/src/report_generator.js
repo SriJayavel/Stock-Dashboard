@@ -29,11 +29,11 @@ export class ResearchReportGenerator {
     const quality = v4Data?.statement_quality;
 
     let md = `# Research Dossier: ${symbol}
-**Company / Instrument:** ${name}  
-**As of Date:** ${today}  
-**Primary Source:** ${researchData?.provenance?.primary_source || 'Exchange / Public Data'}  
-**Security Type:** ${stockData?.asset_type || 'Equity'}  
-**Sector / Category:** ${stockData?.sector || 'General'} / ${stockData?.industry || 'Market'}  
+**Company / Instrument:** ${name}
+**As of Date:** ${today}
+**Primary Source:** ${researchData?.provenance?.primary_source || 'Exchange / Public Data'}
+**Security Type:** ${stockData?.asset_type || 'Equity'}
+**Sector / Category:** ${stockData?.sector || 'General'} / ${stockData?.industry || 'Market'}
 
 ---
 

@@ -6,7 +6,7 @@ Comprehensive interface review of the Stock Dashboard application covering all m
 ## Findings Summary
 Review conducted using the better-interface skill, which routes to domain-specific skills in this order:
 1. better-accessibility
-2. better-layout  
+2. better-layout
 3. better-writing
 4. better-typography
 5. better-colors

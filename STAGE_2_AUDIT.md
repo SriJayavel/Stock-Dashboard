@@ -1,8 +1,8 @@
 # Mara Stock Terminal — Stage 2 Audit: Spacing and Typography
 
-**Date**: 2026-10-09  
-**Stage**: 2 (Spacing and Typography - Audit Only Pass)  
-**Priorities**: Professional visual hierarchy, compact information density, predictable spacing, readable market data, minimal regression risk  
+**Date**: 2026-10-09
+**Stage**: 2 (Spacing and Typography - Audit Only Pass)
+**Priorities**: Professional visual hierarchy, compact information density, predictable spacing, readable market data, minimal regression risk
 **Objective**: Audit current spacing and typography usage against planned improvements and priorities
 
 ## Executive Summary
@@ -14,7 +14,7 @@ The Mara Stock Terminal has a foundational spacing and typography token system i
 ### ✅ Strengths (Existing Foundations)
 
 #### Spacing System
-1. **Density Tokens Defined**: 
+1. **Density Tokens Defined**:
    - `--density-font-ui: 13px` (UI font size - increased from 12px)
    - `--density-font-mono: 13px` (monospace font size - increased from 12px)
    - `--density-font-caption: 12px` (caption text - increased from 11px)
@@ -25,7 +25,7 @@ The Mara Stock Terminal has a foundational spacing and typography token system i
 3. **Partial Usage**: Density tokens used for padding/gap in header, workspace bar, and status bar
 
 #### Typography System
-1. **Font Stacks**: 
+1. **Font Stacks**:
    - `--font-sans`: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif
    - `--font-mono`: "JetBrains Mono", "SFMono-Regular", Consolas, monospace
 2. **Responsive Techniques**: Use of `clamp()` for fluid typography in auth gate sections
@@ -34,11 +34,11 @@ The Mara Stock Terminal has a foundational spacing and typography token system i
 
 #### 1. Missing Typographic Scale (Visual Hierarchy)
 **Issue**: No defined typographic scale - results in inconsistent font sizing
-**Evidence**: 
+**Evidence**:
 - Hardcoded font sizes throughout: 9px, 10px, 11px, 12px, 13px, 14px, 15px, 16px, 23px
 - Examples:
   - Line 13: `font-size: 14px;` (.auth-gate-brand)
-  - Line 14: `font-size: 14px;` (.auth-brand-mark)  
+  - Line 14: `font-size: 14px;` (.auth-brand-mark)
   - Line 20: `font-size: clamp(38px, 5.2vw, 58px);` (.auth-gate-intro h1)
   - Line 21: `font-size: 15px;` (.auth-gate-intro > p)
   - Line 24: `font-size: 15px;` (.auth-preview-value)
@@ -77,7 +77,7 @@ The Mara Stock Terminal has a foundational spacing and typography token system i
   - Line 5777: `font-size: 12px;`
   - Line 5861: `font-size: 11px;`
 
-**Impact**: 
+**Impact**:
 - Inconsistent visual hierarchy (unclear relationship between headings, body text, captions)
 - Poor readability due to arbitrary sizing choices
 - Difficulty maintaining consistent typography across updates
@@ -103,7 +103,7 @@ The Mara Stock Terminal has a foundational spacing and typography token system i
 
 #### 3. Underutilized Density Font Tokens
 **Issue**: `--density-font-ui` and `--density-font-mono` defined but not widely used
-**Evidence**: 
+**Evidence**:
 - No clear usage found of `var(--density-font-ui)` or `var(--density-font-mono)` for font-sizing
 - These tokens appear to be defined but not applied to actual text elements
 
@@ -128,7 +128,7 @@ The Mara Stock Terminal has a foundational spacing and typography token system i
 - Inconsistent font weights and sizes throughout UI
 - Market data headers and values often use similar sizing, reducing scanability
 
-**Required**: 
+**Required**:
 - Define typographic scale with clear ratios (e.g., 1.25x or 1.5x between steps)
 - Establish heading hierarchy (h1-h6) with appropriate sizes
 - Define body text variants (base, small, caption)
@@ -188,7 +188,7 @@ Add to `:root` section:
 ```css
 /* Typographic Scale - Based on --density-font-ui (13px) */
 --font-size-xxs: 10px;   /* --density-font-ui * 0.77 */
---font-size-xs:  11px;   /* --density-font-ui * 0.85 */ 
+--font-size-xs:  11px;   /* --density-font-ui * 0.85 */
 --font-size-sm:  12px;   /* --density-font-ui * 0.92 */
 --font-size-base: 13px;  /* --density-font-ui */
 --font-size-lg:  14px;   /* --density-font-ui * 1.08 */

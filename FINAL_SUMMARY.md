@@ -35,7 +35,7 @@ if low_52w is not None and isinstance(low_52w, float) and np.isnan(low_52w):
 
 ### 3. Local Backend Functionality - VERIFIED
 All endpoints tested and working correctly on localhost:8080:
-- Health check: `GET /api/health` 
+- Health check: `GET /api/health`
 - Sector intelligence: `GET /api/analytics/sectors`
 - Stock overview: `GET /api/stocks/{symbol}/overview` (all symbols)
 - Stock history: `GET /api/stocks/{symbol}/history` (all symbols)
@@ -48,7 +48,7 @@ All endpoints tested and working correctly on localhost:8080:
 
 **Evidence**:
 - `https://stock-dashboard.vercel.app/api/analytics/sectors` → Returns Next.js 404 page
-- `https://stock-dashboard.vercel.app/api/health` → Returns Next.js 404 page  
+- `https://stock-dashboard.vercel.app/api/health` → Returns Next.js 404 page
 - Frontend at `https://stock-dashboard.vercel.app/` → Loads correctly
 
 **Likely Root Cause**: The backend service is not properly starting or responding in the Vercel deployment environment, causing the rewrite rule `/api/(.*)` -> backend to fail silently.
@@ -57,7 +57,7 @@ All endpoints tested and working correctly on localhost:8080:
 1. **Check Vercel backend service deployment logs** for startup errors or import issues
 2. **Verify production environment variables** are set in Vercel:
    - `SUPABASE_URL` (required)
-   - `SUPABASE_KEY` (required) 
+   - `SUPABASE_KEY` (required)
    - `INTERNAL_REFRESH_SECRET` (must be explicitly set, not using default "dev_secret_local_only")
    - `REDIS_URL` (optional but recommended for production)
    - `FRONTEND_URL` (should be set to Vercel URL)
@@ -84,7 +84,7 @@ All endpoints tested and working correctly on localhost:8080:
 
 All fixes verified through manual testing and automated test script:
 - MARA-MAIN-CANVAS endpoints now return 200 instead of 500
-- Normal stock data endpoints continue to work correctly  
+- Normal stock data endpoints continue to work correctly
 - Sector analytics endpoint returns proper JSON data
 - No regression in existing functionality
 
