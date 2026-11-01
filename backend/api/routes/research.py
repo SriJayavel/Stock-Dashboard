@@ -40,6 +40,6 @@ async def get_screener(
 ):
     """Multi-market screener."""
     try:
-        return await screener_service.get_screener_snapshot(universe)
+        return await screener_service.get_snapshot(universe)
     except Exception as e:
         raise HTTPException(500, f"Failed to fetch screener: {e}")

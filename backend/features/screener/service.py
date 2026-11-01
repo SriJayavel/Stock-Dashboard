@@ -11,18 +11,21 @@ class ScreenerService:
         self._cache = cache
 
     async def get_snapshot(self, universe: str = "us_mega_caps") -> Dict[str, Any]:
-        """Get screener snapshot - uses legacy function for now."""
+        """Get screener snapshot - legacy module no longer available."""
         cache_key = f"screener:{universe}"
         cached = await self._cache.get("computed:screener", cache_key)
         if cached:
             return cached
 
-        from backend.services.screener import get_screener_snapshot as legacy_screener
-        try:
-            data = legacy_screener(universe)
-        except Exception as e:
-            logger.error(f"Screener failed: {e}")
-            return {"universe": universe, "items": [], "error": str(e)}
+        logger.warning(f"Screener legacy module not available for {universe}")
+        # Return empty structure matching expected format
+        data = {
+            "universe": universe,
+            "items": [],
+            "error": "Screener requires legacy module integration",
+            "total_matches": 0,
+            "filters_applied": [],
+        }
 
         await self._cache.set("computed:screener", cache_key, data, ttl=1800)
         return data

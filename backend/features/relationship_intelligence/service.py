@@ -16,12 +16,14 @@ class RelationshipIntelligenceService:
         if cached:
             return cached
 
-        from backend.services.relationship_engine import get_v4_intelligence as legacy_v4
-        try:
-            data = legacy_v4(symbol)
-        except Exception as e:
-            logger.error(f"V4 intelligence failed: {e}")
-            return {"symbol": symbol, "error": str(e)}
+        logger.warning(f"V4 intelligence legacy module not available for {symbol}")
+        data = {
+            "symbol": symbol,
+            "error": "V4 intelligence requires legacy module integration",
+            "peers": [],
+            "sector_context": {},
+            "macro_correlations": {},
+        }
 
         await self._cache.set("computed:v4_intelligence", cache_key, data, ttl=1800)
         return data
@@ -32,20 +34,24 @@ class RelationshipIntelligenceService:
         if cached:
             return cached
 
-        from backend.services.relationship_engine import get_macro_explorer as legacy_macro
-        try:
-            data = legacy_macro(symbol)
-        except Exception as e:
-            logger.error(f"Macro explorer failed: {e}")
-            return {"symbol": symbol, "error": str(e)}
+        logger.warning(f"Macro explorer legacy module not available for {symbol}")
+        data = {
+            "symbol": symbol,
+            "error": "Macro explorer requires legacy module integration",
+            "correlations": [],
+            "regime_analysis": {},
+        }
 
         await self._cache.set("computed:macro_explorer", cache_key, data, ttl=1800)
         return data
 
     async def parse_query(self, query: str, symbol: str) -> Dict[str, Any]:
-        from backend.services.relationship_engine import parse_research_query as legacy_parse
-        try:
-            return legacy_parse(query, symbol)
-        except Exception as e:
-            logger.error(f"Query parse failed: {e}")
-            return {"query": query, "error": str(e)}
+        logger.warning("Query parse legacy module not available")
+        return {
+            "query": query,
+            "symbol": symbol,
+            "error": "Query parsing requires legacy module integration",
+            "intent": "unknown",
+            "entities": [],
+            "actions": [],
+        }

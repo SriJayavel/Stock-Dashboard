@@ -4,7 +4,7 @@ Provides market overview data with proper caching and fallback.
 """
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, time
 from typing import Dict, Any, List, Optional
 from backend.core.contracts.cache import CacheProtocol
 from backend.core.contracts.market_data import MarketDataProvider
@@ -263,9 +263,9 @@ class MarketService:
         curr_time = now_ist.time()
 
         if is_weekday:
-            if datetime.time(9, 15) <= curr_time <= datetime.time(15, 30):
+            if time(9, 15) <= curr_time <= time(15, 30):
                 status = "OPEN"
-            elif datetime.time(9, 0) <= curr_time < datetime.time(9, 15):
+            elif time(9, 0) <= curr_time < time(9, 15):
                 status = "PRE-MARKET"
             else:
                 status = "CLOSED"
@@ -285,9 +285,9 @@ class MarketService:
         is_weekday = now_ny.weekday() < 5
         curr_time = now_ny.time()
         if is_weekday:
-            if datetime.time(9, 30) <= curr_time <= datetime.time(16, 0):
+            if time(9, 30) <= curr_time <= time(16, 0):
                 return "OPEN"
-            elif datetime.time(4, 0) <= curr_time < datetime.time(9, 30):
+            elif time(4, 0) <= curr_time < time(9, 30):
                 return "PRE"
         return "CLOSED"
 
@@ -297,7 +297,7 @@ class MarketService:
         is_weekday = now_lon.weekday() < 5
         curr_time = now_lon.time()
         if is_weekday:
-            if datetime.time(8, 0) <= curr_time <= datetime.time(16, 30):
+            if time(8, 0) <= curr_time <= time(16, 30):
                 return "OPEN"
         return "CLOSED"
 
@@ -307,9 +307,9 @@ class MarketService:
         is_weekday = now_tyo.weekday() < 5
         curr_time = now_tyo.time()
         if is_weekday:
-            if datetime.time(9, 0) <= curr_time <= datetime.time(15, 0):
+            if time(9, 0) <= curr_time <= time(15, 0):
                 return "OPEN"
-            elif datetime.time(11, 30) <= curr_time <= datetime.time(12, 30):
+            elif time(11, 30) <= curr_time <= time(12, 30):
                 return "LUNCH"
         return "CLOSED"
 

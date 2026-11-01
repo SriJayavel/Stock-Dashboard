@@ -16,12 +16,15 @@ class ResearchService:
         if cached:
             return cached
 
-        from backend.services.research_pipeline import get_stock_research as legacy_research
-        try:
-            data = legacy_research(symbol)
-        except Exception as e:
-            logger.error(f"Research failed: {e}")
-            return {"symbol": symbol, "error": str(e)}
+        logger.warning(f"Research legacy module not available for {symbol}")
+        data = {
+            "symbol": symbol,
+            "error": "Research requires legacy module integration",
+            "fundamentals": {},
+            "valuation": {},
+            "peer_comparison": {},
+            "risk_metrics": {},
+        }
 
         await self._cache.set("computed:research", cache_key, data, ttl=3600)
         return data
@@ -32,12 +35,18 @@ class ResearchService:
         if cached:
             return cached
 
-        from backend.services.deep_research import get_deep_stock_research as legacy_deep
-        try:
-            data = legacy_deep(symbol)
-        except Exception as e:
-            logger.error(f"Deep research failed: {e}")
-            return {"symbol": symbol, "error": str(e)}
+        logger.warning(f"Deep research legacy module not available for {symbol}")
+        data = {
+            "symbol": symbol,
+            "error": "Deep research requires legacy module integration",
+            "quarterly_trends": [],
+            "corporate_actions": [],
+            "valuation_envelope": {},
+            "relative_benchmarking": {},
+            "correlation_matrix": {},
+            "sector_intelligence": {},
+            "financial_health_score": None,
+        }
 
         await self._cache.set("computed:deep_research", cache_key, data, ttl=1800)
         return data

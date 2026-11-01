@@ -16,31 +16,45 @@ class DeepResearchService:
         if cached:
             return cached
 
-        from backend.services.deep_research import get_deep_stock_research as legacy_deep
-        try:
-            data = legacy_deep(symbol)
-        except Exception as e:
-            logger.error(f"Deep research failed: {e}")
-            return {"symbol": symbol, "error": str(e)}
+        # Legacy module no longer exists - return structured error response
+        logger.warning(f"Deep research legacy module not available for {symbol}")
+        data = {
+            "symbol": symbol,
+            "error": "Deep research requires legacy module integration",
+            "quarterly_trends": [],
+            "corporate_actions": [],
+            "valuation_envelope": {},
+            "relative_benchmarking": {},
+            "correlation_matrix": {},
+            "sector_intelligence": {},
+            "financial_health_score": None,
+        }
 
         await self._cache.set("computed:deep_research", cache_key, data, ttl=1800)
         return data
 
     async def compute_correlation_matrix(self, symbols: List[str], period: str = "1y") -> Dict[str, Any]:
-        from backend.services.deep_research import compute_correlation_matrix as legacy_corr
-        try:
-            return legacy_corr(symbols, period=period)
-        except Exception as e:
-            logger.error(f"Correlation matrix failed: {e}")
-            return {"symbols": symbols, "error": str(e)}
+        # Legacy module no longer exists - return empty matrix
+        logger.warning("Correlation matrix legacy module not available")
+        return {
+            "symbols": symbols,
+            "period": period,
+            "matrix": {},
+            "error": "Correlation matrix requires legacy module integration"
+        }
 
     async def compute_portfolio_risk(self, positions: List[Dict[str, Any]], period: str = "1y") -> Dict[str, Any]:
-        from backend.services.deep_research import compute_cached_portfolio_risk as legacy_risk
-        try:
-            return legacy_risk(positions, period=period)
-        except Exception as e:
-            logger.error(f"Portfolio risk failed: {e}")
-            return {"positions": positions, "error": str(e)}
+        # Legacy module no longer exists - return empty risk
+        logger.warning("Portfolio risk legacy module not available")
+        return {
+            "positions": positions,
+            "period": period,
+            "var_95": None,
+            "var_99": None,
+            "expected_shortfall": None,
+            "max_drawdown": None,
+            "error": "Portfolio risk requires legacy module integration"
+        }
 
     async def get_sector_intelligence(self) -> Dict[str, Any]:
         cache_key = "sector_intelligence"
@@ -48,12 +62,12 @@ class DeepResearchService:
         if cached:
             return cached
 
-        from backend.services.deep_research import get_sector_intelligence as legacy_sector
-        try:
-            data = legacy_sector()
-        except Exception as e:
-            logger.error(f"Sector intelligence failed: {e}")
-            return {"error": str(e)}
+        # Legacy module no longer exists - return empty intelligence
+        logger.warning("Sector intelligence legacy module not available")
+        data = {
+            "sectors": {},
+            "error": "Sector intelligence requires legacy module integration"
+        }
 
         await self._cache.set("computed:sector_intelligence", cache_key, data, ttl=3600)
         return data

@@ -1,0 +1,96 @@
+Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app%2Fmanifest.json&nonce=63906586c0a28aa13686e5a8b31f93529344aac3ae235e4521d0692cc1cb2ea0' (redirected from 'https://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app/manifest.json') from origin 'https://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app%2Fmanifest.json&nonce=63906586c0a28aa13686e5a8b31f93529344aac3ae235e4521d0692cc1cb2ea0:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app%2Fmanifest.json&nonce=267aef9c018187efbc86fc31d6e23edc0d40ca6543a139b028a6f37d9d44c62a' (redirected from 'https://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app/manifest.json') from origin 'https://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app%2Fmanifest.json&nonce=267aef9c018187efbc86fc31d6e23edc0d40ca6543a139b028a6f37d9d44c62a:1  Failed to load resource: net::ERR_FAILED
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/screener?universe=indian_leaders:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/batch:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/TCS.NS/history?timeframe=1d&interval=1d:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/batch:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/TCS.NS/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/screener?universe=indian_leaders:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/batch:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/batch:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/TCS.NS/history?timeframe=1d&interval=1d:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/TCS.NS/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:584 Failed to load market overview: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async mr (index-CnOJvXOF.js:584:2807)
+    at async Promise.allSettled (index 0)
+mr @ index-CnOJvXOF.js:584
+/api/screener?universe=indian_leaders:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:999 Failed to load screener: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async En (index-CnOJvXOF.js:999:135)
+    at async Promise.allSettled (index 0)
+En @ index-CnOJvXOF.js:999
+/api/stocks/batch:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/batch:1  Failed to load resource: the server responded with a status of 500 ()
+/api/stocks/TCS.NS/overview:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:650 Failed to load asset TCS.NS: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async jt (index-CnOJvXOF.js:650:925)
+    at async index-CnOJvXOF.js:415:2964
+    at async Promise.all (index 0)
+    at async Xc.notify (index-CnOJvXOF.js:279:5112)
+    at async Xc.navigate (index-CnOJvXOF.js:279:4841)
+jt @ index-CnOJvXOF.js:650
+/api/stocks/TCS.NS/history?timeframe=1d&interval=1d:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:650 Failed to load history for TCS.NS: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async es (index-CnOJvXOF.js:650:1872)
+es @ index-CnOJvXOF.js:650
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:584 Failed to load market overview: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async mr (index-CnOJvXOF.js:584:2807)
+    at async Je (index-CnOJvXOF.js:428:1486)
+    at async index-CnOJvXOF.js:415:2333
+    at async Promise.all (index 0)
+    at async Xc.notify (index-CnOJvXOF.js:279:5112)
+    at async Xc.navigate (index-CnOJvXOF.js:279:4841)
+mr @ index-CnOJvXOF.js:584
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/screener?universe=indian_leaders:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/#/markets:1 Access to internal resource at 'https://vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app%2Fmanifest.json&nonce=6df75ecf1f5c3241e2296b1f052baace66c2b27c45fe849c8fe4ae374e4fdf91' (redirected from 'https://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app/manifest.json') from origin 'https://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/screener?universe=indian_leaders:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/screener?universe=indian_leaders:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:999 Failed to load screener: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async En (index-CnOJvXOF.js:999:135)
+En @ index-CnOJvXOF.js:999
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+/api/analytics/sectors:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:584 Failed to load market overview: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async mr (index-CnOJvXOF.js:584:2807)
+mr @ index-CnOJvXOF.js:584
+/api/analytics/sectors:1  Failed to load resource: the server responded with a status of 500 ()
+/api/markets/overview:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:584 Failed to load market overview: Error: HTTP 500: 
+    at Nc.fetchWithRetry (index-CnOJvXOF.js:29:72009)
+    at async mr (index-CnOJvXOF.js:584:2807)
+mr @ index-CnOJvXOF.js:584
+sectors:1  Failed to load resource: the server responded with a status of 500 ()
+index-CnOJvXOF.js:29 WebSocket connection to 'wss://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app/ws/markets' failed: 
+(anonymous) @ index-CnOJvXOF.js:29
+connect @ index-CnOJvXOF.js:29
+Jd @ index-CnOJvXOF.js:1572
+index-CnOJvXOF.js:29 [MarketWS] Error: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+ws.onerror @ index-CnOJvXOF.js:29
+index-CnOJvXOF.js:29 WebSocket connection to 'wss://stock-dashboard-886f-20kc5ucwj-phantom-33bf.vercel.app/ws/markets' failed: 
+(anonymous) @ index-CnOJvXOF.js:29
+connect @ index-CnOJvXOF.js:29
+(anonymous) @ index-CnOJvXOF.js:29
+index-CnOJvXOF.js:29 [MarketWS] Error: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+ws.onerror @ index-CnOJvXOF.js:29
