@@ -64,6 +64,7 @@ def create_app() -> FastAPI:
             "/api/stocks/batch",
             "/api/search",
             "/api/screener",
+            "/api/analytics/sectors",  # Sector intelligence - public market data
             "/ws/markets",
         ]
         public_patterns = [
@@ -85,7 +86,16 @@ def create_app() -> FastAPI:
                 return await call_next(request)
 
             # Verify token via auth provider
-            auth = get_container().auth()
+            try:
+                auth = get_container().auth()
+            except Exception as e:
+                logger.error(f"Auth provider initialization failed: {e}")
+                return JSONResponse(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    content={"detail": "Authentication service temporarily unavailable"},
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
             auth_header = request.headers.get("authorization", "")
             scheme, _, credential = auth_header.partition(" ")
 
@@ -99,10 +109,11 @@ def create_app() -> FastAPI:
             try:
                 user = await auth.verify_token(credential)
                 request.state.mara_user = user
-            except ValueError as e:
+            except Exception as e:
+                logger.warning(f"Token verification failed: {e}")
                 return JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    content={"detail": str(e)},
+                    content={"detail": "Invalid or expired token"},
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 

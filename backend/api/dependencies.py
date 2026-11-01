@@ -178,10 +178,11 @@ class Container:
         # Connect Redis if configured
         if settings.REDIS_URL and isinstance(self.cache(), HybridCache):
             try:
-                # Find the Redis cache in hybrid
                 hybrid = self.cache()
-                # Note: would need to expose L2 for connection
-                pass
+                # Access the L2 Redis cache and connect
+                if hasattr(hybrid, '_l2') and hybrid._l2:
+                    await hybrid._l2.connect()
+                    logger.info("Redis cache connected successfully")
             except Exception as e:
                 logger.warning(f"Redis connection failed: {e}")
 

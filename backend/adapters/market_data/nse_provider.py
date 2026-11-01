@@ -19,7 +19,7 @@ logger = logging.getLogger("nse_provider")
 
 
 class NSEProvider:
-    """Direct NSE India API provider."""
+    """Direct NSE India API provider with serverless-friendly configuration."""
 
     name = "nse"
     supported_asset_types = ["equity", "index"]
@@ -30,36 +30,54 @@ class NSEProvider:
         self._client: Optional[httpx.AsyncClient] = None
         self._cookie_jar = None
         self._session_initialized = False
+        self._available = True  # Track if provider is functional
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create HTTP client with session."""
+    async def _get_client(self) -> Optional[httpx.AsyncClient]:
+        """Get or create HTTP client with session. Returns None if unavailable."""
+        if not self._available:
+            return None
+
         if self._client is None:
-            self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(10.0),
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Accept": "application/json, text/plain, */*",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Referer": "https://www.nseindia.com/",
-                },
-                follow_redirects=True,
-            )
-            # Initialize session with cookie handshake
-            await self._initialize_session()
+            try:
+                self._client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(8.0, connect=3.0),  # Shorter timeouts for serverless
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                        "Accept": "application/json, text/plain, */*",
+                        "Accept-Language": "en-US,en;q=0.9",
+                        "Referer": "https://www.nseindia.com/",
+                    },
+                    follow_redirects=True,
+                    verify=True,  # SSL verification
+                )
+                # Initialize session with cookie handshake (non-blocking)
+                await self._initialize_session()
+            except Exception as e:
+                logger.warning(f"NSE client creation failed: {e}")
+                self._available = False
+                self._client = None
+                return None
         return self._client
 
     async def _initialize_session(self) -> None:
-        """Perform NSE cookie handshake."""
+        """Perform NSE cookie handshake. Non-blocking, best-effort."""
         if self._session_initialized:
             return
         try:
             client = await self._get_client()
-            # Hit homepage to get cookies
-            await client.get("https://www.nseindia.com")
+            if client is None:
+                return
+            # Hit homepage to get cookies - with short timeout
+            await asyncio.wait_for(client.get("https://www.nseindia.com"), timeout=5.0)
             # Hit option chain to get more cookies
-            await client.get("https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY")
+            await asyncio.wait_for(
+                client.get("https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"),
+                timeout=5.0
+            )
             self._session_initialized = True
             logger.debug("NSE session initialized")
+        except asyncio.TimeoutError:
+            logger.warning("NSE session init timeout - provider will operate without session")
         except Exception as e:
             logger.warning(f"NSE session init failed: {e}")
 
@@ -107,13 +125,17 @@ class NSEProvider:
 
     async def get_quote(self, symbol: str) -> Optional[Quote]:
         """Get real-time quote from NSE."""
+        client = await self._get_client()
+        if client is None:
+            logger.debug(f"NSE client unavailable for {symbol}")
+            return None
+
         try:
-            client = await self._get_client()
             clean = symbol.replace('.NS', '').replace('.BO', '')
 
             # NSE quote API
             url = f"https://www.nseindia.com/api/quote-equity?symbol={clean}"
-            resp = await client.get(url)
+            resp = await asyncio.wait_for(client.get(url), timeout=5.0)
             resp.raise_for_status()
             data = resp.json()
 
@@ -134,13 +156,17 @@ class NSEProvider:
                 high_52w=price_info.get('intraDayHighLow', {}).get('max'),
                 low_52w=price_info.get('intraDayHighLow', {}).get('min'),
             )
+        except asyncio.TimeoutError:
+            logger.debug(f"NSE quote timeout for {symbol}")
         except Exception as e:
             logger.debug(f"NSE quote failed for {symbol}: {e}")
         return None
 
     async def get_quotes(self, symbols: List[str]) -> List[Optional[Quote]]:
+        # Use asyncio.gather with return_exceptions=True for resilience
         tasks = [self.get_quote(s) for s in symbols]
-        return await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return [r if isinstance(r, Quote) or r is None else None for r in results]
 
     # --- Historical Data ---
 
@@ -178,9 +204,14 @@ class NSEProvider:
     # --- Health ---
 
     async def health_check(self) -> bool:
+        client = await self._get_client()
+        if client is None:
+            return False
         try:
-            client = await self._get_client()
-            resp = await client.get("https://www.nseindia.com/api/marketStatus")
+            resp = await asyncio.wait_for(
+                client.get("https://www.nseindia.com/api/marketStatus"),
+                timeout=3.0
+            )
             return resp.status_code == 200
         except Exception:
             return False

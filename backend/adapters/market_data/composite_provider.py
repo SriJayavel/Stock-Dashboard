@@ -47,7 +47,12 @@ class CompositeMarketProvider:
         """Select best providers for a symbol, in priority order."""
         # Indian markets
         if symbol.endswith('.NS') or symbol.endswith('.BO'):
-            return [self._nse, self._yfinance]
+            # Check if NSE is available before adding it
+            providers = []
+            if getattr(self._nse, '_available', True):
+                providers.append(self._nse)
+            providers.append(self._yfinance)
+            return providers
 
         # Crypto/Forex - yfinance handles these well
         if symbol.endswith('-USD') or symbol.endswith('=X'):
@@ -57,7 +62,10 @@ class CompositeMarketProvider:
         return [self._yfinance]
 
     def _get_all_providers(self) -> List[MarketDataProvider]:
-        return [self._yfinance, self._nse]
+        providers = [self._yfinance]
+        if getattr(self._nse, '_available', True):
+            providers.append(self._nse)
+        return providers
 
     # --- Caching Helpers ---
 
