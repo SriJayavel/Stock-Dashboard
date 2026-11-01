@@ -9,6 +9,9 @@ __pycache__/
 # Downloaded skills (third-party, don't commit)
 .claude/skills/
 
+# AI context files (don't commit - for AI reference only)
+CODEBASE_STRUCTURE.md
+
 # Virtual environments
 venv/
 .venv/

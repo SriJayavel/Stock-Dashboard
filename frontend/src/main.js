@@ -3207,26 +3207,33 @@ function renderTickerTape(data) {
         : '—';
 
       return `
-        <div class="tape-item" data-symbol="${item.symbol}">
+        <div class="tape-item" data-symbol="${item.symbol}" tabindex="0" role="button" aria-label="${itemData.name || itemData.symbol}, ${formattedPrice}, ${isItemUnavailable && !isUsingFallback ? 'unavailable' : `${sign}${Math.abs(itemData.change_pct || 0).toFixed(2)}% change`}${isUsingFallback ? ' (fallback)' : ''}">
           <span class="tape-sym">${itemData.name || itemData.symbol}</span>
           <span class="tape-val" ${valId}>${formattedPrice}</span>
-          <span class="tape-chg ${chgClass}" ${badgeId}>
+          <span class="tape-chg ${chgClass}" ${badgeId} aria-hidden="true">
             <span ${chgId}>
               ${isItemUnavailable && !isUsingFallback ? '—' :
                `${sign}${Math.abs(itemData.change_pct || 0).toFixed(2)}%`}
             </span>
           </span>
-          ${isUsingFallback ? '<span class="tape-flag" title="Last available price (markets closed)">*</span>' : ''}
+          ${isUsingFallback ? '<span class="tape-flag" aria-hidden="true" title="Last available price (markets closed)">*</span>' : ''}
         </div>
       `;
     })
     .join('');
 
-  // Click on tape item to view stock
+  // Click/Keyboard on tape item to view stock
   tapeTrack.querySelectorAll('.tape-item').forEach((elem) => {
-    elem.addEventListener('click', () => {
+    const activateItem = () => {
       const sym = elem.getAttribute('data-symbol');
       if (sym) router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
+    };
+    elem.addEventListener('click', activateItem);
+    elem.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateItem();
+      }
     });
   });
 }
@@ -3244,28 +3251,33 @@ function renderMacroCards() {
   }
 
   container.innerHTML = items
-    .map((item) => {
+    .map((item, idx) => {
       const isUp = (item.change || 0) >= 0;
+      const isDown = (item.change || 0) < 0;
       const chgClass = isUp ? 'chg-up' : 'chg-down';
       const chgGlyph = isUp ? '+ ' : '- ';
+      const chgText = isUp ? 'up ' : isDown ? 'down ' : '';
       const decimals = currentMacroCategory === 'Forex' ? 4 : 2;
       const isStale = Boolean(item.is_stale);
       const isOffline = item.price == null || item.status === 'unavailable';
-      const statusDot = isOffline
-        ? '<span class="macro-status-dot offline" title="Feed Offline"></span>'
-        : (isStale ? '<span class="macro-status-dot stale" title="Stale Cache"></span>' : '');
+      const statusText = isOffline ? 'Feed Offline' : isStale ? 'Stale Cache' : 'Live';
+      const statusClass = isOffline ? 'offline' : isStale ? 'stale' : 'live';
       const formattedPrice = item.price != null
         ? Number(item.price).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
         : formatWithState(item.price, isOffline ? 'unavailable' : (isStale ? 'stale' : 'unavailable'));
 
       return `
-        <div class="macro-mini-card ${isStale ? 'stale-card' : ''}" data-symbol="${item.symbol}">
+        <div class="macro-mini-card ${isStale ? 'stale-card' : ''}"
+             data-symbol="${item.symbol}"
+             tabindex="0"
+             role="button"
+             aria-label="${item.name || item.symbol}, ${chgText}${Math.abs(item.change_pct || 0).toFixed(2)}%, ${statusText}">
           <div class="macro-mini-sym">
             <div class="macro-mini-sym-left">
-              ${statusDot}
+              <span class="macro-status-dot ${statusClass}" aria-hidden="true" title="${statusText}"></span>
               <span class="macro-code">${item.symbol}</span>
             </div>
-            <span class="macro-pill ${chgClass}">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>
+            <span class="macro-pill ${chgClass}" aria-label="Change: ${chgText}${Math.abs(item.change_pct || 0).toFixed(2)}%">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>
           </div>
           <div class="macro-mini-name">${item.name || item.symbol}</div>
           <div class="macro-mini-price">${formattedPrice}</div>
@@ -3274,11 +3286,18 @@ function renderMacroCards() {
     })
     .join('');
 
-  // Click to view in deep terminal
+  // Click/Keyboard to view in deep terminal
   container.querySelectorAll('.macro-mini-card').forEach((card) => {
-    card.addEventListener('click', () => {
+    const activateCard = () => {
       const sym = card.getAttribute('data-symbol');
       router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
+    };
+    card.addEventListener('click', activateCard);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateCard();
+      }
     });
   });
 }
@@ -5409,6 +5428,7 @@ function renderMiniSparkline(container, data, isPositive) {
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   canvas.style.display = 'block';
+  canvas.setAttribute('aria-hidden', 'true');
 
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
@@ -7039,13 +7059,16 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
         const isDefaultActive = idx === 0;
 
+        const changeDirection = !hasChange ? '' : isUp ? ' up' : isDown ? ' down' : '';
+        const ariaChangeText = hasChange ? `${pctDisplay.replace('+', 'up ').replace('−', 'down ')}` : 'no change data';
+
         return `
           <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}"
               data-region="${m.regionCode}"
               data-sym="${m.symbol}"
               tabindex="0"
               role="row"
-              aria-label="${m.name} (${m.symbol}) ${m.region}: ${priceDisplay}, change ${pctDisplay}">
+              aria-label="${m.name} (${m.symbol}) ${m.region}: ${priceDisplay}, change${changeDirection} ${ariaChangeText}">
             <td class="col-region">
               <span class="region-badge ${regionTagClass}">${m.tag}</span>
             </td>
@@ -7059,7 +7082,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             <td class="col-high text-right">${highDisplay}</td>
             <td class="col-low text-right">${lowDisplay}</td>
             <td class="col-sparkline">
-              <div class="sparkline-mini" ${sparklineDataAttr} data-symbol="${m.symbol}"></div>
+              <div class="sparkline-mini" ${sparklineDataAttr} data-symbol="${m.symbol}" aria-hidden="true"></div>
             </td>
             <td class="col-updated text-right">${updatedDisplay}</td>
           </tr>
@@ -7149,26 +7172,56 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     });
     // Wire Filter Buttons
     const filterBtns = document.querySelectorAll('#markets-indices-filter .benchmark-filter-btn');
-    filterBtns.forEach((btn) => {
+    const filterBtnsArray = Array.from(filterBtns);
+
+    filterBtnsArray.forEach((btn, idx) => {
       btn.addEventListener('click', async () => {
-        filterBtns.forEach((b) => {
-          b.classList.remove('active');
-          b.setAttribute('aria-selected', 'false');
-        });
-        btn.classList.add('active');
-        btn.setAttribute('aria-selected', 'true');
-        const region = btn.getAttribute('data-region');
-        tableBody.querySelectorAll('.benchmark-row').forEach((row) => {
-          if (region === 'all' || row.getAttribute('data-region') === region) {
-            row.style.display = '';
-          } else {
-            row.style.display = 'none';
-          }
-        });
-        // Update WebSocket subscriptions for visible symbols
-        await refreshWSSubscriptions();
+        activateFilterBtn(btn);
       });
-    }); // Close filterBtns.forEach
+
+      // Keyboard navigation for tabs (ARIA best practice)
+      btn.addEventListener('keydown', (e) => {
+        let targetIdx = idx;
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          targetIdx = (idx + 1) % filterBtnsArray.length;
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          targetIdx = (idx - 1 + filterBtnsArray.length) % filterBtnsArray.length;
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          targetIdx = 0;
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          targetIdx = filterBtnsArray.length - 1;
+        } else {
+          return;
+        }
+        filterBtnsArray[targetIdx].focus({ preventScroll: true });
+        activateFilterBtn(filterBtnsArray[targetIdx]);
+      });
+    });
+
+    function activateFilterBtn(btn) {
+      filterBtnsArray.forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+        b.setAttribute('tabindex', '-1');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      btn.setAttribute('tabindex', '0');
+      const region = btn.getAttribute('data-region');
+      tableBody.querySelectorAll('.benchmark-row').forEach((row) => {
+        if (region === 'all' || row.getAttribute('data-region') === region) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+      // Update WebSocket subscriptions for visible symbols
+      refreshWSSubscriptions();
+    }
 
     // Wire Toolbar Buttons
     wireBenchmarkToolbar();
@@ -7501,7 +7554,11 @@ function renderSectorMatrix(sectorData) {
     return map[region] || 'IN';
   };
 
-  grid.innerHTML = sortedSectors.map((s, idx) => {
+  // Calculate row count for ARIA grid (4 columns per row)
+    const rowCount = Math.ceil(sortedSectors.length / 4);
+    grid.setAttribute('aria-rowcount', rowCount);
+
+    grid.innerHTML = sortedSectors.map((s, idx) => {
     const perf = s.performance_24h_pct ?? s.return_pct ?? 0;
     const advancing = s.advancing ?? 0;
     const declining = s.declining ?? 0;
@@ -7512,6 +7569,7 @@ function renderSectorMatrix(sectorData) {
     const sparklineId = `sparkline-${s.sector.replace(/\s+/g, '-')}`;
     const perfClass = performanceClass(perf);
     const sign = perf >= 0 ? '+' : '';
+    const perfDirection = perf > 0 ? ' up' : perf < 0 ? ' down' : ' unchanged';
 
     // Wrap every 4 tiles in a row for ARIA grid structure (CSS grid handles visual layout)
     const isRowStart = idx % 4 === 0;
@@ -7525,7 +7583,7 @@ function renderSectorMatrix(sectorData) {
            data-sector="${s.sector}"
            tabindex="0"
            role="gridcell"
-           aria-label="${s.display_name || s.sector}, ${sign}${perf.toFixed(2)}%, Breadth: ${breadthPct}% advancing"
+           aria-label="${s.display_name || s.sector}${perfDirection}, ${Math.abs(perf).toFixed(2)}% change, Breadth: ${breadthPct}% advancing"
            title="Click to inspect ${s.display_name || s.sector} constituents">
         <div class="sector-tile-header">
           <span class="sector-name">${s.display_name || s.sector}</span>
@@ -7545,7 +7603,7 @@ function renderSectorMatrix(sectorData) {
           </div>
           ${hasConstituentPerf ? `
           <div class="sector-sparkline-wrap" title="Constituent performance distribution">
-            <canvas class="sector-sparkline" id="${sparklineId}" width="120" height="28" aria-label="Performance distribution"></canvas>
+            <canvas class="sector-sparkline" id="${sparklineId}" width="120" height="28" aria-hidden="true"></canvas>
           </div>` : ''}
         </div>
         <div class="sector-tile-footer">
