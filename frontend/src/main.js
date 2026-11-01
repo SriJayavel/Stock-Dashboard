@@ -6524,7 +6524,9 @@ async function initMarketWebSocket() {
           toastSuccess('Live feed connected', 'Real-time market data is streaming');
         } else if (status === 'connecting' && lastWSStatus === 'disconnected') {
           toastInfo('Connecting to live feed...', '', { duration: 3000 });
-        } else if (status === 'error' && lastWSStatus !== 'error') {
+        } else if (status === 'polling' && lastWSStatus !== 'polling') {
+          toastInfo('Live feed using polling mode', 'Updates every 15 seconds (WebSocket unavailable on this platform)', { duration: 5000 });
+        } else if (status === 'error' && lastWSStatus !== 'error' && lastWSStatus !== 'polling') {
           toastError('Connection error', 'Attempting to reconnect...', { duration: 5000 });
         } else if (status === 'disconnected' && lastWSStatus === 'connected') {
           toastWarning('Live feed disconnected', 'Reconnecting automatically...', { duration: 4000 });
@@ -6553,7 +6555,7 @@ async function initMarketWebSocket() {
     console.log('[MarketWS] Initialized for markets workspace');
   } catch (e) {
     console.warn('[MarketWS] Failed to initialize:', e);
-    toastError('Failed to connect', 'Live market feed unavailable', { duration: 5000 });
+    // Don't show error toast - polling fallback will handle it
   }
 }
 

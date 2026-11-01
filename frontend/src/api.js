@@ -183,7 +183,7 @@ class ApiClient {
 
 export const api = new ApiClient();
 
-// ===== Market WebSocket Client =====
+// ===== Market WebSocket Client (with polling fallback for Vercel) =====
 export class MarketWebSocket {
   constructor() {
     this.ws = null;
@@ -197,10 +197,30 @@ export class MarketWebSocket {
     this.reconnectDelay = 1000;
     this.heartbeatInterval = null;
     this.isConnecting = false;
+
+    // Polling fallback for platforms without WebSocket support (e.g., Vercel)
+    this.pollingInterval = null;
+    this.pollingEnabled = false;
+    this.pollingIntervalMs = 15000; // 15 seconds
+    this.usePollingFallback = false;
+  }
+
+  // Check if we're likely on a platform that doesn't support WebSockets (e.g., Vercel)
+  _isWebSocketUnsupportedPlatform() {
+    // Check for Vercel deployment indicators
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    return hostname.includes('vercel.app') || hostname.includes('vercel.com');
   }
 
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) return Promise.resolve();
+
+    // If we're on a known unsupported platform, skip WebSocket and use polling immediately
+    if (this._isWebSocketUnsupportedPlatform()) {
+      console.log('[MarketWS] Vercel detected - using polling fallback');
+      this._startPollingFallback();
+      return Promise.resolve();
+    }
 
     this.isConnecting = true;
     const wsUrl = `${WS_BASE}/ws/markets`;
@@ -209,21 +229,41 @@ export class MarketWebSocket {
       try {
         this.ws = new WebSocket(wsUrl);
 
+        // Connection timeout - if WebSocket doesn't connect in 5s, fall back to polling
+        const connectionTimeout = setTimeout(() => {
+          if (this.isConnecting && this.ws?.readyState !== WebSocket.OPEN) {
+            console.warn('[MarketWS] Connection timeout - falling back to polling');
+            this.ws.close();
+            this.isConnecting = false;
+            this._startPollingFallback();
+            resolve(); // Resolve with polling fallback
+          }
+        }, 5000);
+
         this.ws.onopen = () => {
+          clearTimeout(connectionTimeout);
           console.log('[MarketWS] Connected');
           this.isConnecting = false;
           this.reconnectAttempts = 0;
           this._setStatus('connected');
           this._send({ action: 'subscribe', symbols: Array.from(this.subscriptions) });
+          this._stopPollingFallback();
           resolve();
         };
 
         this.ws.onclose = (event) => {
+          clearTimeout(connectionTimeout);
           console.log('[MarketWS] Disconnected:', event.code, event.reason);
           this.isConnecting = false;
           this._clearHeartbeat();
           this._setStatus('disconnected');
-          this._scheduleReconnect();
+
+          // If we haven't enabled polling fallback yet, try it
+          if (!this.usePollingFallback && event.code !== 1000) {
+            this._startPollingFallback();
+          } else if (!this.usePollingFallback) {
+            this._scheduleReconnect();
+          }
         };
 
         this.ws.onerror = (error) => {
@@ -231,7 +271,9 @@ export class MarketWebSocket {
           this._setStatus('error');
           if (this.isConnecting) {
             this.isConnecting = false;
-            reject(error);
+            clearTimeout(connectionTimeout);
+            this._startPollingFallback();
+            resolve(); // Resolve with polling fallback
           }
         };
 
@@ -245,7 +287,9 @@ export class MarketWebSocket {
         };
       } catch (e) {
         this.isConnecting = false;
-        reject(e);
+        clearTimeout(connectionTimeout);
+        this._startPollingFallback();
+        resolve(); // Resolve with polling fallback
       }
     });
   }
@@ -320,6 +364,71 @@ export class MarketWebSocket {
     }
   }
 
+  // ===== Polling Fallback for Vercel and other platforms without WebSocket support =====
+  _startPollingFallback() {
+    if (this.usePollingFallback) return;
+
+    console.log('[MarketWS] Starting polling fallback');
+    this.usePollingFallback = true;
+    this._setStatus('polling');
+
+    const poll = async () => {
+      if (!this.usePollingFallback || this.subscriptions.size === 0) return;
+
+      try {
+        // Fetch batch overview for all subscribed symbols
+        const symbols = Array.from(this.subscriptions);
+        const response = await fetch(`${API_BASE}/api/stocks/batch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+          },
+          body: JSON.stringify({ symbols: symbols.slice(0, 50) }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.results) {
+            data.results.forEach(item => {
+              if (item.status === 'cached' && item.current_price != null) {
+                const mockEvent = {
+                  type: 'price_update',
+                  symbol: item.symbol,
+                  data: item,
+                  timestamp: new Date().toISOString() + 'Z'
+                };
+                this._handleMessage(mockEvent);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('[MarketWS] Polling error:', e);
+      }
+
+      // Schedule next poll
+      if (this.usePollingFallback) {
+        this.pollingInterval = setTimeout(poll, this.pollingIntervalMs);
+      }
+    };
+
+    // Start polling immediately
+    poll();
+  }
+
+  _stopPollingFallback() {
+    if (!this.usePollingFallback) return;
+
+    console.log('[MarketWS] Stopping polling fallback');
+    this.usePollingFallback = false;
+
+    if (this.pollingInterval) {
+      clearTimeout(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+  }
+
   onPriceUpdate(symbol, callback) {
     if (!this.handlers.has(symbol)) {
       this.handlers.set(symbol, new Set());
@@ -330,6 +439,7 @@ export class MarketWebSocket {
 
   disconnect() {
     this._clearHeartbeat();
+    this._stopPollingFallback();
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;

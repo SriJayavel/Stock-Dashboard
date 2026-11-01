@@ -139,7 +139,6 @@ class Container:
     def research_service(self) -> ResearchService:
         if self._research_service is None:
             self._research_service = ResearchService(
-                market_data=self.market_data(),
                 cache=self.cache(),
             )
         return self._research_service
