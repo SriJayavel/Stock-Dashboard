@@ -1,138 +1,185 @@
-# MARA STOCK DASHBOARD — FRONTEND/BACKEND CONTRACT REGRESSION
+# MARA STOCK DASHBOARD — INDEX RESEARCH API FAILURE INVESTIGATION
 
-The previous HTTP 500 production issues have been fixed.
+## Objective
+Investigate and resolve repeated HTTP 503 errors affecting the research and intelligence APIs when accessing the NASDAQ Composite index (`^IXIC`).
 
-However, new issues have appeared in the deployed application.
+Production deployment:
+https://mara-stock-terminal.vercel.app/#/markets
 
-This task is specifically about identifying and fixing frontend/backend integration problems.
+Affected symbol:
+`^IXIC` — NASDAQ Composite Index
 
-IMPORTANT: Do not perform another architecture refactoring. Preserve the existing clean architecture and investigate the actual source of each error.
+## 1. Observed Production Errors
 
-## ISSUE 1: SECTOR INTELLIGENCE RUNTIME ERROR
+The following endpoints consistently return HTTP 503:
 
-Browser console:
+- `/api/stocks/%5EIXIC/research`
+- `/api/stocks/%5EIXIC/v4-intelligence`
+- `/api/stocks/%5EIXIC/deep-research`
+- `/api/stocks/%5EIXIC/macro-explorer`
 
-`Failed sector intelligence load: TypeError: t is not iterable`
+The frontend retries each request, but the failures persist.
 
-Stack:
-- `ou` at index-CRWh88xl.js:1646:26
-- `gt` at index-CRWh88xl.js:1641
-- `Ye` at index-CRWh88xl.js:428
+The frontend reports:
+- Deep research notice for ^IXIC.
+- Macro explorer fetch error.
+- Research fetch non-fatal notice.
+- Mara v4 intelligence notice.
 
-Investigation:
+These failures appear across four separate research services.
 
-1. Locate the original frontend source corresponding to the minified function `ou`.
-2. Identify the exact variable being iterated.
-3. Trace the sector intelligence API response.
-4. Inspect the actual JSON returned by `/api/analytics/sectors`.
-5. Compare the backend response structure against the frontend's expected TypeScript types and interfaces.
-6. Check whether any expected array is returning:
-   - null
-   - undefined
-   - an object instead of an array
-   - a differently named property
-   - an unexpected nested structure.
+## 2. Primary Investigation — Index Symbol Compatibility
 
-7. Check the implementation of `DeepResearchService.get_sector_intelligence()` and its response serialization.
-
-Fix the actual contract mismatch.
-
-Requirements:
-- Preserve the existing response contract wherever possible.
-- Do not blindly use Array.from() or spread operators to hide invalid data.
-- Do not fabricate sector constituents or market values.
-- Add appropriate response validation.
-- Handle legitimate empty sector data gracefully.
-- Add regression tests for valid, empty and partial sector responses.
-
-## ISSUE 2: STOCK BATCH API RETURNS HTTP 422
-
-Browser console:
-
-`GET/POST /api/stocks/batch → HTTP 422`
-
-The actual HTTP method has not yet been established. Inspect the browser Network request rather than assuming it.
-
-Investigation:
-
-1. Locate the frontend batch request implementation.
-2. Inspect the exact request method, URL, headers and payload.
-3. Locate the backend `/api/stocks/batch` route.
-4. Inspect its Pydantic request schema and validation requirements.
-5. Compare the frontend payload against the backend schema.
-6. Inspect the actual 422 response body, including FastAPI validation details.
-7. Identify the exact field, type or request-format mismatch.
+Investigate whether the backend correctly supports index symbols, particularly `^IXIC`.
 
 Check:
-- Missing required fields.
-- Incorrect field names.
-- Incorrect symbol array format.
-- Incorrect request body structure.
-- Query parameters versus JSON body.
-- Incorrect HTTP method.
-- Pydantic schema changes.
-- Request serialization.
 
-Fix the frontend/backend contract at its correct source.
+1. URL encoding and decoding of caret-prefixed symbols.
+2. Whether `%5EIXIC` is correctly decoded into `^IXIC`.
+3. Whether the backend symbol validator accepts `^` characters.
+4. Whether symbol normalization accidentally removes or modifies the caret.
+5. Whether provider adapters correctly recognize index instruments.
+6. Whether the data providers support NASDAQ Composite historical data, quotes, fundamentals, and macro-related information.
+7. Whether index symbols are incorrectly processed using stock-specific logic.
 
-Do not weaken backend validation just to make the request pass.
+Check similar instruments where applicable:
+- `^IXIC` — NASDAQ Composite
+- `^GSPC` — S&P 500
+- `^DJI` — Dow Jones Industrial Average
+- `^NSEI` — NIFTY 50
 
-## ISSUE 3: RETRY HANDLING
+Do not assume every provider supports every index.
 
-The frontend currently retries the batch request after receiving HTTP 422.
+## 3. Investigate Shared Backend Dependencies
 
-Investigate `fetchWithRetry()`.
+All four endpoints fail simultaneously.
 
-Validation errors (400–499, except explicitly retryable cases such as 429) should generally not be retried automatically.
+Trace their dependency chains and investigate:
 
-Update retry behavior appropriately so permanent validation failures do not create unnecessary repeated requests.
+- Financial data provider availability.
+- Provider-specific symbol support.
+- Rate limits and HTTP 429 responses.
+- Request timeouts.
+- Cache failures.
+- Database connectivity.
+- Shared service exceptions.
+- Backend worker timeouts.
+- Render service restarts.
+- Missing or invalid production environment variables.
 
-Preserve retry handling for transient network errors and appropriate server failures.
+Determine whether these endpoints share a failing provider, service, or infrastructure dependency.
 
-## ISSUE 4: MARKET STATUS AND WEBSOCKET LOGS
+## 4. Index-Aware Architecture
 
-Current logs:
+Review whether the current instrument architecture distinguishes between:
+
+- Individual equities.
+- Market indices.
+- ETFs.
+- Commodities.
+- Currency pairs.
+
+If index-specific handling is missing, implement it using the existing architecture and Core Contracts.
+
+Requirements:
+
+- Correctly normalize and preserve index symbols.
+- Support provider-specific symbol mappings where necessary.
+- Avoid treating indices as ordinary company stocks.
+- Do not request company fundamentals or financial statements for indices.
+- Provide index-appropriate market statistics and research.
+- Handle unsupported data categories gracefully.
+- Preserve compatibility with existing stock research functionality.
+
+Do not introduce hardcoded special cases for only `^IXIC`.
+
+## 5. Frontend MarketStatus and MarketWS Verification
+
+The following frontend components appear to initialize successfully:
 
 `[MarketStatus] DOM elements found`
+
 `[MarketStatus] Telemetry`
+
 `[MarketWS] Vercel detected - using polling fallback`
 
-Verify that these are expected informational messages.
+`[MarketWS] Starting polling fallback`
 
-Do not introduce unnecessary changes if these systems are working correctly.
+`[MarketWS] Status: polling`
 
-## TESTING REQUIREMENTS
+`[MarketWS] Initialized for markets workspace`
 
-Test:
+Verify:
 
-1. GET `/api/analytics/sectors`
-2. Sector intelligence frontend rendering.
-3. Empty sector responses.
-4. Partial sector responses.
-5. The actual `/api/stocks/batch` request method and payload.
-6. Valid batch request.
-7. Invalid batch request.
-8. Empty batch request.
-9. Watchlist population after successful batch retrieval.
-10. Retry behavior for HTTP 422 versus HTTP 500 and 429.
+- MarketStatus continues reporting valid market sessions.
+- Polling fallback works correctly on Vercel.
+- Index research failures do not interrupt market overview or other workspaces.
+- Research panels display meaningful error and unavailable-data states.
+- Failed requests do not trigger unnecessary retry storms.
 
-Use actual API response data and existing application contracts.
+Do not modify working MarketStatus or MarketWS logic without identifying an actual defect.
 
-## FINAL REPORT
+## 6. Error Handling and Reliability
+
+Implement appropriate behavior for:
+
+- Unsupported instrument types.
+- Unsupported provider capabilities.
+- Temporary upstream outages.
+- Rate limiting.
+- Missing historical data.
+- Partial research results.
+
+Requirements:
+
+- Use bounded retries with appropriate backoff.
+- Preserve stale-cache fallback where available.
+- Isolate optional research service failures.
+- Return meaningful structured error responses.
+- Do not return fake data.
+- Do not convert all failures into HTTP 200.
+- Do not silently suppress exceptions.
+
+## 7. Regression Testing
+
+Test the following:
+
+1. `^IXIC` research endpoints.
+2. `^GSPC` research endpoints.
+3. `^DJI` research endpoints.
+4. `^NSEI` research endpoints.
+5. TCS.NS stock research endpoints.
+6. Existing market overview functionality.
+7. Provider failure and timeout scenarios.
+8. URL encoding and decoding.
+9. Cache fallback.
+10. Frontend recovery after backend service restoration.
+
+Verify that fixing index compatibility does not break ordinary stock symbols.
+
+## 8. Final Technical Report
 
 Provide:
 
-1. Exact root cause of the sector intelligence TypeError.
-2. Actual malformed or unexpected response structure, if present.
-3. Exact root cause of the batch HTTP 422.
-4. Actual request payload versus expected backend schema.
-5. Files modified.
-6. Tests performed and results.
-7. Production deployment verification.
+- Exact root cause of the 503 errors.
+- Whether the issue is index-specific or infrastructure-wide.
+- Which providers support each requested index capability.
+- Files and modules modified.
+- Architectural changes made.
+- Tests executed and results.
+- Remaining limitations.
+- Production deployment and verification status.
 
-IMPORTANT:
-Do not mark the task complete based on local tests alone.
+## Execution Instructions
 
-Verify the actual deployed Mara Stock Dashboard.
+Follow this sequence:
 
-Preserve the clean architecture. Fix only the identified integration problems.
+INVESTIGATE → TRACE DEPENDENCIES → IDENTIFY ROOT CAUSE → IMPLEMENT FIX → TEST → VERIFY.
+
+Do not assume the caret character is the root cause merely because the affected instrument is an index.
+
+Investigate the actual backend response and provider exception before changing symbol normalization or API routing.
+
+Preserve the existing architecture and avoid unnecessary refactoring.
+
+Do not claim production resolution until the deployed endpoints have been tested successfully.

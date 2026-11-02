@@ -70,6 +70,10 @@ def create_app() -> FastAPI:
         public_patterns = [
             ("/api/stocks/", "/overview"),
             ("/api/stocks/", "/history"),
+            ("/api/stocks/", "/research"),
+            ("/api/stocks/", "/deep-research"),
+            ("/api/stocks/", "/v4-intelligence"),
+            ("/api/stocks/", "/macro-explorer"),
         ]
 
         is_public = any(path.startswith(p) for p in public_prefixes)

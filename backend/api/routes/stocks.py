@@ -79,7 +79,7 @@ async def get_stock_research(
 ):
     """Get institutional research dossier."""
     try:
-        return await research_service.get_stock_research(symbol)
+        return await research_service.get_research(symbol)
     except Exception as e:
         raise HTTPException(500, f"Failed to fetch research: {e}")
 
