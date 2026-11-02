@@ -7416,90 +7416,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         return;
       }
 
-      // Use the dedicated renderSectorMatrix function
+      // Use the dedicated renderSectorMatrix function (wires tile rendering and event handlers)
       renderSectorMatrix(sectorData);
-
-      // Wire tile click -> select sector and update Context Inspector
-      const sectorTiles = Array.from(secGrid.querySelectorAll('.sector-tile'));
-      const sectorCols = 4; // Grid columns (matches CSS grid-template-columns)
-
-      // Initialize roving tabindex for sector tiles
-      sectorTiles.forEach((tile, idx) => {
-        tile.setAttribute('tabindex', idx === 0 ? '0' : '-1');
-      });
-
-      const activateSectorTile = (tile) => {
-        const secName = tile.getAttribute('data-sector');
-        const found = sectorData.find((s) => s.sector === secName);
-        if (found) {
-          // Add expand animation
-          tile.classList.add('expanding');
-          setTimeout(() => tile.classList.remove('expanding'), 200);
-
-          currentSelectedSector = found;
-          sectorTiles.forEach((t) => t.classList.toggle('active-sector', t.getAttribute('data-sector') === secName));
-
-          // Update roving tabindex
-          sectorTiles.forEach((t) => t.setAttribute('tabindex', '-1'));
-          tile.setAttribute('tabindex', '0');
-          tile.focus({ preventScroll: true });
-
-          // Animate detail panel
-          const detailSection = document.getElementById('sector-detail-section');
-          if (detailSection) {
-            detailSection.classList.add('sector-detail-expanded');
-            detailSection.offsetHeight;
-            detailSection.classList.remove('sector-detail-expanded');
-          }
-
-          renderSelectedSectorDetail(found);
-          renderMarketInspector('sector', found);
-        }
-      };
-
-      sectorTiles.forEach((tile, idx) => {
-        const handleActivate = () => activateSectorTile(tile);
-
-        tile.addEventListener('click', handleActivate);
-
-        tile.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleActivate();
-          } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            const nextIdx = Math.min(idx + 1, sectorTiles.length - 1);
-            sectorTiles[nextIdx].focus({ preventScroll: true });
-            activateSectorTile(sectorTiles[nextIdx]);
-          } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            const prevIdx = Math.max(idx - 1, 0);
-            sectorTiles[prevIdx].focus({ preventScroll: true });
-            activateSectorTile(sectorTiles[prevIdx]);
-          } else if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            const nextIdx = Math.min(idx + sectorCols, sectorTiles.length - 1);
-            sectorTiles[nextIdx].focus({ preventScroll: true });
-            activateSectorTile(sectorTiles[nextIdx]);
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            const prevIdx = Math.max(idx - sectorCols, 0);
-            sectorTiles[prevIdx].focus({ preventScroll: true });
-            activateSectorTile(sectorTiles[prevIdx]);
-          } else if (e.key === 'Home') {
-            e.preventDefault();
-            sectorTiles[0].focus({ preventScroll: true });
-            activateSectorTile(sectorTiles[0]);
-          } else if (e.key === 'End') {
-            e.preventDefault();
-            sectorTiles[sectorTiles.length - 1].focus({ preventScroll: true });
-            activateSectorTile(sectorTiles[sectorTiles.length - 1]);
-          }
-        });
-      });
 
       if (currentSelectedSector) {
         renderSelectedSectorDetail(currentSelectedSector);
+        renderMarketInspector('sector', currentSelectedSector);
       }
 
       // Render sector sparklines
@@ -7653,6 +7575,7 @@ function renderSectorMatrix(sectorData) {
       tile.setAttribute('tabindex', '0');
       tile.focus({ preventScroll: true });
       renderSelectedSectorDetail(sector);
+      renderMarketInspector('sector', sector);
     };
 
     tile.addEventListener('click', activateTile);
