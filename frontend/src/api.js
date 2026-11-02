@@ -70,7 +70,15 @@ class ApiClient {
     } catch (error) {
       clearTimeout(coldStartTimer);
       if (error?.authExpired) throw error;
-      if (retries > 0) {
+
+      // Extract status code from error message (e.g., "HTTP 422: Unprocessable Entity")
+      const statusMatch = error.message?.match(/HTTP (\d+):/);
+      const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 0;
+
+      // Don't retry on client errors (4xx) except 429 (rate limit)
+      const isClientError = statusCode >= 400 && statusCode < 500 && statusCode !== 429;
+
+      if (retries > 0 && !isClientError) {
         console.warn(`Request failed for ${url}, retrying... (${retries} left). Error: ${error.message}`);
         this.setStatus({
           isWaking: true,
@@ -104,7 +112,7 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ symbols: symbols.slice(0, 50) }),
+      body: JSON.stringify(symbols.slice(0, 50)),
     });
   }
 
@@ -384,7 +392,7 @@ export class MarketWebSocket {
             'Content-Type': 'application/json',
             ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
           },
-          body: JSON.stringify({ symbols: symbols.slice(0, 50) }),
+          body: JSON.stringify(symbols.slice(0, 50)),
         });
 
         if (response.ok) {

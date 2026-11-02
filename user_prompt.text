@@ -1,24 +1,138 @@
-The regression fixes look good. Before moving forward, I want a final production-readiness verification.
+# MARA STOCK DASHBOARD — FRONTEND/BACKEND CONTRACT REGRESSION
 
-Do not introduce additional architectural changes.
+The previous HTTP 500 production issues have been fixed.
 
-Please verify:
+However, new issues have appeared in the deployed application.
 
-1. All five endpoints work against the actual deployed Vercel backend, not just localhost.
-2. Market overview loads correctly in the browser.
-3. Sector intelligence displays real data.
-4. Screener returns valid stock information.
-5. Watchlist batch requests transition from pending to populated data.
-6. Cache L1/L2 behavior works correctly.
-7. NSE → yfinance fallback works per symbol.
-8. No unexpected HTTP 500 errors appear in production logs.
-9. No frontend response-contract mismatches exist.
-10. No background jobs, cache warmers, or scheduled tasks silently fail.
+This task is specifically about identifying and fixing frontend/backend integration problems.
 
-Also verify the deployment is running the intended backend entry point: backend.main:app.
+IMPORTANT: Do not perform another architecture refactoring. Preserve the existing clean architecture and investigate the actual source of each error.
 
-Provide actual production HTTP status codes and representative response validation results.
+## ISSUE 1: SECTOR INTELLIGENCE RUNTIME ERROR
 
-Do not report production success based solely on local tests.
+Browser console:
 
-If everything passes, stop modifying the backend and mark the regression recovery complete.
+`Failed sector intelligence load: TypeError: t is not iterable`
+
+Stack:
+- `ou` at index-CRWh88xl.js:1646:26
+- `gt` at index-CRWh88xl.js:1641
+- `Ye` at index-CRWh88xl.js:428
+
+Investigation:
+
+1. Locate the original frontend source corresponding to the minified function `ou`.
+2. Identify the exact variable being iterated.
+3. Trace the sector intelligence API response.
+4. Inspect the actual JSON returned by `/api/analytics/sectors`.
+5. Compare the backend response structure against the frontend's expected TypeScript types and interfaces.
+6. Check whether any expected array is returning:
+   - null
+   - undefined
+   - an object instead of an array
+   - a differently named property
+   - an unexpected nested structure.
+
+7. Check the implementation of `DeepResearchService.get_sector_intelligence()` and its response serialization.
+
+Fix the actual contract mismatch.
+
+Requirements:
+- Preserve the existing response contract wherever possible.
+- Do not blindly use Array.from() or spread operators to hide invalid data.
+- Do not fabricate sector constituents or market values.
+- Add appropriate response validation.
+- Handle legitimate empty sector data gracefully.
+- Add regression tests for valid, empty and partial sector responses.
+
+## ISSUE 2: STOCK BATCH API RETURNS HTTP 422
+
+Browser console:
+
+`GET/POST /api/stocks/batch → HTTP 422`
+
+The actual HTTP method has not yet been established. Inspect the browser Network request rather than assuming it.
+
+Investigation:
+
+1. Locate the frontend batch request implementation.
+2. Inspect the exact request method, URL, headers and payload.
+3. Locate the backend `/api/stocks/batch` route.
+4. Inspect its Pydantic request schema and validation requirements.
+5. Compare the frontend payload against the backend schema.
+6. Inspect the actual 422 response body, including FastAPI validation details.
+7. Identify the exact field, type or request-format mismatch.
+
+Check:
+- Missing required fields.
+- Incorrect field names.
+- Incorrect symbol array format.
+- Incorrect request body structure.
+- Query parameters versus JSON body.
+- Incorrect HTTP method.
+- Pydantic schema changes.
+- Request serialization.
+
+Fix the frontend/backend contract at its correct source.
+
+Do not weaken backend validation just to make the request pass.
+
+## ISSUE 3: RETRY HANDLING
+
+The frontend currently retries the batch request after receiving HTTP 422.
+
+Investigate `fetchWithRetry()`.
+
+Validation errors (400–499, except explicitly retryable cases such as 429) should generally not be retried automatically.
+
+Update retry behavior appropriately so permanent validation failures do not create unnecessary repeated requests.
+
+Preserve retry handling for transient network errors and appropriate server failures.
+
+## ISSUE 4: MARKET STATUS AND WEBSOCKET LOGS
+
+Current logs:
+
+`[MarketStatus] DOM elements found`
+`[MarketStatus] Telemetry`
+`[MarketWS] Vercel detected - using polling fallback`
+
+Verify that these are expected informational messages.
+
+Do not introduce unnecessary changes if these systems are working correctly.
+
+## TESTING REQUIREMENTS
+
+Test:
+
+1. GET `/api/analytics/sectors`
+2. Sector intelligence frontend rendering.
+3. Empty sector responses.
+4. Partial sector responses.
+5. The actual `/api/stocks/batch` request method and payload.
+6. Valid batch request.
+7. Invalid batch request.
+8. Empty batch request.
+9. Watchlist population after successful batch retrieval.
+10. Retry behavior for HTTP 422 versus HTTP 500 and 429.
+
+Use actual API response data and existing application contracts.
+
+## FINAL REPORT
+
+Provide:
+
+1. Exact root cause of the sector intelligence TypeError.
+2. Actual malformed or unexpected response structure, if present.
+3. Exact root cause of the batch HTTP 422.
+4. Actual request payload versus expected backend schema.
+5. Files modified.
+6. Tests performed and results.
+7. Production deployment verification.
+
+IMPORTANT:
+Do not mark the task complete based on local tests alone.
+
+Verify the actual deployed Mara Stock Dashboard.
+
+Preserve the clean architecture. Fix only the identified integration problems.

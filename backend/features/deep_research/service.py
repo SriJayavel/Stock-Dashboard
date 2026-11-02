@@ -134,7 +134,7 @@ class DeepResearchService:
         if not self._market_data:
             logger.warning("Market data provider not available for sector intelligence")
             data = {
-                "sectors": {},
+                "sectors": [],
                 "error": "Market data provider not configured"
             }
             await self._cache.set("computed:sector_intelligence", cache_key, data, ttl=3600)
@@ -190,7 +190,7 @@ class DeepResearchService:
             })
 
         result = {
-            "sectors": {s["sector"]: s for s in sectors_out},
+            "sectors": sectors_out,
             "retrieved_at": datetime.datetime.utcnow().isoformat() + "Z",
         }
         await self._cache.set("computed:sector_intelligence", cache_key, result, ttl=1800)
