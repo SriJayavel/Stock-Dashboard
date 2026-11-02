@@ -138,6 +138,8 @@ class CompositeMarketProvider:
         # Batch with caching
         results = []
         uncached = []
+        # Track which providers to use for each symbol for fallback
+        symbol_providers = {}
 
         for symbol in symbols:
             cached = await self._get_cached_quote(symbol)
@@ -146,12 +148,14 @@ class CompositeMarketProvider:
             else:
                 uncached.append((symbol, len(results)))
                 results.append(None)  # placeholder
+                # Store the provider list for fallback
+                symbol_providers[symbol] = self._select_provider(symbol)
 
         if uncached:
-            # Group by provider
+            # Group by primary provider
             by_provider = {}
             for symbol, idx in uncached:
-                providers = self._select_provider(symbol)
+                providers = symbol_providers[symbol]
                 primary = providers[0].name
                 if primary not in by_provider:
                     by_provider[primary] = []
@@ -163,11 +167,35 @@ class CompositeMarketProvider:
                 syms = [s for s, _ in symbols_idx]
                 try:
                     quotes = await provider.get_quotes(syms)
+                    all_failed = True
                     for (symbol, idx), quote in zip(symbols_idx, quotes):
                         if quote:
+                            all_failed = False
                             await self._cache_quote(symbol, quote)
                             await emit_price_tick(symbol, quote.price, quote.timestamp)
                         results[idx] = quote
+
+                    # If all quotes failed from this provider, try fallback providers
+                    if all_failed:
+                        # Get fallback providers for the first symbol in this group
+                        first_symbol = symbols_idx[0][0]
+                        fallback_providers = symbol_providers[first_symbol][1:] if len(symbol_providers[first_symbol]) > 1 else []
+                        for fallback in fallback_providers:
+                            try:
+                                fallback_quotes = await fallback.get_quotes(syms)
+                                any_success = False
+                                for (symbol, idx), quote in zip(symbols_idx, fallback_quotes):
+                                    if quote and results[idx] is None:
+                                        any_success = True
+                                        await self._cache_quote(symbol, quote)
+                                        await emit_price_tick(symbol, quote.price, quote.timestamp)
+                                        results[idx] = quote
+                                if any_success:
+                                    break
+                            except Exception as e:
+                                logger.debug(f"Fallback {fallback.name} failed: {e}")
+                                continue
+
                 except Exception as e:
                     logger.error(f"Batch quote failed for {provider_name}: {e}")
 

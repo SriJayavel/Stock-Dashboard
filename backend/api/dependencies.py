@@ -133,6 +133,7 @@ class Container:
         if self._screener_service is None:
             self._screener_service = ScreenerService(
                 cache=self.cache(),
+                market_data=self.market_data(),
             )
         return self._screener_service
 
@@ -147,6 +148,7 @@ class Container:
         if self._deep_research_service is None:
             self._deep_research_service = DeepResearchService(
                 cache=self.cache(),
+                market_data=self.market_data(),
             )
         return self._deep_research_service
 

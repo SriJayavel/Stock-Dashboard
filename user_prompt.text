@@ -1,161 +1,24 @@
-# CRITICAL BACKEND INVESTIGATION — MARA STOCK TERMINAL
+The regression fixes look good. Before moving forward, I want a final production-readiness verification.
 
-## Objective
+Do not introduce additional architectural changes.
 
-Investigate and resolve the widespread HTTP 500 Internal Server Errors occurring across the production backend APIs.
+Please verify:
 
-Production URL:
-https://mara-stock-terminal.vercel.app/
+1. All five endpoints work against the actual deployed Vercel backend, not just localhost.
+2. Market overview loads correctly in the browser.
+3. Sector intelligence displays real data.
+4. Screener returns valid stock information.
+5. Watchlist batch requests transition from pending to populated data.
+6. Cache L1/L2 behavior works correctly.
+7. NSE → yfinance fallback works per symbol.
+8. No unexpected HTTP 500 errors appear in production logs.
+9. No frontend response-contract mismatches exist.
+10. No background jobs, cache warmers, or scheduled tasks silently fail.
 
-The frontend loads successfully, but multiple backend endpoints consistently return HTTP 500.
+Also verify the deployment is running the intended backend entry point: backend.main:app.
 
-### 1. Observed Production Errors
+Provide actual production HTTP status codes and representative response validation results.
 
-The following endpoints are failing:
+Do not report production success based solely on local tests.
 
-- GET `/api/markets/overview`
-- GET `/api/analytics/sectors`
-- GET `/api/screener?universe=indian_leaders`
-- POST `/api/stocks/batch`
-
-Frontend console also reports:
-
-- Market overview loading failure.
-- Sector intelligence loading failure.
-- Screener loading failure.
-- Batch watchlist fetching failure.
-- Repeated fetchWithRetry attempts exhausted.
-- MarketWS correctly detects Vercel and activates polling fallback.
-
-Authentication initialization appears to execute successfully.
-
-### 2. Investigation Requirements
-
-DO NOT immediately modify individual API endpoints.
-
-First identify whether these failures originate from a shared infrastructure or dependency.
-
-Investigate in this order:
-
-**A. Production Runtime**
-- Inspect Vercel Function logs and stack traces.
-- Identify the exact exception responsible for HTTP 500.
-- Check serverless function execution and runtime compatibility.
-- Check for unhandled exceptions and initialization failures.
-- Check whether any functions exceed execution limits.
-
-**B. Environment Configuration**
-- Verify all required Production environment variables.
-- Check database connection configuration.
-- Check Redis configuration and fallback behavior.
-- Check market data provider API keys and configuration.
-- Verify environment variable names match the current codebase.
-- Never expose secret values in logs or reports.
-
-**C. Architecture and Dependency Injection**
-Review the recent architecture cleanup, particularly:
-
-- `backend/core/contracts/cache.py`
-- `backend/core/contracts/market_data.py`
-- `backend/core/contracts/auth.py`
-
-Check:
-- CacheProtocol implementations.
-- MarketDataProvider implementations.
-- Dependency injection and provider registration.
-- Cache namespace consistency.
-- Service initialization and lifecycle.
-- Import cycles and missing implementations.
-- Whether production adapters satisfy the newly introduced contracts.
-
-Determine whether the architecture cleanup introduced a regression.
-
-**D. Database and Cache**
-- Verify database connectivity.
-- Inspect connection pooling and serverless connection limits.
-- Check Redis connectivity and fallback behavior.
-- Ensure cache failures do not unnecessarily crash API requests.
-- Inspect serialization/deserialization errors.
-- Verify cache initialization does not block unrelated API functionality.
-
-**E. Market Data Providers**
-- Inspect upstream provider responses.
-- Check rate limiting, timeout handling, and malformed responses.
-- Verify provider fallback mechanisms.
-- Ensure one provider failure does not crash an entire batch request.
-- Check whether empty or unavailable market data is handled safely.
-
-### 3. Endpoint-Level Diagnostics
-
-After identifying shared dependencies, investigate each endpoint individually.
-
-For each endpoint, document:
-
-1. Request execution path.
-2. Dependencies involved.
-3. Exact exception and stack trace.
-4. Root cause.
-5. Corrective action.
-6. Verification result.
-
-### 4. Required Fixes
-
-Implement production-safe solutions.
-
-- Return appropriate HTTP status codes.
-- Add structured backend error logging.
-- Never expose internal stack traces or secrets to clients.
-- Implement graceful degradation for optional market data providers.
-- Handle missing data without crashing the entire response.
-- Prevent cache outages from unnecessarily taking down API endpoints.
-- Apply appropriate timeouts and bounded retries.
-- Avoid retrying permanent failures.
-- Preserve existing API response contracts.
-- Avoid breaking authentication or existing frontend integrations.
-
-IMPORTANT: Do not hide HTTP 500 errors by simply returning HTTP 200 with empty datasets. Fix the underlying failures.
-
-### 5. Testing Requirements
-
-Run:
-
-- Backend unit tests.
-- API integration tests.
-- Database connectivity tests.
-- Cache connectivity and fallback tests.
-- Market data provider tests.
-- Batch request tests.
-- Production build and deployment checks.
-
-Verify all four failing endpoints.
-
-Also test behavior when:
-- Redis is unavailable.
-- An upstream market data provider times out.
-- A provider returns incomplete data.
-- Database connectivity is temporarily interrupted.
-
-### 6. Final Deliverables
-
-Before declaring completion, provide:
-
-1. Root cause of the production failures.
-2. Exact files modified.
-3. Explanation of each modification.
-4. Environment variables requiring configuration, without exposing secrets.
-5. Tests executed and their results.
-6. Production deployment verification.
-7. Confirmation that all four endpoints return the expected response structures.
-
-### Important Constraints
-
-- Do not rewrite the architecture.
-- Do not introduce unnecessary dependencies.
-- Do not perform cosmetic frontend changes.
-- Do not replace real market data with fabricated values.
-- Do not silently suppress exceptions.
-- Preserve the existing clean architecture and API contracts.
-
-**Priority: Restore production backend reliability without compromising the existing architecture.**
-
-Start with Vercel production logs and identify the first actual backend exception before implementing fixes.
+If everything passes, stop modifying the backend and mark the regression recovery complete.
