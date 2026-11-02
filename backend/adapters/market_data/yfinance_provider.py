@@ -75,7 +75,7 @@ class YFinanceProvider:
             logger.debug(f"Failed to get asset info for {symbol}: {e}")
         return None
 
-    async def resolve_symbol(self, symbol: str) -> Optional[str]:
+    def resolve_symbol(self, symbol: str) -> Optional[str]:
         """Resolve canonical to provider symbol (yfinance uses same symbols mostly)."""
         # Handle known aliases
         aliases = {
@@ -126,30 +126,33 @@ class YFinanceProvider:
 
     async def get_quote(self, symbol: str) -> Optional[Quote]:
         """Get real-time quote."""
+        # Resolve symbol alias (e.g., TATAMOTORS.NS -> TMPV.NS)
+        resolved_symbol = self.resolve_symbol(symbol)
         try:
-            ticker = await self._get_ticker(symbol)
-            # Use fast_info for speed
+            ticker = await self._get_ticker(resolved_symbol)
+            # Use fast_info for speed (keys are camelCase)
             fast_info = ticker.fast_info
-            if not fast_info or fast_info.get('last_price') is None:
+            last_price = fast_info.get('lastPrice') if fast_info else None
+            prev_close = fast_info.get('previousClose') if fast_info else None
+            if last_price is None or prev_close is None:
                 # Fallback to regular info
                 info = ticker.info
-                return self._info_to_quote(info, symbol)
+                return self._info_to_quote(info, symbol)  # Pass original symbol
 
             return Quote(
-                symbol=symbol,
-                price=fast_info.get('last_price', 0),
-                change=fast_info.get('last_price', 0) - fast_info.get('previous_close', 0),
-                change_pct=((fast_info.get('last_price', 0) - fast_info.get('previous_close', 0))
-                          / fast_info.get('previous_close', 1) * 100) if fast_info.get('previous_close') else 0,
-                volume=fast_info.get('volume', 0),
+                symbol=symbol,  # Return original symbol for consistency
+                price=last_price,
+                change=last_price - prev_close,
+                change_pct=((last_price - prev_close) / prev_close * 100) if prev_close else 0,
+                volume=fast_info.get('lastVolume', 0),
                 timestamp=int(datetime.now().timestamp() * 1000),
-                high_52w=fast_info.get('year_high'),
-                low_52w=fast_info.get('year_low'),
-                market_cap=fast_info.get('market_cap'),
-                prev_close=fast_info.get('previous_close'),
+                high_52w=fast_info.get('yearHigh'),
+                low_52w=fast_info.get('yearLow'),
+                market_cap=fast_info.get('marketCap'),
+                prev_close=prev_close,
             )
         except Exception as e:
-            logger.debug(f"Failed to get quote for {symbol}: {e}")
+            logger.debug(f"Failed to get quote for {symbol} (resolved: {resolved_symbol}): {e}")
         return None
 
     def _info_to_quote(self, info: dict, symbol: str) -> Optional[Quote]:
@@ -194,6 +197,8 @@ class YFinanceProvider:
     async def get_quotes(self, symbols: List[str]) -> List[Optional[Quote]]:
         """Get quotes for multiple symbols (batched)."""
         # yfinance doesn't support true batch quotes, do concurrent
+        # Resolve all symbols first
+        resolved = [self.resolve_symbol(s) for s in symbols]
         tasks = [self.get_quote(s) for s in symbols]
         return await asyncio.gather(*tasks)
 

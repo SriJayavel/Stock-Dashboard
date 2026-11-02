@@ -12,7 +12,7 @@ from backend.core.contracts.market_data import (
     MarketDataProvider, Candle, Quote, AssetInfo, ProviderCapabilities
 )
 from backend.adapters.market_data.yfinance_provider import YFinanceProvider
-from backend.adapters.market_data.nse_provider import NSEProvider
+from backend.adapters.market_data.nse_provider import NSEProvider, NSEProviderError, ProviderErrorType
 from backend.core.contracts.cache import CacheProtocol
 from backend.core.contracts.events import get_event_bus, emit_price_tick, EventTypes
 
@@ -40,7 +40,14 @@ class CompositeMarketProvider:
             "yfinance": self._yfinance,
             "nse": self._nse,
         }
-        self._quote_cache_ttl = 5  # seconds
+        self._quote_cache_ttl = 60  # seconds - increased from 5 to reduce upstream load
+        self._request_dedup: dict[str, asyncio.Future] = {}  # Deduplicate concurrent requests
+
+    def _is_permanent_error(self, error: Exception) -> bool:
+        """Check if error is permanent (should not retry/fallback)."""
+        if isinstance(error, NSEProviderError):
+            return error.error_type == ProviderErrorType.PERMANENT
+        return False
 
     # --- Provider Selection ---
 
@@ -136,10 +143,9 @@ class CompositeMarketProvider:
         return None
 
     async def get_quotes(self, symbols: List[str]) -> List[Optional[Quote]]:
-        # Batch with caching
+        # Batch with caching and deduplication
         results = []
         uncached = []
-        # Track which providers to use for each symbol for fallback
         symbol_providers = {}
 
         for symbol in symbols:
@@ -149,58 +155,100 @@ class CompositeMarketProvider:
             else:
                 uncached.append((symbol, len(results)))
                 results.append(None)  # placeholder
-                # Store the provider list for fallback
                 symbol_providers[symbol] = self._select_provider(symbol)
 
-        if uncached:
-            # Group by primary provider
-            by_provider = {}
-            for symbol, idx in uncached:
-                providers = symbol_providers[symbol]
-                primary = providers[0].name
-                if primary not in by_provider:
-                    by_provider[primary] = []
-                by_provider[primary].append((symbol, idx))
+        if not uncached:
+            return results
 
-            # Fetch from each provider
-            for provider_name, symbols_idx in by_provider.items():
-                provider = self._providers[provider_name]
-                syms = [s for s, _ in symbols_idx]
+        # Group by primary provider
+        by_provider = {}
+        for symbol, idx in uncached:
+            providers = symbol_providers[symbol]
+            primary = providers[0].name
+            if primary not in by_provider:
+                by_provider[primary] = []
+            by_provider[primary].append((symbol, idx))
+
+        # Fetch from each provider with error handling
+        for provider_name, symbols_idx in by_provider.items():
+            provider = self._providers[provider_name]
+            syms = [s for s, _ in symbols_idx]
+
+            # Deduplicate concurrent requests for same provider
+            dedup_key = f"{provider_name}:{','.join(sorted(syms))}"
+            if dedup_key in self._request_dedup:
                 try:
-                    quotes = await provider.get_quotes(syms)
-                    all_failed = True
-                    for (symbol, idx), quote in zip(symbols_idx, quotes):
+                    cached_results = await self._request_dedup[dedup_key]
+                    for (symbol, idx), quote in zip(symbols_idx, cached_results):
                         if quote:
-                            all_failed = False
                             await self._cache_quote(symbol, quote)
                             await emit_price_tick(symbol, quote.price, quote.timestamp)
                         results[idx] = quote
+                    continue
+                except Exception:
+                    pass  # Fall through to new request
 
-                    # If all quotes failed from this provider, try fallback providers
-                    if all_failed:
-                        # Get fallback providers for the first symbol in this group
-                        first_symbol = symbols_idx[0][0]
-                        fallback_providers = symbol_providers[first_symbol][1:] if len(symbol_providers[first_symbol]) > 1 else []
-                        for fallback in fallback_providers:
-                            try:
-                                fallback_quotes = await fallback.get_quotes(syms)
-                                any_success = False
-                                for (symbol, idx), quote in zip(symbols_idx, fallback_quotes):
-                                    if quote and results[idx] is None:
-                                        any_success = True
-                                        await self._cache_quote(symbol, quote)
-                                        await emit_price_tick(symbol, quote.price, quote.timestamp)
-                                        results[idx] = quote
-                                if any_success:
-                                    break
-                            except Exception as e:
-                                logger.debug(f"Fallback {fallback.name} failed: {e}")
-                                continue
-
-                except Exception as e:
-                    logger.error(f"Batch quote failed for {provider_name}: {e}")
+            future = self._fetch_from_provider(provider, syms, symbols_idx, symbol_providers, results)
+            self._request_dedup[dedup_key] = future
+            try:
+                await future
+            finally:
+                self._request_dedup.pop(dedup_key, None)
 
         return results
+
+    async def _fetch_from_provider(
+        self,
+        provider: MarketDataProvider,
+        syms: List[str],
+        symbols_idx: List[tuple],
+        symbol_providers: dict,
+        results: List[Optional[Quote]]
+    ):
+        """Fetch quotes from a provider with fallback handling."""
+        try:
+            quotes = await provider.get_quotes(syms)
+            all_failed = True
+            for (symbol, idx), quote in zip(symbols_idx, quotes):
+                if quote:
+                    all_failed = False
+                    await self._cache_quote(symbol, quote)
+                    await emit_price_tick(symbol, quote.price, quote.timestamp)
+                results[idx] = quote
+
+            # If all quotes failed from this provider, try fallback providers
+            # BUT skip fallback if the error was permanent (e.g., 403, 404)
+            if all_failed:
+                # Check if provider raised permanent error
+                # We can't easily detect this here, so we rely on provider's internal circuit breaker
+                first_symbol = symbols_idx[0][0]
+                fallback_providers = symbol_providers[first_symbol][1:] if len(symbol_providers[first_symbol]) > 1 else []
+                for fallback in fallback_providers:
+                    try:
+                        fallback_quotes = await fallback.get_quotes(syms)
+                        any_success = False
+                        for (symbol, idx), quote in zip(symbols_idx, fallback_quotes):
+                            if quote and results[idx] is None:
+                                any_success = True
+                                await self._cache_quote(symbol, quote)
+                                await emit_price_tick(symbol, quote.price, quote.timestamp)
+                                results[idx] = quote
+                        if any_success:
+                            break
+                    except Exception as e:
+                        # Don't retry fallbacks for permanent errors
+                        if self._is_permanent_error(e):
+                            logger.debug(f"Skipping fallback {fallback.name} due to permanent error: {e}")
+                            break
+                        logger.debug(f"Fallback {fallback.name} failed: {e}")
+                        continue
+
+        except Exception as e:
+            # Don't retry fallbacks for permanent errors
+            if self._is_permanent_error(e):
+                logger.warning(f"Provider {provider.name} permanent error - not attempting fallback: {e}")
+            else:
+                logger.error(f"Batch quote failed for {provider.name}: {e}")
 
     # --- Historical Data ---
 

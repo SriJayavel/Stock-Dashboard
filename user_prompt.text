@@ -1,185 +1,247 @@
-# MARA STOCK DASHBOARD — INDEX RESEARCH API FAILURE INVESTIGATION
+# MARA STOCK DASHBOARD — NSE PROVIDER ACCESS FAILURE & MARKET DATA RELIABILITY
+
+## Incident Classification
+Production Backend — External Data Provider Failure
 
 ## Objective
-Investigate and resolve repeated HTTP 503 errors affecting the research and intelligence APIs when accessing the NASDAQ Composite index (`^IXIC`).
 
-Production deployment:
-https://mara-stock-terminal.vercel.app/#/markets
+Investigate and resolve widespread NSE API HTTP 403 failures observed in Vercel production logs.
 
-Affected symbol:
-`^IXIC` — NASDAQ Composite Index
+The objective is to restore reliable Indian market data retrieval, eliminate unnecessary upstream requests, and improve provider resilience without compromising the existing architecture.
 
-## 1. Observed Production Errors
+### Production evidence
 
-The following endpoints consistently return HTTP 503:
+Vercel deployment:
+`dpl_DRGEg6AUdJ1XqsDFadKxuTyqFNeY`
 
-- `/api/stocks/%5EIXIC/research`
-- `/api/stocks/%5EIXIC/v4-intelligence`
-- `/api/stocks/%5EIXIC/deep-research`
-- `/api/stocks/%5EIXIC/macro-explorer`
+Affected route:
+`GET /api/analytics/sectors`
 
-The frontend retries each request, but the failures persist.
+Log window:
+`2026-11-02 08:28:30–08:28:40 UTC`
 
-The frontend reports:
-- Deep research notice for ^IXIC.
-- Macro explorer fetch error.
-- Research fetch non-fatal notice.
-- Mara v4 intelligence notice.
+The backend repeatedly received:
 
-These failures appear across four separate research services.
+`HTTP/1.1 403 Forbidden`
 
-## 2. Primary Investigation — Index Symbol Compatibility
+From:
 
-Investigate whether the backend correctly supports index symbols, particularly `^IXIC`.
+`https://www.nseindia.com/api/quote-equity?symbol={SYMBOL}`
 
-Check:
+Affected symbols include:
 
-1. URL encoding and decoding of caret-prefixed symbols.
-2. Whether `%5EIXIC` is correctly decoded into `^IXIC`.
-3. Whether the backend symbol validator accepts `^` characters.
-4. Whether symbol normalization accidentally removes or modifies the caret.
-5. Whether provider adapters correctly recognize index instruments.
-6. Whether the data providers support NASDAQ Composite historical data, quotes, fundamentals, and macro-related information.
-7. Whether index symbols are incorrectly processed using stock-specific logic.
+- ABB
+- BEL
+- SIEMENS
+- LT
+- HINDALCO
+- COALINDIA
+- JSWSTEEL
+- TATASTEEL
+- NESTLEIND
+- BRITANNIA
+- HINDUNILVR
+- ITC
+- CIPLA
+- SUNPHARMA
+- DIVISLAB
+- DRREDDY
+- SBIN
+- KOTAKBANK
+- HCLTECH
+- WIPRO
+- TATAMOTORS
+- LTM
+- BPCL
+- BAJAJ-AUTO
+- M&M
 
-Check similar instruments where applicable:
-- `^IXIC` — NASDAQ Composite
-- `^GSPC` — S&P 500
-- `^DJI` — Dow Jones Industrial Average
-- `^NSEI` — NIFTY 50
+This indicates a widespread provider-access failure rather than an isolated invalid symbol.
 
-Do not assume every provider supports every index.
+A separate Yahoo Finance error was also observed:
 
-## 3. Investigate Shared Backend Dependencies
+`Quote not found for symbol: TATAMOTORS.NS`
 
-All four endpoints fail simultaneously.
+Treat this as a separate symbol-resolution/provider issue.
 
-Trace their dependency chains and investigate:
+---
 
-- Financial data provider availability.
-- Provider-specific symbol support.
-- Rate limits and HTTP 429 responses.
-- Request timeouts.
-- Cache failures.
-- Database connectivity.
-- Shared service exceptions.
-- Backend worker timeouts.
-- Render service restarts.
-- Missing or invalid production environment variables.
+## 1. Investigate NSE Provider Failure
 
-Determine whether these endpoints share a failing provider, service, or infrastructure dependency.
+Inspect the existing NSE provider implementation.
 
-## 4. Index-Aware Architecture
+Determine why production requests receive HTTP 403.
 
-Review whether the current instrument architecture distinguishes between:
+Investigate:
 
-- Individual equities.
-- Market indices.
-- ETFs.
-- Commodities.
-- Currency pairs.
+1. Whether NSE is blocking requests originating from the production hosting environment.
+2. Whether the provider requires an active session or valid cookies.
+3. Whether request headers and session initialization follow the provider's documented access requirements.
+4. Whether the provider has introduced endpoint or access-policy changes.
+5. Whether request frequency is triggering automated traffic restrictions.
+6. Whether the production environment behaves differently from local development.
+7. Whether the current implementation depends on unofficial NSE endpoints.
 
-If index-specific handling is missing, implement it using the existing architecture and Core Contracts.
+Inspect response headers and a safely captured response body where possible.
 
-Requirements:
+Do not assume that adding browser User-Agent headers alone will solve the problem.
 
-- Correctly normalize and preserve index symbols.
-- Support provider-specific symbol mappings where necessary.
-- Avoid treating indices as ordinary company stocks.
-- Do not request company fundamentals or financial statements for indices.
-- Provide index-appropriate market statistics and research.
-- Handle unsupported data categories gracefully.
-- Preserve compatibility with existing stock research functionality.
+Do not repeatedly retry HTTP 403 responses.
 
-Do not introduce hardcoded special cases for only `^IXIC`.
+Do not attempt to bypass provider access restrictions through rotating proxies, IP rotation, or other access-control evasion.
 
-## 5. Frontend MarketStatus and MarketWS Verification
+## 2. Investigate Excessive Request Volume
 
-The following frontend components appear to initialize successfully:
+The `/api/analytics/sectors` endpoint appears to trigger requests for many individual NSE constituents within approximately seven seconds.
 
-`[MarketStatus] DOM elements found`
+Investigate:
 
-`[MarketStatus] Telemetry`
+- How many upstream requests are generated per sector request.
+- Whether multiple requests for the same symbol happen simultaneously.
+- Whether requests are unnecessarily repeated across users or dashboard refreshes.
+- Whether requests are sequential or concurrent.
+- Whether the existing cache is being bypassed.
+- Whether multiple frontend components independently trigger the same analytics request.
 
-`[MarketWS] Vercel detected - using polling fallback`
+### Required improvements
 
-`[MarketWS] Starting polling fallback`
+- Implement request deduplication.
+- Use shared caching for sector constituents.
+- Introduce appropriate TTL policies.
+- Apply concurrency limits.
+- Prevent duplicate upstream calls.
+- Avoid retry storms.
+- Use batch endpoints only where officially supported.
+- Implement provider circuit breakers.
 
-`[MarketWS] Status: polling`
+A single sector dashboard refresh should not create uncontrolled upstream traffic.
 
-`[MarketWS] Initialized for markets workspace`
+## 3. Review Market Data Provider Architecture
 
-Verify:
+Inspect existing provider abstractions and Core Contracts.
 
-- MarketStatus continues reporting valid market sessions.
-- Polling fallback works correctly on Vercel.
-- Index research failures do not interrupt market overview or other workspaces.
-- Research panels display meaningful error and unavailable-data states.
-- Failed requests do not trigger unnecessary retry storms.
+Determine whether the application can use alternative legitimate market-data providers when NSE becomes unavailable.
 
-Do not modify working MarketStatus or MarketWS logic without identifying an actual defect.
-
-## 6. Error Handling and Reliability
-
-Implement appropriate behavior for:
-
-- Unsupported instrument types.
-- Unsupported provider capabilities.
-- Temporary upstream outages.
-- Rate limiting.
-- Missing historical data.
-- Partial research results.
+Evaluate existing integrations before introducing new dependencies.
 
 Requirements:
 
-- Use bounded retries with appropriate backoff.
-- Preserve stale-cache fallback where available.
-- Isolate optional research service failures.
-- Return meaningful structured error responses.
-- Do not return fake data.
-- Do not convert all failures into HTTP 200.
-- Do not silently suppress exceptions.
+- Support provider fallback where compatible.
+- Maintain consistent symbol normalization.
+- Preserve source attribution.
+- Track data timestamps and freshness.
+- Distinguish live, delayed, cached, and unavailable data.
+- Validate provider capabilities before requesting data.
+- Avoid silently mixing incompatible datasets.
 
-## 7. Regression Testing
+Do not replace the entire market-data architecture.
 
-Test the following:
+Do not introduce a new provider without evaluating its availability, API limits, terms, and compatibility.
 
-1. `^IXIC` research endpoints.
-2. `^GSPC` research endpoints.
-3. `^DJI` research endpoints.
-4. `^NSEI` research endpoints.
-5. TCS.NS stock research endpoints.
-6. Existing market overview functionality.
-7. Provider failure and timeout scenarios.
-8. URL encoding and decoding.
-9. Cache fallback.
-10. Frontend recovery after backend service restoration.
+## 4. Fix Yahoo Finance Symbol Resolution Separately
 
-Verify that fixing index compatibility does not break ordinary stock symbols.
+Production logs contain:
 
-## 8. Final Technical Report
+`HTTP Error 404: Quote not found for symbol: TATAMOTORS.NS`
+
+Investigate:
+
+- Whether the symbol is valid for the requested historical period.
+- Whether the company has undergone a corporate action or symbol transition.
+- Whether the instrument mapping is outdated.
+- Whether Yahoo Finance supports the requested endpoint for this instrument.
+- Whether the provider response is being incorrectly classified.
+
+Implement proper handling for unavailable or changed symbols.
+
+Do not fabricate market data or substitute another instrument without validation.
+
+## 5. Improve Error Classification
+
+Create consistent provider error handling.
+
+Distinguish between:
+
+- 400 — Invalid request.
+- 401/403 — Authentication or access restriction.
+- 404 — Instrument or resource not found.
+- 429 — Rate limit exceeded.
+- 500 — Provider/internal server failure.
+- 502/503/504 — Upstream or service availability failure.
+
+Requirements:
+
+- Do not retry permanent 403 or 404 failures blindly.
+- Apply exponential backoff and jitter to retryable failures.
+- Respect Retry-After headers.
+- Use circuit breakers for repeatedly failing providers.
+- Preserve last-known-good cached data where appropriate.
+- Expose structured internal diagnostics.
+- Never log API credentials, session cookies, or sensitive headers.
+
+## 6. Frontend Data Reliability
+
+Ensure sector analytics remain usable when NSE is unavailable.
+
+Expected behavior:
+
+- Display cached sector data when available.
+- Clearly identify stale or delayed data.
+- Show provider availability status.
+- Avoid displaying stale data as live.
+- Show partial results when only some constituents are available.
+- Provide a graceful unavailable state when no reliable data exists.
+
+Do not allow one provider failure to break the entire Markets workspace.
+
+## 7. Testing Requirements
+
+Test:
+
+1. NSE HTTP 403 handling.
+2. NSE temporary outage handling.
+3. Provider HTTP 429 handling.
+4. Yahoo Finance 404 handling.
+5. Sector analytics with cached data.
+6. Sector analytics without cached data.
+7. Concurrent requests for identical symbols.
+8. Repeated dashboard refreshes.
+9. Provider fallback behavior.
+10. Data freshness and source attribution.
+
+Verify that the solution works in the production hosting environment, not just locally.
+
+## 8. Final Report
 
 Provide:
 
-- Exact root cause of the 503 errors.
-- Whether the issue is index-specific or infrastructure-wide.
-- Which providers support each requested index capability.
-- Files and modules modified.
-- Architectural changes made.
-- Tests executed and results.
-- Remaining limitations.
-- Production deployment and verification status.
+- Confirmed root cause of NSE 403 responses.
+- Whether the problem is hosting/IP-related, session-related, rate-related, or policy-related.
+- Exact upstream request volume before and after optimization.
+- Cache and deduplication improvements.
+- Provider fallback strategy.
+- Yahoo Finance symbol-resolution findings.
+- Files modified.
+- Tests executed.
+- Production deployment verification.
+- Remaining provider limitations.
 
-## Execution Instructions
+## Execution Strategy
 
-Follow this sequence:
+INVESTIGATE → TRACE REQUESTS → CONFIRM PROVIDER FAILURE → REDUCE REQUEST VOLUME → IMPLEMENT RESILIENCE → TEST → DEPLOY → VERIFY.
 
-INVESTIGATE → TRACE DEPENDENCIES → IDENTIFY ROOT CAUSE → IMPLEMENT FIX → TEST → VERIFY.
+### Critical constraints
 
-Do not assume the caret character is the root cause merely because the affected instrument is an index.
+Preserve the existing architecture.
 
-Investigate the actual backend response and provider exception before changing symbol normalization or API routing.
+Do not fake market data.
 
-Preserve the existing architecture and avoid unnecessary refactoring.
+Do not disguise provider failures as successful responses.
 
-Do not claim production resolution until the deployed endpoints have been tested successfully.
+Do not blindly increase retries.
+
+Do not bypass external provider access restrictions.
+
+Prioritize data correctness, provider independence, caching efficiency, and production reliability.
+
+The final objective is to make Mara resilient to individual market-data provider failures without compromising the accuracy of its financial information.

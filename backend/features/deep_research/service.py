@@ -140,7 +140,38 @@ class DeepResearchService:
             await self._cache.set("computed:sector_intelligence", cache_key, data, ttl=3600)
             return data
 
+        # Collect all unique constituents across sectors
+        all_constituents = []
+        sector_constituents = {}
+        for sec_name, meta in BENCHMARK_SECTORS.items():
+            sector_constituents[sec_name] = meta["constituents"]
+            all_constituents.extend(meta["constituents"])
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_constituents = []
+        for sym in all_constituents:
+            if sym not in seen:
+                seen.add(sym)
+                unique_constituents.append(sym)
+
+        # Limit uncached symbols to prevent overwhelming providers
+        # The composite provider will check its cache first
+        max_uncached = 20  # Max symbols to fetch if not cached
+
         sectors_out = []
+        constituent_quotes = {}
+
+        # Fetch quotes for all unique constituents (composite provider handles caching)
+        try:
+            quotes = await self._market_data.get_quotes(unique_constituents)
+            for sym, q in zip(unique_constituents, quotes):
+                if q:
+                    constituent_quotes[sym] = q
+        except Exception as e:
+            logger.warning(f"Failed to get sector quotes: {e}")
+
+        # Calculate breadth per sector using fetched quotes
         for sec_name, meta in BENCHMARK_SECTORS.items():
             constituents = meta["constituents"]
             advancing = 0
@@ -148,21 +179,17 @@ class DeepResearchService:
             unchanged = 0
             constituent_perf = []
 
-            # Calculate breadth across all constituents
-            try:
-                quotes = await self._market_data.get_quotes(constituents)
-                for sym, q in zip(constituents, quotes):
-                    if q and q.price is not None and q.prev_close is not None and q.prev_close > 0:
-                        pct = ((q.price - q.prev_close) / q.prev_close) * 100
-                        constituent_perf.append({"symbol": sym, "change_pct": round(pct, 2)})
-                        if pct > 0.1:
-                            advancing += 1
-                        elif pct < -0.1:
-                            declining += 1
-                        else:
-                            unchanged += 1
-            except Exception as e:
-                logger.debug(f"Failed to get quotes for sector {sec_name}: {e}")
+            for sym in constituents:
+                q = constituent_quotes.get(sym)
+                if q and q.price is not None and q.prev_close is not None and q.prev_close > 0:
+                    pct = ((q.price - q.prev_close) / q.prev_close) * 100
+                    constituent_perf.append({"symbol": sym, "change_pct": round(pct, 2)})
+                    if pct > 0.1:
+                        advancing += 1
+                    elif pct < -0.1:
+                        declining += 1
+                    else:
+                        unchanged += 1
 
             # Sector performance from leading asset
             perf_pct = 0.0
