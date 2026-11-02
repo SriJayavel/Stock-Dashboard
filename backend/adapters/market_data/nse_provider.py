@@ -5,7 +5,7 @@ Implements MarketDataProvider protocol for Indian markets via direct NSE API.
 import asyncio
 import logging
 import time
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Dict
 from datetime import datetime
 from enum import Enum
 import httpx
@@ -346,6 +346,17 @@ class NSEProvider:
         return []
 
     # --- Health ---
+
+    async def get_market_overview(self) -> Dict[str, Any]:
+        """NSE covers Indian equities only; global overview is handled by the
+        composite provider. Return an empty-but-valid structure so the
+        protocol is satisfied without triggering upstream requests."""
+        return {
+            "indices": {},
+            "macro": {"Forex": {}, "Commodities": {}, "Crypto": {}},
+            "retrieved_at": datetime.now().isoformat(),
+            "source": "nse",
+        }
 
     async def health_check(self) -> bool:
         if not await self._circuit_breaker.can_proceed():

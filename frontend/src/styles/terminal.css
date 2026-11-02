@@ -2468,6 +2468,195 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   opacity: 0.15;
 }
 
+/* Macro Asset Category Tabs (Indices / Forex / Commodities / Crypto) */
+.macro-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.macro-tab-btn {
+  height: 30px;
+  min-width: 30px;
+  padding: 0 14px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.macro-tab-btn:hover {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+
+.macro-tab-btn:active {
+  transform: scale(0.96);
+}
+
+.macro-tab-btn[aria-selected="true"],
+.macro-tab-btn.active {
+  color: var(--accent-primary);
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: var(--elev-1);
+}
+
+.macro-tab-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-primary);
+  z-index: 1;
+}
+
+.macro-tab-btn .macro-tab-count {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Macro Cards Container */
+#macro-cards-container {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 8px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-soft) transparent;
+}
+
+#macro-cards-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+#macro-cards-container::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 3px;
+}
+
+.macro-mini-card {
+  min-width: 190px;
+  flex-shrink: 0;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.macro-mini-card:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.macro-mini-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-primary);
+}
+
+.macro-mini-card.stale-card {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.macro-mini-sym {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.macro-mini-sym-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.macro-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.macro-status-dot.live {
+  background: var(--gain);
+  box-shadow: 0 0 6px var(--gain);
+}
+
+.macro-status-dot.delayed {
+  background: var(--warn);
+}
+
+.macro-status-dot.stale {
+  background: var(--text-dim);
+}
+
+.macro-status-dot.offline {
+  background: var(--loss);
+}
+
+.macro-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.macro-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.macro-pill.chg-up {
+  background: rgba(var(--gain-rgb), 0.12);
+  color: var(--gain);
+}
+
+.macro-pill.chg-down {
+  background: rgba(var(--loss-rgb), 0.12);
+  color: var(--loss);
+}
+
+.macro-mini-name {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.macro-mini-price {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  #macro-cards-container {
+    flex-wrap: nowrap;
+  }
+  .macro-mini-card {
+    min-width: 170px;
+  }
+}
+
 .benchmark-board-table {
   width: 100%;
   min-width: 900px;

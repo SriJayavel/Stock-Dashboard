@@ -142,6 +142,73 @@ class CompositeMarketProvider:
             logger.warning(f"All providers failed for {symbol}: {last_error}")
         return None
 
+    async def get_market_overview(self) -> Dict[str, Any]:
+        """Fetch a comprehensive market snapshot with caching.
+
+        Returns indices + macro assets in a structure consumed by
+        MarketService and the frontend markets workspace. Caches the
+        result for 60s to protect upstream rate limits.
+        """
+        cache_key = "market:overview"
+        if self._cache:
+            cached = await self._cache.get(cache_key, "current")
+            if cached:
+                return cached
+
+        benchmark_symbols = [
+            "^NSEI", "^NSEBANK", "^BSESN",
+            "^GSPC", "^DJI", "^IXIC", "^RUT",
+            "^FTSE", "^GDAXI", "^FCHI",
+            "^N225", "^HSI", "^STI", "^KS11",
+        ]
+        macro_symbols = {
+            "Forex": ["USDINR=X", "EURUSD=X", "GBPUSD=X", "USDJPY=X"],
+            "Commodities": ["GC=F", "CL=F", "SI=F", "NG=F"],
+            "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD"],
+        }
+
+        all_symbols = list(benchmark_symbols)
+        for symbols in macro_symbols.values():
+            all_symbols.extend(symbols)
+
+        quotes = await self.get_quotes(all_symbols)
+        quote_map: Dict[str, Optional[Quote]] = dict(zip(all_symbols, quotes))
+
+        def _index_item(sym: str) -> Dict[str, Any]:
+            q = quote_map.get(sym)
+            if not q or q.price is None:
+                return {
+                    "symbol": sym, "price": None, "change": None,
+                    "change_pct": None, "volume": 0, "high": None,
+                    "low": None, "source": "unavailable", "is_stale": False,
+                }
+            return {
+                "symbol": sym,
+                "price": q.price,
+                "change": q.change,
+                "change_pct": q.change_pct,
+                "volume": q.volume,
+                "high": q.high_52w,
+                "low": q.low_52w,
+                "source": "yfinance",
+                "is_stale": False,
+                "source_timestamp": int(datetime.now().timestamp() * 1000),
+            }
+
+        indices = {sym: _index_item(sym) for sym in benchmark_symbols}
+        macro = {category: {sym: _index_item(sym) for sym in syms} for category, syms in macro_symbols.items()}
+
+        result = {
+            "indices": indices,
+            "macro": macro,
+            "retrieved_at": datetime.now().isoformat(),
+            "source": "composite_provider",
+        }
+
+        if self._cache:
+            await self._cache.set(cache_key, "current", result, ttl=60)
+        return result
+
     async def get_quotes(self, symbols: List[str]) -> List[Optional[Quote]]:
         # Batch with caching and deduplication
         results = []

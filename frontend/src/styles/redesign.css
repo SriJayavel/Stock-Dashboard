@@ -1596,16 +1596,16 @@ textarea {
 }
 
 .mara-unified-header {
-  grid-template-columns: minmax(260px, 1fr) minmax(180px, auto) auto;
+  grid-template-columns: auto minmax(210px, 1fr) minmax(190px, auto) auto auto;
   min-height: 62px;
   padding-inline: 22px;
   background: var(--bg-deep);
   box-shadow: none;
 }
 
-.mara-unified-header .mara-brand-group { display: none; }
-.mara-unified-header .mara-ws-tabs { display: none; }
-.mara-unified-header .mara-active-asset-strip { display: flex; }
+.mara-unified-header .mara-brand-group { display: flex; align-items: center; }
+.mara-unified-header .mara-ws-tabs { display: flex; align-items: center; }
+.mara-unified-header .mara-active-asset-strip { display: flex; align-items: center; }
 
 .market-ticker-strip {
   display: flex;
@@ -2446,6 +2446,8 @@ textarea {
     justify-content: center;
   }
 }
+
+.market-timeline-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;

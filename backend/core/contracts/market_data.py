@@ -3,7 +3,7 @@ Market Data Provider Protocol - Defines the contract for all market data sources
 Implementations: yfinance, NSE, Alpha Vantage, Polygon, etc.
 """
 from abc import ABC, abstractmethod
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Dict
 from dataclasses import dataclass
 from datetime import datetime
 from typing_extensions import Protocol
@@ -165,6 +165,19 @@ class MarketDataProvider(Protocol):
     @abstractmethod
     async def get_quotes(self, symbols: List[str]) -> List[Optional[Quote]]:
         """Get real-time quotes for multiple symbols."""
+        ...
+
+    @abstractmethod
+    async def get_market_overview(self) -> Dict[str, Any]:
+        """Get a comprehensive market snapshot: benchmark indices and macro assets.
+
+        Returns a dict with at least:
+            indices:  {symbol: quote_dict}   - global benchmark indices
+            macro:    {category: {symbol: quote_dict}}  - forex / commodities / crypto
+            retrieved_at: str (ISO-8601)
+            source: str
+        Implementations must cache the result to protect upstream rate limits.
+        """
         ...
 
     # --- Historical Data ---

@@ -499,6 +499,12 @@
                     <button class="ghost-btn ghost-btn-sm" id="benchmarks-export-btn" title="Export to CSV" aria-label="Export benchmarks to CSV">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                     </button>
+                    <div class="macro-tabs" role="tablist" aria-label="Macro Asset Categories" style="display: inline-flex; gap: 4px; align-items: center;">
+                      <button class="macro-tab-btn" data-category="Indices" role="tab" aria-selected="true">Indices</button>
+                      <button class="macro-tab-btn" data-category="Forex" role="tab" aria-selected="false">Forex</button>
+                      <button class="macro-tab-btn" data-category="Commodities" role="tab" aria-selected="false">Commodities</button>
+                      <button class="macro-tab-btn" data-category="Crypto" role="tab" aria-selected="false">Crypto</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -795,6 +801,12 @@
             <button class="ws-sub-btn" data-analyze-tab="overview" id="tab-analyze-overview">Overview &amp; Profile</button>
             <button class="ws-sub-btn" data-analyze-tab="fundamentals" id="tab-analyze-fundamentals">Financial Statements</button>
             <button class="ws-sub-btn" data-analyze-tab="valuation" id="tab-analyze-valuation">Valuation Multiples</button>
+            <div class="macro-tabs" role="tablist" aria-label="Macro Asset Categories" style="margin-left: auto; display: inline-flex; gap: 4px; align-items: center;">
+              <button class="macro-tab-btn" data-category="Forex" role="tab" aria-selected="false">Forex</button>
+              <button class="macro-tab-btn" data-category="Commodities" role="tab" aria-selected="false">Commodities</button>
+              <button class="macro-tab-btn" data-category="Crypto" role="tab" aria-selected="false">Crypto</button>
+              <button class="macro-tab-btn active" data-category="Indices" role="tab" aria-selected="true">Indices</button>
+            </div>
           </div>
 
           <!-- SUB-PANEL 1: FULL-HEIGHT CHART WORKSTATION -->
@@ -1527,8 +1539,8 @@
             <span id="hero-source">Direct NSE</span>
             <div id="hero-range-dot"></div>
             <div id="hero-range-fill"></div>
-            <div id="macro-cards-container"></div>
           </div>
+          <div id="macro-cards-container" aria-label="Macro asset category cards" role="region"></div>
         </div>
 
         <!-- Saved Watchlist Section -->

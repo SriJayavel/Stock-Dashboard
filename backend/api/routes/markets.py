@@ -36,7 +36,13 @@ async def get_market_overview(
     data = await market_service.get_overview()
 
     # Check if we should trigger background refresh
-    if data.get("market_status") == "unavailable" and not data.get("is_stale"):
+    # market_status is a dict with exchange keys, check if ALL are closed/unavailable
+    market_status = data.get("market_status", {})
+    feed_health = data.get("feed_health", {})
+    is_feed_offline = all(v in ("OFFLINE", "STALE") for v in (feed_health.values() if feed_health else ["OFFLINE"]))
+    should_refresh = is_feed_offline and not data.get("is_stale")
+
+    if should_refresh:
         background_tasks.add_task(refresh_market_overview_background)
 
     return data

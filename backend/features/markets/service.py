@@ -28,53 +28,87 @@ class MarketService:
             cached = await self._cache.get("market:overview", "full")
             if cached:
                 cached["data_freshness"] = "cached"
+                # Ensure timestamps exist for frontend refresh detection
+                cached.setdefault("last_attempted_at", datetime.now().isoformat())
+                cached.setdefault("retrieved_at", datetime.now().isoformat())
                 return cached
 
         # Fetch fresh data
         data = await self._fetch_market_overview()
 
-        # Cache for next time
+        # Cache for next time - include all timestamps for refresh detection
         await self._cache.set("market:overview", "full", data, ttl=300)
+        await self._cache.set("market:overview_stale", "full", data, ttl=3600)
         return data
 
     async def _fetch_market_overview(self) -> Dict[str, Any]:
-        """Fetch comprehensive market overview from providers."""
+        """Fetch comprehensive market overview from providers.
+
+        Uses provider's get_market_overview() for caching, then enriches
+        with sector data. Returns structured data consumed by frontend.
+        """
         try:
-            # Get benchmark indices
-            benchmark_symbols = [
-                "^NSEI", "^NSEBANK", "^BSESN",  # India
-                "^GSPC", "^DJI", "^IXIC", "^RUT",  # US
-                "^FTSE", "^GDAXI", "^FCHI",  # Europe
-                "^N225", "^HSI", "^STI", "^KS11",  # Asia
-            ]
+            # Use provider's cached market overview (30s TTL, deduped, batched)
+            overview = await self._market_data.get_market_overview()
 
-            # Get quotes for all benchmarks
-            quotes = await self._market_data.get_quotes(benchmark_symbols)
+            # Extract provider data
+            provider_indices = overview.get("indices", {})
+            provider_macro = overview.get("macro", {})
 
-            # Build macro categories
-            macro = self._categorize_benchmarks(benchmark_symbols, quotes)
+            # Build unified macro structure from provider data
+            # Provider returns indices as {symbol: dict} and macro as {category: {symbol: dict}}
+            # Frontend expects macro as {category: [list of dicts]}
+            indices_flat = list(provider_indices.values())
+
+            def _macro_to_list(category_data):
+                """Convert provider's {symbol: dict} to list of dicts."""
+                if isinstance(category_data, dict):
+                    return list(category_data.values())
+                if isinstance(category_data, list):
+                    return category_data
+                return []
+
+            # Ensure all required regions exist
+            unified_macro = {
+                "Indices": indices_flat,
+                "India": _macro_to_list(provider_macro.get("India", [])),
+                "Americas": _macro_to_list(provider_macro.get("Americas", [])),
+                "Europe": _macro_to_list(provider_macro.get("Europe", [])),
+                "Asia": _macro_to_list(provider_macro.get("Asia", [])),
+                "Forex": _macro_to_list(provider_macro.get("Forex", [])),
+                "Commodities": _macro_to_list(provider_macro.get("Commodities", [])),
+                "Crypto": _macro_to_list(provider_macro.get("Crypto", [])),
+            }
 
             # Get sector performance (using sector ETFs as proxy)
             sector_data = await self._fetch_sector_performance()
 
-            # Get macro assets (forex, commodities, crypto)
-            macro_assets = await self._fetch_macro_assets()
-
             # Determine market status
             market_status = self._get_market_status()
 
-            # Build hero data (NIFTY 50 as primary)
-            hero = self._build_hero(quotes, benchmark_symbols)
+            # Build hero data from unified macro
+            hero = self._build_hero_from_macro(unified_macro)
+
+            # Collect all quotes for feed health assessment
+            all_items = (
+                indices_flat
+                + unified_macro.get("Forex", [])
+                + unified_macro.get("Commodities", [])
+                + unified_macro.get("Crypto", [])
+            )
+            available_count = sum(1 for item in all_items if item.get("price") is not None)
 
             return {
-                "macro": macro,
+                "macro": unified_macro,
                 "sectors": sector_data,
-                "macro_assets": macro_assets,
                 "market_status": market_status,
                 "hero": hero,
                 "data_freshness": "live",
-                "feed_health": self._assess_feed_health(quotes),
+                "feed_health": self._assess_feed_health(len(all_items), available_count),
+                "retrieved_at": overview.get("retrieved_at", datetime.now().isoformat()),
+                "last_attempted_at": datetime.now().isoformat(),
                 "timestamp": datetime.now().isoformat(),
+                "source": overview.get("source", "unknown"),
             }
         except Exception as e:
             logger.error(f"Market overview fetch failed: {e}")
@@ -82,8 +116,22 @@ class MarketService:
             stale = await self._cache.get("market:overview_stale", "full")
             if stale:
                 stale = dict(stale)
+                # Normalize old cache format (macro_assets -> macro)
+                if "macro_assets" in stale and "macro" not in stale:
+                    stale["macro"] = {
+                        "Indices": [],
+                        "India": [], "Americas": [], "Europe": [], "Asia": [],
+                        "Forex": stale["macro_assets"].get("Forex", []),
+                        "Commodities": stale["macro_assets"].get("Commodities", []),
+                        "Crypto": stale["macro_assets"].get("Crypto", []),
+                    }
                 stale["is_stale"] = True
                 stale["data_freshness"] = "stale"
+                # Ensure timestamps exist for refresh detection
+                if "last_attempted_at" not in stale:
+                    stale["last_attempted_at"] = datetime.now().isoformat()
+                if "retrieved_at" not in stale:
+                    stale["retrieved_at"] = datetime.now().isoformat()
                 return stale
             # Return minimal structure
             return self._empty_overview()
@@ -114,20 +162,6 @@ class MarketService:
                         "high": q.high_52w,
                         "low": q.low_52w,
                         "timestamp": q.timestamp,
-                        "region": region.lower(),
-                    })
-                else:
-                    # Placeholder for missing data
-                    macro[region].append({
-                        "symbol": sym,
-                        "name": self._get_index_name(sym),
-                        "price": None,
-                        "change": None,
-                        "change_pct": None,
-                        "volume": 0,
-                        "high": None,
-                        "low": None,
-                        "timestamp": int(datetime.now().timestamp() * 1000),
                         "region": region.lower(),
                     })
         return macro
@@ -255,6 +289,41 @@ class MarketService:
             "status": "unavailable",
         }
 
+    def _build_hero_from_macro(self, macro: Dict[str, Any]) -> Dict[str, Any]:
+        """Build hero card from unified macro data (provider-based overview)."""
+        nifty_item = None
+        for item in macro.get("Indices", []):
+            if item.get("symbol") == "^NSEI":
+                nifty_item = item
+                break
+        if nifty_item and nifty_item.get("price") is not None:
+            return {
+                "symbol": "^NSEI",
+                "name": "NIFTY 50",
+                "price": nifty_item["price"],
+                "change": nifty_item.get("change"),
+                "change_pct": nifty_item.get("change_pct"),
+                "high": nifty_item.get("high"),
+                "low": nifty_item.get("low"),
+                "volume": nifty_item.get("volume", 0),
+                "timestamp": nifty_item.get("source_timestamp"),
+                "source": nifty_item.get("source", "composite_provider"),
+                "status": "available",
+            }
+        return {
+            "symbol": "^NSEI",
+            "name": "NIFTY 50",
+            "price": None,
+            "change": None,
+            "change_pct": None,
+            "high": None,
+            "low": None,
+            "volume": 0,
+            "timestamp": int(datetime.now().timestamp() * 1000),
+            "source": "composite_provider",
+            "status": "unavailable",
+        }
+
     def _get_market_status(self) -> Dict[str, Any]:
         """Get current market session status."""
         from zoneinfo import ZoneInfo
@@ -313,10 +382,15 @@ class MarketService:
                 return "LUNCH"
         return "CLOSED"
 
-    def _assess_feed_health(self, quotes: List) -> Dict[str, str]:
-        """Assess health of data feeds by category."""
-        available = sum(1 for q in quotes if q and q.price is not None)
-        total = len(quotes)
+    def _assess_feed_health(self, total: int, available: int) -> Dict[str, str]:
+        """Assess health of data feeds by category.
+
+        Args:
+            total: total number of items queried (all categories combined).
+            available: number of items that returned a non-null price.
+        """
+        if total == 0:
+            return {"indices": "OFFLINE", "sectors": "OFFLINE", "macro": "OFFLINE"}
         if available == total:
             return {"indices": "LIVE", "sectors": "LIVE", "macro": "LIVE"}
         elif available > total * 0.5:
@@ -325,15 +399,22 @@ class MarketService:
 
     def _empty_overview(self) -> Dict[str, Any]:
         """Return empty but valid overview structure."""
+        now = datetime.now().isoformat()
         return {
-            "macro": {"India": [], "Americas": [], "Europe": [], "Asia": []},
+            "macro": {
+                "Indices": [],
+                "India": [], "Americas": [], "Europe": [], "Asia": [],
+                "Forex": [], "Commodities": [], "Crypto": [],
+            },
             "sectors": [],
-            "macro_assets": {"forex": [], "commodities": [], "crypto": []},
             "market_status": {"nse": "CLOSED", "nyse": "CLOSED", "lse": "CLOSED", "tyo": "CLOSED"},
             "hero": {"symbol": "^NSEI", "name": "NIFTY 50", "price": None, "status": "unavailable"},
             "data_freshness": "unavailable",
             "feed_health": {"indices": "OFFLINE", "sectors": "OFFLINE", "macro": "OFFLINE"},
-            "timestamp": datetime.now().isoformat(),
+            "retrieved_at": now,
+            "last_attempted_at": now,
+            "timestamp": now,
+            "source": "unavailable",
         }
 
     async def refresh(self) -> Dict[str, Any]:

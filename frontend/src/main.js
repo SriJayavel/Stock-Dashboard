@@ -871,7 +871,7 @@ function setupEventListeners() {
   screenerTabs.forEach((tab) => {
     tab.addEventListener('click', (e) => {
       screenerTabs.forEach((t) => t.classList.remove('active'));
-      e.target.classList.add('active');
+      (e.target.closest('.macro-tab-btn') || e.target).classList.add('active');
       const universe = e.target.getAttribute('data-universe');
       router.navigate(router.formatScreenerRoute(universe));
       loadScreener(universe);
@@ -908,9 +908,14 @@ function setupEventListeners() {
   const macroTabs = document.querySelectorAll('.macro-tab-btn');
   macroTabs.forEach((tab) => {
     tab.addEventListener('click', (e) => {
-      macroTabs.forEach((t) => t.classList.remove('active'));
-      e.target.classList.add('active');
-      currentMacroCategory = e.target.getAttribute('data-category');
+      macroTabs.forEach((t) => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      const btn = e.target.closest('.macro-tab-btn') || e.target;
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      currentMacroCategory = btn.getAttribute('data-category');
       renderMacroCards();
     });
   });
@@ -1084,7 +1089,7 @@ function setupEventListeners() {
   document.querySelectorAll('.corr-tf-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       document.querySelectorAll('.corr-tf-btn').forEach((b) => b.classList.remove('active'));
-      e.target.classList.add('active');
+      (e.target.closest('.macro-tab-btn') || e.target).classList.add('active');
       activeCorrelationPeriod = e.target.getAttribute('data-period');
       loadAndRenderCorrelation(activeCorrelationPeriod);
     });
@@ -7520,7 +7525,7 @@ function renderSectorMatrix(sectorData) {
 
     return `
       ${rowStart}
-      <div class="sector-tile ${perfClass}"
+      <div class="sector-tile hm-tile ${perfClass}"
            data-sector="${s.sector}"
            tabindex="0"
            role="gridcell"
@@ -7568,10 +7573,10 @@ function renderSectorMatrix(sectorData) {
 
     const activateTile = () => {
       tiles.forEach(t => {
-        t.classList.remove('active-sector');
+        t.classList.remove('active-sector', 'active-hm-cell');
         t.setAttribute('tabindex', '-1');
       });
-      tile.classList.add('active-sector');
+      tile.classList.add('active-sector', 'active-hm-cell');
       tile.setAttribute('tabindex', '0');
       tile.focus({ preventScroll: true });
       renderSelectedSectorDetail(sector);
@@ -7820,7 +7825,7 @@ function renderMacroRadarPanels() {
         // Calculate relative time
         let freshnessClass = 'offline';
         let freshnessText = 'Offline';
-        const timestamp = it.retrieved_at || it.source_timestamp;
+        const timestamp = it.retrieved_at || it.timestamp || it.source_timestamp;
         if (timestamp) {
           const ageMs = Date.now() - new Date(timestamp).getTime();
           const ageSec = Math.floor(ageMs / 1000);
