@@ -75,7 +75,7 @@ class YFinanceProvider:
             logger.debug(f"Failed to get asset info for {symbol}: {e}")
         return None
 
-    def resolve_symbol(self, symbol: str) -> Optional[str]:
+    async def resolve_symbol(self, symbol: str) -> Optional[str]:
         """Resolve canonical to provider symbol (yfinance uses same symbols mostly)."""
         # Handle known aliases
         aliases = {
@@ -127,7 +127,7 @@ class YFinanceProvider:
     async def get_quote(self, symbol: str) -> Optional[Quote]:
         """Get real-time quote."""
         # Resolve symbol alias (e.g., TATAMOTORS.NS -> TMPV.NS)
-        resolved_symbol = self.resolve_symbol(symbol)
+        resolved_symbol = await self.resolve_symbol(symbol)
         try:
             ticker = await self._get_ticker(resolved_symbol)
             # Use fast_info for speed (keys are camelCase)
@@ -198,7 +198,7 @@ class YFinanceProvider:
         """Get quotes for multiple symbols (batched)."""
         # yfinance doesn't support true batch quotes, do concurrent
         # Resolve all symbols first
-        resolved = [self.resolve_symbol(s) for s in symbols]
+        resolved = [await self.resolve_symbol(s) for s in symbols]
         tasks = [self.get_quote(s) for s in symbols]
         return await asyncio.gather(*tasks)
 
