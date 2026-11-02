@@ -1291,8 +1291,16 @@ function isIndicatorPickerOpen() {
 function openIndicatorPicker() {
   const modal = document.getElementById('tv-indicator-picker-modal');
   const backdrop = document.getElementById('tv-indicator-picker-backdrop');
-  if (modal) modal.classList.add('open');
+  const appRoot = document.getElementById('mara-app');
+  if (modal) {
+    modal.classList.add('open');
+    // Announce the dialog and trap focus within it (WCAG 2.1.2 / 4.1.2).
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('role', 'dialog');
+  }
   if (backdrop) backdrop.classList.add('open');
+  // Inert the background app so keyboard focus cannot escape into it.
+  if (appRoot) appRoot.setAttribute('inert', '');
   updateFavoritesCount();
   updateIndicatorsBadge();
   renderIndicatorList();
@@ -1306,8 +1314,15 @@ function openIndicatorPicker() {
 function closeIndicatorPicker() {
   const modal = document.getElementById('tv-indicator-picker-modal');
   const backdrop = document.getElementById('tv-indicator-picker-backdrop');
-  if (modal) modal.classList.remove('open');
+  const appRoot = document.getElementById('mara-app');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.removeAttribute('aria-modal');
+    modal.removeAttribute('role');
+  }
   if (backdrop) backdrop.classList.remove('open');
+  // Restore the background app to the tab order.
+  if (appRoot) appRoot.removeAttribute('inert');
 }
 
 function renderIndicatorList() {
@@ -7572,6 +7587,8 @@ function renderSectorMatrix(sectorData) {
     const perfClass = performanceClass(perf);
     const sign = perf >= 0 ? '+' : '';
     const perfDirection = perf > 0 ? ' up' : perf < 0 ? ' down' : ' unchanged';
+    // Redundant directional glyph: performance must not be communicated by color alone (WCAG 1.4.1).
+    const perfGlyph = perf > 0.05 ? '▲' : perf < -0.05 ? '▼' : '•';
 
     // Wrap every 4 tiles in a row for ARIA grid structure (CSS grid handles visual layout)
     const isRowStart = idx % 4 === 0;
@@ -7592,8 +7609,8 @@ function renderSectorMatrix(sectorData) {
           <span class="sector-region-badge ${regionBadgeClass(s.region)}">${regionLabel(s.region)}</span>
         </div>
         <div class="sector-tile-body">
-          <span class="sector-return ${perf >= 0.05 ? 'gain' : perf <= -0.05 ? 'loss' : 'neutral'}">
-            ${sign}${perf.toFixed(2)}%
+          <span class="sector-return ${perf >= 0.05 ? 'gain' : perf <= -0.05 ? 'loss' : 'neutral'}" aria-label="${sign}${Math.abs(perf).toFixed(2)}%${perfDirection}">
+            ${perfGlyph} ${sign}${perf.toFixed(2)}%
           </span>
           <div class="sector-breadth">
             <div class="sector-breadth-bar ${breadthBarClass(breadthPct)}" style="width: ${breadthPct}%"></div>

@@ -61,7 +61,13 @@ export class WatchlistManager {
     const current = this.getSymbols();
     if (current.includes(clean)) return true;
     if (current.length >= MAX_WATCHLIST_ITEMS) {
-      alert(`Watchlist limit reached (maximum ${MAX_WATCHLIST_ITEMS} assets). Please remove an asset first.`);
+      // Non-blocking notification: a blocking `alert()` halts the whole UI thread
+      // and is invisible to screen readers. Use the toast layer when available.
+      if (typeof window.apexToast === 'function') {
+        window.apexToast(`Watchlist limit reached (maximum ${MAX_WATCHLIST_ITEMS} assets). Please remove an asset first.`, 'warning');
+      } else if (typeof console !== 'undefined') {
+        console.warn(`Watchlist limit reached (maximum ${MAX_WATCHLIST_ITEMS} assets).`);
+      }
       return false;
     }
 

@@ -14,6 +14,41 @@
   top: 0;
 }
 
+/* ---------------------------------------------------------------------------
+   Global keyboard-focus fallback (WCAG 2.4.7 / 2.4.11)
+   Every focusable element that suppresses the default browser outline must
+   provide an equivalent visible indicator. This rule only fires when no
+   element-specific :focus-visible rule has already supplied one, and is
+   overridden by explicit `:focus-visible` declarations below.
+   --------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--accent-primary, #5b9cf6);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+    outline-offset: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Touch-device hover suppression (WCAG 2.5.8 / 2.5.2)
+   On devices without a real hover capability, `:hover` styling is disabled
+   so it cannot stick after a tap and create a "ghost" active state.
+   --------------------------------------------------------------------------- */
+@media (hover: none) {
+  :hover {
+    pointer-events: none;
+  }
+  .mara-toast:hover,
+  .mara-toast-container:hover,
+  .mara-cmd-input-wrap:focus-within {
+    pointer-events: auto;
+  }
+}
+
 /* ============================================================================
    Theme Switch Transition Suppression
    Prevents smearing when toggling themes by disabling transitions temporarily
@@ -463,7 +498,7 @@ html.light-theme .cmd-hint-text {
 .mara-density-btn {
   height: 30px;
   min-width: 30px;
-  padding: 0;
+  padding: 6px;
   background: transparent;
   border: none;
   border-radius: 50%;
@@ -2516,7 +2551,8 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 
 /* Row focus state - accessibility */
 .benchmark-board-table tbody tr:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
   box-shadow: inset 4px 0 0 var(--accent-primary), 0 0 0 2px var(--accent-primary);
   z-index: 5;
 }
@@ -4550,7 +4586,7 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 0;
+  padding: 0 6px;
   height: 34px;
   min-width: 34px;
 }
