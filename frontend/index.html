@@ -107,8 +107,17 @@
       </div>
     </section>
     <!-- Cold Start Spin-Up Banner -->
-    <div id="cold-start-banner" class="cold-start-banner">
+    <div id="cold-start-banner" class="cold-start-banner" style="display: none;">
       <span id="cold-start-msg">Waking up the server — this can take a few seconds.</span>
+    </div>
+
+    <!-- Backend Sync Status Toast Banner -->
+    <div id="backend-sync-toast" class="backend-sync-toast" style="display: none;" role="status" aria-live="polite" aria-atomic="true">
+      <div class="sync-toast-inner">
+        <span class="sync-icon">🔄</span>
+        <span id="sync-message">Connecting to backend...</span>
+        <button id="sync-dismiss-btn" class="sync-dismiss-btn" aria-label="Dismiss sync status">✕</button>
+      </div>
     </div>
 
     <!-- Offline / Network Error Resilience Banner -->
@@ -145,12 +154,14 @@
               class="mara-cmd-input"
               role="combobox"
               aria-label="Search securities, sectors, macros & commands"
+              aria-placeholder="Search securities, sectors, macros & commands..."
               placeholder="Search securities, sectors, macros & commands..."
               autocomplete="off"
               aria-controls="search-dropdown"
               aria-autocomplete="list"
               aria-haspopup="listbox"
               aria-expanded="false"
+              aria-activedescendant=""
             />
             <kbd class="mara-cmd-kbd" id="search-kbd-hint">⌘K</kbd>
             <span class="cmd-hint-text" id="cmd-hint-text" aria-hidden="true"></span>

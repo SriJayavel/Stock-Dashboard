@@ -4613,6 +4613,68 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
   display: block;
 }
 
+/* Backend Sync Status Toast Banner - non-blocking, position: top-right */
+.backend-sync-toast {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.85);
+  color: var(--text);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.backend-sync-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.backend-sync-toast:not(.visible) {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+.sync-toast-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sync-dismiss-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.sync-dismiss-btn:hover {
+  opacity: 1;
+}
+
 /* Offline / Network Error Resilience Banner */
 .apex-retry-banner {
   display: none;

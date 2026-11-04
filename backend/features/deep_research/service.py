@@ -195,6 +195,7 @@ class DeepResearchService:
             unchanged = 0
             total_valid = 0
             constituent_perf = []
+            weights = {}
 
             for sym in all_sector_symbols:
                 q = constituent_quotes.get(sym)
@@ -208,6 +209,18 @@ class DeepResearchService:
                     else:
                         unchanged += 1
                     total_valid += 1
+
+            # Calculate weights based on market cap proxy (price * volume as % of sector total)
+            total_value = sum(
+                (constituent_quotes.get(s, {}).get("price", 0) or 0) *
+                (constituent_quotes.get(s, {}).get("volume", 0) or 0)
+                for s in constituents
+            )
+            for sym in constituents:
+                q = constituent_quotes.get(sym)
+                if q and q.price is not None and q.volume:
+                    value = q.price * q.volume
+                    weights[sym] = round((value / total_value) * 100, 2) if total_value > 0 else 0
 
             # Sector performance from leading asset (Indian proxy)
             perf_pct = 0.0
@@ -234,10 +247,11 @@ class DeepResearchService:
                 "advancing": advancing,
                 "declining": declining,
                 "unchanged": unchanged,
-                "total_tracked": len(constituents),
-                "breadth_pct": breadth_pct,
                 "total_valid": total_valid,
+                "breadth_pct": breadth_pct,
+                "total_tracked": len(constituents),
                 "constituent_performance": constituent_perf,
+                "weights": weights,  # Live weights from cache
             })
 
         result = {

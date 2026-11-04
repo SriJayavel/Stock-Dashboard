@@ -2994,6 +2994,57 @@ function renderMarketTicker(data) {
   }
 }
 
+// Backend Sync Status Toast Banner Management
+let syncToastTimeout = null;
+
+function showSyncStatus(message, isError = false) {
+  const toast = document.getElementById('backend-sync-toast');
+  if (!toast) return;
+
+  toast.style.display = 'flex';
+  toast.classList.add('visible');
+  toast.setAttribute('aria-hidden', 'false');
+
+  const messageEl = document.getElementById('sync-message');
+  if (messageEl) {
+    messageEl.textContent = message;
+  }
+
+  const icon = toast.querySelector('.sync-icon');
+  if (icon) {
+    icon.textContent = isError ? '⚠️' : '🔄';
+    if (isError) {
+      icon.style.animation = 'none';
+    } else {
+      icon.style.animation = 'spin 1s linear infinite';
+    }
+  }
+
+  // Auto-dismiss after 10 seconds
+  if (syncToastTimeout) clearTimeout(syncToastTimeout);
+  syncToastTimeout = setTimeout(() => {
+    toast.classList.remove('visible');
+    toast.setAttribute('aria-hidden', 'true');
+  }, 10000);
+}
+
+function hideSyncStatus() {
+  const toast = document.getElementById('backend-sync-toast');
+  if (toast) {
+    toast.classList.remove('visible');
+    toast.setAttribute('aria-hidden', 'true');
+  }
+  if (syncToastTimeout) clearTimeout(syncToastTimeout);
+}
+
+// Sync Status Toast Dismiss Handler
+const dismissBtn = document.getElementById('sync-dismiss-btn');
+if (dismissBtn) {
+  dismissBtn.addEventListener('click', () => {
+    hideSyncStatus();
+  });
+}
+
 // Load and Render Market Overview
 let lastMarketOverviewFetchDuration = 0;
 async function loadMarketOverview(force = false) {
@@ -3003,6 +3054,17 @@ async function loadMarketOverview(force = false) {
     renderMarketTicker(marketDataCache);
     return;
   }
+
+  // Show sync status toast during initial load or cold start
+  const isColdStart = !marketDataCache || !marketDataCache.macro?.Indices;
+  if (isColdStart) {
+    showSyncStatus('Connecting to backend...', false);
+    const coldBanner = document.getElementById('cold-start-banner');
+    if (coldBanner) {
+      coldBanner.style.display = 'block';
+    }
+  }
+
   const fetchStart = Date.now();
   try {
     const data = await api.getMarketOverview();
@@ -3155,8 +3217,23 @@ async function loadMarketOverview(force = false) {
     if (skeleton) {
       skeleton.classList.add('loaded');
     }
+
+    // Hide sync status toast and cold-start banner
+    const isColdStart = !marketDataCache || !marketDataCache.macro?.Indices;
+    if (isColdStart) {
+      hideSyncStatus();
+      const coldBanner = document.getElementById('cold-start-banner');
+      if (coldBanner) {
+        coldBanner.style.display = 'none';
+      }
+    }
   } catch (err) {
     console.error('Failed to load market overview:', err);
+    hideSyncStatus();
+
+    const coldBanner = document.getElementById('cold-start-banner');
+    if (coldBanner) coldBanner.style.display = 'none';
+
     // Show user-friendly error toast
     toastError('Market data unavailable', 'Unable to load market overview. Check your connection.', {
       duration: 6000,
@@ -3165,6 +3242,9 @@ async function loadMarketOverview(force = false) {
         onClick: () => loadMarketOverview(true)
       }
     });
+    // Show sync status as delayed
+    showSyncStatus('Backend connection delayed. Using cached data...', true);
+
     // Also show skeleton as error state
     const skeleton = document.getElementById('markets-skeleton');
     if (skeleton) {
@@ -7981,7 +8061,15 @@ async function loadAndRenderCorrelation(period = '1y') {
     const matrix = data.matrix || [];
 
     if (matrix.length === 0) {
-      container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--accent-red);">Correlation computation failed.</div>';
+      container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-dim);">Correlation matrix requires historical data. Try a different period.</div>';
+      return;
+    }
+
+    // Guard against matrix rows that don't match symbol count
+    const validRows = symbols.map((s1, i) => matrix[i]).filter((row) => Array.isArray(row));
+
+    if (validRows.length === 0) {
+      container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-dim);">Correlation matrix unavailable. Historical data may be insufficient.</div>';
       return;
     }
 
@@ -7995,11 +8083,15 @@ async function loadAndRenderCorrelation(period = '1y') {
         </thead>
         <tbody>
           ${symbols
-            .map((s1, i) => `
+            .map((s1, i) => {
+              const row = matrix[i];
+              if (!Array.isArray(row)) return '';
+              return `
             <tr>
               <th style="text-align: left; font-weight: 700; color: #ffffff;">${s1}</th>
-              ${matrix[i]
+              ${row
                 .map((val) => {
+                  if (val == null || typeof val !== 'number') return '<td class="corr-neutral">—</td>';
                   let cls = 'corr-neutral';
                   if (val >= 0.7) cls = 'corr-high-pos';
                   else if (val >= 0.25) cls = 'corr-med-pos';
@@ -8008,14 +8100,15 @@ async function loadAndRenderCorrelation(period = '1y') {
                 })
                 .join('')}
             </tr>
-          `)
+            `;
+            })
             .join('')}
         </tbody>
       </table>
     `;
   } catch (err) {
     console.error('Correlation error:', err);
-    container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--accent-red);">Unable to calculate correlation matrix.</div>';
+    container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-dim);">Unable to calculate correlation matrix.</div>';
     toastError('Correlation unavailable', 'Unable to calculate correlation matrix.', {
       duration: 6000,
       action: { label: 'Retry', onClick: () => loadAndRenderCorrelation(period) }
