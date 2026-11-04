@@ -1,247 +1,86 @@
-# MARA STOCK DASHBOARD — NSE PROVIDER ACCESS FAILURE & MARKET DATA RELIABILITY
-
-## Incident Classification
-Production Backend — External Data Provider Failure
-
-## Objective
-
-Investigate and resolve widespread NSE API HTTP 403 failures observed in Vercel production logs.
-
-The objective is to restore reliable Indian market data retrieval, eliminate unnecessary upstream requests, and improve provider resilience without compromising the existing architecture.
-
-### Production evidence
-
-Vercel deployment:
-`dpl_DRGEg6AUdJ1XqsDFadKxuTyqFNeY`
-
-Affected route:
-`GET /api/analytics/sectors`
-
-Log window:
-`2026-11-02 08:28:30–08:28:40 UTC`
-
-The backend repeatedly received:
-
-`HTTP/1.1 403 Forbidden`
-
-From:
-
-`https://www.nseindia.com/api/quote-equity?symbol={SYMBOL}`
-
-Affected symbols include:
-
-- ABB
-- BEL
-- SIEMENS
-- LT
-- HINDALCO
-- COALINDIA
-- JSWSTEEL
-- TATASTEEL
-- NESTLEIND
-- BRITANNIA
-- HINDUNILVR
-- ITC
-- CIPLA
-- SUNPHARMA
-- DIVISLAB
-- DRREDDY
-- SBIN
-- KOTAKBANK
-- HCLTECH
-- WIPRO
-- TATAMOTORS
-- LTM
-- BPCL
-- BAJAJ-AUTO
-- M&M
-
-This indicates a widespread provider-access failure rather than an isolated invalid symbol.
-
-A separate Yahoo Finance error was also observed:
-
-`Quote not found for symbol: TATAMOTORS.NS`
-
-Treat this as a separate symbol-resolution/provider issue.
+Based on a review of your current live deployment (**Mara Stock Dashboard**), here are the immediate technical issues, UI/UX bugs, and structural flaws present on your site:
 
 ---
 
-## 1. Investigate NSE Provider Failure
+### 1. Missing Data & Broken Rows (Data Pipeline Bug)
 
-Inspect the existing NSE provider implementation.
+* **Empty Index Rows:** In the **Global Benchmark Indices** table, several major indices show empty dashes (`—`) for `LAST PRICE`, `CHANGE`, `% CHG`, and `UPDATED`:
+* `^SSEC` (Shanghai Comp)
+* `^GSPTSE` (TSX Composite)
+* `^AXJO` (ASX 200)
 
-Determine why production requests receive HTTP 403.
 
-Investigate:
+* **Root Cause:** Your ticker ingestion or `yfinance` mapping logic is failing to resolve these specific tickers or handling `null` values gracefully.
 
-1. Whether NSE is blocking requests originating from the production hosting environment.
-2. Whether the provider requires an active session or valid cookies.
-3. Whether request headers and session initialization follow the provider's documented access requirements.
-4. Whether the provider has introduced endpoint or access-policy changes.
-5. Whether request frequency is triggering automated traffic restrictions.
-6. Whether the production environment behaves differently from local development.
-7. Whether the current implementation depends on unofficial NSE endpoints.
+---
 
-Inspect response headers and a safely captured response body where possible.
+### 2. Misaligned Ticker Categorization
 
-Do not assume that adding browser User-Agent headers alone will solve the problem.
+* **US Equities in Indian IT Sector:** Under **Information Technology & Software Constituents**, `NVDA`, `AAPL`, and `MSFT` are listed alongside Indian equities (`TCS.NS`, `INFY.NS`, `HCLTECH.NS`, `WIPRO.NS`, `LTM.NS`) with the benchmark proxy set to `^CNXIT · XLK`.
+* **Fix:** `^CNXIT` represents the Nifty IT index (Indian equities only). US tech giants should be categorized separately under a US sector benchmark (e.g., `XLK` or `^IXIC`) to avoid skewed sector analytics.
 
-Do not repeatedly retry HTTP 403 responses.
+---
 
-Do not attempt to bypass provider access restrictions through rotating proxies, IP rotation, or other access-control evasion.
+### 3. Telemetry Panel Overflow & Duplication
 
-## 2. Investigate Excessive Request Volume
+* **Duplicate Ticker Rendering:** The floating **Active Telemetry** panel duplicates the entire list of global indices twice in a single continuous stream (`^NSEI`, `^NSEBANK`, ..., `SOL-USD` repeated immediately back-to-back).
+* **Viewport Occlusion:** The floating right-hand drawer (**Active Telemetry / Watchlist**) overlaps heavily with content panels on typical screen widths, making side-by-side reading difficult without explicit toggle controls.
 
-The `/api/analytics/sectors` endpoint appears to trigger requests for many individual NSE constituents within approximately seven seconds.
+---
 
-Investigate:
+### 4. UI/UX & Formatting Inconsistencies
 
-- How many upstream requests are generated per sector request.
-- Whether multiple requests for the same symbol happen simultaneously.
-- Whether requests are unnecessarily repeated across users or dashboard refreshes.
-- Whether requests are sequential or concurrent.
-- Whether the existing cache is being bypassed.
-- Whether multiple frontend components independently trigger the same analytics request.
+* **Symbol vs. Format Mismatches:**
+* Some cards render currency symbols explicitly (`₹23,856.65`, `$7,568.92`), whereas the ticker stream displays raw numbers or inconsistent sign conventions (`+ 0.19%` vs `+0.19%`).
 
-### Required improvements
 
-- Implement request deduplication.
-- Use shared caching for sector constituents.
-- Introduce appropriate TTL policies.
-- Apply concurrency limits.
-- Prevent duplicate upstream calls.
-- Avoid retry storms.
-- Use batch endpoints only where officially supported.
-- Implement provider circuit breakers.
+* **Breadth Counter Mismatch:** The sector heatmap shows "Pharmaceuticals & Healthcare" with 6 constituents (1 gain, 4 loss, 1 flat), but labels it as *17% Breadth*. Meanwhile, "Banking & Financial Services" (3 gain, 3 loss) displays *50% Breadth*. Ensure your breadth calculation formula (`Advancing / Total Tracked`) is consistent across all cards.
+* **Negative Value Formatting:** Negative change values inconsistently flip between using an en-dash/hyphen (`-`) and an explicit minus character (`−`). Standardize your numeric formatting function across all UI components.
 
-A single sector dashboard refresh should not create uncontrolled upstream traffic.
+---
 
-## 3. Review Market Data Provider Architecture
+### 5. Performance & Network Strategy
 
-Inspect existing provider abstractions and Core Contracts.
+* **Polling Overhead:** The application uses continuous polling (`YFINANCE · LIVE · POLLING`). If client-side requests are firing directly to backend proxies without WebSocket streaming or response caching, hitting Vercel's serverless execution limits (10s limit on free/pro defaults) can lead to rate-limiting (`429`) or dynamic route timeouts (`504`).
 
-Determine whether the application can use alternative legitimate market-data providers when NSE becomes unavailable.
+---
 
-Evaluate existing integrations before introducing new dependencies.
+### Recommended Action Plan
 
-Requirements:
+1. **Sanitize Data Ingestion:** Wrap your index fetching endpoint in a fallback block to hide or gracefully disable untracked assets (`^SSEC`, `^GSPTSE`, `^AXJO`).
+2. **Filter Sector Components:** Split `^CNXIT` (Indian domestic IT) and `XLK` (US Tech) into distinct constituent arrays.
+3. **De-duplicate Telemetry Arrays:** Fix the `.map()` or array concat logic in your ticker marquee / telemetry side panel.
+4. **Standardize Numeric Formatting:** Implement a centralized `formatCurrency(val, currencyCode)` and `formatPercentage(val)` helper function.
 
-- Support provider fallback where compatible.
-- Maintain consistent symbol normalization.
-- Preserve source attribution.
-- Track data timestamps and freshness.
-- Distinguish live, delayed, cached, and unavailable data.
-- Validate provider capabilities before requesting data.
-- Avoid silently mixing incompatible datasets.
-
-Do not replace the entire market-data architecture.
-
-Do not introduce a new provider without evaluating its availability, API limits, terms, and compatibility.
-
-## 4. Fix Yahoo Finance Symbol Resolution Separately
-
-Production logs contain:
-
-`HTTP Error 404: Quote not found for symbol: TATAMOTORS.NS`
-
-Investigate:
-
-- Whether the symbol is valid for the requested historical period.
-- Whether the company has undergone a corporate action or symbol transition.
-- Whether the instrument mapping is outdated.
-- Whether Yahoo Finance supports the requested endpoint for this instrument.
-- Whether the provider response is being incorrectly classified.
-
-Implement proper handling for unavailable or changed symbols.
-
-Do not fabricate market data or substitute another instrument without validation.
-
-## 5. Improve Error Classification
-
-Create consistent provider error handling.
-
-Distinguish between:
-
-- 400 — Invalid request.
-- 401/403 — Authentication or access restriction.
-- 404 — Instrument or resource not found.
-- 429 — Rate limit exceeded.
-- 500 — Provider/internal server failure.
-- 502/503/504 — Upstream or service availability failure.
-
-Requirements:
-
-- Do not retry permanent 403 or 404 failures blindly.
-- Apply exponential backoff and jitter to retryable failures.
-- Respect Retry-After headers.
-- Use circuit breakers for repeatedly failing providers.
-- Preserve last-known-good cached data where appropriate.
-- Expose structured internal diagnostics.
-- Never log API credentials, session cookies, or sensitive headers.
-
-## 6. Frontend Data Reliability
-
-Ensure sector analytics remain usable when NSE is unavailable.
-
-Expected behavior:
-
-- Display cached sector data when available.
-- Clearly identify stale or delayed data.
-- Show provider availability status.
-- Avoid displaying stale data as live.
-- Show partial results when only some constituents are available.
-- Provide a graceful unavailable state when no reliable data exists.
-
-Do not allow one provider failure to break the entire Markets workspace.
-
-## 7. Testing Requirements
-
-Test:
-
-1. NSE HTTP 403 handling.
-2. NSE temporary outage handling.
-3. Provider HTTP 429 handling.
-4. Yahoo Finance 404 handling.
-5. Sector analytics with cached data.
-6. Sector analytics without cached data.
-7. Concurrent requests for identical symbols.
-8. Repeated dashboard refreshes.
-9. Provider fallback behavior.
-10. Data freshness and source attribution.
-
-Verify that the solution works in the production hosting environment, not just locally.
-
-## 8. Final Report
-
-Provide:
-
-- Confirmed root cause of NSE 403 responses.
-- Whether the problem is hosting/IP-related, session-related, rate-related, or policy-related.
-- Exact upstream request volume before and after optimization.
-- Cache and deduplication improvements.
-- Provider fallback strategy.
-- Yahoo Finance symbol-resolution findings.
-- Files modified.
-- Tests executed.
-- Production deployment verification.
-- Remaining provider limitations.
-
-## Execution Strategy
-
-INVESTIGATE → TRACE REQUESTS → CONFIRM PROVIDER FAILURE → REDUCE REQUEST VOLUME → IMPLEMENT RESILIENCE → TEST → DEPLOY → VERIFY.
-
-### Critical constraints
-
-Preserve the existing architecture.
-
-Do not fake market data.
-
-Do not disguise provider failures as successful responses.
-
-Do not blindly increase retries.
-
-Do not bypass external provider access restrictions.
-
-Prioritize data correctness, provider independence, caching efficiency, and production reliability.
-
-The final objective is to make Mara resilient to individual market-data provider failures without compromising the accuracy of its financial information.
+[MarketStatus] DOM elements found: Object
+index-Dc_sgRry.js:1377 [MarketStatus] Telemetry: Object
+index-Dc_sgRry.js:1377 [MarketStatus] DOM elements found: Object
+index-Dc_sgRry.js:1377 [MarketStatus] Telemetry: Object
+index-Dc_sgRry.js:1377 [MarketStatus] DOM elements found: Object
+index-Dc_sgRry.js:1377 [MarketStatus] Telemetry: Object
+index-Dc_sgRry.js:29 [MarketWS] Vercel detected - using polling fallback
+index-Dc_sgRry.js:29 [MarketWS] Starting polling fallback
+index-Dc_sgRry.js:1572 [MarketWS] Status: polling
+index-Dc_sgRry.js:1572 [MarketWS] Initialized for markets workspace
+index-Dc_sgRry.js:29 [MarketWS] Stopping polling fallback
+/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
+index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (2 left). Error: HTTP 503: 
+fetchWithRetry @ index-Dc_sgRry.js:29
+/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
+index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (2 left). Error: HTTP 503: 
+fetchWithRetry @ index-Dc_sgRry.js:29
+/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
+index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (1 left). Error: HTTP 503: 
+fetchWithRetry @ index-Dc_sgRry.js:29
+/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
+index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (1 left). Error: HTTP 503: 
+fetchWithRetry @ index-Dc_sgRry.js:29
+/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
+index-Dc_sgRry.js:1711 Correlation error: Error: HTTP 503: 
+    at Nc.fetchWithRetry (index-Dc_sgRry.js:29:72015)
+    at async ss (index-Dc_sgRry.js:1694:1422)
+ss @ index-Dc_sgRry.js:1711
+/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
+index-Dc_sgRry.js:1711 Correlation error: Error: HTTP 503: 
+    at Nc.fetchWithRetry (index-Dc_sgRry.js:29:72015)
+    at async ss (index-Dc_sgRry.js:1694:1422)

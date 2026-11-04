@@ -924,6 +924,7 @@ function setupEventListeners() {
   const searchInput = document.getElementById('global-search-input');
   const searchDropdown = document.getElementById('search-dropdown');
   let searchDebounceTimer = null;
+  let searchKeyHandler = null;
 
   // Function to render search results in the dropdown
   function renderSearchDropdown(results) {
@@ -947,22 +948,10 @@ function setupEventListeners() {
       )
       .join('');
 
-    // Add click handlers to search items
-    searchDropdown.querySelectorAll('.search-item').forEach((item, index) => {
-      item.addEventListener('click', () => {
-        const result = results[index];
-        if (result) {
-          // Navigate to the symbol's analyze workspace
-          router.navigate(router.formatSymbolRoute(result.symbol, 'chart'));
-          // Close the dropdown
-          searchDropdown.classList.remove('open');
-          searchInput.setAttribute('aria-expanded', 'false');
-          // Clear the search input
-          searchInput.value = '';
-          currentIndicatorSearch = '';
-        }
-      });
-    });
+    // Remove any previously attached keydown handler to avoid duplicates
+    if (searchKeyHandler) {
+      searchInput.removeEventListener('keydown', searchKeyHandler);
+    }
 
     // Handle keyboard navigation
     let activeIndex = 0;
@@ -971,10 +960,11 @@ function setupEventListeners() {
     // Set first item as active by default
     if (items.length > 0) {
       items[0].classList.add('active-search-item');
+      items[0].setAttribute('aria-selected', 'true');
       activeIndex = 0;
     }
 
-    searchInput.addEventListener('keydown', (e) => {
+    searchKeyHandler = (e) => {
       if (!searchDropdown.classList.contains('open')) return;
 
       if (e.key === 'Escape') {
@@ -989,8 +979,10 @@ function setupEventListeners() {
         e.preventDefault();
         if (activeIndex < items.length - 1) {
           items[activeIndex].classList.remove('active-search-item');
+          items[activeIndex].setAttribute('aria-selected', 'false');
           activeIndex++;
           items[activeIndex].classList.add('active-search-item');
+          items[activeIndex].setAttribute('aria-selected', 'true');
           items[activeIndex].scrollIntoView({ block: 'nearest' });
         }
         return;
@@ -1000,8 +992,10 @@ function setupEventListeners() {
         e.preventDefault();
         if (activeIndex > 0) {
           items[activeIndex].classList.remove('active-search-item');
+          items[activeIndex].setAttribute('aria-selected', 'false');
           activeIndex--;
           items[activeIndex].classList.add('active-search-item');
+          items[activeIndex].setAttribute('aria-selected', 'true');
           items[activeIndex].scrollIntoView({ block: 'nearest' });
         }
         return;
@@ -1024,7 +1018,9 @@ function setupEventListeners() {
         }
         return;
       }
-    });
+    };
+
+    searchInput.addEventListener('keydown', searchKeyHandler);
   }
 
   if (searchInput && searchDropdown) {
