@@ -360,21 +360,44 @@ export class TerminalChart {
     if (!bars?.length) return;
     if (this.isIntraday()) {
       this.endIndex = bars.length;
-      this.visibleCount = name === '1D' ? Math.min(bars.length, 390) : bars.length;
+      const upperName = name.toUpperCase();
+      this.visibleCount = upperName === '1D' ? Math.min(bars.length, 390) : bars.length;
       this.render();
       return;
     }
+    // Normalize name to uppercase for comparison
+    const upperName = name.toUpperCase();
     const lastDate = new Date(`${dateString(bars.at(-1).time)}T00:00:00Z`);
     const date = new Date(lastDate);
-    if (name === '1M') date.setUTCMonth(date.getUTCMonth() - 1);
-    else if (name === '3M') date.setUTCMonth(date.getUTCMonth() - 3);
-    else if (name === '6M') date.setUTCMonth(date.getUTCMonth() - 6);
-    else if (name === 'YTD') date.setUTCFullYear(date.getUTCFullYear(), 0, 1);
-    else if (name === '1Y') date.setUTCFullYear(date.getUTCFullYear() - 1);
-    else if (name === '5Y') date.setUTCFullYear(date.getUTCFullYear() - 5);
+    if (isNaN(lastDate.getTime())) {
+      // Invalid date - show all bars
+      this.endIndex = bars.length;
+      this.visibleCount = bars.length;
+      this.render();
+      return;
+    }
+    if (upperName === '1M') date.setUTCMonth(date.getUTCMonth() - 1);
+    else if (upperName === '3M') date.setUTCMonth(date.getUTCMonth() - 3);
+    else if (upperName === '6M') date.setUTCMonth(date.getUTCMonth() - 6);
+    else if (upperName === 'YTD') date.setUTCFullYear(date.getUTCFullYear(), 0, 1);
+    else if (upperName === '1Y' || upperName === '1Y' || upperName === '2Y') date.setUTCFullYear(date.getUTCFullYear() - (upperName === '1Y' ? 1 : 2));
+    else if (upperName === '5Y') date.setUTCFullYear(date.getUTCFullYear() - 5);
+    else if (upperName === 'ALL') {
+      this.endIndex = bars.length;
+      this.visibleCount = bars.length;
+      this.render();
+      return;
+    }
+    else {
+      // Unknown range - show all bars
+      this.endIndex = bars.length;
+      this.visibleCount = bars.length;
+      this.render();
+      return;
+    }
     const from = bars.findIndex((b) => new Date(`${dateString(b.time)}T00:00:00Z`) >= date);
     this.endIndex = bars.length;
-    this.visibleCount = name === 'All' ? bars.length : Math.max(20, bars.length - Math.max(0, from));
+    this.visibleCount = Math.max(20, bars.length - Math.max(0, from));
     this.render();
   }
 
@@ -566,11 +589,20 @@ export class TerminalChart {
       return;
     }
     const panes = [...this.subPanes.keys()].length, mainH = panes ? Math.max(180, h * this.mainRatio) : h - 28, plot = { left: 12, right: w - 76, top: 26, bottom: mainH - 26 };
-    const start = Math.max(0, this.endIndex - this.visibleCount), end = Math.min(bars.length, this.endIndex || bars.length), visible = bars.slice(start, end);
-    if (!visible.length) return;
-    this.barWidth = (plot.right - plot.left) / Math.max(visible.length, 1);
-    const base = visible[0]?.close || 1, scaled = (v) => this.scaleMode === 'pct' ? (v / base - 1) * 100 : v;
-    let min = Math.min(...visible.map((b) => scaled(b.low))), max = Math.max(...visible.map((b) => scaled(b.high)));
+    // Ensure visibleCount is at least 1 to show at least one candle
+    const effectiveVisibleCount = Math.max(1, this.visibleCount);
+    const start = Math.max(0, this.endIndex - effectiveVisibleCount), end = Math.min(bars.length, this.endIndex || bars.length), visible = bars.slice(start, end);
+    // Fallback: if no visible bars from slice, show all bars
+    const barsToRender = (visible.length > 0) ? visible : bars.slice(0, bars.length);
+    if (barsToRender.length === 0) {
+      c.fillStyle = muted;
+      c.font = '13px sans-serif';
+      c.fillText(this.unavailableMessage || 'Load a symbol to view price history', 20, 32);
+      return;
+    }
+    this.barWidth = (plot.right - plot.left) / Math.max(barsToRender.length, 1);
+    const base = barsToRender[0]?.close || 1, scaled = (v) => this.scaleMode === 'pct' ? (v / base - 1) * 100 : v;
+    let min = Math.min(...barsToRender.map((b) => scaled(b.low))), max = Math.max(...barsToRender.map((b) => scaled(b.high)));
     const pad = (max - min) * 0.08 || Math.abs(max || 1) * 0.02;
     min -= pad; max += pad;
     if (this.scaleMode === 'log') min = Math.max(Number.MIN_VALUE, min);
@@ -600,14 +632,14 @@ export class TerminalChart {
       c.moveTo(xx, plot.top);
       c.lineTo(xx, plot.bottom);
       c.stroke();
-      const idx = Math.min(visible.length - 1, Math.floor(n / 6 * (visible.length - 1)));
+      const idx = Math.min(barsToRender.length - 1, Math.floor(n / 6 * (barsToRender.length - 1)));
       c.fillStyle = muted;
       c.textAlign = 'center';
-      if (visible[idx]) c.fillText(formatTickTime(visible[idx].time, this.isIntraday()), xx, h - 11);
+      if (barsToRender[idx]) c.fillText(formatTickTime(barsToRender[idx].time, this.isIntraday()), xx, h - 11);
     }
     if (this.chartType === 'candles') {
       // Premium enhancement: anti-aliased candlesticks with subtle shadows
-      visible.forEach((b, j) => {
+      barsToRender.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth, up = b.close >= b.open, color = up ? bullColor : bearColor;
         c.strokeStyle = color;
         c.fillStyle = color;
@@ -621,7 +653,7 @@ export class TerminalChart {
       });
     } else if (this.chartType === 'heikin_ashi') {
       // Heikin Ashi candles
-      visible.forEach((b, j) => {
+      barsToRender.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth;
         const haClose = (b.open + b.high + b.low + b.close) / 4;
         const haOpen = (b.open + b.close) / 2;
@@ -641,10 +673,10 @@ export class TerminalChart {
       });
     } else if (this.chartType === 'hollow_candles') {
       // Hollow Candles (outline depends on whether close > prior close)
-      visible.forEach((b, j) => {
+      barsToRender.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth;
         const up = b.close >= b.open;
-        const priorUp = j > 0 && visible[j-1].close >= visible[j-1].open;
+        const priorUp = j > 0 && barsToRender[j-1].close >= barsToRender[j-1].open;
         const color = up ? bullColor : bearColor;
         c.strokeStyle = color;
         c.fillStyle = up && priorUp ? color : 'rgba(0,0,0,0)'; // Hollow if same direction as prior
@@ -659,7 +691,7 @@ export class TerminalChart {
     } else {
       // Premium enhancement: smooth line chart with gradient glow
       c.beginPath();
-      visible.forEach((b, j) => {
+      barsToRender.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth, yy = y(b.close);
         j ? c.lineTo(x, yy) : c.moveTo(x, yy);
       });
@@ -667,7 +699,7 @@ export class TerminalChart {
       c.lineWidth = 2;
       c.stroke();
       if (this.chartType === 'area') {
-        const last = visible.length - 1;
+        const last = barsToRender.length - 1;
         c.lineTo(plot.left + (last + 0.5) * this.barWidth, plot.bottom);
         c.lineTo(plot.left + this.barWidth / 2, plot.bottom);
         c.closePath();
@@ -678,8 +710,8 @@ export class TerminalChart {
         c.fill();
       }
     }
-    const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...visible.map((b) => b.volume || 0));
-    visible.forEach((b, j) => {
+    const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...barsToRender.map((b) => b.volume || 0));
+    barsToRender.forEach((b, j) => {
       const x = plot.left + (j + 0.5) * this.barWidth, hh = ((b.volume || 0) / vmax) * (plot.bottom - vTop), up = b.close >= b.open;
       c.fillStyle = up ? `${bullColor}33` : `${bearColor}33`;
       c.fillRect(x - Math.max(1, this.barWidth * 0.32), plot.bottom - hh, Math.max(1, this.barWidth * 0.64), hh);

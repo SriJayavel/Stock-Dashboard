@@ -151,6 +151,27 @@ button:active,
   transform: none;
 }
 
+/* Authentication State Transitions - Enable scrolling when authenticated */
+/* When body has .auth-required class, content is hidden and scroll is constrained
+   When .authenticated class is added, scroll is restored for all workspaces */
+body:not(.auth-required) .mara-app,
+body:not(.auth-required) .main-layout {
+  height: 100%;
+  min-height: 100vh;
+}
+
+/* Ensure scroll containers have proper height for content */
+.mara-main-canvas {
+  height: 100%;
+  min-height: 100vh;
+}
+
+/* When authenticated, restore body scroll */
+body.authenticated {
+  overflow: auto;
+  height: 100%;
+}
+
 /* Mara email account entry: uses the existing terminal color tokens. */
 .auth-required { overflow: hidden; }
 .auth-required > :not(#auth-gate) { visibility: hidden; }
