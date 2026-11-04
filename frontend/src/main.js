@@ -2413,6 +2413,9 @@ function setupWatchlistControls() {
 
   const applyTheme = (theme) => {
     const isLight = theme === 'light';
+    // Suppress transitions during theme switch to prevent visual smearing
+    document.documentElement.classList.add('theme-switching');
+    document.body.classList.add('theme-switching');
     document.documentElement.classList.toggle('light-theme', isLight);
     document.body.classList.toggle('light-theme', isLight);
     if (sunIcon) sunIcon.style.display = isLight ? 'none' : 'block';
@@ -2421,6 +2424,13 @@ function setupWatchlistControls() {
       themeToggleBtn.title = isLight ? 'Switch to Dark Theme' : 'Switch to Light Theme';
     }
     localStorage.setItem('mara-theme', theme);
+    // Remove transition suppression after a frame to allow new theme transitions
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.documentElement.classList.remove('theme-switching');
+        document.body.classList.remove('theme-switching');
+      });
+    });
   };
 
   const initialTheme = localStorage.getItem('mara-theme') || 'dark';
@@ -3230,7 +3240,7 @@ function renderTickerTape(data) {
         <div class="tape-item" data-symbol="${item.symbol}" tabindex="0" role="button" aria-label="${itemData.name || itemData.symbol}, ${formattedPrice}, ${isItemUnavailable && !isUsingFallback ? 'unavailable' : `${sign}${Math.abs(itemData.change_pct || 0).toFixed(2)}% change`}${isUsingFallback ? ' (fallback)' : ''}">
           <span class="tape-sym">${itemData.name || itemData.symbol}</span>
           <span class="tape-val" ${valId}>${formattedPrice}</span>
-          <span class="tape-chg ${chgClass}" ${badgeId} aria-hidden="true">
+          <span class="tape-chg ${chgClass}" ${badgeId}>
             <span ${chgId}>
               ${isItemUnavailable && !isUsingFallback ? '—' :
                `${sign}${Math.abs(itemData.change_pct || 0).toFixed(2)}%`}
@@ -3347,7 +3357,7 @@ export function renderStockInspector(data, isUp) {
           ${data.exchange ? `<span style="font-size: 11px; color: var(--text-dim); margin-left: 6px;" id="inspector-exchange">${data.exchange}</span>` : ''}
           <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;" id="inspector-company">${data.name || data.symbol}</div>
         </div>
-        <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}" id="inspector-chg">${sign}${chgPct}%</span>
+        <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}" id="inspector-chg" aria-label="${isUp ? 'up' : 'down'} ${chgPct}% change">${sign}${chgPct}%</span>
       </div>
 
       <div class="inspector-hero-price" id="inspector-price">${priceDisplay}</div>
@@ -6307,7 +6317,7 @@ export function renderMarketInspector(type, data) {
             <h4 class="inspector-title">${data.name}</h4>
             <div class="inspector-sub">${data.symbol} · ${data.region}</div>
           </div>
-          <span class="mara-asset-badge ${chgClass}">${chgPctFmt}</span>
+          <span class="mara-asset-badge ${chgClass}" aria-label="Change ${chgPctFmt} (${isUp ? 'up' : 'down'})">${chgPctFmt}</span>
         </div>
 
         <div class="inspector-hero-price">${priceFmt}</div>
@@ -6372,7 +6382,7 @@ export function renderMarketInspector(type, data) {
             <h4 class="inspector-title">${data.display_name}</h4>
             <div class="inspector-sub">${proxyStr || 'Sector Cohort'}</div>
           </div>
-          <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}">${isUp ? '+' : ''}${perf.toFixed(2)}%</span>
+          <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}" aria-label="${isUp ? 'up' : 'down'} ${perf.toFixed(2)}% sector performance">${isUp ? '+' : ''}${perf.toFixed(2)}%</span>
         </div>
 
         <div class="inspector-divider"></div>
@@ -6488,7 +6498,7 @@ export function renderMarketInspector(type, data) {
             <h4 class="inspector-title">${data.name || data.symbol}</h4>
             <div class="inspector-sub">${data.symbol}</div>
           </div>
-          <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}">${chgPctFmt}</span>
+          <span class="mara-asset-badge ${isUp ? 'chg-up' : 'chg-down'}" aria-label="${isUp ? 'up' : 'down'} ${chgPctFmt} performance">${chgPctFmt}</span>
         </div>
 
         <div class="inspector-hero-price">${priceFmt}</div>
@@ -7540,7 +7550,7 @@ function renderSectorMatrix(sectorData) {
             ${perfGlyph} ${sign}${perf.toFixed(2)}%
           </span>
           <div class="sector-breadth">
-            <div class="sector-breadth-bar ${breadthBarClass(breadthPct)}" style="width: ${breadthPct}%"></div>
+            <div class="sector-breadth-bar ${breadthBarClass(breadthPct)}" style="width: ${breadthPct}%" aria-label="${breadthPct}% breadth, ${breadthPct >= 60 ? 'strong' : breadthPct >= 40 ? 'moderate' : 'weak'} advancing"></div>
           </div>
           <div class="sector-breadth-label">
             <span class="advancing">${advancing}</span>

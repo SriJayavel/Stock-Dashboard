@@ -1239,7 +1239,7 @@
             <div class="timeline-card-header" style="margin-top: 24px;">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Strategy Backtester</h4>
               <div style="display: flex; gap: 8px;">
-                <select id="backtest-strategy-select" class="screener-input">
+                <select id="backtest-strategy-select" class="screener-input" aria-label="Backtest strategy">
                   <option value="ema_crossover">EMA 50 / 200 Cross</option>
                   <option value="rsi_mean_reversion">RSI Mean Reversion (30 / 70)</option>
                 </select>
@@ -1261,22 +1261,22 @@
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
               <div class="dossier-card">
-                <div class="dossier-card-title">Core Investment Thesis</div>
-                <textarea id="nb-thesis" class="notebook-textarea" placeholder="The company has strong MOAT and consistent ROE over 5 years..."></textarea>
+                <div class="dossier-card-title" id="nb-thesis-title">Core Investment Thesis</div>
+                <textarea id="nb-thesis" class="notebook-textarea" aria-labelledby="nb-thesis-title" placeholder="Example: Strong pricing power, ROE above 15% for 5 years, and a durable competitive moat."></textarea>
               </div>
               <div class="dossier-card">
-                <div class="dossier-card-title">Structural Risks &amp; Threats</div>
-                <textarea id="nb-risks" class="notebook-textarea" placeholder="Interest rate increases, supply chain disruptions, new competitors..."></textarea>
+                <div class="dossier-card-title" id="nb-risks-title">Structural Risks &amp; Threats</div>
+                <textarea id="nb-risks" class="notebook-textarea" aria-labelledby="nb-risks-title" placeholder="Example: Rising input costs, FX headwinds, and a new competitor entering in Q3."></textarea>
               </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
               <div class="dossier-card">
-                <div class="dossier-card-title">Due Diligence Questions</div>
-                <textarea id="nb-questions" class="notebook-textarea" placeholder="Will management guidance be raised? When is next earnings announcement?"></textarea>
+                <div class="dossier-card-title" id="nb-questions-title">Due Diligence Questions</div>
+                <textarea id="nb-questions" class="notebook-textarea" aria-labelledby="nb-questions-title" placeholder="Will management guidance be raised? When is next earnings announcement?"></textarea>
               </div>
               <div class="dossier-card">
-                <div class="dossier-card-title">Valuation &amp; Target Scenarios</div>
-                <textarea id="nb-valuation" class="notebook-textarea" placeholder="Entry: $450, Stop: $420, Target: $520"></textarea>
+                <div class="dossier-card-title" id="nb-valuation-title">Valuation &amp; Target Scenarios</div>
+                <textarea id="nb-valuation" class="notebook-textarea" aria-labelledby="nb-valuation-title" placeholder="Entry: $450, Stop: $420, Target: $520"></textarea>
               </div>
             </div>
           </div>
@@ -1353,11 +1353,11 @@
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px;">Create Alert Rule</h4>
               <div class="alert-rule-grid">
                 <div>
-                  <label class="auth-field-label" style="margin: 0 0 4px;">Target Symbol</label>
+                  <label class="auth-field-label" style="margin: 0 0 4px;" for="ws-alert-sym-input">Target Symbol</label>
                   <input type="text" id="ws-alert-sym-input" class="screener-input" value="TCS.NS" />
                 </div>
                 <div>
-                  <label class="auth-field-label" style="margin: 0 0 4px;">Metric</label>
+                  <label class="auth-field-label" style="margin: 0 0 4px;" for="ws-alert-metric-select">Metric</label>
                   <select id="ws-alert-metric-select" class="screener-input">
                     <option value="price">Price ($ / ₹)</option>
                     <option value="rsi">RSI Indicator</option>
@@ -1365,7 +1365,7 @@
                   </select>
                 </div>
                 <div>
-                  <label class="auth-field-label" style="margin: 0 0 4px;">Condition</label>
+                  <label class="auth-field-label" style="margin: 0 0 4px;" for="ws-alert-op-select">Condition</label>
                   <select id="ws-alert-op-select" class="screener-input">
                     <option value=">">&gt; Crosses Above</option>
                     <option value="<">&lt; Crosses Below</option>
@@ -1374,7 +1374,7 @@
                   </select>
                 </div>
                 <div>
-                  <label class="auth-field-label" style="margin: 0 0 4px;">Threshold Value</label>
+                  <label class="auth-field-label" style="margin: 0 0 4px;" for="ws-alert-target-input">Threshold Value</label>
                   <input type="number" id="ws-alert-target-input" placeholder="4500" class="screener-input" />
                 </div>
                 <div style="display: flex; align-items: flex-end;">
