@@ -381,9 +381,9 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
     await expect(page.locator('#panel-chart')).toHaveClass(/active/);
 
     // 9. Specialized Subsystem Checks
-    // Multi-Asset Macro Tabs
+    // Multi-Asset Macro Tabs (in Analyze workspace)
     for (const cat of ['Forex', 'Commodities', 'Crypto', 'Indices']) {
-      const macroTab = page.locator(`.macro-tab-btn[data-category="${cat}"]`);
+      const macroTab = page.locator(`#analyze-subnav .macro-tab-btn[data-category="${cat}"]`);
       await macroTab.click();
       await expect(macroTab).toHaveClass(/active/);
     }
