@@ -304,8 +304,11 @@ export class TerminalChart {
 
   resize(width,height) {
     const r=this.container.getBoundingClientRect();
-    this.width=Math.max(320,width||r.width||800);
-    this.height=Math.max(320,height||r.height||460);
+    // Use container width if available, fallback to provided width or 800
+    const finalWidth = Math.max(320, width || r.width || this.container.clientWidth || 800);
+    // Align canvas width to container to prevent overflow
+    this.width = Math.min(finalWidth, this.container.clientWidth || finalWidth);
+    this.height = Math.max(320, height || r.height || this.container.clientHeight || 460);
     const dpr=window.devicePixelRatio||1;
     this.canvas.width=Math.round(this.width*dpr);
     this.canvas.height=Math.round(this.height*dpr);
@@ -601,8 +604,41 @@ export class TerminalChart {
       return;
     }
     this.barWidth = (plot.right - plot.left) / Math.max(barsToRender.length, 1);
-    const base = barsToRender[0]?.close || 1, scaled = (v) => this.scaleMode === 'pct' ? (v / base - 1) * 100 : v;
-    let min = Math.min(...barsToRender.map((b) => scaled(b.low))), max = Math.max(...barsToRender.map((b) => scaled(b.high)));
+
+    // Validate candle data - filter out invalid candles
+    const validBars = barsToRender.filter(b => {
+      const close = b?.close;
+      const open = b?.open;
+      const high = b?.high;
+      const low = b?.low;
+      // Check if we have valid numeric OHLC values
+      if (!Number.isFinite(close) || !Number.isFinite(open) || !Number.isFinite(high) || !Number.isFinite(low)) return false;
+      // Check for valid timestamp (non-zero, finite)
+      const ts = b?.time;
+      if (typeof ts === 'number' && (ts === 0 || !Number.isFinite(ts))) return false;
+      return true;
+    });
+
+    // If no valid bars remain, show unavailable message
+    if (validBars.length === 0) {
+      c.fillStyle = muted;
+      c.font = '13px sans-serif';
+      c.fillText('Insufficient data for chart', 20, 32);
+      return;
+    }
+
+    // Use validBars for calculations and rendering
+    const barsToRenderSafe = validBars;
+    const base = barsToRenderSafe[0]?.close || 1;
+    const scaled = (v) => {
+      if (!Number.isFinite(v)) return 0;
+      return this.scaleMode === 'pct' ? ((v / base) - 1) * 100 : v;
+    };
+    // Calculate min/max from valid bars only
+    const validLows = barsToRenderSafe.map((b) => scaled(b.low)).filter(Number.isFinite);
+    const validHighs = barsToRenderSafe.map((b) => scaled(b.high)).filter(Number.isFinite);
+    let min = validLows.length > 0 ? Math.min(...validLows) : 0;
+    let max = validHighs.length > 0 ? Math.max(...validHighs) : 1;
     const pad = (max - min) * 0.08 || Math.abs(max || 1) * 0.02;
     min -= pad; max += pad;
     if (this.scaleMode === 'log') min = Math.max(Number.MIN_VALUE, min);
@@ -632,14 +668,14 @@ export class TerminalChart {
       c.moveTo(xx, plot.top);
       c.lineTo(xx, plot.bottom);
       c.stroke();
-      const idx = Math.min(barsToRender.length - 1, Math.floor(n / 6 * (barsToRender.length - 1)));
+      const idx = Math.min(barsToRenderSafe.length - 1, Math.floor(n / 6 * (barsToRenderSafe.length - 1)));
       c.fillStyle = muted;
       c.textAlign = 'center';
-      if (barsToRender[idx]) c.fillText(formatTickTime(barsToRender[idx].time, this.isIntraday()), xx, h - 11);
+      if (barsToRenderSafe[idx]) c.fillText(formatTickTime(barsToRenderSafe[idx].time, this.isIntraday()), xx, h - 11);
     }
     if (this.chartType === 'candles') {
       // Premium enhancement: anti-aliased candlesticks with subtle shadows
-      barsToRender.forEach((b, j) => {
+      barsToRenderSafe.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth, up = b.close >= b.open, color = up ? bullColor : bearColor;
         c.strokeStyle = color;
         c.fillStyle = color;
@@ -653,7 +689,7 @@ export class TerminalChart {
       });
     } else if (this.chartType === 'heikin_ashi') {
       // Heikin Ashi candles
-      barsToRender.forEach((b, j) => {
+      barsToRenderSafe.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth;
         const haClose = (b.open + b.high + b.low + b.close) / 4;
         const haOpen = (b.open + b.close) / 2;
@@ -673,10 +709,10 @@ export class TerminalChart {
       });
     } else if (this.chartType === 'hollow_candles') {
       // Hollow Candles (outline depends on whether close > prior close)
-      barsToRender.forEach((b, j) => {
+      barsToRenderSafe.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth;
         const up = b.close >= b.open;
-        const priorUp = j > 0 && barsToRender[j-1].close >= barsToRender[j-1].open;
+        const priorUp = j > 0 && barsToRenderSafe[j-1].close >= barsToRenderSafe[j-1].open;
         const color = up ? bullColor : bearColor;
         c.strokeStyle = color;
         c.fillStyle = up && priorUp ? color : 'rgba(0,0,0,0)'; // Hollow if same direction as prior
@@ -691,7 +727,7 @@ export class TerminalChart {
     } else {
       // Premium enhancement: smooth line chart with gradient glow
       c.beginPath();
-      barsToRender.forEach((b, j) => {
+      barsToRenderSafe.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth, yy = y(b.close);
         j ? c.lineTo(x, yy) : c.moveTo(x, yy);
       });
@@ -699,7 +735,7 @@ export class TerminalChart {
       c.lineWidth = 2;
       c.stroke();
       if (this.chartType === 'area') {
-        const last = barsToRender.length - 1;
+        const last = barsToRenderSafe.length - 1;
         c.lineTo(plot.left + (last + 0.5) * this.barWidth, plot.bottom);
         c.lineTo(plot.left + this.barWidth / 2, plot.bottom);
         c.closePath();
@@ -710,8 +746,8 @@ export class TerminalChart {
         c.fill();
       }
     }
-    const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...barsToRender.map((b) => b.volume || 0));
-    barsToRender.forEach((b, j) => {
+    const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...barsToRenderSafe.map((b) => b.volume || 0));
+    barsToRenderSafe.forEach((b, j) => {
       const x = plot.left + (j + 0.5) * this.barWidth, hh = ((b.volume || 0) / vmax) * (plot.bottom - vTop), up = b.close >= b.open;
       c.fillStyle = up ? `${bullColor}33` : `${bearColor}33`;
       c.fillRect(x - Math.max(1, this.barWidth * 0.32), plot.bottom - hh, Math.max(1, this.barWidth * 0.64), hh);
@@ -747,7 +783,7 @@ export class TerminalChart {
       }
     });
     this.markers.forEach((m) => {
-      const idx = bars.findIndex((b) => dateString(b.time) === String(m.time));
+      const idx = barsToRenderSafe.findIndex((b) => dateString(b.time) === String(m.time));
       if (idx < start || idx >= end) return;
       const xx = plot.left + (idx - start + 0.5) * this.barWidth, yy = plot.top + 12;
       c.fillStyle = m.color || '#5b9cf6';
@@ -756,7 +792,7 @@ export class TerminalChart {
       c.fill();
     });
     if (this.pointer && this.crosshairEnabled) {
-      const xx = this.pointer.x, idx = this.indexAt(xx), b = bars[idx];
+      const xx = this.pointer.x, idx = this.indexAt(xx), b = barsToRenderSafe[idx];
       if (b) {
         c.strokeStyle = isLight ? '#2563eb' : '#60a5fa';
         c.setLineDash([4, 4]);
