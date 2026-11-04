@@ -158,18 +158,29 @@ body:not(.auth-required) .mara-app,
 body:not(.auth-required) .main-layout {
   height: 100%;
   min-height: 100vh;
+  overflow: visible;
+}
+body.authenticated .mara-app,
+body.authenticated .main-layout {
+  overflow: auto;
 }
 
 /* Ensure scroll containers have proper height for content */
 .mara-main-canvas {
   height: 100%;
   min-height: 100vh;
+  overflow: auto;
 }
 
 /* When authenticated, restore body scroll */
 body.authenticated {
   overflow: auto;
   height: 100%;
+}
+
+/* Override workspace view overflow when authenticated to allow scrolling */
+body.authenticated .workspace-view {
+  overflow-y: auto;
 }
 
 /* Mara email account entry: uses the existing terminal color tokens. */

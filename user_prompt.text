@@ -1,86 +1,13 @@
-Based on a review of your current live deployment (**Mara Stock Dashboard**), here are the immediate technical issues, UI/UX bugs, and structural flaws present on your site:
-
----
-
-### 1. Missing Data & Broken Rows (Data Pipeline Bug)
-
-* **Empty Index Rows:** In the **Global Benchmark Indices** table, several major indices show empty dashes (`—`) for `LAST PRICE`, `CHANGE`, `% CHG`, and `UPDATED`:
-* `^SSEC` (Shanghai Comp)
-* `^GSPTSE` (TSX Composite)
-* `^AXJO` (ASX 200)
-
-
-* **Root Cause:** Your ticker ingestion or `yfinance` mapping logic is failing to resolve these specific tickers or handling `null` values gracefully.
-
----
-
-### 2. Misaligned Ticker Categorization
-
-* **US Equities in Indian IT Sector:** Under **Information Technology & Software Constituents**, `NVDA`, `AAPL`, and `MSFT` are listed alongside Indian equities (`TCS.NS`, `INFY.NS`, `HCLTECH.NS`, `WIPRO.NS`, `LTM.NS`) with the benchmark proxy set to `^CNXIT · XLK`.
-* **Fix:** `^CNXIT` represents the Nifty IT index (Indian equities only). US tech giants should be categorized separately under a US sector benchmark (e.g., `XLK` or `^IXIC`) to avoid skewed sector analytics.
-
----
-
-### 3. Telemetry Panel Overflow & Duplication
-
-* **Duplicate Ticker Rendering:** The floating **Active Telemetry** panel duplicates the entire list of global indices twice in a single continuous stream (`^NSEI`, `^NSEBANK`, ..., `SOL-USD` repeated immediately back-to-back).
-* **Viewport Occlusion:** The floating right-hand drawer (**Active Telemetry / Watchlist**) overlaps heavily with content panels on typical screen widths, making side-by-side reading difficult without explicit toggle controls.
-
----
-
-### 4. UI/UX & Formatting Inconsistencies
-
-* **Symbol vs. Format Mismatches:**
-* Some cards render currency symbols explicitly (`₹23,856.65`, `$7,568.92`), whereas the ticker stream displays raw numbers or inconsistent sign conventions (`+ 0.19%` vs `+0.19%`).
-
-
-* **Breadth Counter Mismatch:** The sector heatmap shows "Pharmaceuticals & Healthcare" with 6 constituents (1 gain, 4 loss, 1 flat), but labels it as *17% Breadth*. Meanwhile, "Banking & Financial Services" (3 gain, 3 loss) displays *50% Breadth*. Ensure your breadth calculation formula (`Advancing / Total Tracked`) is consistent across all cards.
-* **Negative Value Formatting:** Negative change values inconsistently flip between using an en-dash/hyphen (`-`) and an explicit minus character (`−`). Standardize your numeric formatting function across all UI components.
-
----
-
-### 5. Performance & Network Strategy
-
-* **Polling Overhead:** The application uses continuous polling (`YFINANCE · LIVE · POLLING`). If client-side requests are firing directly to backend proxies without WebSocket streaming or response caching, hitting Vercel's serverless execution limits (10s limit on free/pro defaults) can lead to rate-limiting (`429`) or dynamic route timeouts (`504`).
-
----
-
-### Recommended Action Plan
-
-1. **Sanitize Data Ingestion:** Wrap your index fetching endpoint in a fallback block to hide or gracefully disable untracked assets (`^SSEC`, `^GSPTSE`, `^AXJO`).
-2. **Filter Sector Components:** Split `^CNXIT` (Indian domestic IT) and `XLK` (US Tech) into distinct constituent arrays.
-3. **De-duplicate Telemetry Arrays:** Fix the `.map()` or array concat logic in your ticker marquee / telemetry side panel.
-4. **Standardize Numeric Formatting:** Implement a centralized `formatCurrency(val, currencyCode)` and `formatPercentage(val)` helper function.
-
-[MarketStatus] DOM elements found: Object
-index-Dc_sgRry.js:1377 [MarketStatus] Telemetry: Object
-index-Dc_sgRry.js:1377 [MarketStatus] DOM elements found: Object
-index-Dc_sgRry.js:1377 [MarketStatus] Telemetry: Object
-index-Dc_sgRry.js:1377 [MarketStatus] DOM elements found: Object
-index-Dc_sgRry.js:1377 [MarketStatus] Telemetry: Object
-index-Dc_sgRry.js:29 [MarketWS] Vercel detected - using polling fallback
-index-Dc_sgRry.js:29 [MarketWS] Starting polling fallback
-index-Dc_sgRry.js:1572 [MarketWS] Status: polling
-index-Dc_sgRry.js:1572 [MarketWS] Initialized for markets workspace
-index-Dc_sgRry.js:29 [MarketWS] Stopping polling fallback
-/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
-index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (2 left). Error: HTTP 503: 
-fetchWithRetry @ index-Dc_sgRry.js:29
-/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
-index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (2 left). Error: HTTP 503: 
-fetchWithRetry @ index-Dc_sgRry.js:29
-/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
-index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (1 left). Error: HTTP 503: 
-fetchWithRetry @ index-Dc_sgRry.js:29
-/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
-index-Dc_sgRry.js:29 Request failed for /api/analytics/correlation, retrying... (1 left). Error: HTTP 503: 
-fetchWithRetry @ index-Dc_sgRry.js:29
-/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
-index-Dc_sgRry.js:1711 Correlation error: Error: HTTP 503: 
-    at Nc.fetchWithRetry (index-Dc_sgRry.js:29:72015)
-    at async ss (index-Dc_sgRry.js:1694:1422)
-ss @ index-Dc_sgRry.js:1711
-/api/analytics/correlation:1  Failed to load resource: the server responded with a status of 503 ()
-index-Dc_sgRry.js:1711 Correlation error: Error: HTTP 503: 
-    at Nc.fetchWithRetry (index-Dc_sgRry.js:29:72015)
-    at async ss (index-Dc_sgRry.js:1694:1422)
+Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-4214592rb-phantom-33bf.vercel.app%2Fmanifest.json&nonce=098042692252c772c4297f7d68d8c42a8acc22ae5af083fab4c572e20afafdb9' (redirected from 'https://stock-dashboard-886f-4214592rb-phantom-33bf.vercel.app/manifest.json') from origin 'https://stock-dashboard-886f-4214592rb-phantom-33bf.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-4214592rb-phantom-33bf.vercel.app%2Fmanifest.json&nonce=098042692252c772c4297f7d68d8c42a8acc22ae5af083fab4c572e20afafdb9:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-4214592rb-phantom-33bf.vercel.app%2Fmanifest.json&nonce=0f523d6a67a47c4b7397fda3ce9ee19ccf0cbf7290f36bee2dd978c51f905c4e' (redirected from 'https://stock-dashboard-886f-4214592rb-phantom-33bf.vercel.app/manifest.json') from origin 'https://stock-dashboard-886f-4214592rb-phantom-33bf.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-4214592rb-phantom-33bf.vercel.app%2Fmanifest.json&nonce=0f523d6a67a47c4b7397fda3ce9ee19ccf0cbf7290f36bee2dd978c51f905c4e:1  Failed to load resource: net::ERR_FAILED
+/#/markets:1 Access to internal resource at 'https://vercel.com/sso-api?url=https%3A%2F%2Fstock-dashboard-886f-4214592rb-phantom-33bf.vercel.app%2Fmanifest.json&nonce=f4b3908eb5cdcd52d6d2253829a145baf32c15b1fb0c54a4c116884527e07dc9' (redirected from 'https://stock-dashboard-886f-4214592rb-phantom-33bf.vercel.app/manifest.json') from origin 'https://stock-dashboard-886f-4214592rb-phantom-33bf.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+index-Cw5tbLhT.js:1377 [MarketStatus] DOM elements found: ObjectlseStatus: truenseStatus: truenyseStatus: truesessionDot: truesessionName: truetyoStatus: true[[Prototype]]: Object
+index-Cw5tbLhT.js:1377 [MarketStatus] Telemetry: ObjectisLive: truelse: "SCHED OPEN"lseIsOpen: truense: "AFTER-HOURS"nseIsOpen: falsenyse: "PRE-MKT"nyseIsOpen: falsetyo: "CLOSED"tyoIsOpen: false[[Prototype]]: Object
+index-Cw5tbLhT.js:29 Request failed for /api/markets/overview, retrying... (2 left). Error: signal is aborted without reason
+fetchWithRetry @ index-Cw5tbLhT.js:29
+index-Cw5tbLhT.js:1377 [MarketStatus] DOM elements found: {sessionDot: true, sessionName: true, nseStatus: true, nyseStatus: true, lseStatus: true, …}
+index-Cw5tbLhT.js:1377 [MarketStatus] Telemetry: {nse: 'AFTER-HOURS', nyse: 'PRE-MKT', lse: 'SCHED OPEN', tyo: 'CLOSED', nseIsOpen: false, …}
+index-Cw5tbLhT.js:1377 [MarketStatus] DOM elements found: {sessionDot: true, sessionName: true, nseStatus: true, nyseStatus: true, lseStatus: true, …}
+index-Cw5tbLhT.js:1377 [MarketStatus] Telemetry: {nse: 'AFTER-HOURS', nyse: 'PRE-MKT', lse: 'SCHED OPEN', tyo: 'CLOSED', nseIsOpen: false, …}
