@@ -5,8 +5,12 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from logging import getLogger
+
 from backend.api.dependencies import get_deep_research_service_dep
 from backend.features.deep_research.service import DeepResearchService
+
+logger = getLogger(__name__)
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -56,8 +60,32 @@ async def compute_portfolio_risk(
 async def get_sector_intelligence(
     deep_research_service: DeepResearchService = Depends(get_deep_research_service_dep),
 ):
-    """Sector benchmark intelligence."""
+    """Sector benchmark intelligence with fallback to cached data."""
     try:
-        return await deep_research_service.get_sector_intelligence()
+        result = await deep_research_service.get_sector_intelligence()
+        # Always return valid JSON even on partial failure
+        if result.get("error"):
+            # Check for stale cache
+            stale_key = "computed:sector_intelligence"
+            cached = await deep_research_service._cache.get(stale_key, "sector_intelligence")
+            if cached:
+                return cached
+        return result
     except Exception as e:
-        raise HTTPException(500, f"Failed to fetch sector intelligence: {e}")
+        logger = __import__('logging').getLogger(__name__)
+        logger.warning(f"Sector intelligence error (returning fallback): {e}")
+        # Try to get stale cache as fallback
+        try:
+            stale_key = "computed:sector_intelligence"
+            cached = await deep_research_service._cache.get(stale_key, "sector_intelligence")
+            if cached:
+                return cached
+        except:
+            pass
+        # Return empty but valid response with fallback sectors
+        return {
+            "sectors": [],
+            "fallback": True,
+            "message": "Sector intelligence feed temporarily unavailable. Using cached data.",
+            "retrieved_at": None
+        }

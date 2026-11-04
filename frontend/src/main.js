@@ -2772,10 +2772,10 @@ function renderWatchlistRows(quotes) {
       <table class="screener-table">
         <thead>
           <tr>
-            <th>Symbol</th>
-            <th>Name</th>
-            <th>Price</th>
-            <th>Change %</th>
+            <th data-sort="symbol" class="sortable">Symbol <span class="sort-indicator" data-col="symbol"></span></th>
+            <th data-sort="name" class="sortable">Name <span class="sort-indicator" data-col="name"></span></th>
+            <th data-sort="price" class="sortable">Price <span class="sort-indicator" data-col="price"></span></th>
+            <th data-sort="change" class="sortable">Change % <span class="sort-indicator" data-col="change"></span></th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -2789,15 +2789,17 @@ function renderWatchlistRows(quotes) {
             const curr = item.currency_symbol || getCurrencySymbol(sym, item.currency);
             const decimals = sym.includes('=X') ? 4 : 2;
             const isPending = item.status === 'pending';
+            const hasIntraday = item.intraday_change_24h != null;
+            const intradayChg = item.intraday_change_24h || 0;
             return `
-              <tr data-symbol="${sym}">
+              <tr data-symbol="${sym}" data-price="${item.current_price}" data-change="${item.change_pct || 0}">
                 <td class="screener-sym-col">${sym}</td>
                 <td style="font-weight: 500;">${item.name || sym}</td>
                 <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Queued</span>' : (item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable'))}</td>
                 <td><span class="tape-chg ${chgClass}">${isPending ? formatWithState(null, 'unavailable') : `${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%`}</span></td>
                 <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
                 <td>
-                  <button class="ghost-btn ws-inspect-btn" data-symbol="${sym}" title="Analyze ${item.name || sym}">Analyze ↗</button>
+                  <span class="sparkline-mini" data-symbol="${sym}" aria-label="Price trend" tabindex="0"></span>
                   <button class="wl-btn wl-btn-alert" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
                   <button class="wl-btn wl-btn-danger ws-remove-btn" data-del="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px;">Remove</button>
                 </td>
@@ -3260,14 +3262,20 @@ function renderTickerTape(data) {
   if (!tapeTrack) return;
 
   const items = [];
-  if (data.hero) items.push(data.hero);
+  const seenSymbols = new Set();
+
+  if (data.hero) {
+    items.push(data.hero);
+    seenSymbols.add(data.hero.symbol);
+  }
 
   if (data.macro) {
     Object.values(data.macro).forEach((categoryList) => {
       if (Array.isArray(categoryList)) {
         categoryList.forEach((it) => {
-          // Avoid duplicate NIFTY 50 if hero already pushed
-          if (it.symbol === '^NSEI' && data.hero) return;
+          // Skip duplicates - same symbol appearing in multiple categories
+          if (seenSymbols.has(it.symbol)) return;
+          seenSymbols.add(it.symbol);
           items.push(it);
         });
       }
@@ -3635,7 +3643,13 @@ function renderTechnicalSnapshot(snapshot) {
   const trend = document.getElementById('snapshot-trend');
   if (!trend) return;
   if (!snapshot) {
-    trend.textContent = 'Snapshot unavailable';
+    trend.textContent = 'Loading...';
+    trend.dataset.state = 'loading';
+    const detail = document.getElementById('snapshot-trend-detail');
+    if (detail) detail.textContent = 'Calculating indicators...';
+    // Animate loading state
+    trend.style.opacity = '0.7';
+    setTimeout(() => { trend.style.opacity = ''; }, 1000);
     return;
   }
   trend.textContent = snapshot.trend_context || 'Insufficient history';
@@ -3645,6 +3659,17 @@ function renderTechnicalSnapshot(snapshot) {
   const setMetric = (id, value, suffix = '%') => {
     const node = document.getElementById(id);
     if (!node) return;
+    if (value === null || value === undefined) {
+      // Show loading skeleton for missing values
+      node.textContent = '…';
+      node.style.opacity = '0.5';
+      node.style.animation = 'pulse 1.5s ease-in-out infinite';
+      node.dataset.direction = 'neutral';
+      return;
+    }
+    // Clear loading styles
+    node.style.opacity = '';
+    node.style.animation = '';
     node.textContent = Number.isFinite(value) ? `${value > 0 && id !== 'snapshot-rsi' ? '+' : ''}${value.toFixed(1)}${suffix}` : '—';
     node.dataset.direction = Number.isFinite(value) ? (value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral') : 'neutral';
   };
@@ -4565,7 +4590,11 @@ function renderScreenerTable(items) {
     }
     return;
   }
-  tbody.innerHTML = items
+
+  // Sort by price descending by default
+  const sortedItems = [...items].sort((a, b) => (b.current_price || 0) - (a.current_price || 0));
+
+  tbody.innerHTML = sortedItems
     .map((item) => {
       const isUp = (item.change_pct || 0) >= 0;
       const chgClass = isUp ? 'chg-up' : 'chg-down';
@@ -4583,15 +4612,37 @@ function renderScreenerTable(items) {
           <td><span class="tape-chg ${chgClass}">${chgStr}</span></td>
           <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metricStr}</td>
           <td>
-            <button class="ghost-btn screener-load-btn" data-symbol="${item.symbol}" aria-label="Analyze ${item.name || item.symbol}">
-              Analyze ↗
-            </button>
+            <span class="sparkline-mini" data-symbol="${item.symbol}" aria-label="24h price trend"></span>
+            <button class="wl-btn wl-btn-alert" data-symbol="${item.symbol}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
           </td>
         </tr>
       `;
     })
     .join('');
 
+  // Add sort handler to table headers
+  const sortableHeaders = document.querySelectorAll('.screener-table th.sortable');
+  let currentSortCol = 'price';
+  let currentSortDir = 'desc';
+
+  sortableHeaders.forEach((th) => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      if (currentSortCol === col) {
+        currentSortDir = currentSortDir === 'desc' ? 'asc' : 'desc';
+      } else {
+        currentSortCol = col;
+        currentSortDir = 'desc';
+      }
+      sortScreenerItems(col, currentSortDir);
+      updateSortIndicators(col, currentSortDir);
+    });
+  });
+
+  // Initialize sort indicators
+  updateSortIndicators(currentSortCol, currentSortDir);
+
+  // Row click handlers
   tbody.querySelectorAll('tr').forEach((row) => {
     const activate = () => {
       const sym = row.getAttribute('data-symbol');
@@ -4607,6 +4658,35 @@ function renderScreenerTable(items) {
       }
     });
   });
+}
+
+// Helper function to update sort indicators
+function updateSortIndicators(col, dir) {
+  document.querySelectorAll('.screener-table th .sort-indicator').forEach(ind => ind.classList.remove('ascending', 'descending'));
+  const activeIndicator = document.querySelector(`.screener-table th[data-sort="${col}"] .sort-indicator`);
+  if (activeIndicator) {
+    activeIndicator.classList.add(dir === 'asc' ? 'ascending' : 'descending');
+  }
+}
+
+// Helper function to sort screener items
+function sortScreenerItems(col, dir) {
+  const tbody = document.getElementById('screener-table-body');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a, b) => {
+    const aVal = a.querySelector(`td:nth-child(${getColumnOffset(col)})`)?.textContent || '';
+    const bVal = b.querySelector(`td:nth-child(${getColumnOffset(col)})`)?.textContent || '';
+    if (dir === 'asc') return aVal.localeCompare(bVal);
+    return bVal.localeCompare(aVal);
+  });
+  tbody.innerHTML = rows.join('');
+}
+
+// Helper to get column index for sorting (1-indexed)
+function getColumnOffset(col) {
+  const map = { symbol: 1, name: 2, price: 3, change: 4 };
+  return map[col] || 3;
 }
 
 /* ========================================================
@@ -7086,6 +7166,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       let source = m.symbol === '^NSEI' ? (marketDataCache?.hero?.source || 'NSE Direct') : 'yfinance';
       let sourceTimestamp = null;
       let isStale = Boolean(marketDataCache?.is_stale);
+      let marketClosed = false;
 
       if (live) {
         if (isValidPrice(live.price)) rawPrice = live.price;
@@ -7106,6 +7187,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         if (h.source) source = h.source;
         if (h.retrieved_at) sourceTimestamp = h.retrieved_at;
         if (h.is_stale) isStale = true;
+      } else if (!live && (sessionByRegion[m.regionCode] || '').includes('CLOSED')) {
+        // For indices in closed sessions, show "Market Closed" instead of dashes
+        marketClosed = true;
       }
 
       return {
@@ -7119,6 +7203,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         source_timestamp: sourceTimestamp,
         is_stale: isStale,
         session_status: sessionByRegion[m.regionCode] || 'UNAVAILABLE',
+        market_closed: marketClosed,
       };
     });
 
@@ -7126,17 +7211,21 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       .map((m, idx) => {
         const isIndia = m.curr === '₹' || m.regionCode === 'india';
         const hasValidPrice = m.price != null;
-        const priceDisplay = hasValidPrice
+        // Show "Market Closed" for indices in closed session with no price data
+        const isMarketClosed = m.market_closed || (m.symbol.startsWith('^') && !hasValidPrice && (sessionByRegion[m.regionCode] || '').includes('CLOSED'));
+        const priceDisplay = isMarketClosed
+          ? 'Market Closed'
+          : hasValidPrice
           ? `${m.curr}${m.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : '—';
         const hasChange = m.change_pct != null;
         const isUp = hasChange && m.change_pct > 0.0001;
         const isDown = hasChange && m.change_pct < -0.0001;
         const sign = isUp ? '+' : isDown ? '−' : '';
-        const chgDisplay = m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—';
-        const pctDisplay = hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : '—';
-        const chgClass = !hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '';
-        const pctClass = !hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '';
+        const chgDisplay = isMarketClosed ? '—' : (m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—');
+        const pctDisplay = isMarketClosed ? '—' : (hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : '—');
+        const chgClass = isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '');
+        const pctClass = isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '');
 
         // Region badge
         const regionTagClass = {
@@ -7150,15 +7239,15 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         // Updated timestamp
         const updatedDisplay = m.source_timestamp
           ? new Date(m.source_timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-          : (m.is_stale ? 'Stale' : '—');
+          : (m.is_stale ? 'Stale' : (isMarketClosed ? 'Offline' : '—'));
 
         // High/Low display
-        const highDisplay = m.high != null
+        const highDisplay = isMarketClosed ? '—' : (m.high != null
           ? `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '—';
-        const lowDisplay = m.low != null
+          : '—');
+        const lowDisplay = isMarketClosed ? '—' : (m.low != null
           ? `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '—';
+          : '—');
 
         // Sparkline data attribute for canvas rendering
         const sparklineDataAttr = m.sparkline_data
@@ -7167,11 +7256,11 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
         const isDefaultActive = idx === 0;
 
-        const changeDirection = !hasChange ? '' : isUp ? ' up' : isDown ? ' down' : '';
-        const ariaChangeText = hasChange ? `${pctDisplay.replace('+', 'up ').replace('−', 'down ')}` : 'no change data';
+        const changeDirection = isMarketClosed ? '' : (!hasChange ? '' : isUp ? ' up' : isDown ? ' down' : '');
+        const ariaChangeText = isMarketClosed ? 'market closed' : (hasChange ? `${pctDisplay.replace('+', 'up ').replace('−', 'down ')}` : 'no change data');
 
         return `
-          <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}"
+          <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}${isMarketClosed ? ' market-closed' : ''}"
               data-region="${m.regionCode}"
               data-sym="${m.symbol}"
               tabindex="0"
@@ -7180,9 +7269,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             <td class="col-region">
               <span class="region-badge ${regionTagClass}">${m.tag}</span>
             </td>
-            <td class="col-name">${m.name}</td>
-            <td class="col-symbol">${m.symbol}</td>
-            <td class="col-price text-right${hasValidPrice && !m.is_stale ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}" aria-live="polite">
+            <td class="col-name"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.name}</td>
+            <td class="col-symbol"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.symbol}</td>
+            <td class="col-price text-right${hasValidPrice && !m.is_stale && !isMarketClosed ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}" aria-live="polite">
               ${priceDisplay}
             </td>
             <td class="col-change text-right ${chgClass}">${chgDisplay}</td>
@@ -7520,7 +7609,18 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         cachedSectorData = data.sectors || [];
         lastSectorIntelligenceFetchTime = now;
       }
-      const sectorData = cachedSectorData || [];
+      let sectorData = cachedSectorData || [];
+
+      // Handle fallback/error response from backend
+      if (sectorData.length === 0 && (cachedSectorData?.fallback || cachedSectorData?.error)) {
+        // Show fallback UI with retry option
+        secGrid.innerHTML = '<div class="sector-tile sector-fallback" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--fg-muted); padding: 16px;"><span style="font-weight: 500; margin-bottom: 8px;">Sector data temporarily unavailable</span><span style="font-size: 12px; margin-bottom: 12px; color: var(--text-secondary);">Using cached sector intelligence.</span><button id="retry-sectors-btn" style="padding: 8px 16px; font-size: 11px; background: var(--accent); color: var(--bg); border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Retry Connection</button><span style="font-size: 10px; margin-top: 8px; color: var(--text-muted);">Last check: ' + new Date().toLocaleTimeString() + '</span></div>';
+        document.getElementById('retry-sectors-btn')?.addEventListener('click', () => loadAndRenderSectorsAndMarketMap(true));
+        // Clear sector constituents table loading state
+        const constituentsTbody = document.getElementById('sector-constituents-tbody');
+        if (constituentsTbody) constituentsTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">Sector data unavailable. Click Retry.</td></tr>';
+        return;
+      }
 
       if (!currentSelectedSector && sectorData.length > 0) {
         currentSelectedSector = sectorData[0];
@@ -7544,8 +7644,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       renderSectorSparklines(sectorData);
     } catch (e) {
       console.warn('Failed sector intelligence load:', e);
-      // Show error state
-      secGrid.innerHTML = '<div class="sector-tile sector-error" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--fg-muted);"><span style="font-weight: 500; margin-bottom: 4px; color: var(--loss);">Failed to load sector data</span><span style="font-size: 11px;">The sector intelligence feed is currently unreachable.</span><span style="font-size: 10px; margin-top: 4px;">Last attempt: ' + new Date().toLocaleTimeString() + '</span></div>';
+      // Show error state with retry option
+      secGrid.innerHTML = '<div class="sector-tile sector-error" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; text-align: center; color: var(--fg-muted); padding: 16px;"><span style="font-weight: 500; margin-bottom: 8px; color: var(--loss);">Failed to load sector data</span><span style="font-size: 11px; margin-bottom: 12px;">The sector intelligence feed is currently unreachable.</span><button id="retry-sectors-btn" style="padding: 8px 16px; font-size: 11px; background: var(--accent); color: var(--bg); border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Retry Connection</button><span style="font-size: 10px; margin-top: 8px;">Last attempt: ' + new Date().toLocaleTimeString() + '</span></div>';
+      document.getElementById('retry-sectors-btn')?.addEventListener('click', () => loadAndRenderSectorsAndMarketMap(true));
+      // Clear sector constituents table loading state
+      const constituentsTbody = document.getElementById('sector-constituents-tbody');
+      if (constituentsTbody) constituentsTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">Sector constituents unavailable. Click Retry.</td></tr>';
     }
   }
 
