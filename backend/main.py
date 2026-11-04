@@ -65,6 +65,8 @@ def create_app() -> FastAPI:
             "/api/search",
             "/api/screener",
             "/api/analytics/sectors",  # Sector intelligence - public market data
+            "/api/analytics/correlation",  # Public analytics - no account data
+            "/api/analytics/portfolio-risk",  # Public analytics - no account data
             "/ws/markets",
         ]
         public_patterns = [
