@@ -187,6 +187,19 @@ class ApiClient {
       body: JSON.stringify({ query, active_symbol: activeSymbol }),
     });
   }
+
+  // RSS News Fallback Endpoint
+  async getRssNews(symbol, feed = 'yahoo') {
+    const sym = (symbol || '').trim().replace(/\//g, '');
+    // Public RSS feeds for financial news
+    const rssUrls = {
+      'yahoo': `https://query1.finance.yahoo.com/v1/finance/rss/news?symbol=${encodeURIComponent(sym)}`,
+      'google': `https://news.google.com/rss/search?q=${encodeURIComponent(sym)}+stock`,
+      'bse': `https://www.bseindia.com/rss.aspx?symbol=${encodeURIComponent(sym)}`,
+    };
+    const url = rssUrls[feed] || rssUrls.yahoo;
+    return this.fetchWithRetry(url, { method: 'GET', headers: { Accept: 'application/json' } });
+  }
 }
 
 export const api = new ApiClient();

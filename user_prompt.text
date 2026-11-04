@@ -1,0 +1,401 @@
+Looking at the **Markets** dashboard currently active on your site (`[https://mara-stock-terminal.vercel.app/#/markets](https://mara-stock-terminal.vercel.app/#/markets)`), here is the direct breakdown of what needs fixing to elevate it to a clean, professional financial workstation standard.
+
+---
+
+### Critical Issues & Functional Flaws
+
+1. **Broken Sector Heatmap & Perpetual Loading State:**
+* **Heatmap Error:** Renders `No sector data available / Sector intelligence feed returned no data.`
+* **Constituents Table:** Stuck indefinitely on `Loading constituent telemetry...` with no timeout handling or fallback data.
+
+
+2. **Severe Text Collision in Global Market Hours:**
+* In the **NSE India** card (and across other timeline bars), the timestamp labels (`09:00`, `09:15`, `15:30`) collide directly over the progress bar element.
+
+
+3. **Inconsistent Data Hydration & Missing Values:**
+* In the **Global Benchmark Indices** table, `^SSEC` (Shanghai Composite) shows `Market Closed | — | — | Offline`, leaving a raw empty row while all other indices populate data.
+
+
+4. **Visual Hierarchy & Density Spacing:**
+* The status bar (`GLOBAL MARKETS: NYSE, LSE OPEN`, `YFINANCE · LIVE`, `POLLING`) feels visually cluttered with mismatched pill styles and excessive vertical padding, lowering the information density expected in a Bloomberg/TradingView style interface.
+
+
+
+---
+
+### Key Steps to Make It Professional
+
+* **Circuit Breaker for API Feeds:** Cache historical sector performance in Upstash Redis so the heatmap and constituents table display cached sector snapshots when live feeds fail.
+* **Timeline CSS Refactor:** Separate timestamp markers into a clean sub-row below the progress bar container using Flexbox or absolute positioning.
+* **Unified Status Header:** Group connection states, market opening indicators, and polling rates into a compact, single-line telemetry banner.
+
+---
+
+
+
+```markdown
+Role: Senior Financial UI/UX Engineer
+Task: Refactor the Markets page (/markets) in MARA Workstation to enterprise terminal standards.
+
+Implement the following fixes and design enhancements:
+
+1. Sector Rotation & Constituents Fallback Architecture:
+   - Wrap the `/api/sectors` data pipeline in a try-catch block. On feed timeout or failure, hydrate the Heatmap and Sector Constituents table with cached data from Upstash Redis.
+   - Remove the permanent spinner on "Sector Constituents" and render a "Retry Telemetry Sync" button or empty state if no data is available.
+
+2. Global Market Hours Layout Fix:
+   - Resolve CSS text collisions in market session timelines (specifically NSE India).
+   - Move opening/closing time labels (`09:00`, `09:15`, `15:30`, `16:00`) into a dedicated sub-container beneath the active status bar to prevent overlap.
+
+3. Benchmark Table Null Handling:
+   - Handle missing payload fields for indices like `^SSEC` (Shanghai Composite). 
+   - Display last-known close values or an explicit "Market Closed" tag instead of empty dash cells (`—`).
+
+4. Enterprise Visual Polish & Spacing:
+   - Standardize table row heights (`py-2`) across benchmark and sector tables for high data density.
+   - Clean up top status badges into a single inline header toolbar (`GLOBAL MARKETS` | `SOURCE: YFINANCE` | `POLLING 15s`).
+
+```
+Looking at the **Discover / Screener** tab (`/discover`) in your active terminal viewport:
+
+### Issues & Technical Bugs
+
+1. **Missing Action Column Content (No Interactive Sparklines or Quick Actions):**
+* The **Action** column renders a static green/red indicator dot above a plain `[Alert]` pill button for every row (`RELIANCE.NS`, `TCS.NS`, `HDFCBANK.NS`, etc.).
+* There are no inline trend sparklines (24h micro-charts) or quick-view triggers, missing an opportunity to display real-time technical momentum.
+
+
+2. **Drawer & Overlay Occlusion (UI Stacking Bug):**
+* The right side of the screen is heavily occupied by open overlay drawers (**Technical Indicators**, **Indicator Settings**, **Alerts**, and **Watchlist**), eating into screen space.
+* These panels do not automatically collapse when switching tabs or clicking away, causing drawer clutter over the primary scanner table.
+
+
+3. **Sub-Optimal Data Density & Table Height:**
+* Excessive vertical row padding limits the table to showing only ~5 assets in the main view before requiring vertical scrolling. Screener tools perform best when showing 8–10 rows at a glance.
+
+
+4. **Missing Column Sorting & Filter Rule Feedback:**
+* Clicking on headers like `CHANGE %` or `MARKET CAP` does not toggle directional sort arrows ($\uparrow / \downarrow$).
+* The `Filters & Rules` button on the top right lacks active filter badge indicators showing how many parameters are currently active.
+
+
+
+---
+
+### Key Optimization Steps
+
+* **Inline Sparkline Canvas:** Replace static green/red dots in the `ACTION` column with lightweight inline SVG sparkline mini-charts representing the 24-hour price trend.
+* **Auto-Dismiss Overlay Drawers:** Set drawer visibility states to automatically close when navigating between top bar tabs or when backdrop clicks occur.
+* **Compact Row Spacing:** Tighten `py` table cell padding to double the visible ticker density on standard displays.
+
+---
+
+
+
+```markdown
+Role: Senior Frontend UI/UX & Quantitative Developer
+Task: Optimize data density, fix drawer stacking clutter, and add inline sparklines to the Discover Screener module.
+
+Implement the following targeted improvements:
+
+1. Table Action Column & Micro-Visualizations:
+   - Replace the static status dots in the "ACTION" column with dynamic 24-hour mini SVG sparkline charts for each ticker.
+   - Keep the [Alert] button concise, or convert it into an icon trigger to save horizontal space.
+
+2. Overlay Drawer Management & Dismissal:
+   - Fix drawer stacking logic where Technical Indicators, Settings, and Alert panels stay pinned open across view changes.
+   - Implement auto-collapse/dismiss behavior on tab navigation or backdrop clicks to keep the core table clear.
+
+3. Table Density & Vertical Scaling:
+   - Reduce vertical padding on <tr> and <td> elements inside the asset table (target py-1.5 or py-2).
+   - Ensure at least 8 to 10 asset rows render without scrolling on standard 1080p viewports.
+
+4. Table Sorting & Active Filter Feedback:
+   - Add interactive directional sort indicators (▲/▼) to "PRICE", "CHANGE %", and "MARKET CAP / METRIC" headers.
+   - Display a numerical badge on the "Filters & Rules" button showing active filter counts (e.g., [Filters & Rules (2)]).
+
+```
+Here is the senior developer review for the **Compare** view (`/compare/RELIANCE.NS`) based on the active viewport state:
+
+---
+
+### Critical Issues & Functional Failures
+
+1. **Empty Peer Matrix & Unhandled Fallbacks:**
+* The **Industry Peers Financial Matrix** displays `No comparative peer cohort cataloged for this asset.`
+* No automatic fallback peers (e.g., comparing `RELIANCE.NS` against sector peers like `TCS.NS`, `ONGC.NS`, or `IOC.NS`) are fetched or populated when the page mounts.
+
+
+2. **Failed Correlation & Macro Calculation Engines:**
+* **Multi-Asset Correlation Matrix:** Returns `Correlation matrix unavailable. Historical data may be insufficient.` across all timeframes (`1Y`, `6M`, `90D`, `30D`).
+* **Macro Relationships Explorer:** Returns `Macro relationship model unavailable. No correlation factors found for this asset basket.`
+
+
+3. **Missing Chart Component for Relative Alpha:**
+* The section header **Relative Alpha (vs NIFTY 50 & S&P 500)** renders, but the comparison chart/table beneath it is completely absent from the DOM layout.
+
+
+4. **Drawer Stacking & Viewport Clutter:**
+* **Alerts**, **Technical Indicators**, and **Indicator Settings** side drawers remain pinned open simultaneously, taking up horizontal real estate and forcing unnecessary horizontal scrollbars on the window.
+
+
+
+---
+
+### Key Optimization Steps
+
+* **Auto-Populate Sector Cohorts:** Define standard fallback peer groups (e.g., Energy/Conglomerate sector defaults for Reliance) so the comparison matrix populates metrics dynamically on route change.
+* **Client-Side Pearson Correlation Fallback:** Calculate rolling correlations on the frontend using log returns if the backend analytics microservice times out or returns null.
+* **Auto-Dismiss Drawers:** Ensure context drawers collapse automatically when navigating between workstation tabs.
+
+---
+
+```markdown
+Role: Senior Quantitative UI & Systems Engineer
+Task: Resolve data pipeline failures, missing chart components, and drawer clutter in the MARA Compare view.
+
+Implement the following targeted fixes:
+
+1. Peer Group Auto-Hydration & Fallback:
+   - Fix the peer lookup service for symbol `/compare/[ticker]` (e.g., RELIANCE.NS).
+   - If no custom peer basket is provided, populate standard sector cohorts automatically (e.g., compare against NIFTY 50 energy/industrial heavyweights).
+   - Display key metrics (P/E, EV/EBITDA, ROE, Margins) instead of rendering "No comparative peer cohort cataloged for this asset."
+
+2. Multi-Asset & Macro Correlation Engine:
+   - Fix API payload failures causing "Correlation matrix unavailable" across 30D, 90D, 6M, and 1Y tabs.
+   - Implement a client-side fallback using Pearson correlation calculations over daily returns so heatmaps render even during partial API downtime.
+
+3. Relative Alpha Canvas Rendering:
+   - Mount the missing relative alpha comparison chart beneath the "Relative Alpha (vs NIFTY 50 & S&P 500)" header.
+   - Plot normalized percent return lines over 1M, 3M, 6M, 1Y, and 3Y horizons.
+
+4. UI Drawer State Management:
+   - Auto-collapse active side drawers (Alerts, Indicator Settings, Technical Indicators) when switching main navigation tabs to prevent screen overlap and window scrollbars.
+
+```
+Looking at the active **Research View** (`/research/RELIANCE.NS/news`):
+
+### Critical Issues & Technical Bugs
+
+1. **Empty Data Pipeline & Missing RSS Ingestion:**
+* The primary view renders `No verified press items cataloged for this symbol.` across top tickers like `RELIANCE.NS`.
+* The news crawler and corporate disclosure feed pipeline are completely offline, leaving the research module empty.
+
+
+2. **UI Real-Estate Inefficiency & Blank Viewport:**
+* On standard screens, ~85% of the viewport is dead space containing only a single sentence in the middle of a dark container.
+* The sub-navigation bar (**View News**, **View Earnings**, **View Delta**, **View Anomalies**, **Explore Scenarios**, **View Notebook**, **View Data Quality**, **View Report**) lacks distinct visual tab active states, making navigation feel unreactive.
+
+
+3. **Inconsistent Top Benchmark Tickers:**
+* The **MARKET SNAPSHOT** top marquee displays mismatched formatting (e.g., green indicators mixed with plain text for `^FTSE £10,845.96`) and fails to update in real-time alongside active charts.
+
+
+
+---
+
+### Key Optimization Steps
+
+* **RSS & Exchange Disclosure Fallback:** Wire a client-side fallback to fetch public news/exchange feeds (BSE/NSE announcements, Google News RSS) when the primary database returns zero items.
+* **Two-Column Research Layout:** Structure the Research view into a dense two-column dashboard: News & Corporate Actions on the left, Sentiment Gauge & Financial Catalysts on the right.
+* **Active Tab Indicators & Loading Skeletons:** Highlight selected sub-tabs with active borders/accents and display animated skeleton cards while sub-views (`View Earnings`, `View Report`) load.
+
+---
+
+
+
+```markdown
+Role: Senior Full-Stack Developer & Financial Data Engineer
+Task: Fix news ingestion pipelines, sub-tab responsiveness, and viewport layout in the MARA Research module.
+
+Implement the following fixes:
+
+1. News & Corporate Announcement Data Ingestion:
+   - Fix the API payload pipeline for symbol `/research/[ticker]/news` (e.g., RELIANCE.NS).
+   - Integrate a client-side RSS or financial news fallback (BSE/NSE announcements, Yahoo Finance, or Google News feed) so pages load recent press items instead of "No verified press items cataloged for this symbol."
+
+2. Layout Restructuring & Data Density:
+   - Re-architect the Research view into a two-column terminal dashboard:
+     * Left Column (60%): Categorized feed of corporate actions, press releases, and earnings statements.
+     * Right Column (40%): Sentiment score gauge, key catalyst timeline, and analyst consensus targets.
+
+3. Sub-Tab State & Visual Feedback:
+   - Add explicit active tab styling (underline/accent color) to sub-navigation controls (`View News`, `View Earnings`, `View Delta`, `View Notebook`, etc.).
+   - Render animated loading skeleton cards on tab switches to ensure the UI feels responsive during data fetches.
+
+```
+Looking at the **Monitor Workstation** (`/monitor/watchlist`) in your current viewport, here is the direct breakdown of the operational issues and the actionable draft for your AI agent.
+
+---
+
+### Critical Issues & Technical Bugs
+
+1. **Watchlist Queue Stall (Hydration Failure):**
+* 4 out of 5 assets (`NVDA`, `BTC-USD`, `EURUSD=X`, and `RELIANCE.NS`) are stuck in the `Queued` state with price rendered as `—`.
+* Only `TCS.NS` resolved price data. The sequential queue processor is hanging on batch resolution, preventing the remaining assets from hydrating.
+
+
+2. **Window Horizontal Overflow:**
+* The workstation table layout is forcing global horizontal scrollbars at the bottom of the browser viewport.
+* The `ACTIONS` column contains inline elements that push table cells past the container boundary.
+
+
+3. **Duplicated Benchmark Ticker Stream:**
+* The top market snapshot banner (`*MARKET SNAPSHOT*`) continuously renders duplicated array mappings for benchmarks (`^NSEI`, `^BSESN`, `^NSEBANK`, `^GSPC`), bloating the header element.
+
+
+
+---
+
+### Key Optimization Steps
+
+* **Batch Watchlist Fetching:** Refactor the price hydration worker to fetch all watchlist symbols in a single `POST` or `GET` request (`/api/quotes?symbols=TCS.NS,RELIANCE.NS,NVDA,BTC-USD,EURUSD=X`) instead of sequential queues.
+* **Layout Constraints:** Apply `overflow-x-hidden` on the main page wrapper and set explicit max-widths on the watchlist table to eliminate horizontal scrolling.
+* **Header Deduplication:** Filter out duplicate items from the market marquee data array using `Array.from(new Set(...))`.
+
+---
+
+
+```markdown
+Role: Senior Full-Stack Developer & Real-Time Telemetry Engineer
+Task: Fix watchlist queue hydration stalls, horizontal window overflow, and market snapshot redundancies in MARA Monitor Workstation.
+
+Implement the following fixes:
+
+1. Watchlist Batch Hydration Pipeline:
+   - Resolve the queue processing stall on `/monitor/watchlist` where assets (`RELIANCE.NS`, `NVDA`, `BTC-USD`, `EURUSD=X`) remain stuck on "Queued" with price `—`.
+   - Update the client hook to send a single batch payload to fetch quotes concurrently on mount instead of queuing them sequentially.
+
+2. Table Responsiveness & Layout Overflow:
+   - Fix horizontal window overflow causing global scrollbars on the Monitor page.
+   - Enforce fixed width constraints on `SYMBOL`, `PRICE`, `CHANGE %`, and `ACTIONS` columns to prevent UI clipping across standard viewports.
+
+3. Top Marquee Stream Deduplication:
+   - Deduplicate global benchmark list rendering within the `MARKET SNAPSHOT` marquee panel so index arrays map cleanly without duplicate ticker entries.
+
+```
+Looking at the **Watchlist Workstation** (`/monitor/watchlist`) currently open in the active viewport:
+
+---
+
+### Critical Issues & Technical Bugs
+
+1. **Watchlist Queue Stall (Hydration Failure):**
+* 4 out of 5 assets (`RELIANCE.NS`, `NVDA`, `BTC-USD`, `EURUSD=X`) are stuck indefinitely in the `Queued` state with `—` for price and change %.
+* Only `TCS.NS` resolved initial telemetry. The sequential processing queue is hanging on batch resolution, leaving the rest of the list unhydrated.
+
+
+2. **Drawer Overlap & Horizon Window Overflow:**
+* The **Active Telemetry** side drawer remains pinned open over the right side of the screen, clipping the watchlist table and forcing a horizontal scrollbar at the bottom of the window (`ACTIVE WORKSTATION: MONITOR`).
+
+
+3. **Duplicated Benchmark Ticker Stream:**
+* In the `ACTIVE TELEMETRY` panel, global benchmarks (`NIFTY 50`, `^NSEBANK`, `^BSESN`, etc.) render duplicated string output back-to-back, cluttering the drawer space.
+
+
+
+---
+
+### Key Optimization Steps
+
+* **Batch Watchlist Fetching:** Replace item-by-item sequential queueing with a single batch request to `/api/quotes?symbols=TCS.NS,RELIANCE.NS,NVDA,BTC-USD,EURUSD=X` to hydrate all rows concurrently on mount.
+* **Responsive Layout Constraints:** Apply `overflow-x-hidden` on the workstation page wrapper to remove window scrollbars.
+* **Auto-Collapse Side Drawers:** Automatically collapse the right telemetry panel when navigating to or interacting with main table views to free up screen real estate.
+
+---
+
+
+
+```markdown
+Role: Senior Full-Stack Developer & Real-Time Telemetry Engineer
+Task: Resolve watchlist queue hydration stalls, layout clipping, and duplicate telemetry streams on MARA Watchlist Workstation.
+
+Implement the following fixes:
+
+1. Concurrent Watchlist Batch Hydration:
+   - Fix queue processing logic on `/monitor/watchlist` where assets (`RELIANCE.NS`, `NVDA`, `BTC-USD`, `EURUSD=X`) remain stuck in "Queued" state with price `—`.
+   - Send a single batch REST/WebSocket query for all watchlist symbols on page mount to fetch prices concurrently rather than processing them in a stalled sequential queue.
+
+2. Layout Responsiveness & Window Overflow:
+   - Resolve horizontal window overflow causing global scrollbars on the Monitor page.
+   - Enforce fixed width constraints on `SYMBOL`, `PRICE`, `CHANGE %`, and `ACTIONS` columns to prevent UI overlap across standard display viewports.
+
+3. Sidebar Telemetry Stream Clean-up:
+   - Deduplicate global benchmark list rendering within the `ACTIVE TELEMETRY` side drawer so ticker arrays map cleanly without redundant double-entry blocks.
+
+```
+Looking directly at your screen, the **Research Context** drawer is actively open as a floating overlay on the right side of the screen (`INSTRUMENT DOSSIER: RELIANCE.NS`), blocking a significant portion of your Monitor Workstation and causing horizontal overflow.
+
+Here is the senior developer review of this component and how to fix it:
+
+---
+
+### Critical Issues & Technical Bugs
+
+1. **Undismissed / Stale Floating Context State:**
+* The **Research Context** drawer (`RELIANCE.NS`) is permanently pinned over the active **Watchlist** view. It does not automatically unmount or hide when switching tools, forcing manual dismissal (`[✕]`).
+
+
+2. **Null / Unhydrated Technical Dossier:**
+* Inside the dossier card, key fundamentals and indicators render as empty values (`Day Low —`, `Day High —`, `P/E Ratio —x`, `RSI (14) —`).
+* The drawer opens without waiting for telemetry to hydrate, displaying broken placeholder data.
+
+
+3. **Z-Index & Viewport Layout Collision:**
+* The drawer overlays directly on top of the **Active Telemetry** side drawer and the Watchlist table, forcing global horizontal scrollbars at the bottom of the browser.
+
+
+
+---
+
+### Key Optimization Steps
+
+* **Context-Aware Auto-Dismiss:** Auto-close floating context cards whenever the user navigates between top-level tabs (`/monitor`, `/markets`, `/discover`).
+* **Hydration Skeleton States:** Render animated skeleton bars while fetching ticker fundamentals instead of showing empty dash strings (`—`).
+* **Fixed Width & Screen Bound Checking:** Constrain drawer overlays to avoid triggering horizontal window scrollbars on standard 1080p displays.
+
+---
+
+
+
+```markdown
+Role: Senior Frontend UI/UX & Systems Engineer
+Task: Fix the floating Research Context drawer overlay bugs, unhydrated metrics, and viewport clipping in MARA Workstation.
+
+Implement the following targeted fixes:
+
+1. Overlay State & Auto-Dismiss Logic:
+   - Update the Research Context drawer hook (`RELIANCE.NS`) to auto-collapse on global route or active tab changes.
+   - Ensure clicking outside the drawer or selecting a new workstation tab closes active floating dossiers.
+
+2. Telemetry Hydration & Empty States:
+   - Resolve missing data for "Day Low", "Day High", "P/E Ratio", and "RSI (14)" in the Instrument Dossier card.
+   - Show animated loading skeletons for metrics while client-side hydration is pending instead of displaying raw empty dashes (`—`).
+
+3. Layout & Z-Index Management:
+   - Fix horizontal window overflow caused by stacked floating panels (Research Context overlaying the Active Telemetry side drawer).
+   - Set max-width constraints (`max-w-sm`) and ensure `overflow-x-hidden` is applied on the root viewport wrapper to prevent horizontal scrolling.
+
+```
+Role: Senior Principal Engineer & Financial Systems Architect
+Task: Audit and optimize the global layout, drawer state management, and telemetry pipeline across the entire MARA Workstation.
+
+Implement the following global UI/UX and architectural enhancements:
+
+1. Global Drawer State & Backdrop Control:
+   - Implement a unified Drawer Context/Manager so only ONE side panel (Watchlist, Indicators, or Settings) can be active at a time.
+   - Auto-collapse active drawers when switching top-level navigation tabs (`/markets`, `/discover`, `/analyze`, etc.) or clicking the main canvas backdrop.
+   - Apply `overflow-x-hidden` on the root application container to eliminate global horizontal window scrollbars.
+
+2. Telemetry & Data Deduplication:
+   - Deduplicate ticker streams in the top marquee and right-hand telemetry side panel using a centralized cache hook (`useMarketSnapshot`).
+   - Prevent duplicate array mapping and clean up ticker rendering logic across all views.
+
+3. Loading States & Failure Graceful Degradation:
+   - Replace raw dash strings (`—`) and hard error blocks with animated loading skeleton components across all metric cards.
+   - Add a non-intrusive toast banner for backend wake-up/connecting status instead of a full-width header banner.
+   - Add auto-retry polling and cached fallback hydration via Upstash Redis when backend REST/WebSocket channels time out.
+
+4. Table & Component Density Standardization:
+   - Standardize table row padding (`py-2`), badge sizing, and font scaling across all workstation modules (Markets, Screener, Monitor) to maintain a dense, high-information Bloomberg Terminal style layout.

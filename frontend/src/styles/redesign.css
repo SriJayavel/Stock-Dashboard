@@ -1333,6 +1333,94 @@ html.light-theme .mara-unified-header {
   color: var(--accent) !important;
 }
 
+/* Unified Status Header - single-line telemetry banner */
+.unified-status-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.status-market-session {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.status-feed-source {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--surface-hover);
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.status-polling-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.status-polling-indicator::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Standard table row spacing - py-2 for high density */
+.benchmark-board-table td,
+.benchmark-board-table th,
+.screener-table td,
+.screener-table th,
+.peer-table td,
+.peer-table th {
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+/* Constituent table styling */
+.constituent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.constituent-table thead {
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+.constituent-table tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.constituent-table tr:last-child {
+  border-bottom: none;
+}
+
 .auth-gate {
   place-items: start center;
   padding: 22px 28px;
@@ -2235,9 +2323,37 @@ textarea {
   font-size: 7px;
   color: var(--text-muted);
   line-height: 1.2;
+  position: relative;
+  z-index: 1;
 }
 
 .timeline-session-labels span {
+  white-space: nowrap;
+  background: var(--surface-hover);
+  padding: 2px 6px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* Timeline session labels - positioned below progress bar (replaces collision-prone overlay) */
+.timeline-session-labels-below {
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding: 2px 8px 0;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: var(--text-muted);
+  line-height: 1.2;
+  z-index: 1;
+}
+
+.timeline-session-labels-below span {
   white-space: nowrap;
   background: var(--surface-hover);
   padding: 2px 6px;

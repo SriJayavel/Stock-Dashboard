@@ -48,7 +48,13 @@
     }
     </script>
   </head>
-  <body class="auth-required">
+  <body class="auth-required" style="overflow-x: hidden;">
+    <style>
+      /* Global overflow-x-hidden on root container */
+      html, .mara-app { overflow-x: hidden; }
+      .workspace-scroll-wrap { overflow-x: hidden; }
+      .markets-table-wrapper, .screener-table-wrapper, .benchmark-board-wrapper { overflow-x: auto; }
+    </style>
     <a href="#mara-main-canvas" class="skip-to-content-link">Skip to content</a>
 
     <!-- Auth Gate (shown when user needs to sign in) -->
@@ -759,7 +765,7 @@
                 <button class="screener-tab-btn" data-universe="forex">Forex</button>
               </div>
               <button id="toggle-screener-builder-btn" class="ws-action-btn" title="Toggle quantitative rule filter">
-                Filters &amp; Rules
+                Filters &amp; Rules <span id="filter-count-badge" class="badge-count" style="display: none;">0</span>
               </button>
             </div>
 

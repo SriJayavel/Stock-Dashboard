@@ -191,6 +191,30 @@ export class WatchlistManager {
       reader.readAsText(file);
     });
   }
+
+  // Batch fetch prices for all watchlist symbols
+  async fetchBatchPrices() {
+    const symbols = this.getSymbols();
+    if (!symbols || symbols.length === 0) return [];
+
+    try {
+      const response = await fetch('/api/stocks/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(symbols.slice(0, 50)),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.results || [];
+      }
+    } catch (e) {
+      console.warn('Batch price fetch failed:', e);
+    }
+    return [];
+  }
 }
 
 export const watchlist = new WatchlistManager();

@@ -47,6 +47,70 @@ let currentMacroCategory = 'Indices';
 let marketDataCache = null;
 let currentResearchData = null;
 let currentDeepResearchData = null;
+
+// ===== PHASE 1: Unified Drawer Context/Manager =====
+// Single active drawer state manager
+const DrawerContext = {
+  activeDrawer: null,
+  drawers: ['watchlist-drawer', 'mara-context-panel'],
+
+  setActive(drawerId) {
+    if (this.activeDrawer && this.activeDrawer !== drawerId) {
+      this.closeActive();
+    }
+    this.activeDrawer = drawerId;
+  },
+
+  closeActive() {
+    if (this.activeDrawer) {
+      const drawer = document.getElementById(this.activeDrawer);
+      if (drawer) {
+        drawer.classList.remove('open');
+      }
+      this.activeDrawer = null;
+    }
+  },
+
+  isActive(drawerId) {
+    return this.activeDrawer === drawerId;
+  }
+};
+
+// Market snapshot deduplication hook
+function useMarketSnapshot() {
+  let snapshotData = null;
+  let lastUpdate = 0;
+  const dedupeMap = new Map();
+
+  return {
+    getSnapshot: (source) => {
+      const now = Date.now();
+      if (source && dedupeMap.has(source)) {
+        return dedupeMap.get(source);
+      }
+      return snapshotData;
+    },
+    setSnapshot: (data, source) => {
+      const now = Date.now();
+      snapshotData = data;
+      lastUpdate = now;
+    },
+    deduplicate: (items, keyFn) => {
+      if (!items) return [];
+      const seen = new Set();
+      return items.filter(item => {
+        const key = keyFn ? keyFn(item) : item;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+    clear: () => {
+      snapshotData = null;
+      dedupeMap.clear();
+    }
+  };
+}
 let currentV4Data = null;
 let currentCandles = [];
 let showChartEvents = true;
@@ -371,6 +435,18 @@ export async function setWorkspace(workspaceName, subTab = null) {
       loadAndRenderMacroExplorer(currentSymbol);
     }
     loadAndRenderCorrelation(activeCorrelationPeriod);
+  }
+
+  // PHASE 1: Auto-collapse drawers on tab navigation
+  // Close side drawers when switching to a different workspace
+  if (previousWorkspace && previousWorkspace !== workspaceName) {
+    DrawerContext.closeActive();
+    // Also close any open context panel
+    const contextPanel = document.getElementById('mara-context-panel');
+    if (contextPanel && contextPanel.classList.contains('open')) {
+      contextPanel.classList.remove('open');
+      document.getElementById('mara-context-toggle')?.classList.remove('active');
+    }
   }
 
   // 5. Focus management - move focus to first interactive element in new workspace
@@ -4604,6 +4680,9 @@ function renderScreenerTable(items) {
       const chgStr = item.change_pct != null ? `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%` : '—';
       const metricStr = item.market_cap_str || item.volume_str || (item.pe_trailing ? `P/E ${item.pe_trailing}x` : '—');
 
+      // Generate inline SVG sparkline for action column
+      const sparklineSvg = generateInlineSparkline(item);
+
       return `
         <tr data-symbol="${item.symbol}" tabindex="0" role="row" aria-label="${item.name || item.symbol} (${item.symbol}): ${priceStr}, change ${chgStr}">
           <td class="screener-sym-col">${item.symbol}</td>
@@ -4612,7 +4691,7 @@ function renderScreenerTable(items) {
           <td><span class="tape-chg ${chgClass}">${chgStr}</span></td>
           <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metricStr}</td>
           <td>
-            <span class="sparkline-mini" data-symbol="${item.symbol}" aria-label="24h price trend"></span>
+            ${sparklineSvg}
             <button class="wl-btn wl-btn-alert" data-symbol="${item.symbol}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
           </td>
         </tr>
@@ -5600,6 +5679,45 @@ function renderBenchmarkSkeleton(tableBody) {
     .join('');
 }
 
+// Generate inline SVG sparkline for screener action column
+function generateInlineSparkline(item) {
+  if (!item || !item.sparkline_data || item.sparkline_data.length < 2) {
+    // Fallback: show a simple status dot instead of empty sparkline
+    const isUp = (item.change_pct || 0) >= 0;
+    const dotColor = isUp ? '#34d399' : '#f87171';
+    return `<svg width="24" height="6" viewBox="0 0 24 6" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 4px;">
+      <circle cx="12" cy="3" r="2" fill="${dotColor}"/>
+    </svg>`;
+  }
+
+  const data = item.sparkline_data;
+  const isPositive = item.change_pct >= 0;
+  const color = isPositive ? '#34d399' : '#f87171';
+
+  // Normalize data to 0-1 range
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min;
+  const normalized = range === 0 ? data.map(() => 0.5) : data.map(v => (v - min) / range);
+
+  // SVG dimensions
+  const width = 24;
+  const height = 6;
+  const margin = 0;
+
+  // Create path data
+  const pointCount = normalized.length;
+  const points = normalized.map((v, i) => {
+    const x = margin + (i / (pointCount - 1)) * (width - 2 * margin);
+    const y = margin + (1 - v) * (height - 2 * margin);
+    return `${x},${y}`;
+  }).join(' L ');
+
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 4px;">
+    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
 // Render Mini Sparkline for Benchmark Indices Table
 function renderMiniSparkline(container, data, isPositive) {
   if (!container || !data || data.length < 2) return;
@@ -6227,7 +6345,8 @@ function renderMarketHoursTimelinePro() {
             <div class="timeline-current-marker" style="left: ${markerPosition}%;" data-time="${currentTimeStr}" title="Current time: ${currentTimeStr} ${market.tz}"></div>
           ` : ''}
         </div>
-        <div class="timeline-session-labels">${labelsHtml}</div>
+        <!-- Labels moved below progress bar to prevent text collision -->
+        <div class="timeline-session-labels-below">${labelsHtml}</div>
         <div class="timeline-next-event">
           <svg class="event-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span class="event-text">${nextEvent}</span>
@@ -8592,6 +8711,13 @@ function setupScreenerBuilderControls() {
       const isHidden = wrap.style.display === 'none';
       wrap.style.display = isHidden ? 'block' : 'none';
       toggleBtn.classList.toggle('active', isHidden);
+      // Update filter count badge
+      const badge = document.getElementById('filter-count-badge');
+      if (badge) {
+        const ruleCount = wrap.querySelectorAll('.screener-rule-item').length;
+        badge.textContent = ruleCount;
+        badge.style.display = ruleCount > 0 ? 'inline-block' : 'none';
+      }
       if (isHidden) renderScreenerRulesUI();
     });
   }
