@@ -49,3 +49,6 @@ scratch/
 claude-code-setup/
 free-claude-code/
 dist_screenshots/
+
+.vercel
+.env*

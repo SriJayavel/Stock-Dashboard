@@ -6,7 +6,7 @@ Implements fallback logic and caching.
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Dict
 
 from backend.core.contracts.market_data import (
     MarketDataProvider, Candle, Quote, AssetInfo, ProviderCapabilities
