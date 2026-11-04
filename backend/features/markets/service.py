@@ -178,40 +178,95 @@ class MarketService:
 
     async def _fetch_sector_performance(self) -> List[Dict]:
         """Fetch sector performance using sector ETFs/indices."""
-        sector_symbols = {
-            "Financial Services": ["^NSEBANK", "ICICIBANK.NS", "HDFCBANK.NS"],
-            "Information Technology": ["^CNXIT", "TCS.NS", "INFY.NS"],
-            "Oil & Gas": ["RELIANCE.NS", "ONGC.NS"],
-            "Automobile": ["^CNXAUTO", "MARUTI.NS", "TATAMOTORS.NS"],
-            "Pharma": ["^CNXPHARMA", "SUNPHARMA.NS", "DRREDDY.NS"],
-            "FMCG": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS"],
-            "Metals": ["TATASTEEL.NS", "HINDALCO.NS", "JSWSTEEL.NS"],
-            "Power": ["NTPC.NS", "POWERGRID.NS"],
+        # BENCHMARK_SECTOR definition with Indian and US constituents separated
+        BENCHMARK_SECTORS = {
+            "Financial Services": {
+                "indian_proxy": "^NSEBANK",
+                "benchmark_etf": "XLF",
+                "constituents": ["ICICIBANK.NS", "HDFCBANK.NS", "SBIN.NS"],
+                "us_constituents": ["JPM", "BAC", "GS"],
+            },
+            "Information Technology": {
+                "indian_proxy": "^CNXIT",
+                "benchmark_etf": "XLK",
+                "constituents": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS"],
+                "us_constituents": ["NVDA", "AAPL", "MSFT", "GOOGL"],
+            },
+            "Oil & Gas": {
+                "indian_proxy": "^CNXENERGY",
+                "benchmark_etf": "XLE",
+                "constituents": ["RELIANCE.NS", "ONGC.NS", "BPCL.NS"],
+                "us_constituents": ["XOM", "CVX", "COP"],
+            },
+            "Automobile": {
+                "indian_proxy": "^CNXAUTO",
+                "benchmark_etf": "CARZ",
+                "constituents": ["MARUTI.NS", "TATAMOTORS.NS", "M&M.NS"],
+                "us_constituents": ["TSLA", "F", "GM"],
+            },
+            "Pharma": {
+                "indian_proxy": "^CNXPHARMA",
+                "benchmark_etf": "XLV",
+                "constituents": ["SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS"],
+                "us_constituents": ["JNJ", "PFE", "MRK"],
+            },
+            "FMCG": {
+                "indian_proxy": "^CNXFMCG",
+                "benchmark_etf": "XLP",
+                "constituents": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS"],
+                "us_constituents": ["PG", "KO", "PEP"],
+            },
+            "Metals": {
+                "indian_proxy": "^CNXMETAL",
+                "benchmark_etf": "XME",
+                "constituents": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS"],
+                "us_constituents": ["RIO", "BHP", "NEM"],
+            },
+            "Power": {
+                "indian_proxy": "^CNXINFRA",
+                "benchmark_etf": "XLI",
+                "constituents": ["NTPC.NS", "POWERGRID.NS", "NHPC.NS"],
+                "us_constituents": ["NEE", "D"],
+            },
         }
 
         all_symbols = []
-        for symbols in sector_symbols.values():
-            all_symbols.extend(symbols)
+        for sector_data in BENCHMARK_SECTORS.values():
+            all_symbols.extend(sector_data["constituents"])
+            all_symbols.extend(sector_data.get("us_constituents", []))
 
         quotes = await self._market_data.get_quotes(all_symbols)
         quote_map = dict(zip(all_symbols, quotes))
 
         sectors = []
-        for sector_name, symbols in sector_symbols.items():
+        for sector_name, sector_data in BENCHMARK_SECTORS.items():
+            indian_symbols = sector_data["constituents"]
+            us_symbols = sector_data.get("us_constituents", [])
+            all_sector_symbols = indian_symbols + us_symbols
+
             changes = []
-            for sym in symbols:
+            for sym in all_sector_symbols:
                 q = quote_map.get(sym)
                 if q and q.change_pct is not None:
                     changes.append(q.change_pct)
 
             avg_change = sum(changes) / len(changes) if changes else 0
-            breadth = sum(1 for c in changes if c > 0)
+
+            # Breadth: Advancing / Total Tracked (only Indian constituents)
+            # as per user's note: "Advancing / Total Tracked"
+            advancing = sum(1 for c in changes if c > 0.1)
+            breadth_pct = round((advancing / len(indian_symbols)) * 100, 1) if indian_symbols else 0
+            breadth_display = f"{advancing}/{len(indian_symbols)}"
 
             sectors.append({
                 "name": sector_name,
                 "change_pct": round(avg_change, 2),
-                "breadth": f"{breadth}/{len(changes)}",
-                "symbols": symbols[:3],  # Top 3 representative symbols
+                "breadth_pct": breadth_pct,
+                "breadth": breadth_display,
+                "symbols": indian_symbols[:3],  # Top 3 Indian representative symbols
+                "us_symbols": us_symbols,
+                "benchmark_etf": sector_data.get("benchmark_etf", ""),
+                "indian_proxy": sector_data.get("indian_proxy", ""),
             })
 
         return sectors

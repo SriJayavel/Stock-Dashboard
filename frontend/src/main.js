@@ -7321,6 +7321,31 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               `;
             })
             .join('')}
+          ${(sector.us_constituents || []).map((sym) => `
+            <tr class="constituent-row" data-sym="${sym}">
+              <td>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="constituent-symbol" style="color: var(--text-dim);">${sym}</span>
+                  <span class="region-tag tag-ap">US</span>
+                </div>
+              </td>
+              <td class="constituent-role">
+                US Component
+              </td>
+              <td class="constituent-proxy">
+                ${sector.us_benchmark || sector.benchmark_etf || 'US Cohort'}
+              </td>
+              <td class="constituent-weight text-right">
+                —
+              </td>
+              <td class="text-right">
+                <span class="constituent-status">Tracked</span>
+              </td>
+              <td class="text-right">
+                <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
+              </td>
+            </tr>
+          `).join('')}
         </tbody>
       </table>
     `;

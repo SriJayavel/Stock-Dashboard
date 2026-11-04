@@ -160,6 +160,7 @@ class CompositeMarketProvider:
             "^GSPC", "^DJI", "^IXIC", "^RUT",
             "^FTSE", "^GDAXI", "^FCHI",
             "^N225", "^HSI", "^STI", "^KS11",
+            "^AXJO", "^GSPTSE", "^MXX",
         ]
         macro_symbols = {
             "Forex": ["USDINR=X", "EURUSD=X", "GBPUSD=X", "USDJPY=X"],

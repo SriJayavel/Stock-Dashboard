@@ -17,49 +17,57 @@ BENCHMARK_SECTORS = {
     "Technology": {
         "benchmark_etf": "XLK",
         "indian_proxy": "^CNXIT",
-        "constituents": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "LTM.NS", "NVDA", "AAPL", "MSFT"],
+        "constituents": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPPRO.NS", "LTM.NS"],
+        "us_constituents": ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN"],
         "display_name": "Information Technology & Software",
     },
     "Banking & Finance": {
         "benchmark_etf": "XLF",
         "indian_proxy": "^NSEBANK",
-        "constituents": ["HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "JPM", "BAC"],
+        "constituents": ["HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "PERSISTENT.NS"],
+        "us_constituents": ["JPM", "BAC", "GS", "MS", "C"],
         "display_name": "Banking & Financial Services",
     },
     "Energy & Resources": {
         "benchmark_etf": "XLE",
         "indian_proxy": "^CNXENERGY",
-        "constituents": ["RELIANCE.NS", "ONGC.NS", "BPCL.NS", "NTPC.NS", "XOM", "CVX"],
+        "constituents": ["RELIANCE.NS", "ONGC.NS", "BPCL.NS", "NTPC.NS", "SAVRAN.NS"],
+        "us_constituents": ["XOM", "CVX", "COP", "EPSN", "PSX"],
         "display_name": "Energy, Oil & Petrochemicals",
     },
     "Automotive": {
         "benchmark_etf": "CARZ",
         "indian_proxy": "^CNXAUTO",
-        "constituents": ["MARUTI.NS", "M&M.NS", "BAJAJ-AUTO.NS", "TATAMOTORS.NS", "TSLA", "TM"],
+        "constituents": ["MARUTI.NS", "M&M.NS", "BAJAJ-AUTO.NS", "TATAMOTORS.NS", "HeroMoto.NS"],
+        "us_constituents": ["TSLA", "TM", "F", "GM", "RIDM"],
         "display_name": "Automotive & Mobility",
     },
     "Pharma & Healthcare": {
         "benchmark_etf": "XLV",
         "indian_proxy": "^CNXPHARMA",
-        "constituents": ["SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "JNJ", "PFE"],
+        "constituents": ["SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "LUPIN.NS"],
+        "us_constituents": ["JNJ", "PFE", "MRK", "ABBV", "BMY"],
         "display_name": "Pharmaceuticals & Healthcare",
     },
     "Consumer FMCG": {
         "benchmark_etf": "XLP",
         "indian_proxy": "^CNXFMCG",
-        "constituents": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "PG", "KO"],
+        "constituents": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "VICKY.NS"],
+        "us_constituents": ["PG", "KO", "PEP", "KHC", "MOS"],
         "display_name": "Consumer Staples & FMCG",
     },
     "Metals & Mining": {
         "benchmark_etf": "XME",
         "indian_proxy": "^CNXMETAL",
-        "constituents": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "COALINDIA.NS", "RIO", "BHP"],
+        "constituents": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "COALINDIA.NS", "SAIL.NS"],
+        "us_constituents": ["RIO", "BHP", "NEM", "FMG", "SCCO"],
         "display_name": "Metals, Mining & Materials",
     },
     "Infrastructure & Industrials": {
         "benchmark_etf": "XLI",
         "indian_proxy": "^CNXINFRA",
-        "constituents": ["LT.NS", "SIEMENS.NS", "ABB.NS", "BEL.NS", "CAT", "GE"],
+        "constituents": ["LT.NS", "SIEMENS.NS", "ABB.NS", "BEL.NS", "L&T.NS"],
+        "us_constituents": ["CAT", "GE", "HON", "UPS", "RTX"],
         "display_name": "Infrastructure & Capital Goods",
     },
 }
@@ -140,12 +148,16 @@ class DeepResearchService:
             await self._cache.set("computed:sector_intelligence", cache_key, data, ttl=3600)
             return data
 
-        # Collect all unique constituents across sectors
+        # Collect all unique constituents across sectors (both Indian and US)
         all_constituents = []
         sector_constituents = {}
         for sec_name, meta in BENCHMARK_SECTORS.items():
+            # Only Indian constituents for sector display
             sector_constituents[sec_name] = meta["constituents"]
             all_constituents.extend(meta["constituents"])
+            # Also fetch US constituents
+            if "us_constituents" in meta:
+                all_constituents.extend(meta["us_constituents"])
 
         # Deduplicate while preserving order
         seen = set()
@@ -171,15 +183,20 @@ class DeepResearchService:
         except Exception as e:
             logger.warning(f"Failed to get sector quotes: {e}")
 
-        # Calculate breadth per sector using fetched quotes
+        # Calculate breadth per sector using fetched quotes (only Indian constituents)
         for sec_name, meta in BENCHMARK_SECTORS.items():
             constituents = meta["constituents"]
+            # Include US constituents separately
+            us_constituents = meta.get("us_constituents", [])
+            all_sector_symbols = constituents + us_constituents
+
             advancing = 0
             declining = 0
             unchanged = 0
+            total_valid = 0
             constituent_perf = []
 
-            for sym in constituents:
+            for sym in all_sector_symbols:
                 q = constituent_quotes.get(sym)
                 if q and q.price is not None and q.prev_close is not None and q.prev_close > 0:
                     pct = ((q.price - q.prev_close) / q.prev_close) * 100
@@ -190,8 +207,9 @@ class DeepResearchService:
                         declining += 1
                     else:
                         unchanged += 1
+                    total_valid += 1
 
-            # Sector performance from leading asset
+            # Sector performance from leading asset (Indian proxy)
             perf_pct = 0.0
             if constituent_perf:
                 leading = next((c for c in constituent_perf if c["symbol"] == meta["constituents"][0]), None)
@@ -200,19 +218,25 @@ class DeepResearchService:
                 else:
                     perf_pct = round(sum(c["change_pct"] for c in constituent_perf) / len(constituent_perf), 2)
 
+            # Breadth: Advancing / Total Tracked (only Indian constituents)
+            breadth_pct = round((advancing / len(constituents)) * 100, 1) if constituents else 0
+
             sectors_out.append({
                 "sector": sec_name,
                 "display_name": meta["display_name"],
                 "benchmark_etf": meta.get("benchmark_etf", ""),
                 "indian_proxy": meta.get("indian_proxy", ""),
+                "us_benchmark": meta.get("benchmark_etf", ""),
                 "performance_24h_pct": perf_pct,
                 "constituents": constituents,
+                "us_constituents": us_constituents,
                 "leading_asset": meta["constituents"][0],
                 "advancing": advancing,
                 "declining": declining,
                 "unchanged": unchanged,
-                "total_constituents": len(constituents),
-                "breadth_pct": round((advancing / len(constituents)) * 100, 1) if constituents else 0,
+                "total_tracked": len(constituents),
+                "breadth_pct": breadth_pct,
+                "total_valid": total_valid,
                 "constituent_performance": constituent_perf,
             })
 
