@@ -116,10 +116,10 @@ def resolve_symbol(query: str) -> str:
     aliases = {
         # Yahoo Finance retired LTIM.NS; normalize legacy input before any
         # cache lookup or provider request so all services share one identity.
-        "LTIM": "LTM.NS",
-        "LTIM.NS": "LTM.NS",
-        "LTIMINDTREE": "LTM.NS",
-        "LTIMINDTREE LIMITED": "LTM.NS",
+        "LTIM": "LTIM.NS",
+        "LTIM.NS": "LTIM.NS",
+        "LTIMINDTREE": "LTIM.NS",
+        "LTIMINDTREE LIMITED": "LTIM.NS",
         "NIFTY": "^NSEI",
         "NIFTY50": "^NSEI",
         "NIFTY 50": "^NSEI",

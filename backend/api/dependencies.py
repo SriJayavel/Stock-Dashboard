@@ -156,6 +156,7 @@ class Container:
         if self._relationship_intelligence_service is None:
             self._relationship_intelligence_service = RelationshipIntelligenceService(
                 cache=self.cache(),
+                market_data=self.market_data(),
             )
         return self._relationship_intelligence_service
 

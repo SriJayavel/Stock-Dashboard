@@ -4,6 +4,8 @@ Implements MarketDataProvider protocol using yfinance library.
 """
 import asyncio
 import logging
+import os
+import tempfile
 import yfinance as yf
 import pandas as pd
 from typing import Any, Optional, List
@@ -16,6 +18,18 @@ from backend.core.contracts.market_data import (
 from backend.config import settings
 
 logger = logging.getLogger("yfinance_provider")
+
+# Configure yfinance cache locations to use writable temp directory
+# This prevents "CookieCache folder creation failed" and "TzCache folder creation failed"
+# errors on read-only filesystems (Vercel, Cloud Run, etc.)
+try:
+    cache_dir = os.path.join(tempfile.gettempdir(), "py-yfinance")
+    os.makedirs(cache_dir, exist_ok=True)
+    yf.set_tz_cache_location(cache_dir)
+    yf.cache.set_cache_location(cache_dir)
+    logger.info(f"yfinance cache configured at: {cache_dir}")
+except Exception as e:
+    logger.warning(f"Failed to configure yfinance cache directory: {e}")
 
 
 class YFinanceProvider:
@@ -92,7 +106,7 @@ class YFinanceProvider:
             asset_type=self._map_asset_type(info.get('quoteType', '')),
             currency=info.get('currency', 'USD'),
             country=info.get('country', ''),
-            timezone=info.get('timeZoneFullName', 'UTC'),
+            timezone=info.get('timeZoneFullName') or info.get('timeZone') or 'UTC',
             market_hours=self._get_market_hours(info.get('exchange', '')),
             sector=info.get('sector'),
             industry=info.get('industry'),
