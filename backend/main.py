@@ -5,7 +5,7 @@ Uses clean architecture with dependency injection and auto-discovery.
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import FastAPI, HTTPException, status, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -126,7 +126,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     # Internal secret verification
-    def verify_internal_secret(x_internal_secret: str = None):
+    def verify_internal_secret(x_internal_secret: str = Header(default=None, alias="X-Internal-Secret")):
         if not x_internal_secret or x_internal_secret != settings.INTERNAL_REFRESH_SECRET:
             logger.warning("Unauthorized internal endpoint access")
             raise HTTPException(
