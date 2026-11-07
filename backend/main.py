@@ -126,7 +126,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     # Internal secret verification
-    def verify_internal_secret(x_internal_secret: str = Header(default=None, alias="X-Internal-Secret")):
+    async def verify_internal_secret(x_internal_secret: str = Header(default=None, alias="X-Internal-Secret")):
         if not x_internal_secret or x_internal_secret != settings.INTERNAL_REFRESH_SECRET:
             logger.warning("Unauthorized internal endpoint access")
             raise HTTPException(
