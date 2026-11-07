@@ -19,6 +19,7 @@ class MemoryCache:
     """
     Thread-safe in-memory cache with TTL support.
     Uses OrderedDict for LRU eviction when maxsize reached.
+    Also implements LockProtocol for use as a distributed lock.
     """
 
     def __init__(self, maxsize: int = 1000, default_ttl: int = 300):
@@ -27,6 +28,7 @@ class MemoryCache:
         self._cache: Dict[str, OrderedDict] = {}  # namespace -> OrderedDict[key -> (value, expiry)]
         self._locks: Dict[str, RLock] = {}
         self._global_lock = RLock()
+        self._lock = MemoryLock()
 
     def _get_namespace_lock(self, namespace: str) -> RLock:
         with self._global_lock:
@@ -135,6 +137,17 @@ class MemoryCache:
                     removed += len(expired_keys)
         return removed
 
+    # --- LockProtocol implementation ---
+
+    async def acquire(self, key: str, ttl: int = 30, blocking_timeout: int = 0) -> bool:
+        return await self._lock.acquire(key, ttl=ttl, blocking_timeout=blocking_timeout)
+
+    async def release(self, key: str) -> None:
+        await self._lock.release(key)
+
+    async def extend(self, key: str, ttl: int) -> bool:
+        return await self._lock.extend(key, ttl)
+
 
 class MemoryLock:
     """In-memory distributed lock (single-process only)."""
@@ -144,7 +157,7 @@ class MemoryLock:
         self._expiry: Dict[str, float] = {}
         self._global_lock = asyncio.Lock()
 
-    async def acquire(self, key: str, ttl: int = 30) -> bool:
+    async def acquire(self, key: str, ttl: int = 30, blocking_timeout: int = 0) -> bool:
         async with self._global_lock:
             if key in self._locks:
                 # Check if expired
@@ -155,7 +168,16 @@ class MemoryLock:
                     del self._expiry[key]
                 else:
                     # Still held
-                    return False
+                    if blocking_timeout <= 0:
+                        return False
+                    # Wait for lock to be released (with timeout)
+                    deadline = time.time() + blocking_timeout
+                    while time.time() < deadline:
+                        await asyncio.sleep(0.1)
+                        if key not in self._locks:
+                            break
+                    if key in self._locks:
+                        return False
 
             # Create new lock
             lock = asyncio.Lock()

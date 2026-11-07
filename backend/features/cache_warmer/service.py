@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Dict, Any, List, Set
 from backend.core.contracts.cache import CacheProtocol, LockProtocol
 from backend.core.contracts.market_data import MarketDataProvider
-from backend.core.domain.models import Symbol
 from backend.core.services.symbol_resolver import resolve_symbol, get_popular_universe
 
 logger = logging.getLogger(__name__)
@@ -112,11 +111,23 @@ class CacheWarmerService:
         }
 
         try:
-            symbol = Symbol.from_string(symbol_str)
-
-            # Warm overview
-            overview = await self._market_data.get_overview(symbol)
-            if overview:
+            # Warm overview via quote (MarketDataProvider protocol has no get_overview)
+            quote = await self._market_data.get_quote(symbol_str)
+            if quote:
+                overview = {
+                    "symbol": symbol_str,
+                    "current_price": getattr(quote, 'price', None),
+                    "prev_close": getattr(quote, 'prev_close', None),
+                    "change": getattr(quote, 'change', None),
+                    "change_pct": getattr(quote, 'change_pct', None),
+                    "volume": getattr(quote, 'volume', None),
+                    "high_52w": getattr(quote, 'high_52w', None),
+                    "low_52w": getattr(quote, 'low_52w', None),
+                    "market_cap": getattr(quote, 'market_cap', None),
+                    "timestamp": getattr(quote, 'timestamp', None),
+                    "data_source": "Composite Provider",
+                    "is_stale": False,
+                }
                 await self._cache.set(
                     "stock:overview",
                     symbol_str,
@@ -127,7 +138,7 @@ class CacheWarmerService:
 
             # Warm history (1d, 1mo)
             history = await self._market_data.get_history(
-                symbol, timeframe="1d", range="1mo"
+                symbol_str, interval="1d", range_="1mo"
             )
             if history:
                 await self._cache.set(

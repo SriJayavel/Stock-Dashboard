@@ -4,6 +4,7 @@ Implements MarketDataProvider protocol using yfinance library.
 """
 import asyncio
 import logging
+import math
 import os
 import tempfile
 import yfinance as yf
@@ -280,13 +281,22 @@ class YFinanceProvider:
         """Convert pandas DataFrame to Candle list."""
         candles = []
         for idx, row in df.iterrows():
+            # Handle NaN/Inf values - replace with 0.0 for JSON compatibility
+            def safe_float(v):
+                try:
+                    f = float(v)
+                    if pd.isna(f) or math.isinf(f):
+                        return 0.0
+                    return f
+                except (ValueError, TypeError):
+                    return 0.0
             candles.append(Candle(
                 timestamp=int(idx.timestamp() * 1000),
-                open=float(row['Open']),
-                high=float(row['High']),
-                low=float(row['Low']),
-                close=float(row['Close']),
-                volume=float(row['Volume']),
+                open=safe_float(row['Open']),
+                high=safe_float(row['High']),
+                low=safe_float(row['Low']),
+                close=safe_float(row['Close']),
+                volume=safe_float(row['Volume']),
             ))
         return candles
 
