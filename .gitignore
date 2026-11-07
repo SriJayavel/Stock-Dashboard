@@ -11,6 +11,7 @@ __pycache__/
 
 # AI context files (don't commit - for AI reference only)
 CODEBASE_STRUCTURE.md
+user_prompt.text
 
 # Virtual environments
 venv/
