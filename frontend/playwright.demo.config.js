@@ -19,6 +19,7 @@ const webServer = existsSync(distDir)
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: ['**/demo.spec.js'],
   timeout: 60000,
   expect: { timeout: 10000 },
   fullyParallel: false,

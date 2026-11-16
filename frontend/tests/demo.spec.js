@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test';
  * Run with:  VITE_DEMO_MODE=true npx playwright test demo.spec.js --config=playwright.demo.config.js
  * or via the demo preview server.
  */
-test.describe.skip('MARA Phase 3.1 — Static Demo Deployment', () => {
+test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
   let apiCalls = [];
   let supabaseCalls = [];
   let consoleErrors = [];

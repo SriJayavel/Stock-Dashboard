@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:demo": "vite build --mode demo",
     "preview": "vite preview",
-    "test:smoke": "playwright test --config=playwright.config.js"
+    "test:smoke": "playwright test --config=playwright.config.js",
+    "test:demo": "playwright test --config=playwright.demo.config.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2"
