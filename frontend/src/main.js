@@ -7338,6 +7338,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         is_stale: isStale,
         session_status: sessionByRegion[m.regionCode] || 'UNAVAILABLE',
         market_closed: marketClosed,
+        // Pass feed_health so downstream rendering knows if Indices feed is offline
+        indices_feed_health: marketDataCache?.feed_health?.Indices || null,
       };
     });
 
@@ -7347,7 +7349,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         const hasValidPrice = m.price != null;
         // Show "Market Closed" for indices in closed session with no price data
         const isMarketClosed = m.market_closed || (m.symbol.startsWith('^') && !hasValidPrice && (sessionByRegion[m.regionCode] || '').includes('CLOSED'));
-        const priceDisplay = isMarketClosed
+        // If feed_health is explicitly OFFLINE, show dashes instead of "Market Closed"
+        // to distinguish "no data / feed offline" from "market closed but price known"
+        const isFeedOffline = m.indices_feed_health === 'OFFLINE';
+        const priceDisplay = isFeedOffline
+          ? '—'
+          : isMarketClosed
           ? 'Market Closed'
           : hasValidPrice
           ? `${m.curr}${m.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -7356,10 +7363,10 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         const isUp = hasChange && m.change_pct > 0.0001;
         const isDown = hasChange && m.change_pct < -0.0001;
         const sign = isUp ? '+' : isDown ? '−' : '';
-        const chgDisplay = isMarketClosed ? '—' : (m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—');
-        const pctDisplay = isMarketClosed ? '—' : (hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : '—');
-        const chgClass = isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '');
-        const pctClass = isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : '');
+        const chgDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—'));
+        const pctDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : '—'));
+        const chgClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
+        const pctClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
 
         // Region badge
         const regionTagClass = {
@@ -7376,12 +7383,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           : (m.is_stale ? 'Stale' : (isMarketClosed ? 'Offline' : '—'));
 
         // High/Low display
-        const highDisplay = isMarketClosed ? '—' : (m.high != null
+        const highDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (m.high != null
           ? `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '—');
-        const lowDisplay = isMarketClosed ? '—' : (m.low != null
+          : '—'));
+        const lowDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (m.low != null
           ? `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '—');
+          : '—'));
 
         // Sparkline data attribute for canvas rendering
         const sparklineDataAttr = m.sparkline_data
