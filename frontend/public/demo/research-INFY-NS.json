@@ -1,0 +1,65 @@
+{
+  "symbol": "INFY.NS",
+  "name": "Infosys",
+  "overview": {
+    "business_summary": "Infosys is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Information Technology",
+    "industry": "Software & Services",
+    "employees": 170193,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 201000,
+    "net_income_ttm": 25461,
+    "eps_ttm": 111.57,
+    "book_value_per_share": 208.4,
+    "debt_to_equity": 0.39,
+    "roe": 28.39,
+    "roa": 13.48
+  },
+  "valuation": {
+    "pe_current": 34.51,
+    "pe_median_5y": 31.28,
+    "pe_percentile_5y": 53,
+    "pb_current": 2.23,
+    "ev_ebitda": 22.88
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 18.47,
+      "roe": 12.89,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 19.82,
+      "roe": 17.2,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 14,
+      "roe": 20.71,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 13.73,
+      "roe": 16.19,
+      "market_cap": 1100000000000
+    },
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "pe": 13.52,
+      "roe": 24.71,
+      "market_cap": 220000000000
+    }
+  ],
+  "demo_mode": true
+}

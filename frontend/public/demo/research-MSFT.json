@@ -1,0 +1,65 @@
+{
+  "symbol": "MSFT",
+  "name": "Microsoft",
+  "overview": {
+    "business_summary": "Microsoft is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Technology",
+    "industry": "Software & Services",
+    "employees": 172474,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 236170,
+    "net_income_ttm": 37586,
+    "eps_ttm": 142.27,
+    "book_value_per_share": 375.24,
+    "debt_to_equity": 0.33,
+    "roe": 15.84,
+    "roa": 12.68
+  },
+  "valuation": {
+    "pe_current": 24.21,
+    "pe_median_5y": 21.74,
+    "pe_percentile_5y": 53,
+    "pb_current": 6.93,
+    "ev_ebitda": 12.11
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 12.89,
+      "roe": 17.13,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 16.45,
+      "roe": 19.02,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 17.79,
+      "roe": 10.13,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 27.83,
+      "roe": 29.49,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 30.34,
+      "roe": 12.77,
+      "market_cap": 1100000000000
+    }
+  ],
+  "demo_mode": true
+}

@@ -1,0 +1,16 @@
+{
+  "symbol": "MSFT",
+  "name": "Microsoft",
+  "price": 410,
+  "change": 16.05,
+  "change_pct": 0.63,
+  "market_cap": 410000000000,
+  "pe_ratio": 29.58,
+  "pb_ratio": 6.82,
+  "dividend_yield": 0.38,
+  "week_52_high": 532.13,
+  "week_52_low": 342.49,
+  "currency": "USD",
+  "exchange": "NASDAQ",
+  "demo_mode": true
+}

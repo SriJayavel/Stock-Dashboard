@@ -1,0 +1,65 @@
+{
+  "symbol": "GOOGL",
+  "name": "Alphabet",
+  "overview": {
+    "business_summary": "Alphabet is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Technology",
+    "industry": "Software & Services",
+    "employees": 128248,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 235874,
+    "net_income_ttm": 23665,
+    "eps_ttm": 134.41,
+    "book_value_per_share": 368.3,
+    "debt_to_equity": 0.61,
+    "roe": 12.09,
+    "roa": 19.17
+  },
+  "valuation": {
+    "pe_current": 15.04,
+    "pe_median_5y": 22.89,
+    "pe_percentile_5y": 83,
+    "pb_current": 6.26,
+    "ev_ebitda": 11.4
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 34.53,
+      "roe": 27.7,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 23.4,
+      "roe": 10.97,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 31.74,
+      "roe": 11.02,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 24.32,
+      "roe": 18.67,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 26.34,
+      "roe": 10.61,
+      "market_cap": 1100000000000
+    }
+  ],
+  "demo_mode": true
+}

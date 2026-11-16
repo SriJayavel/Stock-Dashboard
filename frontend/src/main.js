@@ -218,6 +218,21 @@ let appStarted = false;
 async function startApp() {
   if (appStarted) return;
   appStarted = true;
+
+  // Demo mode: show banner, pre-seed localStorage, auto-sign-in as guest
+  if (import.meta.env.VITE_DEMO_MODE === 'true') {
+    const banner = document.getElementById('demo-banner');
+    if (banner) banner.style.display = 'block';
+    // Pre-seed demo watchlist so Monitor workspace renders immediately
+    try {
+      localStorage.setItem('demo_watchlist', JSON.stringify([
+        { symbol: 'TCS.NS', name: 'Tata Consultancy Services' },
+        { symbol: 'RELIANCE.NS', name: 'Reliance Industries' },
+        { symbol: 'AAPL', name: 'Apple Inc.' }
+      ]));
+    } catch (e) { /* ignore */ }
+  }
+
   alertsManager.activateAccount();
   const chartContainer = document.getElementById('tv-chart-container');
   const legendBox = document.getElementById('chart-legend-box');
@@ -4034,8 +4049,8 @@ function renderValuationGrid(data) {
       },
       {
         label: 'Telemetry Feed',
-        val: data.data_source || 'Live Market Data',
-        sub: 'Exchange Telemetry',
+        val: data.data_source === 'Yahoo Finance' ? 'Yahoo Finance' : (data.data_source || 'Live Market Data'),
+        sub: data.data_source === 'Yahoo Finance' ? 'Data: Yahoo Finance (unofficial yfinance) | Chart: TradingView' : 'Exchange Telemetry',
       },
       {
         label: 'Settlement Currency',

@@ -1,0 +1,137 @@
+{
+  "symbols": [
+    "TCS.NS",
+    "RELIANCE.NS",
+    "INFY.NS",
+    "HDFCBANK.NS",
+    "ICICIBANK.NS",
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "NVDA",
+    "TSLA"
+  ],
+  "matrix": {
+    "TCS.NS": {
+      "TCS.NS": 1,
+      "RELIANCE.NS": 0.67,
+      "INFY.NS": 0.78,
+      "HDFCBANK.NS": 0.49,
+      "ICICIBANK.NS": 0.55,
+      "AAPL": 0.57,
+      "MSFT": 0.85,
+      "GOOGL": 0.77,
+      "NVDA": 0.68,
+      "TSLA": 0.79
+    },
+    "RELIANCE.NS": {
+      "TCS.NS": 0.67,
+      "RELIANCE.NS": 1,
+      "INFY.NS": 0.73,
+      "HDFCBANK.NS": 0.44,
+      "ICICIBANK.NS": 0.5,
+      "AAPL": 0.52,
+      "MSFT": 0.8,
+      "GOOGL": 0.72,
+      "NVDA": 0.63,
+      "TSLA": 0.74
+    },
+    "INFY.NS": {
+      "TCS.NS": 0.78,
+      "RELIANCE.NS": 0.73,
+      "INFY.NS": 1,
+      "HDFCBANK.NS": 0.55,
+      "ICICIBANK.NS": 0.61,
+      "AAPL": 0.63,
+      "MSFT": 0.91,
+      "GOOGL": 0.83,
+      "NVDA": 0.74,
+      "TSLA": 0.85
+    },
+    "HDFCBANK.NS": {
+      "TCS.NS": 0.49,
+      "RELIANCE.NS": 0.44,
+      "INFY.NS": 0.55,
+      "HDFCBANK.NS": 1,
+      "ICICIBANK.NS": 0.32,
+      "AAPL": 0.34,
+      "MSFT": 0.62,
+      "GOOGL": 0.54,
+      "NVDA": 0.45,
+      "TSLA": 0.56
+    },
+    "ICICIBANK.NS": {
+      "TCS.NS": 0.55,
+      "RELIANCE.NS": 0.5,
+      "INFY.NS": 0.61,
+      "HDFCBANK.NS": 0.32,
+      "ICICIBANK.NS": 1,
+      "AAPL": 0.4,
+      "MSFT": 0.68,
+      "GOOGL": 0.6,
+      "NVDA": 0.51,
+      "TSLA": 0.62
+    },
+    "AAPL": {
+      "TCS.NS": 0.57,
+      "RELIANCE.NS": 0.52,
+      "INFY.NS": 0.63,
+      "HDFCBANK.NS": 0.34,
+      "ICICIBANK.NS": 0.4,
+      "AAPL": 1,
+      "MSFT": 0.7,
+      "GOOGL": 0.62,
+      "NVDA": 0.53,
+      "TSLA": 0.64
+    },
+    "MSFT": {
+      "TCS.NS": 0.85,
+      "RELIANCE.NS": 0.8,
+      "INFY.NS": 0.91,
+      "HDFCBANK.NS": 0.62,
+      "ICICIBANK.NS": 0.68,
+      "AAPL": 0.7,
+      "MSFT": 1,
+      "GOOGL": 0.9,
+      "NVDA": 0.81,
+      "TSLA": 0.92
+    },
+    "GOOGL": {
+      "TCS.NS": 0.77,
+      "RELIANCE.NS": 0.72,
+      "INFY.NS": 0.83,
+      "HDFCBANK.NS": 0.54,
+      "ICICIBANK.NS": 0.6,
+      "AAPL": 0.62,
+      "MSFT": 0.9,
+      "GOOGL": 1,
+      "NVDA": 0.73,
+      "TSLA": 0.84
+    },
+    "NVDA": {
+      "TCS.NS": 0.68,
+      "RELIANCE.NS": 0.63,
+      "INFY.NS": 0.74,
+      "HDFCBANK.NS": 0.45,
+      "ICICIBANK.NS": 0.51,
+      "AAPL": 0.53,
+      "MSFT": 0.81,
+      "GOOGL": 0.73,
+      "NVDA": 1,
+      "TSLA": 0.75
+    },
+    "TSLA": {
+      "TCS.NS": 0.79,
+      "RELIANCE.NS": 0.74,
+      "INFY.NS": 0.85,
+      "HDFCBANK.NS": 0.56,
+      "ICICIBANK.NS": 0.62,
+      "AAPL": 0.64,
+      "MSFT": 0.92,
+      "GOOGL": 0.84,
+      "NVDA": 0.75,
+      "TSLA": 1
+    }
+  },
+  "demo_mode": true
+}

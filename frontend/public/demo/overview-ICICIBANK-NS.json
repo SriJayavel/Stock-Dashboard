@@ -1,0 +1,16 @@
+{
+  "symbol": "ICICIBANK.NS",
+  "name": "ICICI Bank",
+  "price": 1100,
+  "change": 4.24,
+  "change_pct": 0.99,
+  "market_cap": 1100000000000,
+  "pe_ratio": 25.4,
+  "pb_ratio": 4.93,
+  "dividend_yield": 0.11,
+  "week_52_high": 1239.82,
+  "week_52_low": 970.24,
+  "currency": "INR",
+  "exchange": "NSE",
+  "demo_mode": true
+}

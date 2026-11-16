@@ -18,6 +18,49 @@ const WS_BASE = RAW_BASE
   ? RAW_BASE.replace(/^http/, WS_PROTOCOL.replace(':', '')).replace(/\/+$/, '')
   : (typeof window !== 'undefined' ? `${WS_PROTOCOL}//${window.location.host}` : '');
 
+// Demo mode: serve synthetic data from static JSON files, no live API calls
+const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+const DEMO_BASE = '/demo';
+
+const DEMO_ROUTES = {
+  '/api/markets/overview': `${DEMO_BASE}/market-overview.json`,
+  '/api/stocks/batch': `${DEMO_BASE}/market-overview.json`,
+  '/api/search': `${DEMO_BASE}/screener.json`,
+  '/api/screener': `${DEMO_BASE}/screener.json`,
+  '/api/analytics/sectors': `${DEMO_BASE}/sectors.json`,
+  '/api/analytics/correlation': `${DEMO_BASE}/correlation.json`,
+  '/api/analytics/portfolio-risk': `${DEMO_BASE}/correlation.json`,
+};
+
+function demoStockFile(symbol, suffix) {
+  const safe = symbol.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
+  // Strip query params from suffix (e.g. "history?timeframe=1d" -> "history")
+  const cleanSuffix = suffix.split('?')[0];
+  return `${DEMO_BASE}/${cleanSuffix}-${safe}.json`;
+}
+
+async function demoFetch(url) {
+  // Demo mode must never reach the live network — reject absolute URLs
+  if (/^https?:\/\//i.test(url)) return null;
+
+  // Strip query params for route lookup (e.g. /api/screener?universe=indian_leaders)
+  const pathOnly = url.split('?')[0];
+  let demoUrl;
+  if (DEMO_ROUTES[pathOnly]) {
+    demoUrl = DEMO_ROUTES[pathOnly];
+  } else if (url.startsWith('/api/stocks/')) {
+    const parts = url.split('/');
+    const symbol = parts[3] || '';
+    const suffix = parts[4] || 'overview';
+    demoUrl = demoStockFile(symbol, suffix);
+  } else {
+    return null;
+  }
+  const resp = await fetch(demoUrl);
+  if (!resp.ok) return null;
+  return await resp.json();
+}
+
 class ApiClient {
   constructor() {
     this.onStatusChange = null;
@@ -30,6 +73,14 @@ class ApiClient {
   }
 
   async fetchWithRetry(url, options = {}, retries = 2, timeoutMs = 45000) {
+    // Demo mode: serve synthetic data from static JSON files, no live API calls.
+    // Fail closed — never fall through to a live network request in demo mode.
+    if (IS_DEMO) {
+      const data = await demoFetch(url);
+      if (data !== null) return data;
+      throw new Error(`[DEMO] No synthetic fixture for ${url}`);
+    }
+
     let coldStartTimer = null;
 
     try {

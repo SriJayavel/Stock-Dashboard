@@ -41,9 +41,11 @@ class SupabaseAuthProvider:
 
     def _get_admin_client(self) -> Client:
         if self._admin_client is None:
+            if not settings.SUPABASE_SERVICE_KEY:
+                raise ValueError("SUPABASE_SERVICE_KEY not configured — admin operations unavailable")
             self._admin_client = create_client(
                 settings.SUPABASE_URL,
-                settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_KEY
+                settings.SUPABASE_SERVICE_KEY
             )
         return self._admin_client
 

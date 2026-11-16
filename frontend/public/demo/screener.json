@@ -1,0 +1,72 @@
+{
+  "universes": {
+    "Indian Leaders": [
+      "TCS.NS",
+      "RELIANCE.NS",
+      "INFY.NS",
+      "HDFCBANK.NS",
+      "ICICIBANK.NS"
+    ],
+    "US Mega-Caps": [
+      "AAPL",
+      "MSFT",
+      "GOOGL",
+      "NVDA",
+      "TSLA"
+    ],
+    "Semiconductors & AI": [
+      "NVDA",
+      "TSM",
+      "ASML"
+    ],
+    "Crypto": [
+      "BTC-USD",
+      "ETH-USD"
+    ]
+  },
+  "results": {
+    "Indian Leaders": [
+      {
+        "symbol": "TCS.NS",
+        "name": "Tata Consultancy Services",
+        "price": 3800,
+        "change_pct": -1.31,
+        "pe": 27.59,
+        "market_cap": 3800000000000
+      },
+      {
+        "symbol": "RELIANCE.NS",
+        "name": "Reliance Industries",
+        "price": 2800,
+        "change_pct": -1.05,
+        "pe": 19.3,
+        "market_cap": 2800000000000
+      },
+      {
+        "symbol": "INFY.NS",
+        "name": "Infosys",
+        "price": 1650,
+        "change_pct": 0.95,
+        "pe": 27.13,
+        "market_cap": 1650000000000
+      },
+      {
+        "symbol": "HDFCBANK.NS",
+        "name": "HDFC Bank",
+        "price": 1700,
+        "change_pct": 1.11,
+        "pe": 30.49,
+        "market_cap": 1700000000000
+      },
+      {
+        "symbol": "ICICIBANK.NS",
+        "name": "ICICI Bank",
+        "price": 1100,
+        "change_pct": -0.81,
+        "pe": 33.84,
+        "market_cap": 1100000000000
+      }
+    ]
+  },
+  "demo_mode": true
+}

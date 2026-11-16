@@ -1,0 +1,65 @@
+{
+  "symbol": "TCS.NS",
+  "name": "Tata Consultancy Services",
+  "overview": {
+    "business_summary": "Tata Consultancy Services is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Information Technology",
+    "industry": "Software & Services",
+    "employees": 203010,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 67422,
+    "net_income_ttm": 54271,
+    "eps_ttm": 57.16,
+    "book_value_per_share": 298.39,
+    "debt_to_equity": 0.11,
+    "roe": 26.97,
+    "roa": 18.02
+  },
+  "valuation": {
+    "pe_current": 23.03,
+    "pe_median_5y": 22.06,
+    "pe_percentile_5y": 18,
+    "pb_current": 5.55,
+    "ev_ebitda": 15.58
+  },
+  "peers": [
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 22.78,
+      "roe": 15.04,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 32.55,
+      "roe": 12.3,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 20.39,
+      "roe": 29.93,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 35.34,
+      "roe": 8.54,
+      "market_cap": 1100000000000
+    },
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "pe": 34.5,
+      "roe": 10.32,
+      "market_cap": 220000000000
+    }
+  ],
+  "demo_mode": true
+}

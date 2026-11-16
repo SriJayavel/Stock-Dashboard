@@ -1,0 +1,65 @@
+{
+  "symbol": "HDFCBANK.NS",
+  "name": "HDFC Bank",
+  "overview": {
+    "business_summary": "HDFC Bank is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Information Technology",
+    "industry": "Software & Services",
+    "employees": 137337,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 119760,
+    "net_income_ttm": 29574,
+    "eps_ttm": 143.06,
+    "book_value_per_share": 181.07,
+    "debt_to_equity": 0.05,
+    "roe": 27.99,
+    "roa": 19.64
+  },
+  "valuation": {
+    "pe_current": 16.51,
+    "pe_median_5y": 31.72,
+    "pe_percentile_5y": 60,
+    "pb_current": 3.33,
+    "ev_ebitda": 13.2
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 31.4,
+      "roe": 14.02,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 24.05,
+      "roe": 14.77,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 32.31,
+      "roe": 24.28,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 31.17,
+      "roe": 9.39,
+      "market_cap": 1100000000000
+    },
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "pe": 35.98,
+      "roe": 17.39,
+      "market_cap": 220000000000
+    }
+  ],
+  "demo_mode": true
+}

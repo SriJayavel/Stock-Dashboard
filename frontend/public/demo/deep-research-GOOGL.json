@@ -1,0 +1,76 @@
+{
+  "symbol": "GOOGL",
+  "name": "Alphabet",
+  "quarterly_trends": [
+    {
+      "quarter": "Q3 2024",
+      "revenue": 100000,
+      "net_income": 12000,
+      "yoy_revenue_pct": 12.5,
+      "yoy_income_pct": 15.2
+    },
+    {
+      "quarter": "Q2 2024",
+      "revenue": 95000,
+      "net_income": 11000,
+      "yoy_revenue_pct": 10.1,
+      "yoy_income_pct": 13.8
+    },
+    {
+      "quarter": "Q1 2024",
+      "revenue": 90000,
+      "net_income": 10500,
+      "yoy_revenue_pct": 9.2,
+      "yoy_income_pct": 11.5
+    },
+    {
+      "quarter": "Q4 2023",
+      "revenue": 88000,
+      "net_income": 10000,
+      "yoy_revenue_pct": 8.7,
+      "yoy_income_pct": 10.2
+    }
+  ],
+  "valuation_envelope": {
+    "pe_5y_min": 15.2,
+    "pe_5y_max": 35.8,
+    "pe_current": 24.5,
+    "pe_percentile": 62,
+    "pb_5y_min": 3.1,
+    "pb_5y_max": 8.5,
+    "pb_current": 5.2,
+    "pb_percentile": 58
+  },
+  "corporate_actions": [
+    {
+      "date": "2024-06-15",
+      "type": "dividend",
+      "description": "Final dividend ₹25/share",
+      "amount": 25
+    },
+    {
+      "date": "2024-01-20",
+      "type": "dividend",
+      "description": "Interim dividend ₹15/share",
+      "amount": 15
+    }
+  ],
+  "financial_health_score": {
+    "total": 78,
+    "profitability": 82,
+    "leverage": 75,
+    "liquidity": 80,
+    "efficiency": 74
+  },
+  "anomaly_detection": {
+    "pe_outlier": false,
+    "dividend_yield_outlier": false,
+    "revenue_growth_deceleration": false
+  },
+  "macro_correlation": {
+    "nifty_correlation": 0.72,
+    "usd_inr_correlation": -0.31,
+    "oil_correlation": 0.18
+  },
+  "demo_mode": true
+}

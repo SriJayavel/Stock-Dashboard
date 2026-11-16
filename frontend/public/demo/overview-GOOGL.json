@@ -1,0 +1,16 @@
+{
+  "symbol": "GOOGL",
+  "name": "Alphabet",
+  "price": 165,
+  "change": 18.52,
+  "change_pct": 0.59,
+  "market_cap": 165000000000,
+  "pe_ratio": 30.25,
+  "pb_ratio": 2.77,
+  "dividend_yield": 0.76,
+  "week_52_high": 190.79,
+  "week_52_low": 118.91,
+  "currency": "USD",
+  "exchange": "NASDAQ",
+  "demo_mode": true
+}

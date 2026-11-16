@@ -1,0 +1,16 @@
+{
+  "symbol": "TSLA",
+  "name": "Tesla",
+  "price": 250,
+  "change": 10.81,
+  "change_pct": 0.57,
+  "market_cap": 250000000000,
+  "pe_ratio": 21.06,
+  "pb_ratio": 6.21,
+  "dividend_yield": 1.84,
+  "week_52_high": 308.9,
+  "week_52_low": 249.57,
+  "currency": "USD",
+  "exchange": "NASDAQ",
+  "demo_mode": true
+}

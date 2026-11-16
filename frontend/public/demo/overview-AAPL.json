@@ -1,0 +1,16 @@
+{
+  "symbol": "AAPL",
+  "name": "Apple Inc.",
+  "price": 220,
+  "change": 3.94,
+  "change_pct": 0.79,
+  "market_cap": 220000000000,
+  "pe_ratio": 15.51,
+  "pb_ratio": 6.04,
+  "dividend_yield": 1.35,
+  "week_52_high": 234.6,
+  "week_52_low": 207.86,
+  "currency": "USD",
+  "exchange": "NASDAQ",
+  "demo_mode": true
+}

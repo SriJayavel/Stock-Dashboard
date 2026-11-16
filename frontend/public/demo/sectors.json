@@ -1,0 +1,38 @@
+{
+  "sectors": [
+    {
+      "name": "Technology",
+      "change_pct": 1.2,
+      "top_symbols": [
+        "TCS.NS",
+        "INFY.NS",
+        "AAPL",
+        "MSFT"
+      ]
+    },
+    {
+      "name": "Financial Services",
+      "change_pct": 0.8,
+      "top_symbols": [
+        "HDFCBANK.NS",
+        "ICICIBANK.NS"
+      ]
+    },
+    {
+      "name": "Healthcare",
+      "change_pct": 0.3,
+      "top_symbols": []
+    },
+    {
+      "name": "Energy",
+      "change_pct": -1.1,
+      "top_symbols": []
+    },
+    {
+      "name": "Consumer Cyclical",
+      "change_pct": 0.5,
+      "top_symbols": []
+    }
+  ],
+  "demo_mode": true
+}

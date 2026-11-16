@@ -233,9 +233,9 @@ class NSEProvider:
 
                 # Classify and handle HTTP errors
                 if resp.status_code == 403:
-                    error = NSEProviderError("NSE access forbidden (403)", ProviderErrorType.PERMANENT, 403)
+                    error = NSEProviderError("NSE access restricted (403) — authorized clients only", ProviderErrorType.PERMANENT, 403)
                     await self._circuit_breaker.record_failure(ProviderErrorType.PERMANENT)
-                    logger.warning(f"NSE 403 for {symbol} - circuit breaker activated")
+                    logger.warning(f"NSE 403 for {symbol} — access restricted to authorized clients")
                     raise error
                 elif resp.status_code == 404:
                     error = NSEProviderError(f"NSE symbol not found: {clean}", ProviderErrorType.PERMANENT, 404)

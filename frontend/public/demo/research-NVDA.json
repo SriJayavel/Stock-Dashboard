@@ -1,0 +1,65 @@
+{
+  "symbol": "NVDA",
+  "name": "NVIDIA",
+  "overview": {
+    "business_summary": "NVIDIA is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Technology",
+    "industry": "Software & Services",
+    "employees": 130565,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 136015,
+    "net_income_ttm": 17615,
+    "eps_ttm": 112.31,
+    "book_value_per_share": 202.6,
+    "debt_to_equity": 0.11,
+    "roe": 23.64,
+    "roa": 19.3
+  },
+  "valuation": {
+    "pe_current": 33.18,
+    "pe_median_5y": 21.14,
+    "pe_percentile_5y": 83,
+    "pb_current": 6.85,
+    "ev_ebitda": 14.88
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 12.04,
+      "roe": 16.39,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 17.07,
+      "roe": 29.88,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 24.69,
+      "roe": 12.55,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 21.33,
+      "roe": 30.42,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 12.57,
+      "roe": 8.72,
+      "market_cap": 1100000000000
+    }
+  ],
+  "demo_mode": true
+}

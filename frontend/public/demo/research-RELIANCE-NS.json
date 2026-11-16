@@ -1,0 +1,65 @@
+{
+  "symbol": "RELIANCE.NS",
+  "name": "Reliance Industries",
+  "overview": {
+    "business_summary": "Reliance Industries is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Information Technology",
+    "industry": "Software & Services",
+    "employees": 174568,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 77906,
+    "net_income_ttm": 7729,
+    "eps_ttm": 60.8,
+    "book_value_per_share": 187.78,
+    "debt_to_equity": 0.81,
+    "roe": 25.43,
+    "roa": 11.9
+  },
+  "valuation": {
+    "pe_current": 26.32,
+    "pe_median_5y": 25.47,
+    "pe_percentile_5y": 94,
+    "pb_current": 6.67,
+    "ev_ebitda": 13.61
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 29.11,
+      "roe": 11.15,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 18.95,
+      "roe": 12.6,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 13.27,
+      "roe": 8.62,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 33.07,
+      "roe": 21.39,
+      "market_cap": 1100000000000
+    },
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "pe": 23.01,
+      "roe": 22.62,
+      "market_cap": 220000000000
+    }
+  ],
+  "demo_mode": true
+}

@@ -1,0 +1,11 @@
+{
+  "symbol": "NVDA",
+  "has_data": false,
+  "what_changed_30d": null,
+  "anomalies": [],
+  "fundamental_relationships": [],
+  "statement_quality": null,
+  "filing_intelligence": null,
+  "demo_mode": true,
+  "note": "Static demo placeholder — no live v4 intelligence feed"
+}

@@ -1,0 +1,16 @@
+{
+  "symbol": "NVDA",
+  "name": "NVIDIA",
+  "price": 850,
+  "change": -16.2,
+  "change_pct": -0.48,
+  "market_cap": 850000000000,
+  "pe_ratio": 23.76,
+  "pb_ratio": 4.11,
+  "dividend_yield": 1.83,
+  "week_52_high": 1101.68,
+  "week_52_low": 840.31,
+  "currency": "USD",
+  "exchange": "NASDAQ",
+  "demo_mode": true
+}

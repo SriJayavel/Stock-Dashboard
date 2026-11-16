@@ -45,11 +45,32 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
-        allow_origin_regex=r"^https://.*\.vercel\.app$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Security headers middleware
+    @app.middleware("http")
+    async def security_headers_middleware(request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' wss: https:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
 
     # Auth middleware (thin, delegates to auth provider)
     @app.middleware("http")
@@ -86,11 +107,6 @@ def create_app() -> FastAPI:
                     break
 
         if request.method != "OPTIONS" and path.startswith("/api/") and not is_public:
-            # Dev mode bypass
-            if settings.ENVIRONMENT != "production" and (not settings.SUPABASE_URL or not settings.SUPABASE_KEY):
-                request.state.mara_user = {"id": "guest_dev", "email": "dev@mara.internal", "roles": ["admin"]}
-                return await call_next(request)
-
             # Verify token via auth provider
             try:
                 auth = get_container().auth()
@@ -203,6 +219,25 @@ def create_app() -> FastAPI:
 
     # Serve frontend SPA
     DIST_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
+    PUBLIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "public")
+
+    # Legal pages (served from public folder for Vercel static hosting)
+    @app.get("/legal/terms-and-conditions.html")
+    async def terms_and_conditions():
+        return FileResponse(os.path.join(PUBLIC_DIR, "legal", "terms-and-conditions.html"), media_type="text/html")
+
+    @app.get("/legal/privacy-policy.html")
+    async def privacy_policy():
+        return FileResponse(os.path.join(PUBLIC_DIR, "legal", "privacy-policy.html"), media_type="text/html")
+
+    @app.get("/legal/risk-disclosure.html")
+    async def risk_disclosure():
+        return FileResponse(os.path.join(PUBLIC_DIR, "legal", "risk-disclosure.html"), media_type="text/html")
+
+    # Grievance Officer endpoint
+    @app.get("/legal/grievance")
+    async def grievance_officer():
+        return {"contact": {"email": "dpo@mara-financial.com", "name": "Data Protection Officer"}, "note": "Contact for data protection and other grievances"}
 
     if os.path.isdir(DIST_DIR):
         assets_dir = os.path.join(DIST_DIR, "assets")

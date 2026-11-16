@@ -1,0 +1,65 @@
+{
+  "symbol": "TSLA",
+  "name": "Tesla",
+  "overview": {
+    "business_summary": "Tesla is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Technology",
+    "industry": "Software & Services",
+    "employees": 106740,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 120532,
+    "net_income_ttm": 11358,
+    "eps_ttm": 129.43,
+    "book_value_per_share": 421.01,
+    "debt_to_equity": 0.71,
+    "roe": 12.03,
+    "roa": 19.66
+  },
+  "valuation": {
+    "pe_current": 24.52,
+    "pe_median_5y": 29.91,
+    "pe_percentile_5y": 16,
+    "pb_current": 4.25,
+    "ev_ebitda": 14.72
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 26.61,
+      "roe": 25.37,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 23.86,
+      "roe": 10.71,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 16.28,
+      "roe": 9.06,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 12.34,
+      "roe": 12.19,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 34.8,
+      "roe": 8.47,
+      "market_cap": 1100000000000
+    }
+  ],
+  "demo_mode": true
+}

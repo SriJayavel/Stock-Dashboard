@@ -1,0 +1,16 @@
+{
+  "symbol": "HDFCBANK.NS",
+  "name": "HDFC Bank",
+  "price": 1700,
+  "change": -23.57,
+  "change_pct": -0.3,
+  "market_cap": 1700000000000,
+  "pe_ratio": 34.04,
+  "pb_ratio": 6.29,
+  "dividend_yield": 1.45,
+  "week_52_high": 1878.32,
+  "week_52_low": 1261.56,
+  "currency": "INR",
+  "exchange": "NSE",
+  "demo_mode": true
+}

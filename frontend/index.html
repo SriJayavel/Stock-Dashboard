@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mara Stock Dashboard</title>
-    <meta name="description" content="Mara Stock Dashboard — Real-time equities intelligence, TradingView charts, valuation multiples, and institutional analytics." />
+    <meta name="description" content="Mara Stock Dashboard — market research and analysis workstation. Informational and educational use only. Not investment advice." />
     <meta property="og:title" content="Mara Stock Dashboard" />
     <meta property="og:description" content="Real-time equities intelligence, TradingView charts, and fundamental valuation analytics." />
     <meta property="og:image" content="/og-image.svg" />
@@ -49,6 +49,9 @@
     </script>
   </head>
   <body class="auth-required" style="overflow-x: hidden;">
+    <div id="demo-banner" class="demo-banner" style="display:none; background:#1a1a2e; color:#e0e0e0; text-align:center; padding:6px 12px; font-size:14px; font-weight:600; border-bottom:1px solid #333;">
+      🧪 DEMO MODE — Synthetic demonstration data. No live market data, no personal accounts, no real trades.
+    </div>
     <style>
       /* Global overflow-x-hidden on root container */
       html, .mara-app { overflow-x: hidden; }
@@ -245,7 +248,7 @@
 
           <!-- Auth Account -->
           <div class="auth-account" id="auth-account" hidden>
-            <img id="auth-avatar" alt="" hidden />
+            <img id="auth-avatar" alt="User avatar" hidden />
             <span id="auth-account-name"></span>
             <button id="auth-signout" type="button" aria-label="Sign out of your Mara account">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>
@@ -1440,19 +1443,31 @@
 </div> <!-- end #mara-body-container -->
 
 <!-- 4. SYSTEM STATUS BAR (26px) -->
-<footer id="mara-status-bar" class="mara-status-bar">
-  <div class="status-bar-center">
-    <div class="status-bar-item">
-      <span>ACTIVE WORKSTATION: <strong id="status-active-ws" style="color: var(--accent);">MARKETS</strong></span>
+  <footer id="mara-status-bar" class="mara-status-bar">
+    <div class="status-bar-center">
+      <div class="status-bar-item">
+        <span>ACTIVE WORKSTATION: <strong id="status-active-ws" style="color: var(--accent);">MARKETS</strong></span>
+      </div>
     </div>
-  </div>
 
-  <div class="status-bar-right">
-    <div class="status-bar-item">
-      <span id="status-bar-clock">UTC --:--:--</span>
+    <div class="status-bar-right">
+      <div class="status-bar-item">
+        <span id="status-bar-clock">UTC --:--:--</span>
+      </div>
     </div>
+
+    <div class="status-bar-item" style="gap: 12px;">
+      <a href="/legal/terms-and-conditions.html" style="color: var(--text-dim); text-decoration: none;">Terms</a>
+      <span class="sep">|</span>
+      <a href="/legal/privacy-policy.html" style="color: var(--text-dim); text-decoration: none;">Privacy</a>
+      <span class="sep">|</span>
+      <a href="/legal/risk-disclosure.html" style="color: var(--text-dim); text-decoration: none;">Risk Disclosure</a>
+    </div>
+  </footer>
+  <!-- Data source attribution -->
+  <div style="position: absolute; bottom: 32px; left: 8px; font-size: 12px; color: var(--text-dim); white-space: nowrap;">
+    Market data: Yahoo Finance via yfinance (unofficial API). TradingView charts. NSE symbols: ^NSEI, ^BSESN. Data for research purposes only. Not financial advice.
   </div>
-</footer>
 </div> <!-- end #mara-app -->
 
     <!-- Local Watchlist & Alerts Right Sidebar Drawer -->

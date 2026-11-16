@@ -1,0 +1,65 @@
+{
+  "symbol": "AAPL",
+  "name": "Apple Inc.",
+  "overview": {
+    "business_summary": "Apple Inc. is a leading company in its sector. This is synthetic demo data.",
+    "sector": "Technology",
+    "industry": "Software & Services",
+    "employees": 123365,
+    "website": "https://example.com"
+  },
+  "financials": {
+    "revenue_ttm": 79131,
+    "net_income_ttm": 38191,
+    "eps_ttm": 123.82,
+    "book_value_per_share": 242.4,
+    "debt_to_equity": 0,
+    "roe": 20.96,
+    "roa": 6.51
+  },
+  "valuation": {
+    "pe_current": 15.8,
+    "pe_median_5y": 25.16,
+    "pe_percentile_5y": 25,
+    "pb_current": 3.91,
+    "ev_ebitda": 11
+  },
+  "peers": [
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "pe": 35.61,
+      "roe": 15.73,
+      "market_cap": 3800000000000
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "pe": 14.91,
+      "roe": 18.04,
+      "market_cap": 2800000000000
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "pe": 33.31,
+      "roe": 26.83,
+      "market_cap": 1650000000000
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "pe": 32.66,
+      "roe": 31.56,
+      "market_cap": 1700000000000
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "name": "ICICI Bank",
+      "pe": 25.18,
+      "roe": 14.01,
+      "market_cap": 1100000000000
+    }
+  ],
+  "demo_mode": true
+}
