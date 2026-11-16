@@ -13,5 +13,20 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'charts': ['./src/chart.js', './src/indicators.js'],
+          'analytics': ['./src/backtester.js', './src/screener_builder.js', './src/report_generator.js'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 600,
+    cssCodeSplit: true,
+    minify: 'esbuild',
+    sourcemap: false,
   }
 });

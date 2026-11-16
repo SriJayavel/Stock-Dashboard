@@ -25,7 +25,8 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     page.on('request', (req) => {
       const url = req.url();
       if (url.includes('/api/')) apiCalls.push(url);
-      if (url.includes('supabase')) supabaseCalls.push(url);
+      // Only flag actual Supabase API calls, not chunk filenames containing "supabase"
+      if (url.includes('supabase.co') || url.includes('supabase.com')) supabaseCalls.push(url);
     });
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
