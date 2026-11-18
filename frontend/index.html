@@ -49,8 +49,11 @@
     </script>
   </head>
   <body class="auth-required" style="overflow-x: hidden;">
-    <div id="demo-banner" class="demo-banner" style="display:none; background:#1a1a2e; color:#e0e0e0; text-align:center; padding:6px 12px; font-size:14px; font-weight:600; border-bottom:1px solid #333;">
-      🧪 DEMO MODE — Synthetic demonstration data. No live market data, no personal accounts, no real trades.
+    <div id="demo-banner" class="demo-banner" style="display:none;">
+      <div class="demo-banner-content">
+        <span class="demo-banner-text">🧪 DEMO MODE — Synthetic demonstration data. No live market data, no personal accounts, no real trades.</span>
+        <button id="exit-demo-mode-btn" class="demo-exit-btn" type="button" title="Exit Demo Mode and return to live market feed">Exit Demo</button>
+      </div>
     </div>
     <style>
       /* Global overflow-x-hidden on root container */
@@ -134,7 +137,10 @@
       <div class="retry-banner-inner">
         <span class="retry-icon">⚡</span>
         <span id="apex-retry-msg">Connection lost or offline. Real-time updates paused.</span>
-        <button id="apex-retry-btn" class="retry-action-btn">Reconnect</button>
+        <div class="retry-actions" style="display:inline-flex;gap:8px;">
+          <button id="apex-retry-btn" class="retry-action-btn">Reconnect</button>
+          <button id="apex-demo-fallback-btn" class="retry-action-btn retry-demo-btn" style="background: rgba(52, 211, 153, 0.2); border: 1px solid var(--accent); color: var(--accent);">Use Demo Mode</button>
+        </div>
       </div>
     </div>
 
@@ -217,6 +223,11 @@
 
         <!-- System & Utility Controls -->
         <div class="mara-header-utilities">
+          <!-- Demo Mode Quick Switch -->
+          <button class="mara-header-btn mara-demo-btn" id="demo-mode-toggle-btn" type="button" title="Toggle Demo Mode (synthetic test fixtures)" aria-label="Toggle Demo Mode">
+            <span class="demo-tag-label" id="demo-tag-label">DEMO</span>
+          </button>
+
           <!-- Theme Toggle Button -->
           <button class="mara-header-btn" id="theme-toggle-btn" type="button" title="Toggle Light/Dark Theme" aria-label="Toggle theme">
             <svg class="theme-icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">

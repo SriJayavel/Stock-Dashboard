@@ -18,8 +18,28 @@ const WS_BASE = RAW_BASE
   ? RAW_BASE.replace(/^http/, WS_PROTOCOL.replace(':', '')).replace(/\/+$/, '')
   : (typeof window !== 'undefined' ? `${WS_PROTOCOL}//${window.location.host}` : '');
 
-// Demo mode: serve synthetic data from static JSON files, no live API calls
-const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+// Demo mode: serve synthetic data from static JSON files, no live API calls.
+// Supports build-time flag (VITE_DEMO_MODE) and dynamic client-side activation.
+export function isDemoMode() {
+  if (typeof window === 'undefined') return false;
+  return (
+    import.meta.env.VITE_DEMO_MODE === 'true' ||
+    window.__DEMO_MODE__ === true ||
+    window.localStorage?.getItem('mara_demo_mode') === 'true'
+  );
+}
+
+export function setDemoMode(enable) {
+  if (typeof window === 'undefined') return;
+  if (enable) {
+    try { window.localStorage?.setItem('mara_demo_mode', 'true'); } catch (e) { /* ignore */ }
+    window.__DEMO_MODE__ = true;
+  } else {
+    try { window.localStorage?.removeItem('mara_demo_mode'); } catch (e) { /* ignore */ }
+    window.__DEMO_MODE__ = false;
+  }
+}
+
 const DEMO_BASE = '/demo';
 
 const DEMO_ROUTES = {
@@ -75,7 +95,7 @@ class ApiClient {
   async fetchWithRetry(url, options = {}, retries = 2, timeoutMs = 45000) {
     // Demo mode: serve synthetic data from static JSON files, no live API calls.
     // Fail closed — never fall through to a live network request in demo mode.
-    if (IS_DEMO) {
+    if (isDemoMode()) {
       const data = await demoFetch(url);
       if (data !== null) return data;
       throw new Error(`[DEMO] No synthetic fixture for ${url}`);
@@ -285,7 +305,7 @@ export class MarketWebSocket {
   }
 
   connect() {
-    if (IS_DEMO) {
+    if (isDemoMode()) {
       console.log('[MarketWS] Demo mode active - live WebSocket disabled');
       return Promise.resolve();
     }

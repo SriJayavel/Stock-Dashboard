@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     INTERNAL_REFRESH_SECRET: str = os.getenv("INTERNAL_REFRESH_SECRET", "dev_secret_local_only")
 
     # Supabase service role key — backend ONLY, never in frontend
-    SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+    SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", os.getenv("SUPABASE_KEY", ""))
 
     # Redis Cache (Upstash Redis free tier URL e.g. rediss://default:xxx@xxx.upstash.io:6379)
     REDIS_URL: str = os.getenv("REDIS_URL", "")
@@ -88,10 +88,16 @@ class Settings(BaseSettings):
                     "must be configured in production to verify account access."
                 )
             if not self.SUPABASE_SERVICE_KEY.strip():
-                errors.append(
-                    "FATAL SECURITY MISCONFIGURATION: SUPABASE_SERVICE_KEY must "
-                    "be explicitly set via environment variable in production for admin operations."
-                )
+                if self.SUPABASE_KEY.strip():
+                    self.SUPABASE_SERVICE_KEY = self.SUPABASE_KEY
+                    logger.warning(
+                        "SUPABASE_SERVICE_KEY not set; using SUPABASE_KEY as backend fallback."
+                    )
+                else:
+                    errors.append(
+                        "FATAL SECURITY MISCONFIGURATION: SUPABASE_SERVICE_KEY must "
+                        "be explicitly set via environment variable in production for admin operations."
+                    )
             if (
                 not self.INTERNAL_REFRESH_SECRET
                 or self.INTERNAL_REFRESH_SECRET in insecure_placeholders

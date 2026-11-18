@@ -2578,7 +2578,7 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  tabular-nums: true;
+  font-variant-numeric: tabular-nums;
 }
 
 .benchmark-board-table td.col-change,
@@ -2586,7 +2586,7 @@ textarea {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
-  tabular-nums: true;
+  font-variant-numeric: tabular-nums;
 }
 
 .benchmark-board-table td.col-change.gain,
@@ -3047,4 +3047,103 @@ body.authenticated .mara-app {
   .landing-footer nav {
     justify-content: center;
   }
+}
+
+/* ===== ENHANCED DEMO BANNER & HEADER TOGGLE ===== */
+.demo-banner {
+  background: linear-gradient(90deg, #131722 0%, #1a2035 50%, #131722 100%);
+  color: var(--text);
+  border-bottom: 1px solid rgba(52, 211, 153, 0.35);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1000;
+}
+
+.demo-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.demo-banner-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.demo-exit-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.demo-exit-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.mara-demo-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px !important;
+  width: auto !important;
+  padding: 0 10px !important;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.025);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.mara-demo-btn .demo-tag-label {
+  display: inline-block !important;
+}
+
+.mara-demo-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.mara-demo-btn.active {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.15);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.25);
+}
+
+.cold-start-banner {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cold-start-banner.active {
+  display: block !important;
 }

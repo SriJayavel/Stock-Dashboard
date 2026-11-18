@@ -4,7 +4,7 @@
  * multi-asset macro categories, persistent watchlist, and resilient API handling.
  */
 
-import { api } from './api.js';
+import { api, isDemoMode, setDemoMode } from './api.js';
 import { TerminalChart } from './chart.js';
 import { watchlist } from './watchlist.js';
 import { alertsManager } from './alerts.js';
@@ -207,7 +207,13 @@ api.onStatusChange = (status) => {
   if (!coldStartBanner) return;
   if (status.isWaking) {
     coldStartBanner.classList.add('active');
-    if (coldStartMsg) coldStartMsg.textContent = status.message;
+    if (coldStartMsg) {
+      coldStartMsg.innerHTML = `<span>${status.message}</span> <button id="cold-start-switch-demo-btn" type="button" style="margin-left: 10px; padding: 2px 10px; font-size: 11px; font-weight: 600; background: rgba(52, 211, 153, 0.2); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px; cursor: pointer;">Explore in Demo Mode</button>`;
+      document.getElementById('cold-start-switch-demo-btn')?.addEventListener('click', () => {
+        setDemoMode(true);
+        window.location.reload();
+      });
+    }
   } else {
     coldStartBanner.classList.remove('active');
   }
@@ -220,9 +226,13 @@ async function startApp() {
   appStarted = true;
 
   // Demo mode: show banner, pre-seed localStorage, auto-sign-in as guest
-  if (import.meta.env.VITE_DEMO_MODE === 'true') {
+  if (isDemoMode()) {
     const banner = document.getElementById('demo-banner');
     if (banner) banner.style.display = 'block';
+    document.getElementById('exit-demo-mode-btn')?.addEventListener('click', () => {
+      setDemoMode(false);
+      window.location.reload();
+    });
     // Pre-seed demo watchlist so Monitor workspace renders immediately
     try {
       localStorage.setItem('demo_watchlist', JSON.stringify([
@@ -1314,6 +1324,31 @@ function setupEventListeners() {
       } finally {
         retryBtn.textContent = 'Reconnect';
       }
+    });
+  }
+
+  const demoFallbackBtn = document.getElementById('apex-demo-fallback-btn');
+  if (demoFallbackBtn) {
+    demoFallbackBtn.addEventListener('click', () => {
+      setDemoMode(true);
+      window.location.reload();
+    });
+  }
+
+  // Header Demo Mode Quick Toggle
+  const demoToggleBtn = document.getElementById('demo-mode-toggle-btn');
+  if (demoToggleBtn) {
+    const isDemo = isDemoMode();
+    if (isDemo) {
+      demoToggleBtn.classList.add('active');
+      demoToggleBtn.title = 'Demo Mode is Active — click to return to Live Mode';
+    } else {
+      demoToggleBtn.title = 'Click to switch to Synthetic Demo Mode';
+    }
+    demoToggleBtn.addEventListener('click', () => {
+      const active = isDemoMode();
+      setDemoMode(!active);
+      window.location.reload();
     });
   }
 }
@@ -3633,6 +3668,7 @@ async function loadStock(symbol, timeframe = '1y') {
   } catch (err) {
     if (token !== currentLoadToken) return;
     console.error(`Failed to load asset ${symbol}:`, err);
+    toastError(`Could not load ${symbol} fundamentals: ${err.message?.replace(/^Error:\s*/, '') || 'Server unreachable'}`);
   }
 }
 
@@ -3718,9 +3754,14 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
     if (token !== currentLoadToken) return;
     console.error(`Failed to load history for ${symbol}:`, err);
     if (chartInstance) {
+      const errMsg = err.message?.includes('404')
+        ? 'Symbol not found'
+        : (err.message?.includes('500')
+          ? 'Market server connection error — check network status'
+          : 'Chart data feed currently unavailable');
       chartInstance.setData({
         candles: [],
-        message: err.message?.includes('404') ? 'Symbol not found' : '1m intraday data unavailable'
+        message: errMsg
       });
     }
   } finally {
