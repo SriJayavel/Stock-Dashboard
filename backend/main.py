@@ -5,7 +5,7 @@ Uses clean architecture with dependency injection and auto-discovery.
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, status, Depends, Header
+from fastapi import FastAPI, HTTPException, status, Depends, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -194,7 +194,7 @@ def create_app() -> FastAPI:
     # Internal cache refresh endpoint
     @app.post("/internal/refresh-cache", status_code=status.HTTP_202_ACCEPTED)
     async def refresh_cache(
-        background_tasks,
+        background_tasks: BackgroundTasks,
         authorized: bool = Depends(verify_internal_secret),
         cache_warmer = Depends(get_cache_warmer_service_dep),
     ):

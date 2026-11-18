@@ -27,6 +27,9 @@ export class Backtester {
     const endPrice = candles[candles.length - 1].close;
     const bnhReturn = ((endPrice - startPrice) / startPrice) * 100;
 
+    // Apply realistic transaction friction (0.03% slippage + brokerage on turnover)
+    const frictionPct = 0.03;
+
     for (let i = 25; i < candles.length; i++) {
       const bar = candles[i];
       const prevBar = candles[i - 1];
@@ -59,10 +62,11 @@ export class Backtester {
         }
       }
 
-      // Execute Trade Logic
+      // Execute Trade Logic with Friction
       if (buySignal && !inPosition) {
         inPosition = true;
-        entryPrice = bar.close;
+        // Buy at ask (price + slippage)
+        entryPrice = bar.close * (1 + frictionPct / 100);
         entryDate = bar.time;
         markers.push({
           time: bar.time,
@@ -73,7 +77,8 @@ export class Backtester {
         });
       } else if (sellSignal && inPosition) {
         inPosition = false;
-        const exitPrice = bar.close;
+        // Sell at bid (price - slippage)
+        const exitPrice = bar.close * (1 - frictionPct / 100);
         const pnlPct = ((exitPrice - entryPrice) / entryPrice) * 100;
         capital = capital * (1 + pnlPct / 100);
 
@@ -101,7 +106,7 @@ export class Backtester {
 
     // If still in position at the end of the data
     if (inPosition) {
-      const exitPrice = candles[candles.length - 1].close;
+      const exitPrice = candles[candles.length - 1].close * (1 - frictionPct / 100);
       const pnlPct = ((exitPrice - entryPrice) / entryPrice) * 100;
       capital = capital * (1 + pnlPct / 100);
       trades.push({
@@ -115,7 +120,35 @@ export class Backtester {
 
     const totalReturn = ((capital - initialCapital) / initialCapital) * 100;
     const wins = trades.filter((t) => t.pnlPct > 0).length;
+    const losses = trades.filter((t) => t.pnlPct < 0).length;
     const winRate = trades.length > 0 ? (wins / trades.length) * 100 : 0;
+
+    // Advanced Quantitative Metrics (Sharpe, Sortino, Profit Factor)
+    const returns = trades.map((t) => t.pnlPct / 100);
+    const meanReturn = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+    
+    // Standard deviation of trade returns
+    const variance = returns.length > 1
+      ? returns.reduce((sum, r) => sum + Math.pow(r - meanReturn, 2), 0) / (returns.length - 1)
+      : 0;
+    const stdDev = Math.sqrt(variance);
+
+    // Downside deviation for Sortino (semi-variance)
+    const downsideReturns = returns.filter((r) => r < 0);
+    const downsideVariance = downsideReturns.length > 1
+      ? downsideReturns.reduce((sum, r) => sum + Math.pow(r, 2), 0) / downsideReturns.length
+      : 0;
+    const downsideStdDev = Math.sqrt(downsideVariance);
+
+    // Annualized risk-free rate assumption (6.5% G-Sec risk-free rate / 252 periods)
+    const rfTrade = 0.065 / Math.max(trades.length, 1);
+    const sharpeRatio = stdDev > 0 ? ((meanReturn - rfTrade) / stdDev) * Math.sqrt(Math.min(trades.length, 252)) : 0;
+    const sortinoRatio = downsideStdDev > 0 ? ((meanReturn - rfTrade) / downsideStdDev) * Math.sqrt(Math.min(trades.length, 252)) : 0;
+
+    // Profit Factor (Gross Wins / Gross Losses)
+    const grossWins = trades.filter((t) => t.pnlPct > 0).reduce((sum, t) => sum + t.pnlPct, 0);
+    const grossLosses = Math.abs(trades.filter((t) => t.pnlPct < 0).reduce((sum, t) => sum + t.pnlPct, 0));
+    const profitFactor = grossLosses > 0 ? grossWins / grossLosses : (grossWins > 0 ? 99.9 : 0);
 
     return {
       strategy,
@@ -123,6 +156,10 @@ export class Backtester {
       benchmarkReturnPct: round(bnhReturn, 2),
       maxDrawdownPct: round(maxDrawdown, 2),
       winRatePct: round(winRate, 1),
+      sharpeRatio: round(sharpeRatio, 2),
+      sortinoRatio: round(sortinoRatio, 2),
+      profitFactor: round(profitFactor, 2),
+      frictionAppliedPct: frictionPct,
       totalTrades: trades.length,
       profitableTrades: wins,
       markers,

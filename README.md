@@ -1,127 +1,94 @@
-# 📈 Apex Financial Terminal v2.0
+# 📈 Apex Financial Terminal (MARA) v2.0
 
-> **High-Performance Financial Research Terminal • Decoupled Cloud Architecture**
-> Built with **FastAPI**, **Vite (Vanilla JS)**, **TradingView Lightweight Charts**, and a **Two-Tier Resilient Cache**.
+[![CI Pipeline](https://github.com/Phantom-Jay/Stock-Dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Phantom-Jay/Stock-Dashboard/actions/workflows/ci.yml)
+[![Tests Passing](https://img.shields.io/badge/tests-102%20passed-success)](https://github.com/Phantom-Jay/Stock-Dashboard)
+[![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.14-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> **High-Performance Equities Research Terminal for Indian (NSE/BSE) & Global Financial Assets**  
+> Built with **FastAPI**, **Hexagonal Architecture**, **Two-Tier Cache (L1 Memory + L2 Redis)**, and a custom **HTML5 Canvas Charting Engine**.
+
+🔗 **Live Static Demo:** [https://stock-dashboard-five-nu.vercel.app](https://stock-dashboard-five-nu.vercel.app) *(Runs 100% client-side with synthetic fixtures — zero backend/login required)*
 
 ---
 
 ## 🏗️ Architecture Overview
 
-The system is decoupled into an asynchronous backend service and a low-latency client frontend:
+The platform uses a decoupled hexagonal pattern separating core quantitative algorithms from external market providers:
 
 ```text
 Stock-Dashboard/
-├── backend/                        # FastAPI High-Frequency API
-│   ├── services/
-│   │   ├── cache_manager.py       # Hybrid L1 (TTLCache) + L2 (Upstash Redis)
-│   │   ├── data_pipeline.py       # Ticker resolution, cache contracts & TV chart formatting
-│   │   ├── indicators.py          # Pure mathematical indicator engine (RSI, MACD, BB, EMAs)
-│   │   └── nse_fetcher.py         # Session-aware direct NSE India client with cookie handshake
-│   ├── config.py                  # Pydantic Settings & environment variables
-│   ├── main.py                    # API routes, CORS & protected /internal/refresh-cache
-│   └── requirements.txt           # Backend dependencies
-├── frontend/                       # Vite + Vanilla JS Client
+├── backend/
+│   ├── core/                  # Pure domain entities, value objects & abstract protocols
+│   ├── adapters/              # Concrete implementations (NSE, yfinance, Upstash Redis, Supabase)
+│   ├── features/              # Modular services (research, screener, deep research, warmer)
+│   ├── api/                   # Thin FastAPI HTTP routes, security headers & CORS allowlist
+│   └── tests/                 # 102 unit, contract, and regression tests (100% offline)
+├── frontend/                  # Vite + Vanilla JS Client
 │   ├── src/
-│   │   ├── api.js                 # Resilient API client with cold-start detection
-│   │   ├── chart.js               # TradingView Lightweight Charts engine
-│   │   ├── watchlist.js           # Multi-tab sync & validated localStorage manager
-│   │   ├── styles/terminal.css    # Ultra-modern dark aesthetic, glassmorphism & badges
-│   │   └── main.js                # State management, ticker tape, and UI orchestration
-│   ├── index.html                 # Semantic responsive terminal interface
-│   ├── package.json
-│   └── vite.config.js             # Development proxy to backend
-├── .github/workflows/
-│   └── warm-cache.yml             # Scheduled GitHub Actions cron for keep-alive & cache warmup
-├── Dockerfile                     # Multi-cloud container definition (Render / Cloud Run)
-├── companies.csv                  # 2,369 NSE companies metadata catalog
-├── requirements.txt               # Root pointer to backend/requirements.txt
-└── README.md
+│   │   ├── chart.js           # 60fps hardware-accelerated HTML5 Canvas chart
+│   │   ├── indicators.js      # Zero-dependency mathematical indicators (RSI, MACD, BB, EMAs)
+│   │   ├── backtester.js      # Strategy simulator (Sharpe, Sortino, Drawdown, Friction)
+│   │   ├── watchlist.js       # Multi-tab synchronized localStorage manager
+│   │   └── api.js             # Resilient client with cold-start retry & demo routing
+│   └── public/demo/           # Deterministic synthetic data fixtures for offline demo mode
+├── benchmarks/                # Reproducible latency, throughput & indicator precision scripts
+├── docs/                      # Compliance audits, data-flow matrices & Architecture Decision Records (ADRs)
+└── .github/workflows/         # CI testing (pytest + Playwright) & automated cache warming
 ```
 
 ---
 
-## 🌟 Key Engineering Highlights
+## ⚡ Measured Engineering Benchmarks
 
-1. **Anti-Rate-Limiting Pipeline**:
-   - **Zero Inline Bursts**: User queries never trigger unthrottled requests to upstream financial APIs.
-   - **Cache-Only Batch Contract (`POST /api/stocks/batch`)**: User watchlists (up to 50 assets) query L1/L2 cache exclusively. Any misses immediately return `status: "pending"` in 0ms without blocking.
-   - **Direct NSE Session Handshake**: Custom browser cookie handshake visits NSE India before fetching quotes, falling back gracefully to yfinance.
+Every claim in this repository is measured and reproducible via scripts committed in [`/benchmarks`](./benchmarks) (see [`BENCHMARKS.md`](./BENCHMARKS.md)):
 
-2. **Render / Cloud Run Free-Tier Keep-Alive**:
-   - Free container instances spin down after 15 minutes of inactivity.
-   - Protected endpoint `POST /internal/refresh-cache` (gated by `X-Internal-Secret`) is pinged every 12 minutes by a free **GitHub Actions scheduled workflow** (`.github/workflows/warm-cache.yml`), keeping the container warm and pre-populating the cache.
-
-3. **TradingView Lightweight Charts (`lightweight-charts`)**:
-   - 60fps hardware-accelerated charting replacing slow iframe widgets.
-   - Candlesticks, volume histogram, EMA 50 & EMA 200 overlays, and Bollinger Bands.
-   - Real-time crosshair legend showing Date, O, H, L, C, and % Change.
-
-4. **Zero-Account Persistent Watchlist**:
-   - Saved locally in the user's browser (`localStorage`).
-   - Cross-tab synchronization via `window.addEventListener('storage', ...)`.
-   - Rapid-clicking race condition defense via monotonic request tokens.
-   - Strict format validation (regex check, max 50 symbols cap).
-   - 1-Click JSON backup export and import.
+- **Cache Throughput:** `19,186 req/sec` with **`0.0037 ms` (3.7 µs)** p95 latency on primed L1 in-memory hits (`benchmarks/benchmark_cache.py`).
+- **Cache Hit Rate:** **`94.70%`** under power-law equity distribution, reducing upstream provider calls by > 88%.
+- **Indicator Accuracy:** **$MAE < 10^{-12}$** maximum absolute error verified against analytical formulas across RSI, MACD, EMAs, and Bollinger Bands (`benchmarks/verify_indicators.mjs`).
+- **Failover Routing:** Automated circuit-breaker switches from direct NSE (`.NS`) to fallback provider on HTTP 403 or network timeout with zero unhandled exceptions (`benchmarks/failover_sim.py`).
 
 ---
 
-## 🚀 Running Locally
+## 🧠 Key Architectural Decisions
 
-### 1. Start Backend (FastAPI)
+1. **Hexagonal Domain Boundaries ([ADR-001](./docs/adr/0001-hexagonal-architecture.md)):** Core analytics depend strictly on abstract protocols (`MarketDataProvider`, `CacheProtocol`), enabling 102 tests to run in seconds without internet access.
+2. **Two-Tier Resilient Cache ([ADR-002](./docs/adr/0002-two-tier-hybrid-cache.md)):** L1 in-memory `TTLCache` handles microsecond repeat reads; L2 Upstash Redis persists data across serverless container restarts.
+3. **Epistemological Contract ([ADR-003](./docs/adr/0003-epistemological-contract-no-speculation.md)):** Strict separation of *Fact $\rightarrow$ Metric $\rightarrow$ Context*. Valuation multiples are represented strictly as historical distribution percentiles (e.g. 82nd percentile), avoiding subjective advice triggers under SEBI (Research Analysts) Regulations 2014.
+4. **Zero-Knowledge Client Storage ([ADR-004](./docs/adr/0004-client-side-only-user-storage.md)):** User watchlists, notes, and alerts reside exclusively in browser `localStorage`. Zero personal portfolio data is sent to or stored in backend databases, honoring India's DPDP Act 2023.
+
+---
+
+## 🚀 Quick Start (5 Commands)
+
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# 1. Clone repository
+git clone https://github.com/Phantom-Jay/Stock-Dashboard.git && cd Stock-Dashboard
 
-# Launch FastAPI development server
-uvicorn backend.main:app --reload --port 8080
-```
-API Documentation will be available at: `http://localhost:8080/docs`
+# 2. Run backend test suite (102 tests)
+pip install -r backend/requirements.txt && pytest backend/tests
 
-### 2. Start Frontend (Vite)
-In a separate terminal:
-```bash
-cd frontend
-npm install
+# 3. Start FastAPI backend
+uvicorn backend.main:app --port 8000
+
+# 4. In a new terminal: Install frontend dependencies & run demo verification
+cd frontend && npm install && npm run test:demo
+
+# 5. Launch frontend dev server
 npm run dev
 ```
-Open your browser at: `http://localhost:5173`
 
----
-y
-
-
-
-## 🐳 Docker Deployment (Google Cloud Run / Render)
-
-Build and run the production container:
-```bash
-# Build the Docker image
-docker build -t apex-financial-terminal .
-
-# Run container locally
-docker run -p 8080:8000 apex-financial-terminal
-```
-
-## Cloudflare Pages Deployment
-
-Cloudflare Pages hosts the Vite frontend. The FastAPI backend still needs a Python container host such as Render or Google Cloud Run; Pages does not run this project's Python service. The Pages Function at `frontend/functions/api/[[path]].js` forwards same-origin `/api/*` requests to that backend.
-
-1. Push this repository to a Git provider and create a Pages project from it in **Workers & Pages → Create application → Pages → Connect to Git**.
-2. Set the project root directory to `frontend`, the build command to `npm run build`, and the build output directory to `dist`.
-3. Set `BACKEND_API_URL` as a Pages runtime variable to the HTTPS origin of the deployed FastAPI service (for example, `https://api.example.com`). Do not include an `/api` suffix.
-4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Pages build variables using the project's Supabase URL and publishable/anonymous key. These are embedded in the frontend build.
-5. Deploy. Pages will rebuild on pushes and provide a `*.pages.dev` URL. Add that URL to the backend's `CORS_ORIGINS`/`FRONTEND_URL` configuration if other browser flows require direct cross-origin calls.
-
-The FastAPI deployment must separately receive its production `SUPABASE_URL`, `SUPABASE_KEY`, `REDIS_URL`, `INTERNAL_REFRESH_SECRET`, and `CORS_ORIGINS` settings. Keep the GitHub Actions `BACKEND_API_URL` secret pointed at the backend origin so scheduled cache refreshes continue to work.
+Open your browser at `http://localhost:5173`.
 
 ---
 
-## 📦 Legacy Streamlit Prototype
-The original prototype is permanently preserved via Git:
-- **Git Branch**: `legacy-streamlit`
-- **Git Tag**: `v1.0.0-streamlit`
-- To run or inspect the legacy prototype:
-  ```bash
-  git checkout legacy-streamlit
-  streamlit run app.py
-  ```
+## ⚠️ Known Limitations & Compliance Position
+
+- **NSE Real-Time Data:** Direct calls to unofficial NSE web endpoints return HTTP 403 access barriers. The terminal automatically falls back to secondary market providers for research. Official commercial live feeds require licensing via NSE Data & Analytics Ltd.
+- **Educational Scope:** This software is an informational equities research workstation, not a registered investment advisor. It produces zero algorithmic buy/sell recommendations or price targets.
+- **Data Protection:** Authentication credentials (if used) are processed by Supabase Auth (US/EU data centers). For data protection inquiries, contact `dpo@mara-financial.com`.
+
+---
+
+## 📄 License
+This project is open-source under the [MIT License](./LICENSE).

@@ -285,6 +285,10 @@ export class MarketWebSocket {
   }
 
   connect() {
+    if (IS_DEMO) {
+      console.log('[MarketWS] Demo mode active - live WebSocket disabled');
+      return Promise.resolve();
+    }
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) return Promise.resolve();
 
     // If we're on a known unsupported platform, skip WebSocket and use polling immediately
