@@ -14,7 +14,6 @@ async def verify_all():
     from backend.adapters.cache.memory_cache import MemoryCache
     from backend.features.research.service import ResearchService
     from backend.features.deep_research.service import DeepResearchService
-    from backend.features.sector_intelligence.service import SectorIntelligenceService
     from backend.core.contracts.events import InMemoryEventBus, set_event_bus
 
     results = []
@@ -93,11 +92,24 @@ async def verify_all():
 
         results.append(result)
 
-    # 5. Sector intelligence
+    # 5. Deep Research endpoint (also serves sector intelligence)
+    print(f"\n--- Testing Deep Research Endpoint ---")
+    try:
+        deep_service = DeepResearchService(cache=cache, market_data=provider)
+        for symbol in test_symbols[:1]:  # Test one
+            deep = await deep_service.get_deep_research(symbol)
+            if deep and "health_score" in deep:
+                print(f"[OK] SUCCESS - {symbol} deep research")
+            else:
+                print("[FAIL] FAILED - {symbol}")
+    except Exception as e:
+        print(f"[ERROR] {e}")
+
+    # 5b. Sector intelligence (now served by DeepResearchService after the
+    # sector_intelligence feature was merged into deep_research)
     print(f"\n--- Testing Sector Intelligence ---")
     try:
-        sector_service = SectorIntelligenceService(cache=cache, market_data=provider)
-        sector_data = await sector_service.get_sector_intelligence()
+        sector_data = await deep_service.get_sector_intelligence()
         if sector_data and "sectors" in sector_data:
             print(f"[OK] SUCCESS - {len(sector_data['sectors'])} sectors")
         else:
@@ -113,19 +125,6 @@ async def verify_all():
             research = await research_service.get_research(symbol)
             if research and "research_dossier" in research:
                 print(f"[OK] SUCCESS - {symbol} research dossier")
-            else:
-                print(f"[FAIL] FAILED - {symbol}")
-    except Exception as e:
-        print(f"[ERROR] {e}")
-
-    # 7. Deep Research endpoint
-    print(f"\n--- Testing Deep Research Endpoint ---")
-    try:
-        deep_service = DeepResearchService(cache=cache, market_data=provider)
-        for symbol in test_symbols[:1]:  # Test one
-            deep = await deep_service.get_deep_research(symbol)
-            if deep and "health_score" in deep:
-                print(f"[OK] SUCCESS - {symbol} deep research")
             else:
                 print(f"[FAIL] FAILED - {symbol}")
     except Exception as e:

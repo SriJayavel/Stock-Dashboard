@@ -4,12 +4,14 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // Backend runs on 8080 (Dockerfile EXPOSE, main.py default, test_visual.js).
+      // 8001 was a stale value that silently broke local dev proxying.
       '/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8080',
         changeOrigin: true,
       },
       '/internal': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8080',
         changeOrigin: true,
       }
     }
