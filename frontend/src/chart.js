@@ -6,6 +6,9 @@
 import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition } from './indicators.js';
 import { getAccountStorageKey } from './auth.js';
 
+const bullColor = '#10b981';
+const bearColor = '#f43f5e';
+
 export function resampleCandles(candles = [], interval = 'D') {
   if (['1m', '2m', '5m', '15m', '30m', '60m', '1h', '1d'].includes(interval)) return candles || [];
   const groups = new Map();
@@ -324,9 +327,15 @@ export class TerminalChart {
   }
 
   setData(data, preserveRange = false) {
+    this.currentData = data;
+    if (data?.interval) this.activeInterval = data.interval;
     if (!data?.candles?.length) {
       this.currentCandles = [];
       this.rawDailyCandles = [];
+      this.lastBar = null;
+      this.pointer = null;
+      if (this.tooltip) this.tooltip.replaceChildren();
+      this.resetCornerLegend(data?.symbol, this.activeInterval);
       this.unavailableMessage = data?.message || (data?.range_note ? `${data.range_note}` : `${this.activeInterval || '1m'} data unavailable for selected range`);
       this.render();
       return;
@@ -334,8 +343,6 @@ export class TerminalChart {
     this.unavailableMessage = null;
     this.rangeNote = data?.range_note || null;
     this.rawDailyCandles = [...(data.candles || [])];
-    this.currentData = data;
-    if (data.interval) this.activeInterval = data.interval;
     this.applyInterval(this.activeInterval, preserveRange);
   }
 
@@ -345,7 +352,7 @@ export class TerminalChart {
     this.currentCandles = [...resampleCandles(this.rawDailyCandles, interval)];
     this.activeIndicators.forEach((i) => this.computeAndApplyIndicator(i, this.currentCandles));
     const int = document.getElementById('tv-leg-interval');
-    if (int) int.textContent = interval.toUpperCase();
+    if (int) int.textContent = { '1wk': '1W', '1mo': '1M' }[interval] || interval.toUpperCase();
     if (!preserveRange) this.setVisibleRangeByName(this.activeRange);
     else this.render();
     const last = this.currentCandles.at(-1);
@@ -379,11 +386,18 @@ export class TerminalChart {
       this.render();
       return;
     }
-    if (upperName === '1M') date.setUTCMonth(date.getUTCMonth() - 1);
-    else if (upperName === '3M') date.setUTCMonth(date.getUTCMonth() - 3);
-    else if (upperName === '6M') date.setUTCMonth(date.getUTCMonth() - 6);
+    if (upperName === '1D' || upperName === '5D') {
+      this.endIndex = bars.length;
+      const daily = ['D', '1d'].includes(this.activeInterval);
+      this.visibleCount = Math.min(bars.length, upperName === '5D' && daily ? 5 : 1);
+      this.render();
+      return;
+    }
+    if (upperName === '1M' || upperName === '1MO') date.setUTCMonth(date.getUTCMonth() - 1);
+    else if (upperName === '3M' || upperName === '3MO') date.setUTCMonth(date.getUTCMonth() - 3);
+    else if (upperName === '6M' || upperName === '6MO') date.setUTCMonth(date.getUTCMonth() - 6);
     else if (upperName === 'YTD') date.setUTCFullYear(date.getUTCFullYear(), 0, 1);
-    else if (upperName === '1Y' || upperName === '1Y' || upperName === '2Y') date.setUTCFullYear(date.getUTCFullYear() - (upperName === '1Y' ? 1 : 2));
+    else if (upperName === '1Y' || upperName === '2Y') date.setUTCFullYear(date.getUTCFullYear() - (upperName === '1Y' ? 1 : 2));
     else if (upperName === '5Y') date.setUTCFullYear(date.getUTCFullYear() - 5);
     else if (upperName === 'ALL') {
       this.endIndex = bars.length;
@@ -400,7 +414,7 @@ export class TerminalChart {
     }
     const from = bars.findIndex((b) => new Date(`${dateString(b.time)}T00:00:00Z`) >= date);
     this.endIndex = bars.length;
-    this.visibleCount = Math.max(20, bars.length - Math.max(0, from));
+    this.visibleCount = bars.length - Math.max(0, from);
     this.render();
   }
 
@@ -579,8 +593,6 @@ export class TerminalChart {
     const bg = isLight ? '#ffffff' : '#0f1117';
     const grid = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.035)';
     const muted = isLight ? '#64748b' : '#94a3b8';
-    const bullColor = '#10b981'; // Emerald
-    const bearColor = '#f43f5e'; // Rose
     c.clearRect(0, 0, w, h);
     c.fillStyle = bg;
     c.fillRect(0, 0, w, h);

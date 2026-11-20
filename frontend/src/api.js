@@ -61,6 +61,11 @@ const DEMO_STOCKS = new Set([
   'AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA',
 ]);
 
+function normalizeChartRange(range) {
+  const value = range.toLowerCase();
+  return { '1m': '1mo', '3m': '3mo', '6m': '6mo', all: 'max' }[value] || value;
+}
+
 function demoStockFile(symbol, suffix) {
   const safe = symbol.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
   // Strip query params from suffix (e.g. "history?timeframe=1d" -> "history")
@@ -71,6 +76,26 @@ function demoStockFile(symbol, suffix) {
 async function readFixture(path) {
   const response = await fetch(path);
   return response.ok ? response.json() : null;
+}
+
+async function demoChartHistory(symbol, interval) {
+  const unavailable = { symbol, interval, candles: [], demo_mode: true, freshness: 'unavailable' };
+  if (!DEMO_STOCKS.has(symbol)) {
+    return { ...unavailable, message: 'No synthetic price history is available for this symbol.' };
+  }
+  if (!['1d', '1wk', '1mo'].includes(interval)) {
+    return { ...unavailable, message: 'Intraday history is unavailable in demo mode. Choose 1D, 1W, or 1M.' };
+  }
+  const fixture = await readFixture(demoStockFile(symbol, 'candles'));
+  const last = fixture?.candles?.at(-1);
+  if (!last) return { ...unavailable, message: 'No synthetic price history is available for this symbol.' };
+  return {
+    ...fixture,
+    interval,
+    freshness: 'synthetic',
+    data_source: 'Synthetic demo',
+    last_updated: new Date(last.time * 1000).toISOString(),
+  };
 }
 
 function demoOverview(quote) {
@@ -174,8 +199,7 @@ async function demoFetch(url, options) {
   }
   if (pathOnly === '/api/rss/news') return { items: [], source: 'Demo' };
   if (pathOnly === '/api/markets/candles') {
-    const symbol = params.get('symbol');
-    return DEMO_STOCKS.has(symbol) ? readFixture(demoStockFile(symbol, 'candles')) : { candles: [] };
+    return demoChartHistory(params.get('symbol'), params.get('interval') || '1m');
   }
   let demoUrl;
   if (DEMO_ROUTES[pathOnly]) {
@@ -184,10 +208,25 @@ async function demoFetch(url, options) {
     const parts = pathOnly.split('/');
     const symbol = decodeURIComponent(parts[3] || '');
     const suffix = parts[4] || 'overview';
-    if (!DEMO_STOCKS.has(symbol)) {
-      return suffix === 'history' ? { candles: [], freshness: 'unavailable', message: 'No synthetic history for this symbol.' } : null;
+    if (suffix === 'history') return demoChartHistory(symbol, params.get('interval') || '1d');
+    if (suffix === 'overview' && !DEMO_STOCKS.has(symbol)) {
+      const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview']);
+      const quote = [...(snapshot?.indices || []), ...(snapshot?.forex || []), ...(snapshot?.commodities || [])]
+        .find((item) => item.symbol === symbol);
+      return {
+        ...quote,
+        symbol,
+        name: quote?.name || symbol,
+        current_price: quote?.price ?? null,
+        data_source: 'Synthetic demo',
+        last_updated: snapshot?.timestamp,
+        demo_snapshot_only: true,
+      };
     }
-    demoUrl = demoStockFile(symbol, suffix === 'history' ? 'candles' : suffix);
+    if (!DEMO_STOCKS.has(symbol)) {
+      return null;
+    }
+    demoUrl = demoStockFile(symbol, suffix);
     if (suffix === 'overview') return (await getDemoCatalog()).get(symbol) || null;
   } else {
     return null;
@@ -300,14 +339,14 @@ class ApiClient {
   async getStockHistory(symbol, timeframe = 'max', interval = '1d') {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(
-      `/api/stocks/${encodeURIComponent(sym)}/history?timeframe=${timeframe}&interval=${interval}`
+      `/api/stocks/${encodeURIComponent(sym)}/history?timeframe=${normalizeChartRange(timeframe)}&interval=${interval}`
     );
   }
 
   async getMarketCandles(symbol, interval = '1m', range = '1d') {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(
-      `/api/markets/candles?symbol=${encodeURIComponent(sym)}&interval=${interval}&range=${range}`
+      `/api/markets/candles?symbol=${encodeURIComponent(sym)}&interval=${interval}&range=${normalizeChartRange(range)}`
     );
   }
 

@@ -79,6 +79,25 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await page.locator('#search-dropdown').getByRole('option', { name: /AAPL/ }).click();
     await expect(page).toHaveURL(/AAPL/);
     await expect(page.locator('#tv-chart-container canvas').first()).toBeVisible();
+    const aapl = await (await page.request.get('/demo/candles-AAPL.json')).json();
+    await expect(page.locator('#tv-leg-close')).toHaveText(aapl.candles.at(-1).close.toFixed(2));
+    await expect(page.locator('#tv-data-badge')).toHaveText('SYNTHETIC');
+
+    await page.locator('#range-group [data-range="5D"]').click();
+    await expect.poll(() => page.evaluate(() => window.apexChartInstance.visibleCount)).toBe(5);
+    await page.locator('#interval-group [data-interval="1wk"]').click();
+    await expect(page.locator('#tv-leg-interval')).toHaveText('1W');
+    await expect.poll(() => page.evaluate(() => window.apexChartInstance.currentCandles.length))
+      .toBeLessThan(aapl.candles.length);
+    await page.locator('#interval-group [data-interval="5m"]').click();
+    await expect(page.locator('#tv-bb-status')).toContainText('Intraday history is unavailable in demo mode');
+    await expect(page.locator('#tv-leg-close')).toHaveText('—');
+    await page.locator('#interval-group [data-interval="1d"]').click();
+    await expect(page.locator('#tv-leg-close')).toHaveText(aapl.candles.at(-1).close.toFixed(2));
+
+    await page.goto('/#/symbol/%5ENSEI/chart');
+    await expect(page.locator('#tv-bb-status')).toHaveText('No synthetic price history is available for this symbol.');
+    await expect(page.locator('#tv-leg-close')).toHaveText('—');
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#/markets');

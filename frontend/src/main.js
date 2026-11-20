@@ -2025,6 +2025,24 @@ export function updateChartTelemetry(meta) {
   const provStatus = document.getElementById('provenance-status');
   const provTime = document.getElementById('provenance-timestamp');
 
+  if (meta.demo_mode) {
+    const date = meta.last_updated?.slice(0, 10);
+    const available = Boolean(meta.candles?.length);
+    if (dataBadge) {
+      dataBadge.textContent = available ? 'SYNTHETIC' : 'UNAVAILABLE';
+      dataBadge.className = 'tv-data-badge cached';
+      dataBadge.title = 'Synthetic demo data';
+    }
+    if (marketBadge) marketBadge.textContent = 'DEMO';
+    if (bbStatus) bbStatus.textContent = meta.message || 'Synthetic price history';
+    if (bbTz) bbTz.textContent = 'UTC';
+    if (bbAge) bbAge.textContent = date ? `Last demo bar ${date}` : '';
+    if (provSource) provSource.textContent = 'Source: Synthetic demo';
+    if (provStatus) provStatus.textContent = available ? 'Synthetic history' : 'Unavailable';
+    if (provTime) provTime.textContent = date || '—';
+    return;
+  }
+
   // Track timestamps
   lastDataArrivalTimestamp = Date.now();
   if (meta.last_updated) lastServerDataTimestamp = meta.last_updated;
@@ -2234,7 +2252,6 @@ export function syncHeaderPriceFromQuote(quote, currSym = '₹') {
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
     // Add redundant cue for accessibility - visual symbol in badge
-    stockChangeBadge.textContent = isUp ? '+' : '−';
     // Also keep data attribute for programmatic access
     stockChangeBadge.setAttribute('data-change', isUp ? 'up' : 'down');
   }
@@ -2255,6 +2272,7 @@ export function startIntradayChartWorker(symbol, interval) {
     }
   };
   window.startIntradayChartWorker = startIntradayChartWorker;
+  if (isDemoMode()) return;
 
   const activeInt = interval || currentChartInterval || '1m';
   const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(activeInt);
@@ -3516,6 +3534,7 @@ async function loadStock(symbol, timeframe = '1y') {
     renderStockOverview(overview);
 
     await chartPromise;
+    if (overview.demo_snapshot_only) return;
 
     // 3. Fetch Research Core Dossier & Multi-Year Statements
     loadStockResearch(symbol, token);
@@ -3719,7 +3738,7 @@ function renderStockOverview(data) {
   const currSym = data.currency_symbol || getCurrencySymbol(data.symbol, data.currency);
 
   if (stockPrice) {
-    stockPrice.textContent = `${currSym}${data.current_price != null ? data.current_price.toFixed(decimals) : '0.00'}`;
+    stockPrice.textContent = data.current_price != null ? `${currSym}${data.current_price.toFixed(decimals)}` : '—';
 
     // Live-price 300ms flash (emerald / rose)
     if (lastStockPrice !== null && data.current_price !== lastStockPrice) {
@@ -3737,25 +3756,18 @@ function renderStockOverview(data) {
   }
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
-    // Add redundant cue for accessibility
-    stockChangeBadge.textContent = isUp ? '+' : '−';
   }
 
   // Sync TradingView Chrome Top Bar & Corner Legend
   const tvTbSymbol = document.getElementById('tv-tb-symbol');
   const tvTbName = document.getElementById('tv-tb-name');
   const tvLegSym = document.getElementById('tv-leg-sym');
-  const tvLegInterval = document.getElementById('tv-leg-interval');
   const tvBbStatus = document.getElementById('tv-bb-status');
   const alertFormSymbol = document.getElementById('alert-form-symbol');
 
   if (tvTbSymbol) tvTbSymbol.textContent = data.symbol;
   if (tvTbName) tvTbName.textContent = data.name || data.symbol;
   if (tvLegSym) tvLegSym.textContent = data.symbol;
-  if (tvLegInterval) {
-    const activeInt = chartInstance?.activeInterval || 'D';
-    tvLegInterval.textContent = activeInt === 'W' ? '1W' : (activeInt === 'M' ? '1M' : '1D');
-  }
   if (alertFormSymbol) alertFormSymbol.textContent = data.symbol;
 
   // Sync Mara Context Inspector Panel
@@ -3771,6 +3783,7 @@ let statusAgeTimer = null;
 let lastDataTimestamp = null;
 
 function updateStatusBar(source, exchange, timezone, lastUpdated) {
+  if (isDemoMode()) return;
   const statusEl = document.getElementById('tv-bb-status');
   const tzEl = document.getElementById('tv-bb-tz');
   const ageEl = document.getElementById('tv-bb-age');
