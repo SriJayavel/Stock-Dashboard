@@ -3009,23 +3009,17 @@ body.authenticated .mara-app {
 .mara-app.is-demo #ws-status-indicator { display: none; }
 
 .markets-page-heading {
-  margin: 0 0 1rem;
-  padding: clamp(1.25rem, 1rem + 2vw, 2.6rem);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background:
-    radial-gradient(ellipse at 96% 0%, rgba(var(--accent-rgb), .14), transparent 64%),
-    var(--surface);
+  margin: 0 0 1.25rem;
 }
 
 .markets-page-heading h1 {
-  font: 650 clamp(2rem, 1.4rem + 2.5vw, 3.5rem)/1.1 var(--font-display);
+  font: 650 clamp(1.75rem, 1.3rem + 1.5vw, 2.65rem)/1.1 var(--font-display);
   letter-spacing: -.045em;
 }
 
 .markets-page-heading p {
   max-inline-size: 62ch;
-  margin-block-start: .7rem;
+  margin-block-start: .45rem;
   font-size: .875rem;
 }
 
@@ -3042,7 +3036,13 @@ body.authenticated .mara-app {
   flex-wrap: wrap;
 }
 
-.market-ticker-strip { background: var(--bg-deep); }
+.market-ticker-strip {
+  min-block-size: 3.75rem;
+  margin-block-end: .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-deep);
+}
 .market-ticker-item:focus-visible { outline-offset: -3px; }
 .mara-unified-header #cmd-hint-text { display: none; }
 .mara-unified-header .mara-cmd-input { min-inline-size: 0; }
@@ -3052,7 +3052,43 @@ body.authenticated .mara-app {
   color: inherit;
   text-align: start;
 }
-.mara-nav-rail { inline-size: 12rem; min-inline-size: 12rem; }
+.mara-unified-header {
+  gap: .75rem;
+  border-radius: 0 !important;
+  background: var(--bg-deep);
+}
+
+.mara-unified-header .mara-brand-group {
+  text-decoration: none;
+}
+
+.mara-unified-header .mara-ws-tabs {
+  min-inline-size: 0;
+  padding: .15rem;
+  border: 0;
+  background: transparent;
+}
+
+.mara-unified-header .mara-ws-tab-btn {
+  position: relative;
+  padding-inline: .65rem;
+  font-size: .8125rem;
+}
+
+.mara-unified-header .mara-ws-tab-btn[aria-selected="true"] {
+  color: var(--accent);
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.mara-unified-header .mara-header-btn {
+  min-inline-size: 2.25rem;
+  min-block-size: 2.25rem;
+}
+
+.workspace-scroll-wrap {
+  max-inline-size: 96rem;
+  margin-inline: auto;
+}
 
 .benchmark-panel {
   border: 1px solid var(--border);
@@ -3060,6 +3096,15 @@ body.authenticated .mara-app {
   background: var(--surface);
   padding: clamp(.65rem, 1.5vw, 1.25rem);
 }
+
+.benchmark-panel .section-sub-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+}
+
+.benchmark-panel .benchmark-toolbar { margin: 0; gap: .5rem; }
+.benchmark-panel .benchmark-actions { flex-wrap: wrap; }
 
 .benchmark-panel .benchmark-board-professional {
   overflow-x: auto;
@@ -3079,15 +3124,50 @@ body.authenticated .mara-app {
 .mara-status-bar a { color: var(--text-dim); }
 .mara-status-bar a:hover { color: var(--accent); }
 
+@media (min-width: 768px) and (max-width: 1199px) {
+  .mara-unified-header {
+    grid-template-columns: auto minmax(9rem, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: .25rem .75rem;
+    padding-block: .4rem;
+  }
+
+  .mara-unified-header .mara-brand-group { grid-area: 1 / 1; }
+  .mara-unified-header .mara-cmd-surface { grid-area: 1 / 2; }
+  .mara-unified-header .mara-header-utilities { grid-area: 1 / 3; }
+  .mara-unified-header .mara-ws-tabs { grid-area: 2 / 1 / 3 / -1; }
+}
+
+@media (min-width: 1200px) and (max-width: 1280px) {
+  .mara-unified-header { grid-template-columns: auto minmax(9rem, 1fr) auto auto; }
+  .mara-unified-header .mara-active-asset-strip { display: none; }
+}
+
 @media (max-width: 767px) {
   .workspace-scroll-wrap { padding: .75rem .75rem 2rem; }
+  .market-ticker-heading { display: none; }
+  .markets-page-heading { margin-block-end: .75rem; }
   .mara-header-utilities { flex-wrap: wrap; justify-content: flex-end; }
-  .mara-unified-header { grid-template-rows: minmax(2.5rem, auto) 2.5rem 2.5rem; }
-  .mara-ws-tab-btn { min-block-size: 2.25rem; }
+  .mara-unified-header { grid-template-rows: minmax(2.5rem, auto) 2.5rem auto; }
+  .mara-unified-header .mara-ws-tabs { flex-wrap: wrap; }
+  .mara-unified-header .mara-ws-tab-btn {
+    flex: 0 0 auto;
+    min-inline-size: 0;
+    min-block-size: 2.25rem;
+    padding-inline: .45rem;
+    font-size: .75rem;
+  }
   .benchmark-panel .benchmark-filter-group {
     flex-wrap: wrap;
     justify-content: flex-start;
   }
+  .benchmark-panel .benchmark-filter-btn { padding-inline: .5rem; }
+  .benchmark-panel .benchmark-actions { justify-content: flex-start; }
+}
+
+@media (max-width: 479px) {
+  .markets-status-strip .status-desks { display: none; }
+  .markets-status-strip .status-strip-right { margin-inline-start: 0; }
 }
 
 /* Reduced motion */

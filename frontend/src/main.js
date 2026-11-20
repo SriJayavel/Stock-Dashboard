@@ -376,13 +376,8 @@ export async function setWorkspace(workspaceName, subTab = null) {
   document.querySelectorAll('#top-nav-workspaces .top-ws-btn').forEach((btn) => {
     const isTarget = btn.getAttribute('data-workspace') === workspaceName;
     btn.classList.toggle('active', isTarget);
-    btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
-  });
-
-  // 1b. Left Navigation Rail buttons
-  document.querySelectorAll('#mara-nav-rail .mara-rail-btn[data-workspace-rail]').forEach((btn) => {
-    const isTarget = btn.getAttribute('data-workspace-rail') === workspaceName;
-    btn.classList.toggle('active', isTarget);
+    btn.setAttribute('aria-selected', String(isTarget));
+    btn.tabIndex = isTarget ? 0 : -1;
   });
 
   // 1c. Status Bar workspace label
@@ -568,7 +563,8 @@ export function setMonitorSubTab(subTab) {
 // Workspace Navigation Controls Setup
 function setupWorkspaceControls() {
   // Top Workspace Nav Buttons
-  document.querySelectorAll('#top-nav-workspaces .top-ws-btn[data-workspace]').forEach((btn) => {
+  const workspaceTabs = Array.from(document.querySelectorAll('#top-nav-workspaces .top-ws-btn[data-workspace]'));
+  workspaceTabs.forEach((btn, index) => {
     btn.addEventListener('click', () => {
       const ws = btn.getAttribute('data-workspace');
       if (ws === 'analyze') {
@@ -584,6 +580,20 @@ function setupWorkspaceControls() {
       } else if (ws === 'monitor') {
         router.navigate(router.formatWorkspaceRoute('monitor', null, currentMonitorTab || 'watchlist'));
       }
+    });
+
+    btn.addEventListener('keydown', (event) => {
+      const last = workspaceTabs.length - 1;
+      const targets = {
+        ArrowLeft: index === 0 ? last : index - 1,
+        ArrowRight: index === last ? 0 : index + 1,
+        Home: 0,
+        End: last,
+      };
+      const target = workspaceTabs[targets[event.key]];
+      if (!target) return;
+      event.preventDefault();
+      target.focus();
     });
   });
 
@@ -667,25 +677,7 @@ function setupWorkspaceControls() {
     });
   }
 
-  // Left Navigation Rail Workspace buttons
-  document.querySelectorAll('#mara-nav-rail .mara-rail-btn[data-workspace-rail]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const ws = btn.getAttribute('data-workspace-rail');
-      if (ws === 'analyze') {
-        router.navigate(router.formatSymbolRoute(currentSymbol || 'TCS.NS', currentAnalyzeTab || 'chart'));
-      } else if (ws === 'discover') {
-        router.navigate('/discover');
-      } else if (ws === 'markets') {
-        router.navigate('/markets');
-      } else if (ws === 'compare') {
-        router.navigate(router.formatWorkspaceRoute('compare', currentSymbol || 'TCS.NS'));
-      } else if (ws === 'research') {
-        router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', currentResearchTab || 'news'));
-      } else if (ws === 'monitor') {
-        router.navigate(router.formatWorkspaceRoute('monitor', null, currentMonitorTab || 'watchlist'));
-      }
-    });
-  });
+
 }
 
 // ============================================================================
@@ -698,7 +690,6 @@ function setupMaraShellControls() {
 
   // 1. Context Inspector Panel Toggle
   const contextToggle = document.getElementById('mara-context-toggle');
-  const railContextBtn = document.getElementById('rail-context-btn');
   const closeContextBtn = document.getElementById('close-context-panel-btn');
 
   function toggleContextPanel() {
@@ -708,9 +699,6 @@ function setupMaraShellControls() {
       contextToggle.setAttribute('aria-expanded', String(isOpen));
       const span = contextToggle.querySelector('span');
       if (span) span.textContent = isOpen ? 'Inspector ◨' : 'Inspector ◻';
-    }
-    if (railContextBtn) {
-      railContextBtn.classList.toggle('active', isOpen);
     }
     // Resize chart if analyze workspace is open
     if (chartInstance && currentActiveWorkspace === 'analyze') {
@@ -722,7 +710,6 @@ function setupMaraShellControls() {
   }
 
   if (contextToggle) contextToggle.addEventListener('click', toggleContextPanel);
-  if (railContextBtn) railContextBtn.addEventListener('click', toggleContextPanel);
   if (closeContextBtn) closeContextBtn.addEventListener('click', toggleContextPanel);
 
   // On tablet and mobile (< 1024px), default context panel to closed to prioritize canvas
@@ -734,7 +721,6 @@ function setupMaraShellControls() {
       const span = contextToggle.querySelector('span');
       if (span) span.textContent = 'Inspector ◻';
     }
-    if (railContextBtn) railContextBtn.classList.remove('active');
   }
 
   // 2. Information Density Modes (Compact / Normal / Focus)
@@ -763,72 +749,6 @@ function setupMaraShellControls() {
 
   // View Switcher Representation feature removed as per user request
   // This feature allowed switching between table, chart, heatmap, and metrics views
-
-  // 5. Global Command Input & Keyboard Shortcuts
-  const globalSearchInput = document.getElementById('global-search-input');
-  const kbdHint = document.getElementById('search-kbd-hint');
-  const cmdHintText = document.getElementById('cmd-hint-text');
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  const shortcut = isMac ? '⌘K' : 'Ctrl+K';
-  if (kbdHint) kbdHint.textContent = shortcut;
-  if (cmdHintText) cmdHintText.textContent = `Press ${shortcut} to search`;
-
-  // Left rail utility buttons
-  const railStarBtn = document.getElementById('rail-star-btn');
-  const railAlertBtn = document.getElementById('rail-alert-btn');
-  const railCmdBtn = document.getElementById('rail-cmd-btn');
-  const brandHomeBtn = document.getElementById('brand-home-btn');
-
-  if (railStarBtn) {
-    railStarBtn.addEventListener('click', () => {
-      const wlToggle = document.getElementById('watchlist-drawer-toggle');
-      if (wlToggle) wlToggle.click();
-    });
-  }
-  if (railAlertBtn) {
-    railAlertBtn.addEventListener('click', () => {
-      const altToggle = document.getElementById('alerts-modal-toggle');
-      if (altToggle) altToggle.click();
-    });
-  }
-  if (railCmdBtn) {
-    railCmdBtn.addEventListener('click', () => {
-      if (globalSearchInput) {
-        globalSearchInput.focus();
-        globalSearchInput.select();
-      }
-    });
-  }
-  if (brandHomeBtn) {
-    brandHomeBtn.addEventListener('click', () => {
-      router.navigate('/markets');
-    });
-  }
-
-
-
-  // Global Keyboard Shortcuts (⌘K, ⌥C, D, Alt+1..6)
-  window.addEventListener('keydown', (e) => {
-    const activeElement = document.activeElement;
-    const isEditingText = activeElement &&
-      (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName) ||
-       Boolean(activeElement.isContentEditable));
-
-    // Ignore all keyboard shortcuts when user is typing in an input field
-    // to prevent interference with text input in search bars and forms
-    if (isEditingText) return;
-
-    // Removed Alt+C shortcut to prevent interference with text input
-    // This shortcut was commonly triggered accidentally during typing in search fields
-
-
-    // Removed workspace switching shortcuts (Alt+1-6, 1-6) to prevent interference with text input
-    // These shortcuts were commonly triggered accidentally during typing in search fields
-
-
-    // Removed single-key shortcuts 'D'/'d' and 'V'/'v' to prevent interference with text input
-// These shortcuts were commonly triggered when users tried to type letters in search fields
-  });
 
   // 6. Live Status Bar Clock (UTC HH:MM:SS)
   // TEST: Keyboard fix applied - please hard refresh
@@ -942,13 +862,10 @@ export async function switchChartRange(range) {
 
 // Setup DOM Event Listeners
 function setupEventListeners() {
-  // Brand Home Click
-  const brandBtn = document.getElementById('brand-home-btn');
-  if (brandBtn) {
-    brandBtn.addEventListener('click', () => {
-      router.navigate(router.formatSymbolRoute('^NSEI', 'chart'));
-    });
-  }
+  document.querySelector('.skip-to-content-link')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    document.getElementById('mara-main-canvas')?.focus();
+  });
 
   // Workspace Navigation Tabs
   const wsTabs = document.querySelectorAll('#workspace-nav-bar .ws-tab-btn[data-tab]');
@@ -3009,20 +2926,24 @@ function renderMarketTicker(data) {
     bySymbol.set('^NSEI', { ...data.hero, symbol: '^NSEI', name: 'NIFTY 50' });
   }
   const available = symbols.map((symbol) => bySymbol.get(symbol))
-    .filter((item) => item && Number.isFinite(Number(item.price)));
+    .filter((item) => item?.price != null && Number.isFinite(Number(item.price)));
 
-  track.replaceChildren();
   if (!available.length) {
     const empty = document.createElement('span');
     empty.className = 'market-ticker-empty';
     empty.textContent = 'Market snapshot unavailable';
-    track.append(empty);
+    track.replaceChildren(empty);
     return;
   }
 
+  const focusedSymbol = track.contains(document.activeElement) ? document.activeElement.dataset.symbol : null;
+  const scrollPosition = track.scrollLeft;
+  const items = document.createDocumentFragment();
+  let focusedButton;
+
   for (const item of available) {
     const button = document.createElement('button');
-    const change = Number(item.change_pct);
+    const change = item.change_pct == null ? NaN : Number(item.change_pct);
     const currency = ({
       '^NSEI': '₹', '^BSESN': '₹', '^NSEBANK': '₹',
       '^GSPC': '$', '^IXIC': '$', '^FTSE': '£', '^N225': '¥',
@@ -3030,6 +2951,8 @@ function renderMarketTicker(data) {
     })[item.symbol] || '';
     const decimals = item.symbol?.includes('=X') ? 4 : 2;
     button.type = 'button';
+    button.dataset.symbol = item.symbol;
+    if (item.symbol === focusedSymbol) focusedButton = button;
     button.className = `market-ticker-item ${Number.isFinite(change) ? change >= 0 ? 'is-positive' : 'is-negative' : ''}`;
     button.title = `${item.name || item.symbol} · Open in Analyze`;
 
@@ -3045,7 +2968,7 @@ function renderMarketTicker(data) {
     movement.className = 'market-ticker-movement';
     const absoluteChange = document.createElement('span');
     absoluteChange.className = 'market-ticker-change';
-    absoluteChange.textContent = Number.isFinite(Number(item.change))
+    absoluteChange.textContent = item.change != null && Number.isFinite(Number(item.change))
       ? `${Number(item.change) > 0 ? '+' : Number(item.change) < 0 ? '−' : ''}${currency}${Math.abs(Number(item.change)).toLocaleString('en-US', { maximumFractionDigits: decimals })}`
       : '—';
     const percentChange = document.createElement('span');
@@ -3056,8 +2979,11 @@ function renderMarketTicker(data) {
     button.addEventListener('click', () => {
       if (item.symbol) router.navigate(router.formatSymbolRoute(item.symbol, 'chart'));
     });
-    track.append(button);
+    items.append(button);
   }
+  track.replaceChildren(items);
+  track.scrollLeft = scrollPosition;
+  focusedButton?.focus({ preventScroll: true });
 }
 
 // Backend Sync Status Toast Banner Management

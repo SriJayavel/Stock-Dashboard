@@ -84,6 +84,16 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await page.goto('/#/markets');
     await expect(page.locator('#mara-status-bar')).toBeInViewport();
     await expect(page.locator('#global-search-input')).toBeInViewport();
+    const workspaceNavigation = page.getByRole('tablist', { name: 'Workspaces', exact: true });
+    const marketsTab = workspaceNavigation.getByRole('tab', { name: 'Markets', exact: true });
+    const discoverTab = workspaceNavigation.getByRole('tab', { name: 'Discover', exact: true });
+    await expect(workspaceNavigation.getByRole('tab', { name: 'Monitor', exact: true })).toBeInViewport();
+    await marketsTab.press('ArrowRight');
+    await expect(discoverTab).toBeFocused();
+    await expect(marketsTab).toHaveAttribute('aria-selected', 'true');
+    await discoverTab.press('Enter');
+    await expect(discoverTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(/#\/discover$/);
 
     // 3. Zero live API / Supabase calls
     expect(apiCalls, `unexpected /api/ calls: ${apiCalls.join(', ')}`).toEqual([]);
