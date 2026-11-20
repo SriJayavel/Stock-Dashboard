@@ -29,12 +29,14 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
       if (url.includes('supabase.co') || url.includes('supabase.com')) supabaseCalls.push(url);
     });
     page.on('console', (msg) => {
-      if (msg.type() === 'error') consoleErrors.push(msg.text());
+      if (msg.type() === 'error' || msg.text().startsWith('Failed sector intelligence load:')) {
+        consoleErrors.push(msg.text());
+      }
     });
     page.on('pageerror', (err) => consoleErrors.push(`PAGEERROR: ${err.message}`));
   });
 
-  test('demo build serves all 6 workspaces with synthetic data and zero live API calls', async ({ page }) => {
+  test('demo loads markets, sector details and charts with zero live API calls', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
@@ -43,6 +45,19 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await expect(banner).toBeVisible({ timeout: 10000 });
     await expect(banner).toContainText('Synthetic market data');
     await expect(page.locator('#exit-demo-mode-btn')).toBeHidden();
+
+    const sectors = page.locator('#sector-intelligence-grid');
+    const tech = sectors.getByRole('gridcell', { name: /Technology/ });
+    await expect(sectors.getByRole('gridcell')).toHaveCount(5);
+    await expect(tech).toContainText('+1.20%');
+    await tech.click();
+    const detail = page.locator('#sector-detail-body');
+    await expect(detail.getByText('TCS.NS', { exact: true })).toBeVisible();
+    await tech.press('ArrowRight');
+    await expect(page.locator('#sector-detail-title')).toHaveText('Financial Services Constituents');
+    await expect(detail.getByText('HDFCBANK.NS', { exact: true })).toBeVisible();
+    await sectors.getByRole('gridcell', { name: /Healthcare/ }).click();
+    await expect(detail).toContainText('No constituent data available');
 
     // 2. All static fixtures must resolve (200)
     const fixtures = [

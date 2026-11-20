@@ -6663,7 +6663,7 @@ export function renderMarketInspector(type, data) {
         <div class="inspector-grid">
           <div class="inspector-stat">
             <span class="label">Sector Anchor</span>
-            <span class="val" style="color: var(--accent); font-family: var(--font-mono);">${data.leading_asset}</span>
+            <span class="val" style="color: var(--accent); font-family: var(--font-mono);">${data.leading_asset || '—'}</span>
           </div>
           <div class="inspector-stat">
             <span class="label">Tracked Assets</span>
@@ -6679,12 +6679,12 @@ export function renderMarketInspector(type, data) {
           </div>
         </div>
 
-        <div class="inspector-action-wrap">
+        ${data.leading_asset ? `<div class="inspector-action-wrap">
           <button class="inspector-primary-action-btn" id="inspector-action-btn" data-sym="${data.leading_asset}">
             <span>Analyze Anchor (${data.leading_asset})</span>
             <span style="font-family: var(--font-mono);">↗</span>
           </button>
-        </div>
+        </div>` : ''}
       </div>
 
       <div class="inspector-block">
@@ -7560,7 +7560,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     const proxyStr = [sector.indian_proxy, sector.benchmark_etf].filter(Boolean).join(' · ');
     metaEl.innerHTML = `
       ${proxyStr ? `Benchmark: <span style="font-family: var(--font-mono); color: var(--accent-primary);">${proxyStr}</span> · ` : ''}
-      Sector Anchor: <span style="font-family: var(--font-mono); color: var(--gain); font-weight: 600;">${sector.leading_asset}</span> ·
+      Sector Anchor: <span style="font-family: var(--font-mono); color: var(--gain); font-weight: 600;">${sector.leading_asset || '—'}</span> ·
       ${sector.constituents?.length || 0} Tracked Equities
     `;
 
@@ -7577,6 +7577,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           </tr>
         </thead>
         <tbody id="sector-constituents-tbody">
+          ${!sector.constituents?.length && !sector.us_constituents?.length
+            ? '<tr><td colspan="6">No constituent data available for this sector.</td></tr>'
+            : ''}
           ${(sector.constituents || [])
             .map((sym, idx) => {
               const isLeader = sym === sector.leading_asset;
@@ -7755,15 +7758,17 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       }
 
       // Use the dedicated renderSectorMatrix function (wires tile rendering and event handlers)
-      renderSectorMatrix(sectorData);
+      renderSectorMatrix(sectorData, (sector) => {
+        currentSelectedSector = sector;
+        renderSelectedSectorDetail(sector);
+        renderMarketInspector('sector', sector);
+      });
 
       if (currentSelectedSector) {
         renderSelectedSectorDetail(currentSelectedSector);
         renderMarketInspector('sector', currentSelectedSector);
       }
 
-      // Render sector sparklines
-      renderSectorSparklines(sectorData);
     } catch (e) {
       console.warn('Failed sector intelligence load:', e);
       // Show error state with retry option
@@ -7790,7 +7795,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
 // Render sector performance sparklines
 // ===== SECTOR MATRIX RENDERER =====
-function renderSectorMatrix(sectorData) {
+function renderSectorMatrix(sectorData, onSelect) {
   const grid = document.getElementById('sector-intelligence-grid');
   if (!grid) return;
 
@@ -7916,8 +7921,7 @@ function renderSectorMatrix(sectorData) {
       tile.classList.add('active-sector', 'active-hm-cell');
       tile.setAttribute('tabindex', '0');
       tile.focus({ preventScroll: true });
-      renderSelectedSectorDetail(sector);
-      renderMarketInspector('sector', sector);
+      onSelect(sector);
     };
 
     tile.addEventListener('click', activateTile);
@@ -7928,21 +7932,17 @@ function renderSectorMatrix(sectorData) {
       } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault();
         const nextIdx = Math.min(idx + 1, tiles.length - 1);
-        tiles[nextIdx].focus({ preventScroll: true });
-        activateTile.call(tiles[nextIdx]);
+        tiles[nextIdx].click();
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault();
         const prevIdx = Math.max(idx - 1, 0);
-        tiles[prevIdx].focus({ preventScroll: true });
-        activateTile.call(tiles[prevIdx]);
+        tiles[prevIdx].click();
       } else if (e.key === 'Home') {
         e.preventDefault();
-        tiles[0].focus({ preventScroll: true });
-        activateTile.call(tiles[0]);
+        tiles[0].click();
       } else if (e.key === 'End') {
         e.preventDefault();
-        tiles[tiles.length - 1].focus({ preventScroll: true });
-        activateTile.call(tiles[tiles.length - 1]);
+        tiles[tiles.length - 1].click();
       }
     });
   });

@@ -133,6 +133,30 @@ async function demoFetch(url, options) {
       return quote ? { ...quote, status: 'cached' } : { symbol, status: 'pending' };
     });
   }
+  if (pathOnly === '/api/analytics/sectors') {
+    const fixture = await readFixture(DEMO_ROUTES[pathOnly]);
+    if (!fixture) return null;
+    const catalog = await getDemoCatalog();
+    const sectors = fixture.sectors.map(({ name, change_pct, top_symbols }) => {
+      const constituent_performance = top_symbols
+        .map((symbol) => ({ symbol, change_pct: catalog.get(symbol)?.change_pct }))
+        .filter((quote) => Number.isFinite(quote.change_pct));
+      const advancing = constituent_performance.filter((quote) => quote.change_pct > 0).length;
+      const declining = constituent_performance.filter((quote) => quote.change_pct < 0).length;
+      return {
+        sector: name,
+        display_name: name,
+        performance_24h_pct: change_pct,
+        constituents: top_symbols,
+        leading_asset: top_symbols[0] ?? null,
+        constituent_performance,
+        advancing,
+        declining,
+        unchanged: constituent_performance.length - advancing - declining,
+      };
+    });
+    return { ...fixture, sectors };
+  }
   if (pathOnly === '/api/search') {
     const term = (params.get('q') || '').trim().toLowerCase();
     const catalog = await getDemoCatalog();
