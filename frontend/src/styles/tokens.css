@@ -1,0 +1,85 @@
+:root {
+  color-scheme: light dark;
+  --font-display: system-ui, sans-serif;
+  --font-sans: system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --type-label: .75rem;
+  --type-table: .8125rem;
+  --type-body: .875rem;
+  --type-control: 1rem;
+  --type-section: 1.25rem;
+  --type-page: 2rem;
+
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --shell-header-h: 56px;
+  --shell-status-bar-h: 28px;
+  --shell-rail-w: 64px;
+  --shell-workspace-bar-h: 46px;
+  --shell-context-panel-w: 360px;
+
+  --bg-deep: var(--bg);
+  --bg-canvas: var(--bg);
+  --surface-solid: var(--surface);
+  --surface-card: var(--surface);
+  --surface-0: var(--bg);
+  --surface-1: var(--surface);
+  --surface-2: var(--surface-hover);
+  --border-strong: var(--border);
+  --text-dim: var(--text-muted);
+  --accent-primary: var(--accent);
+  --accent-blue: var(--accent);
+  --accent-cyan: var(--accent);
+  --gain: var(--up);
+  --loss: var(--down);
+  --gain-bg: color-mix(in srgb, var(--gain) 12%, transparent);
+  --loss-bg: color-mix(in srgb, var(--loss) 12%, transparent);
+  --warning: var(--text-muted);
+  --region-india: var(--text-muted);
+  --region-americas: var(--text-muted);
+  --region-europe: var(--text-muted);
+  --region-asia: var(--text-muted);
+  --region-india-rgb: var(--muted-rgb);
+  --region-americas-rgb: var(--muted-rgb);
+  --region-europe-rgb: var(--muted-rgb);
+  --region-asia-rgb: var(--muted-rgb);
+  --warning-rgb: var(--muted-rgb);
+  --shadow-dropdown: 0 18px 48px rgb(0 0 0 / .18);
+}
+
+:root:not(.light-theme) {
+  color-scheme: dark;
+  --bg: #0b0e14;
+  --surface: #111620;
+  --surface-hover: #171d2a;
+  --border: #232a3a;
+  --text: #e6e9f0;
+  --text-muted: #9aa4b5;
+  --muted-rgb: 154, 164, 181;
+  --accent: #70a4ff;
+  --accent-rgb: 112, 164, 255;
+  --up: #22c55e;
+  --down: #f16a6a;
+}
+
+:root.light-theme {
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-hover: #eef1f6;
+  --border: #e3e6ec;
+  --text: #111827;
+  --text-muted: #5b6475;
+  --muted-rgb: 91, 100, 117;
+  --accent: #1d54cf;
+  --accent-rgb: 29, 84, 207;
+  --up: #15803d;
+  --down: #b91c1c;
+}
