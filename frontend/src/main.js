@@ -131,9 +131,9 @@ let currentChartInterval = (() => {
 })();
 let currentChartRange = (() => {
   try {
-    return localStorage.getItem(getAccountStorageKey('apex_chart_range')) || '1d';
+    return localStorage.getItem(getAccountStorageKey('apex_chart_range')) || '1y';
   } catch {
-    return '1d';
+    return '1y';
   }
 })();
 let currentMarketStatus = 'CLOSED';
@@ -4724,7 +4724,7 @@ function renderScreenerTable(items) {
   }
 
   // Sort by price descending by default
-  const sortedItems = [...items].sort((a, b) => (b.current_price || 0) - (a.current_price || 0));
+  const sortedItems = items.toSorted((a, b) => (b.current_price || 0) - (a.current_price || 0));
 
   tbody.innerHTML = sortedItems
     .map((item) => {
@@ -4923,7 +4923,7 @@ function renderWhatChanged(data) {
 
   if (!data || !data.has_data) {
     kpisGrid.innerHTML = '<div style="padding: 16px; color: var(--text-muted); font-size: 13px;">Insufficient historical series to calculate 30-day state delta.</div>';
-    obsContainer.innerHTML = '';
+    obsContainer.replaceChildren();
     return;
   }
 
@@ -5043,11 +5043,21 @@ function renderAnomalies(anomalies) {
   const badge = document.getElementById('anomalies-badge');
   if (!container) return;
 
-  if (!anomalies || anomalies.length === 0) {
-    if (badge) {
+  // Normalize anomalies to an array (API may return object with .detected)
+  const list = Array.isArray(anomalies) ? anomalies : (anomalies?.detected || []);
+  const count = list.length;
+
+  if (badge) {
+    if (count === 0) {
       badge.textContent = 'Zero Anomalies';
       badge.className = 'brand-badge';
+    } else {
+      badge.textContent = `${count} Anomaly${count > 1 ? 'ies' : 'y'} Detected`;
+      badge.className = 'brand-badge warning';
     }
+  }
+
+  if (count === 0) {
     container.innerHTML = `
       <div style="background: #141414; border: 1px solid #262626; border-radius: var(--radius-md); padding: 24px; text-align: center;">
         <div style="font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">Zero Financial or Market Anomalies Detected</div>
@@ -5059,18 +5069,14 @@ function renderAnomalies(anomalies) {
     return;
   }
 
-  if (badge) {
-    badge.textContent = `${anomalies.length} Flagged`;
-    badge.className = '';
-  }
-
-  container.innerHTML = anomalies
+  // Render anomaly cards
+  container.innerHTML = list
     .map((item) => {
       const sev = (item.severity || 'low').toLowerCase();
       const sevClass = sev === 'high' ? 'sev-high' : sev === 'medium' ? 'sev-medium' : 'sev-low';
       const title = item.title || item.type || 'Anomaly';
       const metric = item.evidence || item.metric || item.mathematical_threshold || '';
-      const desc = item.evidence || item.description || '';
+      const desc = item.evidence || item.description || item.message || '';
       const attr = item.mathematical_threshold || item.attribution || 'Algorithmic Anomaly Model';
 
       return `
@@ -5172,12 +5178,19 @@ function renderStatementQuality(quality) {
   const container = document.getElementById('statement-quality-container');
   if (!container) return;
 
-  if (!quality || !quality.signals || quality.signals.length === 0) {
+  if (!quality || !quality.signals) {
     container.innerHTML = '<div style="padding: 16px; color: var(--text-muted); font-size: 13px;">Insufficient audited cash flow or balance sheet filings to audit statement quality.</div>';
     return;
   }
 
-  container.innerHTML = quality.signals
+  // Normalize signals to array
+  const signals = Array.isArray(quality.signals) ? quality.signals : (quality.signals?.items || []);
+  if (signals.length === 0) {
+    container.innerHTML = '<div style="padding: 16px; color: var(--text-muted); font-size: 13px;">Insufficient audited cash flow or balance sheet filings to audit statement quality.</div>';
+    return;
+  }
+
+  container.innerHTML = signals
     .map((s) => {
       const st = (s.status || 'NORMAL').toLowerCase();
       const stClass = st.includes('strong') || st.includes('high') ? 'status-strong' : (st.includes('alert') || st.includes('caution') || st.includes('buildup') || st.includes('divergence')) ? 'status-alert' : 'status-normal';
@@ -5794,8 +5807,7 @@ function renderMiniSparkline(container, data, isPositive) {
   ctx.scale(dpr, dpr);
 
   // Clear container and add canvas
-  container.innerHTML = '';
-  container.appendChild(canvas);
+  container.replaceChildren(canvas);
 
   // Calculate data bounds
   const min = Math.min(...data);
@@ -7865,7 +7877,7 @@ function renderSectorMatrix(sectorData) {
   }
 
   // Sort sectors by performance (best first)
-  const sortedSectors = [...sectorData].sort((a, b) => {
+  const sortedSectors = sectorData.toSorted((a, b) => {
     const perfA = a.performance_24h_pct ?? a.return_pct ?? 0;
     const perfB = b.performance_24h_pct ?? b.return_pct ?? 0;
     return perfB - perfA;
@@ -8036,7 +8048,7 @@ function renderSectorSparklines(sectorData) {
     ctx.clearRect(0, 0, width, height);
 
     // Sort by performance
-    const sorted = [...perfData].sort((a, b) => a.change_pct - b.change_pct);
+    const sorted = perfData.toSorted((a, b) => a.change_pct - b.change_pct);
     const maxAbs = Math.max(
       Math.abs(sorted[0].change_pct),
       Math.abs(sorted[sorted.length - 1].change_pct)

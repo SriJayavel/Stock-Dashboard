@@ -538,7 +538,7 @@ export class TerminalChart {
       // Premium enhancement: hide tooltip on leave with smooth fade
       if (this.tooltipTimeout) clearTimeout(this.tooltipTimeout);
       this.tooltipTimeout = setTimeout(() => {
-        if (this.tooltip) this.tooltip.innerHTML = '';
+        if (this.tooltip) this.tooltip.replaceChildren();
       }, 300);
       this.render();
     });
@@ -876,7 +876,7 @@ export class TerminalChart {
       if(intEl)intEl.textContent=interval.toUpperCase();
     }
     this.lastBar=null;
-    if(this.tooltip)this.tooltip.innerHTML='';
+    if(this.tooltip)this.tooltip.replaceChildren();
   }
 
   notifyUser(msg){

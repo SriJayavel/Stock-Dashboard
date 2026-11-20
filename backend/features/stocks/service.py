@@ -171,8 +171,18 @@ class StockService:
             "Volume": c.volume,
         } for c in candles])
 
-        # Ensure Date column is datetime
-        df["Date"] = pd.to_datetime(df["Date"])
+        # Ensure Date column is datetime.
+        # Candle.timestamp is Unix milliseconds; pandas defaults to seconds, so
+        # every bar collapsed to 1970-01-01 and the chart rendered a single stick.
+        # Detect ms vs string and parse accordingly so all 248 bars keep unique dates.
+        sample = df["Date"].iloc[0]
+        if pd.api.types.is_integer_dtype(df["Date"]):
+            if float(sample) > 1e11:
+                df["Date"] = pd.to_datetime(df["Date"], unit="ms")
+            else:
+                df["Date"] = pd.to_datetime(df["Date"], unit="s")
+        else:
+            df["Date"] = pd.to_datetime(df["Date"])
 
         # Apply indicators
         df = apply_all_indicators(df)

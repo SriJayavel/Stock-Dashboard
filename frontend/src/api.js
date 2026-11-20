@@ -111,19 +111,15 @@ class ApiClient {
         });
       }, 2500);
 
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeoutMs);
-
       const response = await fetch(`${API_BASE}${url}`, {
         ...options,
         headers: {
           ...(options.headers || {}),
-          ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+          ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken() }` } : {}),
         },
-        signal: controller.signal,
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
-      clearTimeout(id);
       clearTimeout(coldStartTimer);
       this.setStatus({ isWaking: false, message: '' });
 

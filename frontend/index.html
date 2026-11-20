@@ -19,6 +19,12 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="preconnect" href="https://api.upstash.io" crossorigin />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      try {
+        document.querySelector('meta[name="color-scheme"]').content = localStorage.getItem('mara-theme') === 'light' ? 'light' : 'dark';
+      } catch (_) {}
+    </script>
     <link rel="preconnect" href="https://query1.finance.yahoo.com" crossorigin />
     <link rel="dns-prefetch" href="https://api.upstash.io" />
     <link rel="dns-prefetch" href="https://query1.finance.yahoo.com" />

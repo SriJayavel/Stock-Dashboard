@@ -209,6 +209,7 @@ class MaraAccount {
     if (confirm) confirm.hidden = !(signup || recovery);
     if (password) password.hidden = reset;
     if (passwordInput) passwordInput.autocomplete = signup || recovery ? 'new-password' : 'current-password';
+    if (confirmInput) confirmInput.autocomplete = signup || recovery ? 'new-password' : 'current-password';
     if (tabs) tabs.hidden = reset || recovery;
     if (forgot) forgot.hidden = signup || reset || recovery;
     if (back) {

@@ -183,7 +183,7 @@ export class WatchlistManager {
           this.saveSymbols(validSymbols);
           resolve(validSymbols);
         } catch (err) {
-          reject(new Error('Failed to parse file: ' + err.message));
+          reject(new Error('Failed to parse file: ' + err.message, { cause: err }));
         }
       };
 

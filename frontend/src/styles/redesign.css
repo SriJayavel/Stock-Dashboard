@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light dark;
   --font-display: "Inter", "JetBrains Mono", "SF Pro Text", sans-serif;
   --font-sans: "Inter", "JetBrains Mono", "SF Pro Text", sans-serif;
   --font-mono: "JetBrains Mono", "Inter", "SF Pro Text", monospace;
