@@ -9,6 +9,13 @@ import { getAccountStorageKey } from './auth.js';
 const bullColor = '#10b981';
 const bearColor = '#f43f5e';
 
+function priceTickStep(span) {
+  const rawStep = span / 5;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const multiple = [1, 2, 2.5, 5, 10].find((value) => value >= rawStep / magnitude) ?? 10;
+  return multiple * magnitude;
+}
+
 export function resampleCandles(candles = [], interval = 'D') {
   if (['1m', '2m', '5m', '15m', '30m', '60m', '1h', '1d'].includes(interval)) return candles || [];
   const groups = new Map();
@@ -653,25 +660,40 @@ export class TerminalChart {
     let max = validHighs.length > 0 ? Math.max(...validHighs) : 1;
     const pad = (max - min) * 0.08 || Math.abs(max || 1) * 0.02;
     min -= pad; max += pad;
-    if (this.scaleMode === 'log') min = Math.max(Number.MIN_VALUE, min);
-    const y = (v) => {
-      const value = scaled(v), t = this.scaleMode === 'log' ? (Math.log(value) - Math.log(min)) / (Math.log(max) - Math.log(min)) : (value - min) / (max - min);
+    const logScale = this.scaleMode === 'log';
+    const step = priceTickStep(max - min);
+    if (logScale) {
+      min = Math.max(Math.min(...validLows) * 0.9, min);
+    } else {
+      min = Math.floor(min / step) * step;
+      max = Math.ceil(max / step) * step;
+    }
+    const axisY = (value) => {
+      const t = logScale ? Math.log(value / min) / Math.log(max / min) : (value - min) / (max - min);
       return plot.bottom - t * (plot.bottom - plot.top);
     };
+    const y = (value) => axisY(scaled(value));
+    const [mantissa, exponent = '0'] = step.toExponential(1).split('e');
+    const tickDecimals = Math.min(12, Math.max(0, (mantissa.endsWith('0') ? 0 : 1) - Number(exponent)));
+    const tickCount = logScale ? 5 : Math.round((max - min) / step);
+    const tickFormatter = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: tickDecimals,
+      maximumFractionDigits: tickDecimals,
+    });
     c.font = '11px ui-monospace,monospace';
     c.textBaseline = 'middle';
-    // Premium enhancement: smoother grid lines with subtle animation
-    for (let n = 0; n <= 5; n++) {
-      const yy = plot.top + (plot.bottom - plot.top) * n / 5;
+    for (let n = 0; n <= tickCount; n++) {
+      const value = logScale ? min * (max / min) ** (n / tickCount) : min + step * n;
+      const yy = axisY(value);
       c.strokeStyle = grid;
       c.beginPath();
       c.moveTo(plot.left, yy);
       c.lineTo(w - 4, yy);
       c.stroke();
-      const value = max - (max - min) * n / 5;
       c.fillStyle = muted;
       c.textAlign = 'right';
-      c.fillText(this.scaleMode === 'pct' ? `${value.toFixed(1)}%` : this.formatPrice(value), w - 8, yy);
+      const numericLabel = tickFormatter.format(Math.abs(value) < step * 1e-8 ? 0 : value);
+      c.fillText(this.scaleMode === 'pct' ? `${numericLabel}%` : numericLabel, w - 8, yy);
     }
     for (let n = 0; n <= 6; n++) {
       const xx = plot.left + (plot.right - plot.left) * n / 6;
@@ -822,10 +844,6 @@ export class TerminalChart {
     if (this.subPanes.size) this.renderPaneSplitters();
   }
 
-  formatPrice(value) {
-    return Math.abs(value) >= 1000 ? value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : value.toFixed(2);
-  }
-
   updateTooltip(param) {
     this.renderTooltip(param);
   }
@@ -842,7 +860,7 @@ export class TerminalChart {
         <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">H:</span> <span class="val">${(bar.high ?? o).toFixed(2)}</span></span>
         <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">L:</span> <span class="val">${(bar.low ?? o).toFixed(2)}</span></span>
         <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">C:</span> <span class="val" style="color:${color};font-weight:600;">${c.toFixed(2)}</span></span>
-        <span class="legend-item" style="margin: 0 8px; color:${color};font-weight:600;">${up ? '+ ' : '− '}${(o ? (c - o) / o * 100 : 0).toFixed(2)}%</span>
+        <span class="legend-item" style="margin: 0 8px; color:${color};font-weight:600;">${up ? '+ ' : '− '}${(o ? Math.abs((c - o) / o * 100) : 0).toFixed(2)}% open to close</span>
       </div>
     `;
   }
@@ -859,7 +877,7 @@ export class TerminalChart {
     });
     const ch=document.getElementById('tv-leg-change');
     if(ch){
-      ch.textContent=`${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;
+      ch.textContent=`O→C ${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;
       ch.style.color=col;
     }
     const ind=document.getElementById('tv-legend-indicators');

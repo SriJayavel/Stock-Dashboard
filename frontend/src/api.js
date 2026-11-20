@@ -95,6 +95,7 @@ async function demoChartHistory(symbol, interval) {
     freshness: 'synthetic',
     data_source: 'Synthetic demo',
     last_updated: new Date(last.time * 1000).toISOString(),
+    latest_quote: (await getDemoCatalog()).get(symbol),
   };
 }
 
@@ -127,6 +128,20 @@ function getDemoCatalog() {
   return demoCatalog;
 }
 
+function demoSnapshotQuote(symbol, snapshot) {
+  const quote = [...(snapshot?.indices || []), ...(snapshot?.forex || []), ...(snapshot?.commodities || [])]
+    .find((item) => item.symbol === symbol);
+  return {
+    ...quote,
+    symbol,
+    name: quote?.name || symbol,
+    current_price: quote?.price ?? null,
+    data_source: 'Synthetic demo',
+    last_updated: snapshot?.timestamp,
+    demo_snapshot_only: true,
+  };
+}
+
 async function demoFetch(url, options) {
   // Demo mode must never reach the live network — reject absolute URLs
   if (/^https?:\/\//i.test(url)) return null;
@@ -153,9 +168,12 @@ async function demoFetch(url, options) {
   if (pathOnly === '/api/stocks/batch') {
     const symbols = JSON.parse(options.body);
     const catalog = await getDemoCatalog();
+    const snapshot = symbols.some((symbol) => !catalog.has(symbol))
+      ? await readFixture(DEMO_ROUTES['/api/markets/overview'])
+      : null;
     return symbols.map((symbol) => {
-      const quote = catalog.get(symbol);
-      return quote ? { ...quote, status: 'cached' } : { symbol, status: 'pending' };
+      const quote = catalog.get(symbol) || demoSnapshotQuote(symbol, snapshot);
+      return { ...quote, status: quote.current_price == null ? 'unavailable' : 'cached' };
     });
   }
   if (pathOnly === '/api/analytics/sectors') {
@@ -211,17 +229,7 @@ async function demoFetch(url, options) {
     if (suffix === 'history') return demoChartHistory(symbol, params.get('interval') || '1d');
     if (suffix === 'overview' && !DEMO_STOCKS.has(symbol)) {
       const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview']);
-      const quote = [...(snapshot?.indices || []), ...(snapshot?.forex || []), ...(snapshot?.commodities || [])]
-        .find((item) => item.symbol === symbol);
-      return {
-        ...quote,
-        symbol,
-        name: quote?.name || symbol,
-        current_price: quote?.price ?? null,
-        data_source: 'Synthetic demo',
-        last_updated: snapshot?.timestamp,
-        demo_snapshot_only: true,
-      };
+      return demoSnapshotQuote(symbol, snapshot);
     }
     if (!DEMO_STOCKS.has(symbol)) {
       return null;

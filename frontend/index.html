@@ -171,7 +171,7 @@
               class="mara-cmd-input"
               role="combobox"
               aria-label="Search symbols or companies"
-              placeholder="Search symbols or companies"
+              placeholder="Search symbols"
               autocomplete="off"
               aria-controls="search-dropdown"
               aria-autocomplete="list"
@@ -772,9 +772,9 @@
           <!-- Sub-Navigation Bar for Analyze Workspace -->
           <div class="workspace-subnav" id="analyze-subnav">
             <button class="ws-sub-btn active" data-analyze-tab="chart" id="tab-analyze-chart">Chart</button>
-            <button class="ws-sub-btn" data-analyze-tab="overview" id="tab-analyze-overview">Overview &amp; Profile</button>
-            <button class="ws-sub-btn" data-analyze-tab="fundamentals" id="tab-analyze-fundamentals">Financial Statements</button>
-            <button class="ws-sub-btn" data-analyze-tab="valuation" id="tab-analyze-valuation">Valuation Multiples</button>
+            <button class="ws-sub-btn" data-analyze-tab="overview" id="tab-analyze-overview">Overview</button>
+            <button class="ws-sub-btn" data-analyze-tab="fundamentals" id="tab-analyze-fundamentals">Financials</button>
+            <button class="ws-sub-btn" data-analyze-tab="valuation" id="tab-analyze-valuation">Valuation</button>
             <div class="macro-tabs" role="tablist" aria-label="Macro Asset Categories" style="margin-left: auto; display: inline-flex; gap: 4px; align-items: center;">
               <button class="macro-tab-btn" data-category="Forex" role="tab" aria-selected="false">Forex</button>
               <button class="macro-tab-btn" data-category="Commodities" role="tab" aria-selected="false">Commodities</button>
@@ -838,22 +838,23 @@
 
               <div class="tv-tb-divider"></div>
 
-              <!-- Indicators Button Trigger -->
-              <button class="tv-tb-btn" id="tv-indicators-menu-btn" aria-label="Technical Indicators">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                </svg>
-                <span>Indicators</span>
-                <span class="tv-ind-badge" id="tv-ind-count">0</span>
-              </button>
+              <div class="tv-overlay-controls" role="group" aria-label="Chart overlays">
+                <button class="tv-tb-btn" id="tv-indicators-menu-btn" aria-label="Technical Indicators">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                  </svg>
+                  <span>Indicators</span>
+                  <span class="tv-ind-badge" id="tv-ind-count">0</span>
+                </button>
 
-              <button class="tv-tb-btn active" id="tv-toggle-events-btn" aria-label="Toggle Corporate Event Markers">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-                <span>Events</span>
-              </button>
+                <button class="tv-tb-btn active" id="tv-toggle-events-btn" aria-label="Toggle Corporate Event Markers">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span>Events</span>
+                </button>
+              </div>
 
               <div class="tv-tb-divider"></div>
 
@@ -939,7 +940,7 @@
                     <span class="tv-leg-item"><span class="lbl">H</span> <span class="val" id="tv-leg-high">—</span></span>
                     <span class="tv-leg-item"><span class="lbl">L</span> <span class="val" id="tv-leg-low">—</span></span>
                     <span class="tv-leg-item"><span class="lbl">C</span> <span class="val" id="tv-leg-close">—</span></span>
-                    <span class="tv-leg-change" id="tv-leg-change">—</span>
+                    <span class="tv-leg-change" id="tv-leg-change" title="Change from this candle’s open to close">—</span>
                   </div>
                   <div class="tv-legend-indicators" id="tv-legend-indicators">
                     <span class="tv-leg-ind" id="tv-leg-ema50" style="color: #e8b34e;">EMA 50: <span class="val">—</span></span>

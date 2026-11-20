@@ -2,15 +2,17 @@
   "symbol": "GOOGL",
   "name": "Alphabet",
   "price": 165,
-  "change": 18.52,
+  "change": 0.97,
   "change_pct": 0.59,
   "market_cap": 165000000000,
   "pe_ratio": 30.25,
   "pb_ratio": 2.77,
   "dividend_yield": 0.76,
-  "week_52_high": 190.79,
-  "week_52_low": 118.91,
+  "week_52_high": 165.7,
+  "week_52_low": 102.99,
   "currency": "USD",
   "exchange": "NASDAQ",
-  "demo_mode": true
+  "demo_mode": true,
+  "prev_close": 164.03,
+  "last_updated": "2026-11-13T00:00:00.000Z"
 }

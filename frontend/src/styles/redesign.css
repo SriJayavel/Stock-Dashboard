@@ -3085,6 +3085,63 @@ body.authenticated .mara-app {
   min-block-size: 2.25rem;
 }
 
+.mara-unified-header .mara-header-utilities { gap: .6rem; }
+
+.mara-unified-header :is(#watchlist-drawer-toggle, #alerts-modal-toggle) {
+  inline-size: auto;
+  gap: .3rem;
+  padding-inline: .4rem;
+}
+
+.mara-unified-header #mara-context-toggle { margin-inline-start: .125rem; }
+
+#tv-top-toolbar {
+  flex-wrap: wrap;
+  gap: .375rem .75rem;
+  height: auto;
+  max-height: none;
+  padding-block: .25rem;
+}
+
+#tv-top-toolbar .tv-tb-left {
+  flex: 1 1 42rem;
+  flex-wrap: wrap;
+  gap: .375rem .5rem;
+}
+
+#tv-top-toolbar .tv-tb-right { margin-inline-start: auto; }
+#tv-top-toolbar .tv-symbol-btn { border-radius: var(--radius-sm); }
+
+#analyze-subnav {
+  gap: .35rem;
+  padding-inline: .5rem;
+  scrollbar-width: thin;
+}
+
+#analyze-subnav :is(.ws-sub-btn, .macro-tabs) { flex: 0 0 auto; }
+
+#analyze-subnav .ws-sub-btn {
+  padding-inline: .55rem;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.tv-overlay-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: .4rem;
+}
+
+.tv-overlay-controls .tv-tb-btn {
+  flex: 0 0 auto;
+  gap: .3rem;
+  padding-inline: .5rem;
+  border-radius: var(--radius-sm);
+}
+
+.tv-overlay-controls .tv-ind-badge { margin-inline-start: 0; }
+
 .workspace-scroll-wrap {
   max-inline-size: 96rem;
   margin-inline: auto;
@@ -3148,6 +3205,8 @@ body.authenticated .mara-app {
   .market-ticker-heading { display: none; }
   .markets-page-heading { margin-block-end: .75rem; }
   .mara-header-utilities { flex-wrap: wrap; justify-content: flex-end; }
+  .mara-unified-header .mara-header-utilities { gap: .3rem; }
+  #tv-top-toolbar .tv-tb-divider { display: none; }
   .mara-unified-header { grid-template-rows: minmax(2.5rem, auto) 2.5rem auto; }
   .mara-unified-header .mara-ws-tabs { flex-wrap: wrap; }
   .mara-unified-header .mara-ws-tab-btn {

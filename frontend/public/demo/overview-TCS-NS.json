@@ -2,15 +2,17 @@
   "symbol": "TCS.NS",
   "name": "Tata Consultancy Services",
   "price": 3800,
-  "change": -6,
+  "change": -42.26,
   "change_pct": -1.1,
   "market_cap": 3800000000000,
   "pe_ratio": 30.5,
   "pb_ratio": 3.4,
   "dividend_yield": 0.07,
-  "week_52_high": 4662.01,
-  "week_52_low": 3707.66,
+  "week_52_high": 4065,
+  "week_52_low": 2817.74,
   "currency": "INR",
   "exchange": "NSE",
-  "demo_mode": true
+  "demo_mode": true,
+  "prev_close": 3842.26,
+  "last_updated": "2026-11-13T00:00:00.000Z"
 }

@@ -2,15 +2,17 @@
   "symbol": "INFY.NS",
   "name": "Infosys",
   "price": 1650,
-  "change": -17.92,
+  "change": 11.31,
   "change_pct": 0.69,
   "market_cap": 1650000000000,
   "pe_ratio": 28.72,
   "pb_ratio": 5.15,
   "dividend_yield": 0.67,
-  "week_52_high": 2018.26,
-  "week_52_low": 1257.05,
+  "week_52_high": 1675.42,
+  "week_52_low": 718.28,
   "currency": "INR",
   "exchange": "NSE",
-  "demo_mode": true
+  "demo_mode": true,
+  "prev_close": 1638.69,
+  "last_updated": "2026-11-13T00:00:00.000Z"
 }

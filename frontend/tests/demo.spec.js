@@ -75,6 +75,43 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
       expect(res.ok(), `fixture ${f} returned ${res.status()}`).toBe(true);
     }
 
+    await page.goto('/#/symbol/TCS.NS/chart');
+    const tcsQuote = await (await page.request.get('/demo/overview-TCS-NS.json')).json();
+    await expect(page.locator('#tv-leg-close')).toHaveText(tcsQuote.price.toFixed(2));
+    await expect(page.locator('#tv-leg-change')).toContainText('O→C');
+    await page.locator('#watchlist-drawer-toggle').click();
+    const watchlist = page.locator('#watchlist-items-list');
+    await expect(watchlist.locator('[data-symbol="TCS.NS"].wl-item-row .wl-item-price'))
+      .toHaveText(`₹${tcsQuote.price.toFixed(2)}`);
+    await expect(watchlist.locator('[data-symbol="BTC-USD"].wl-item-row .wl-item-price'))
+      .toContainText('67450.00');
+    await expect(watchlist.locator('[data-symbol="EURUSD=X"].wl-item-row .wl-item-price'))
+      .toContainText('1.0850');
+    await page.locator('#close-watchlist-drawer-btn').click();
+
+    const indicators = await page.locator('#tv-indicators-menu-btn').boundingBox();
+    const events = await page.locator('#tv-toggle-events-btn').boundingBox();
+    expect(events.x - (indicators.x + indicators.width)).toBeGreaterThanOrEqual(4);
+
+    const ticks = await page.evaluate(() => {
+      const chart = window.apexChartInstance;
+      const fillText = chart.ctx.fillText;
+      const labels = [];
+      chart.ctx.fillText = function (label, x, y) {
+        if (x === chart.width - 8) labels.push(label);
+        return fillText.call(this, label, x, y);
+      };
+      try {
+        chart.lastRenderTime = 0;
+        chart.render();
+      } finally {
+        chart.ctx.fillText = fillText;
+      }
+      return labels.map((label) => Number(label.replaceAll(',', '')));
+    });
+    expect(ticks.length).toBeGreaterThan(2);
+    expect(new Set(ticks.slice(1).map((price, index) => price - ticks[index])).size).toBe(1);
+
     await page.locator('#global-search-input').fill('AAPL');
     await page.locator('#search-dropdown').getByRole('option', { name: /AAPL/ }).click();
     await expect(page).toHaveURL(/AAPL/);

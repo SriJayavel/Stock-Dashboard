@@ -1,31 +1,65 @@
 /**
  * Deterministic candle generator for demo mode
- * Run with: node generate-candles.js
- * Outputs JSON files to frontend/public/demo/
+ * Run with: node generate-candles.cjs --candles-only
+ * Regenerates daily candles and their matching quote snapshots.
  */
 const fs = require('fs');
 const path = require('path');
 
 const DEMO_DIR = path.join(__dirname);
 
-function generateMockCandles(basePrice = 3800, count = 120) {
-  const candles = [];
-  const nowSec = Math.floor(Date.now() / 1000);
-  const daySec = 86400;
-  let price = basePrice;
+const DAY_SECONDS = 86400;
+const LAST_SESSION = Date.parse('2026-11-13T00:00:00Z') / 1000;
+const roundPrice = (price) => Math.round(price * 100) / 100;
 
-  for (let i = count; i >= 0; i--) {
-    const time = nowSec - i * daySec;
-    const delta = (Math.sin(i * 0.2) * 15) + ((i % 5) - 2) * 5;
-    const open = Math.round((price + delta * 0.5) * 100) / 100;
-    const close = Math.round((price + delta) * 100) / 100;
-    const high = Math.round((Math.max(open, close) + Math.abs(delta) * 0.6 + 5) * 100) / 100;
-    const low = Math.round((Math.min(open, close) - Math.abs(delta) * 0.6 - 5) * 100) / 100;
-    const volume = 800000 + Math.floor(Math.abs(delta) * 50000);
-    candles.push({ time, open, high, low, close, volume });
-    price = close;
+function seededRandom(symbol) {
+  let state = 2166136261;
+  for (const char of symbol) {
+    state = Math.imul(state ^ char.charCodeAt(0), 16777619);
   }
-  return candles;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return (state + 1) / 4294967297;
+  };
+}
+
+function generateDailyCandles(quote, count = 251) {
+  const random = seededRandom(quote.symbol);
+  const normal = () => Math.sqrt(-2 * Math.log(random())) * Math.cos(2 * Math.PI * random());
+  const times = [];
+  for (let time = LAST_SESSION; times.length < count; time -= DAY_SECONDS) {
+    const day = new Date(time * 1000).getUTCDay();
+    if (day > 0 && day < 6) times.push(time);
+  }
+  times.reverse();
+
+  // Persistent shocks give neighboring sessions similar volatility without a fixed cycle.
+  let close = 1;
+  let volatility = 0.014;
+  const candles = times.map((time) => {
+    const shock = normal() * volatility;
+    const open = close * Math.exp(normal() * volatility * 0.24);
+    close = open * Math.exp(0.00025 + shock);
+    const wick = Math.abs(normal()) * volatility * 0.45;
+    const high = Math.max(open, close) * (1 + wick);
+    const low = Math.min(open, close) / (1 + wick);
+    const volume = Math.round(700000 * Math.exp(normal() * 0.32 + Math.abs(shock) * 22));
+    volatility = Math.min(0.055, 0.002 + 0.78 * volatility + 0.17 * Math.abs(shock));
+    return { time, open, high, low, close, volume };
+  });
+
+  const previousClose = quote.prev_close ?? roundPrice(quote.price / (1 + (quote.change_pct || 0) / 100));
+  const scale = previousClose / candles.at(-2).close;
+  return candles.map((bar, index) => {
+    const open = roundPrice(bar.open * scale);
+    const close = index === candles.length - 1 ? quote.price : roundPrice(bar.close * scale);
+    return {
+      time: bar.time, open,
+      high: Math.max(open, close, roundPrice(bar.high * scale)),
+      low: Math.min(open, close, roundPrice(bar.low * scale)),
+      close, volume: bar.volume,
+    };
+  });
 }
 
 const SYMBOLS = [
@@ -41,41 +75,39 @@ const SYMBOLS = [
   { symbol: 'TSLA', name: 'Tesla', basePrice: 250 },
 ];
 
-// Generate candle files
-for (const s of SYMBOLS) {
-  const candles = generateMockCandles(s.basePrice, 250);
-  const filename = `candles-${s.symbol.replace('.', '-')}.json`;
-  fs.writeFileSync(path.join(DEMO_DIR, filename), JSON.stringify({
-    symbol: s.symbol,
-    name: s.name,
-    interval: '1d',
-    candles,
-    demo_mode: true
-  }, null, 2));
-  console.log(`Generated ${filename} (${candles.length} candles)`);
+// The watchlist snapshot and the chart's last daily candle share the same close.
+for (const { symbol, name, basePrice } of SYMBOLS) {
+  const fileSymbol = symbol.replace('.', '-');
+  const overviewPath = path.join(DEMO_DIR, `overview-${fileSymbol}.json`);
+  const overview = fs.existsSync(overviewPath)
+    ? JSON.parse(fs.readFileSync(overviewPath, 'utf8'))
+    : {
+        symbol, name, price: basePrice, demo_mode: true,
+        currency: symbol.endsWith('.NS') ? 'INR' : 'USD',
+        exchange: symbol.endsWith('.NS') ? 'NSE' : 'NASDAQ',
+      };
+  const candles = generateDailyCandles(overview);
+  const last = candles.at(-1);
+  const prevClose = candles.at(-2).close;
+  const change = roundPrice(last.close - prevClose);
+  const lastUpdated = new Date(last.time * 1000).toISOString();
+  const quote = {
+    ...overview,
+    price: last.close,
+    change,
+    change_pct: roundPrice(change / prevClose * 100),
+    prev_close: prevClose,
+    last_updated: lastUpdated,
+    week_52_high: Math.max(...candles.map((bar) => bar.high)),
+    week_52_low: Math.min(...candles.map((bar) => bar.low)),
+  };
+  fs.writeFileSync(overviewPath, JSON.stringify(quote, null, 2) + '\n');
+  fs.writeFileSync(path.join(DEMO_DIR, `candles-${fileSymbol}.json`), JSON.stringify({
+    symbol, name, interval: '1d', candles, demo_mode: true
+  }, null, 2) + '\n');
+  console.log(`Generated ${symbol} quote and ${candles.length} candles`);
 }
-
-// Generate overview files
-for (const s of SYMBOLS) {
-  const filename = `overview-${s.symbol.replace('.', '-')}.json`;
-  fs.writeFileSync(path.join(DEMO_DIR, filename), JSON.stringify({
-    symbol: s.symbol,
-    name: s.name,
-    price: s.basePrice,
-    change: Math.round((Math.random() - 0.5) * 50 * 100) / 100,
-    change_pct: Math.round((Math.random() - 0.5) * 3 * 100) / 100,
-    market_cap: Math.round(s.basePrice * 1e9 / 1e7) * 1e7,
-    pe_ratio: Math.round((15 + Math.random() * 20) * 100) / 100,
-    pb_ratio: Math.round((2 + Math.random() * 5) * 100) / 100,
-    dividend_yield: Math.round(Math.random() * 2 * 100) / 100,
-    week_52_high: Math.round(s.basePrice * (1 + Math.random() * 0.3) * 100) / 100,
-    week_52_low: Math.round(s.basePrice * (1 - Math.random() * 0.3) * 100) / 100,
-    currency: s.symbol.endsWith('.NS') ? 'INR' : 'USD',
-    exchange: s.symbol.endsWith('.NS') ? 'NSE' : 'NASDAQ',
-    demo_mode: true
-  }, null, 2));
-  console.log(`Generated ${filename}`);
-}
+if (process.argv.includes('--candles-only')) process.exit(0);
 
 // Generate research dossier
 for (const s of SYMBOLS) {

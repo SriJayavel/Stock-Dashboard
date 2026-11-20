@@ -2745,12 +2745,12 @@ function renderWatchlistRows(quotes) {
               <span class="wl-item-name">${item.name || sym}</span>
             </div>
             <div class="wl-item-stats">
-              <div class="wl-item-price-block">
+              <div class="wl-item-price-block"${item.demo_mode ? ' title="Last synthetic close and change from the previous close"' : ''}>
                 ${
                   isPending
                     ? `<span class="meta-badge" style="font-size:10px; color:#fbbf24;">Awaiting data</span>`
                     : `<span class="wl-item-price">${item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable')}</span>
-                       <span class="tape-chg ${chgClass}" style="font-size:10px;">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>`
+                       ${item.change_pct == null ? '' : `<span class="tape-chg ${chgClass}" style="font-size:10px;">${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%</span>`}`
                 }
               </div>
               <button class="wl-item-alert-btn" data-symbol="${sym}" style="padding: 2px 6px; font-size: 10px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 4px;">Alert</button>
@@ -2854,7 +2854,7 @@ function renderWatchlistRows(quotes) {
                 <td class="screener-sym-col">${sym}</td>
                 <td style="font-weight: 500;">${item.name || sym}</td>
                 <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Awaiting data</span>' : (item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable'))}</td>
-                <td><span class="tape-chg ${chgClass}">${isPending ? formatWithState(null, 'unavailable') : `${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%`}</span></td>
+                <td><span class="tape-chg ${chgClass}">${item.change_pct == null ? formatWithState(null, 'unavailable') : `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%`}</span></td>
                 <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
                 <td>
                   <span class="sparkline-mini" data-symbol="${sym}" aria-label="Price trend" tabindex="0"></span>
@@ -5617,9 +5617,10 @@ function renderBenchmarkSkeleton(tableBody) {
         <td class="text-right">
           <div class="benchmark-skeleton-pill short"></div>
         </td>
-        <td>
-          <div class="benchmark-skeleton-bar"></div>
-        </td>
+        <td class="text-right"><div class="benchmark-skeleton-pill short"></div></td>
+        <td class="text-right"><div class="benchmark-skeleton-pill short"></div></td>
+        <td><div class="benchmark-skeleton-bar"></div></td>
+        <td class="text-right"><div class="benchmark-skeleton-pill short"></div></td>
       </tr>
     `
     )
