@@ -13,11 +13,13 @@ Explore global benchmarks, search for AAPL or TCS, open an interactive price cha
 ```bash
 cd frontend
 npm ci
-npm run build:demo
+npm run build
 npm run preview
 ```
 
-The root Vercel configuration publishes this static build. Deploy a FastAPI instance separately for authorized provider-backed use. For that setup, call the protected `POST /internal/refresh-cache` endpoint from a scheduler to populate the market snapshot. The public portfolio host serves only the static demo.
+The root Vercel configuration builds this static demo. If your static host uses `frontend` as its project root, set the build command to `npm run build` and the output directory to `dist`. The demo uses bundled fixtures even when the host has live API or Supabase environment variables.
+
+For authorized provider-backed use, build with `npm run build:live` or use the Dockerfile, which builds and serves the live frontend with FastAPI. For a separately hosted live frontend, set `VITE_API_BASE_URL` to the FastAPI origin. Call the protected `POST /internal/refresh-cache` endpoint from a scheduler to populate the market snapshot.
 
 ---
 

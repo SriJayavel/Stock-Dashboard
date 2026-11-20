@@ -102,6 +102,8 @@ class MaraAccount {
   }
 
   showAuthGate() {
+    document.body.classList.remove('authenticated');
+    document.body.classList.add('auth-required');
     const authGate = document.getElementById('auth-gate');
     authGate?.classList.remove('auth-gate-hidden');
     // Hide back button since there's no landing page
@@ -196,9 +198,11 @@ class MaraAccount {
     const signup = mode === 'signup';
     const recovery = mode === 'recovery';
     const reset = mode === 'reset';
+    if (recovery) this.showAuthGate();
     const title = document.getElementById('auth-form-title');
     const description = document.getElementById('auth-form-description');
     const confirm = document.getElementById('auth-confirm-field');
+    const confirmInput = document.getElementById('auth-confirm-password');
     const password = document.getElementById('auth-password-field');
     const passwordInput = document.getElementById('auth-password');
     const tabs = document.getElementById('auth-mode-tabs');
@@ -208,8 +212,11 @@ class MaraAccount {
     if (description) description.textContent = recovery ? 'Set a new password to secure your Mara account.' : reset ? 'Enter your account email and we\'ll send a reset link.' : signup ? 'A private market workspace, ready when you are.' : 'Sign in to continue to your market workspace.';
     if (confirm) confirm.hidden = !(signup || recovery);
     if (password) password.hidden = reset;
-    if (passwordInput) passwordInput.autocomplete = signup || recovery ? 'new-password' : 'current-password';
-    if (confirmInput) confirmInput.autocomplete = signup || recovery ? 'new-password' : 'current-password';
+    if (passwordInput) {
+      passwordInput.autocomplete = signup || recovery ? 'new-password' : 'current-password';
+      passwordInput.disabled = reset;
+    }
+    if (confirmInput) confirmInput.disabled = !(signup || recovery);
     if (tabs) tabs.hidden = reset || recovery;
     if (forgot) forgot.hidden = signup || reset || recovery;
     if (back) {

@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:demo": "vite build --mode demo",
+    "build": "vite build --mode demo",
+    "build:demo": "npm run build",
+    "build:live": "vite build",
     "preview": "vite preview",
     "test:smoke": "playwright test --config=playwright.config.js",
     "test:demo": "playwright test --config=playwright.demo.config.js"

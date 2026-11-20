@@ -1,6 +1,16 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Hosting environment variables take precedence over .env.demo. Keep
+  // the static build pinned to fixtures even on a project with live settings.
+  define: mode === 'demo' ? {
+    'import.meta.env.VITE_DEMO_MODE': JSON.stringify('true'),
+    'import.meta.env.VITE_API_BASE_URL': '""',
+    'import.meta.env.VITE_API_URL': '""',
+    'import.meta.env.VITE_SUPABASE_URL': '""',
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': '""',
+    'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': '""',
+  } : {},
   server: {
     port: 5173,
     proxy: {
@@ -35,4 +45,4 @@ export default defineConfig({
     minify: 'esbuild',
     sourcemap: false,
   }
-});
+}));

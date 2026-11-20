@@ -10,7 +10,7 @@ ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
 COPY frontend/package*.json ./
 RUN npm ci --prefer-offline --no-audit
 COPY frontend/ ./
-RUN npm run build
+RUN npm run build:live
 
 # ============================================================================
 # Stage 2: Production Python Runtime (Multi-cloud: Render & Google Cloud Run)
