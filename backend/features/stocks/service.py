@@ -240,7 +240,6 @@ class StockService:
                 item["status"] = "cached"
                 results.append(item)
             else:
-                # Mark as pending for background warmer
                 results.append({
                     "symbol": sym,
                     "name": sym,
@@ -250,7 +249,7 @@ class StockService:
                     "change_pct": None,
                     "currency_symbol": "₹" if sym.endswith(".NS") or sym.endswith(".BO") else "$",
                     "market_cap_str": "—",
-                    "message": "Asset quote is queued for scheduled cache warmup.",
+                    "message": "No cached quote is available for this symbol.",
                 })
 
         return results

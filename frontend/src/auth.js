@@ -4,7 +4,7 @@ const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/^['"]|[
 const SUPABASE_URL = rawUrl && !rawUrl.startsWith('http') ? `https://${rawUrl}` : rawUrl;
 const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim().replace(/^['"]|['"]$/g, '');
 
-export const supabase = SUPABASE_URL && SUPABASE_KEY
+export const supabase = import.meta.env.VITE_DEMO_MODE !== 'true' && SUPABASE_URL && SUPABASE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_KEY, {
       auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, flowType: 'pkce' },
     })

@@ -1,27 +1,27 @@
 :root {
   color-scheme: light dark;
-  --font-display: "Inter", "JetBrains Mono", "SF Pro Text", sans-serif;
-  --font-sans: "Inter", "JetBrains Mono", "SF Pro Text", sans-serif;
-  --font-mono: "JetBrains Mono", "Inter", "SF Pro Text", monospace;
+  --font-display: "Bahnschrift", "Avenir Next", system-ui, sans-serif;
+  --font-sans: system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", ui-monospace, monospace;
 }
 
 html:not(.light-theme) {
-  --bg: #111215;
-  --bg-deep: #16171B;
-  --bg-canvas: #111215;
-  --surface: #1C1E23;
-  --surface-solid: #1C1E23;
-  --surface-card: #1C1E23;
-  --surface-hover: #23262D;
-  --border: #2A2D35;
-  --border-strong: #2A2D35;
-  --text: #E0E2EC;
-  --text-dim: #A0A4B8;
-  --text-muted: #8B91A8;
-  --accent: #34D399;
-  --accent-rgb: 52, 211, 153;
-  --accent-cyan: #34D399;
-  --accent-blue: #34D399;
+  --bg: #101114;
+  --bg-deep: #151619;
+  --bg-canvas: #101114;
+  --surface: #1a1b20;
+  --surface-solid: #1a1b20;
+  --surface-card: #1a1b20;
+  --surface-hover: #25262b;
+  --border: #303035;
+  --border-strong: #424147;
+  --text: #f2efea;
+  --text-dim: #c0bab3;
+  --text-muted: #a49d96;
+  --accent: #eac47a;
+  --accent-rgb: 234, 196, 122;
+  --accent-cyan: var(--accent);
+  --accent-blue: var(--accent);
   --gain: #34D399;
   --loss: #F87171;
   --gain-bg: rgba(52, 211, 153, 0.12);
@@ -61,10 +61,10 @@ html.light-theme {
   --text: #1e293b;
   --text-dim: #475569;
   --text-muted: #64748b;
-  --accent: #34D399;
-  --accent-rgb: 52, 211, 153;
-  --accent-cyan: #34D399;
-  --accent-blue: #34D399;
+  --accent: #80551b;
+  --accent-rgb: 128, 85, 27;
+  --accent-cyan: var(--accent);
+  --accent-blue: var(--accent);
   --gain: #059669;
   --loss: #ef4444;
   --gain-bg: rgba(16, 185, 129, 0.1);
@@ -2993,7 +2993,101 @@ body.authenticated .auth-gate,
 }
 
 body.authenticated .mara-app {
-  display: block;
+  display: flex;
+}
+
+.mara-app {
+  inline-size: 100%;
+  block-size: 100dvh;
+  font-variant-numeric: tabular-nums;
+}
+
+.mara-body-container { flex: 1 1 0; }
+.mara-unified-header, .market-ticker-strip, .mara-status-bar, .demo-banner { flex-shrink: 0; }
+.mara-app [hidden], .demo-banner [hidden] { display: none !important; }
+.mara-app.is-demo #auth-account,
+.mara-app.is-demo #ws-status-indicator { display: none; }
+
+.markets-page-heading {
+  margin: 0 0 1rem;
+  padding: clamp(1.25rem, 1rem + 2vw, 2.6rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(ellipse at 96% 0%, rgba(var(--accent-rgb), .14), transparent 64%),
+    var(--surface);
+}
+
+.markets-page-heading h1 {
+  font: 650 clamp(2rem, 1.4rem + 2.5vw, 3.5rem)/1.1 var(--font-display);
+  letter-spacing: -.045em;
+}
+
+.markets-page-heading p {
+  max-inline-size: 62ch;
+  margin-block-start: .7rem;
+  font-size: .875rem;
+}
+
+.markets-status-strip {
+  block-size: auto;
+  min-block-size: 2.75rem;
+  flex-wrap: wrap;
+  gap: .4rem 1rem;
+  padding-block: .45rem;
+}
+
+.status-strip-left, .status-strip-right {
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+
+.market-ticker-strip { background: var(--bg-deep); }
+.market-ticker-item:focus-visible { outline-offset: -3px; }
+.mara-unified-header #cmd-hint-text { display: none; }
+.mara-unified-header .mara-cmd-input { min-inline-size: 0; }
+.mara-cmd-surface .search-item {
+  inline-size: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+}
+.mara-nav-rail { inline-size: 12rem; min-inline-size: 12rem; }
+
+.benchmark-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: clamp(.65rem, 1.5vw, 1.25rem);
+}
+
+.benchmark-panel .benchmark-board-professional {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.mara-status-bar {
+  height: auto;
+  min-height: 2rem;
+  flex-wrap: wrap;
+  gap: .25rem .85rem;
+  padding: .3rem .75rem;
+  font-size: .72rem;
+}
+
+.mara-status-bar a { color: var(--text-dim); }
+.mara-status-bar a:hover { color: var(--accent); }
+
+@media (max-width: 767px) {
+  .workspace-scroll-wrap { padding: .75rem .75rem 2rem; }
+  .mara-header-utilities { flex-wrap: wrap; justify-content: flex-end; }
+  .mara-unified-header { grid-template-rows: minmax(2.5rem, auto) 2.5rem 2.5rem; }
+  .mara-ws-tab-btn { min-block-size: 2.25rem; }
+  .benchmark-panel .benchmark-filter-group {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 }
 
 /* Reduced motion */

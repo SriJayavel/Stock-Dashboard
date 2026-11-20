@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Privacy Policy — Mara Stock Dashboard</title>
-    <link rel="stylesheet" href="/src/styles/terminal.css" />
     <style>
         body { background: #0c0d0e; color: #e9e6dd; font-family: system-ui, sans-serif; }
         .container { max-width: 800px; margin: 40px auto; padding: 24px; }
@@ -21,14 +20,12 @@
 <body>
     <div class="container">
         <h1>Privacy Policy — Mara Stock Dashboard</h1>
-        <p><strong>Effective Date:</strong> November 15, 2026<br/>
-        <strong>Jurisdiction:</strong> India<br/>
-        <strong>Applicable Law:</strong> Digital Personal Data Protection Act, 2023</p>
+        <p>The public portfolio demo runs with synthetic data and requires no account. This page describes the demo and the optional account functionality in independently hosted copies.</p>
 
         <h2>1. Personal Data We Collect</h2>
         <table>
             <tr><th>Data Category</th><th>When Collected</th><th>Purpose</th><th>Storage</th></tr>
-            <tr><td>Email address</td><td>Sign-up or password reset</td><td>Account creation, authentication</td><td>Supabase Auth (US/EU)</td></tr>
+            <tr><td>Email address</td><td>Sign-up or password reset in an account-enabled deployment</td><td>Account creation and authentication</td><td>Supabase Auth</td></tr>
             <tr><td>Password</td><td>Sign-up</td><td>Authentication (hashed)</td><td>Supabase Auth</td></tr>
             <tr><td>Session tokens</td><td>Sign-in</td><td>Maintain authenticated session</td><td>Browser localStorage</td></tr>
             <tr><td>Watchlist symbols</td><td>User adds assets</td><td>Persist watchlist</td><td>Browser localStorage only</td></tr>
@@ -37,16 +34,16 @@
         </table>
 
         <h2>2. Third-Party Processors</h2>
-        <p>Supabase Inc. processes authentication data on our behalf under a data processing agreement. Supabase stores data in US/EU data centers.</p>
+        <p>The demo does not connect to Supabase. If an operator enables accounts on a separate deployment, Supabase Auth handles account credentials and the operator is responsible for disclosing its selected region and processing terms. The static host may process ordinary request information such as IP addresses.</p>
 
         <h2>3. Cookies and Local Storage</h2>
         <p>Mara uses browser localStorage for watchlist, notes, alerts, and preferences. These are essential for functionality and are not used for cross-site tracking.</p>
 
         <h2>4. Your Rights</h2>
-        <p>Under the DPDP Act, 2023 you have the right to access, correct, or erase your personal data. Contact the Grievance Officer for requests.</p>
+        <p>Use your browser’s site-data controls to erase the demo’s local data. For account or hosting records, contact the operator of the deployment you used.</p>
 
         <h2>5. Data Retention</h2>
-        <p>Account data is retained as long as your account is active. Local storage data remains on your device until you clear it or delete your account.</p>
+        <p>Local storage remains on your device until it is cleared. An account-enabled deployment sets its own account-data retention policy.</p>
 
         <h2>6. Security</h2>
         <p>Passwords are hashed by Supabase Auth and never transmitted to Mara's market-data API. All authentication traffic uses HTTPS.</p>
@@ -56,7 +53,6 @@
     </div>
 
     <div class="footer">
-        <p><strong>Grievance Officer:</strong> Contact details will be published at the footer.</p>
         <p><a href="/legal/terms-and-conditions.html">Terms and Conditions</a> | <a href="/">Back to Dashboard</a></p>
     </div>
 </body>

@@ -9,6 +9,11 @@ export default defineConfig({
   },
   fullyParallel: false,
   reporter: 'list',
+  webServer: {
+    command: 'npm run dev -- --host localhost --strictPort',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+  },
   use: {
     baseURL: 'http://localhost:5173',
     channel: 'chrome',

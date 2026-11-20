@@ -20,6 +20,7 @@ from backend.features.relationship_intelligence.service import RelationshipIntel
 from backend.core.contracts.market_data import MarketDataProvider
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
+search_router = APIRouter(tags=["stocks"])
 
 
 class CorrelationRequest(BaseModel):
@@ -132,6 +133,7 @@ async def get_batch_stock_overview(
     return results
 
 
+@search_router.get("/api/search")
 @router.get("/search")
 async def search_assets(
     q: str = Query(..., min_length=1, max_length=100),

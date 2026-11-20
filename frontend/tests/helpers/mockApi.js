@@ -40,6 +40,11 @@ export async function setupTestAuth(page) {
 }
 
 export async function setupMockApi(page, custom = {}) {
+  await page.routeWebSocket('**/ws/markets', (socket) => {
+    socket.onMessage((message) => {
+      if (message === 'ping') socket.send('pong');
+    });
+  });
   // Prevent Supabase external requests from creating noise or failing tests
   await page.route('**/supabase.co/**', (route) => {
     route.fulfill({
@@ -360,8 +365,8 @@ export async function setupMockApi(page, custom = {}) {
     });
   });
 
-  // /api/market/candles*
-  await page.route(/\/api\/market\/candles/, (route) => {
+  // /api/markets/candles
+  await page.route(/\/api\/markets\/candles/, (route) => {
     const url = route.request().url();
     const symMatch = url.match(/[?&]symbol=([^&]+)/);
     const symbol = symMatch ? decodeURIComponent(symMatch[1]) : 'TCS.NS';

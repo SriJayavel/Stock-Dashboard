@@ -6,28 +6,24 @@
     <title>Mara Stock Dashboard</title>
     <meta name="description" content="Mara Stock Dashboard — market research and analysis workstation. Informational and educational use only. Not investment advice." />
     <meta property="og:title" content="Mara Stock Dashboard" />
-    <meta property="og:description" content="Real-time equities intelligence, TradingView charts, and fundamental valuation analytics." />
+    <meta property="og:description" content="Global market snapshots, interactive price charts, and historical valuation metrics." />
     <meta property="og:image" content="/og-image.svg" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Mara Stock Dashboard" />
-    <meta name="twitter:description" content="Real-time equities intelligence, TradingView charts, and fundamental valuation analytics." />
+    <meta name="twitter:description" content="Global market snapshots, interactive price charts, and historical valuation metrics." />
     <meta name="twitter:image" content="/og-image.svg" />
     <meta name="theme-color" content="#111215" />
     <link rel="canonical" href="https://mara-stock-terminal.vercel.app/" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="preconnect" href="https://api.upstash.io" crossorigin />
     <meta name="color-scheme" content="light dark" />
     <script>
       try {
         document.querySelector('meta[name="color-scheme"]').content = localStorage.getItem('mara-theme') === 'light' ? 'light' : 'dark';
       } catch (_) {}
     </script>
-    <link rel="preconnect" href="https://query1.finance.yahoo.com" crossorigin />
-    <link rel="dns-prefetch" href="https://api.upstash.io" />
-    <link rel="dns-prefetch" href="https://query1.finance.yahoo.com" />
     <link rel="stylesheet" href="/src/styles/terminal.css" />
     <link rel="stylesheet" href="/src/styles/redesign.css" />
     <script type="application/ld+json">
@@ -35,13 +31,13 @@
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "Mara Stock Dashboard",
-      "description": "Real-time equities intelligence, TradingView charts, valuation multiples, and institutional analytics for market research.",
+      "description": "Market snapshots, interactive price charts, valuation metrics, and research tools.",
       "applicationCategory": "FinanceApplication",
       "operatingSystem": "Web",
       "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock"},
       "featureList": [
         "Real-time NSE India and global market data",
-        "TradingView Lightweight Charts with 20+ indicators",
+        "Interactive canvas charts with technical indicators",
         "Sector rotation heatmaps and constituent analysis",
         "Valuation multiples and peer benchmarking",
         "Multi-asset correlation matrix",
@@ -55,12 +51,6 @@
     </script>
   </head>
   <body class="auth-required" style="overflow-x: hidden;">
-    <div id="demo-banner" class="demo-banner" style="display:none;">
-      <div class="demo-banner-content">
-        <span class="demo-banner-text">🧪 DEMO MODE — Synthetic demonstration data. No live market data, no personal accounts, no real trades.</span>
-        <button id="exit-demo-mode-btn" class="demo-exit-btn" type="button" title="Exit Demo Mode and return to live market feed">Exit Demo</button>
-      </div>
-    </div>
     <style>
       /* Global overflow-x-hidden on root container */
       html, .mara-app { overflow-x: hidden; }
@@ -154,6 +144,12 @@
          MARA PHYSICAL INTERFACE ARCHITECTURE — PHASE 0 GLOBAL SHELL
          ===================================================================== -->
     <div id="mara-app" class="mara-app" data-density="normal">
+      <div id="demo-banner" class="demo-banner" style="display:none;">
+        <div class="demo-banner-content">
+          <span class="demo-banner-text">Demo mode · Synthetic market data for research and education</span>
+          <button id="exit-demo-mode-btn" class="demo-exit-btn" type="button">Exit demo</button>
+        </div>
+      </div>
       <!-- UNIFIED NAVIGATION HEADER -->
       <header id="mara-unified-header" class="mara-unified-header">
         <!-- Brand Group -->
@@ -174,9 +170,8 @@
               id="global-search-input"
               class="mara-cmd-input"
               role="combobox"
-              aria-label="Search securities, sectors, macros & commands"
-              aria-placeholder="Search securities, sectors, macros & commands..."
-              placeholder="Search securities, sectors, macros & commands..."
+              aria-label="Search symbols or companies"
+              placeholder="Search symbols or companies"
               autocomplete="off"
               aria-controls="search-dropdown"
               aria-autocomplete="list"
@@ -355,27 +350,25 @@
                 <h1>Markets</h1>
                 <p>Global benchmarks and cross-asset performance from the latest available snapshot.</p>
               </div>
-              <div class="markets-page-actions" style="display: flex; gap: 8px; align-items: center;">
-              </div>
             </header>
             <!-- MARKETS STATE / SESSION CONTEXT BAR -->
             <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
               <div class="status-strip-left">
                 <div class="status-session">
                   <span class="status-session-dot" id="mkt-session-dot" aria-hidden="true"></span>
-                  <span class="status-session-name" id="mkt-session-name">NSE INDIA: REGULAR SESSION</span>
+                  <span class="status-session-name" id="mkt-session-name">Checking market sessions</span>
                 </div>
                 <div class="status-desks" id="status-desks">
-                  <span class="status-desk"><span class="status-desk-label">NSE</span><span class="status-desk-val" id="mkt-nse-status">OPEN</span></span>
-                  <span class="status-desk"><span class="status-desk-label">NYSE</span><span class="status-desk-val" id="mkt-nyse-status">PRE</span></span>
-                  <span class="status-desk"><span class="status-desk-label">LSE</span><span class="status-desk-val" id="mkt-lse-status">OPEN</span></span>
-                  <span class="status-desk"><span class="status-desk-label">TYO</span><span class="status-desk-val" id="mkt-tyo-status">CLOSED</span></span>
+                  <span class="status-desk"><span class="status-desk-label">NSE</span><span class="status-desk-val" id="mkt-nse-status">—</span></span>
+                  <span class="status-desk"><span class="status-desk-label">NYSE</span><span class="status-desk-val" id="mkt-nyse-status">—</span></span>
+                  <span class="status-desk"><span class="status-desk-label">LSE</span><span class="status-desk-val" id="mkt-lse-status">—</span></span>
+                  <span class="status-desk"><span class="status-desk-label">TYO</span><span class="status-desk-val" id="mkt-tyo-status">—</span></span>
                 </div>
               </div>
               <div class="status-strip-right">
                 <div class="status-feed">
                   <span class="status-feed-dot" id="mkt-feed-dot" aria-hidden="true"></span>
-                  <span class="status-feed-text" id="mkt-feed-source">LIVE</span>
+                  <span class="status-feed-text" id="mkt-feed-source">Connecting</span>
                 </div>
                 <span class="status-breadth" id="mkt-breadth-val">—</span>
                 <span class="status-updated" id="mkt-last-updated">—</span>
@@ -383,35 +376,6 @@
                 <button class="status-reload-btn" id="mkt-refresh-btn" type="button" title="Refresh market feeds" aria-label="Refresh market feeds">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                 </button>
-              </div>
-            </div>
-
-            <!-- GLOBAL MARKET HOURS TIMELINE - Professional Trading Terminal Style -->
-            <div class="ws-section-block market-hours-timeline" id="market-hours-timeline" aria-label="Global market trading hours">
-              <div class="section-sub-header">
-                <div class="section-sub-title-group">
-                  <h2 class="section-sub-title">Global Market Hours</h2>
-                  <span class="section-sub-caption">Real-time session status across global exchanges. Timeline shows 24h cycle in exchange local time.</span>
-                </div>
-                <div class="timeline-toolbar">
-                  <div class="timeline-time-indicator" id="timeline-current-time" aria-live="polite">
-                    <span class="timeline-time-label">Current UTC</span>
-                    <span class="timeline-time-value">--:--:--</span>
-                  </div>
-                  <button class="ghost-btn ghost-btn-sm" id="timeline-refresh-btn" title="Refresh timeline" aria-label="Refresh market hours">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                  </button>
-                </div>
-              </div>
-              <div class="market-timeline-professional" id="market-timeline-professional" role="list" aria-label="Market hours timeline">
-                <!-- Populated by renderMarketHoursTimelinePro() -->
-              </div>
-              <div class="timeline-legend" id="timeline-legend" aria-label="Session legend">
-                <span class="legend-item"><span class="legend-swatch session-open"></span>Regular Session</span>
-                <span class="legend-item"><span class="legend-swatch session-pre"></span>Pre-Market</span>
-                <span class="legend-item"><span class="legend-swatch session-post"></span>After-Hours</span>
-                <span class="legend-item"><span class="legend-swatch session-lunch"></span>Lunch Break</span>
-                <span class="legend-item"><span class="legend-swatch session-closed"></span>Closed</span>
               </div>
             </div>
 
@@ -518,11 +482,11 @@
             </div>
 
             <!-- SECTION 1: GLOBAL BENCHMARK INDICES - Professional Trading Terminal -->
-            <div class="ws-section-block">
+            <div class="ws-section-block benchmark-panel">
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h2 class="section-sub-title">Global Benchmark Indices</h2>
-                  <span class="section-sub-caption">Real-time benchmark snapshot across global markets. Click any row for deep analysis.</span>
+                  <span class="section-sub-caption">Select a benchmark to see its details. Press Enter or double-click to open its chart.</span>
                 </div>
                 <div class="benchmark-toolbar">
                   <div class="benchmark-filter-group" id="markets-indices-filter" role="tablist" aria-label="Region filter">
@@ -672,6 +636,35 @@
                   <span class="footer-count" id="benchmarks-count">— indices</span>
                   <span class="footer-source" id="benchmarks-source">Source: —</span>
                 </div>
+              </div>
+            </div>
+
+            <!-- GLOBAL MARKET HOURS TIMELINE - Professional Trading Terminal Style -->
+            <div class="ws-section-block market-hours-timeline" id="market-hours-timeline" aria-label="Global market trading hours">
+              <div class="section-sub-header">
+                <div class="section-sub-title-group">
+                  <h2 class="section-sub-title">Global Market Hours</h2>
+                  <span class="section-sub-caption">Real-time session status across global exchanges. Timeline shows 24h cycle in exchange local time.</span>
+                </div>
+                <div class="timeline-toolbar">
+                  <div class="timeline-time-indicator" id="timeline-current-time" aria-live="polite">
+                    <span class="timeline-time-label">Current UTC</span>
+                    <span class="timeline-time-value">--:--:--</span>
+                  </div>
+                  <button class="ghost-btn ghost-btn-sm" id="timeline-refresh-btn" title="Refresh timeline" aria-label="Refresh market hours">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="market-timeline-professional" id="market-timeline-professional" role="list" aria-label="Market hours timeline">
+                <!-- Populated by renderMarketHoursTimelinePro() -->
+              </div>
+              <div class="timeline-legend" id="timeline-legend" aria-label="Session legend">
+                <span class="legend-item"><span class="legend-swatch session-open"></span>Regular Session</span>
+                <span class="legend-item"><span class="legend-swatch session-pre"></span>Pre-Market</span>
+                <span class="legend-item"><span class="legend-swatch session-post"></span>After-Hours</span>
+                <span class="legend-item"><span class="legend-swatch session-lunch"></span>Lunch Break</span>
+                <span class="legend-item"><span class="legend-swatch session-closed"></span>Closed</span>
               </div>
             </div>
 
@@ -1474,17 +1467,13 @@
     </div>
 
     <div class="status-bar-item" style="gap: 12px;">
-      <a href="/legal/terms-and-conditions.html" style="color: var(--text-dim); text-decoration: none;">Terms</a>
+      <a href="/legal/terms-and-conditions.html">Terms</a>
       <span class="sep">|</span>
-      <a href="/legal/privacy-policy.html" style="color: var(--text-dim); text-decoration: none;">Privacy</a>
+      <a href="/legal/privacy-policy.html">Privacy</a>
       <span class="sep">|</span>
-      <a href="/legal/risk-disclosure.html" style="color: var(--text-dim); text-decoration: none;">Risk Disclosure</a>
+      <a href="/legal/risk-disclosure.html">Data & risk</a>
     </div>
   </footer>
-  <!-- Data source attribution -->
-  <div style="position: absolute; bottom: 32px; left: 8px; font-size: 12px; color: var(--text-dim); white-space: nowrap;">
-    Market data: Yahoo Finance via yfinance (unofficial API). TradingView charts. NSE symbols: ^NSEI, ^BSESN. Data for research purposes only. Not financial advice.
-  </div>
 </div> <!-- end #mara-app -->
 
     <!-- Local Watchlist & Alerts Right Sidebar Drawer -->

@@ -4,7 +4,7 @@
  * multi-asset macro categories, persistent watchlist, and resilient API handling.
  */
 
-import { api, isDemoMode, setDemoMode } from './api.js';
+import { api, isDemoMode, isShowcaseBuild, marketWS, setDemoMode } from './api.js';
 import { TerminalChart } from './chart.js';
 import { watchlist } from './watchlist.js';
 import { alertsManager } from './alerts.js';
@@ -227,20 +227,15 @@ async function startApp() {
 
   // Demo mode: show banner, pre-seed localStorage, auto-sign-in as guest
   if (isDemoMode()) {
+    document.getElementById('mara-app')?.classList.add('is-demo');
     const banner = document.getElementById('demo-banner');
     if (banner) banner.style.display = 'block';
-    document.getElementById('exit-demo-mode-btn')?.addEventListener('click', () => {
+    const exitDemo = document.getElementById('exit-demo-mode-btn');
+    if (exitDemo) exitDemo.hidden = isShowcaseBuild;
+    exitDemo?.addEventListener('click', () => {
       setDemoMode(false);
       window.location.reload();
     });
-    // Pre-seed demo watchlist so Monitor workspace renders immediately
-    try {
-      localStorage.setItem('demo_watchlist', JSON.stringify([
-        { symbol: 'TCS.NS', name: 'Tata Consultancy Services' },
-        { symbol: 'RELIANCE.NS', name: 'Reliance Industries' },
-        { symbol: 'AAPL', name: 'Apple Inc.' }
-      ]));
-    } catch (e) { /* ignore */ }
   }
 
   alertsManager.activateAccount();
@@ -301,7 +296,7 @@ async function startApp() {
 
   window.apexRouter = router;
   // Initialize router immediately so the active asset chart mounts without waiting for macro overview
-  await router.init({ symbol: 'TCS.NS', tab: 'chart' });
+  await router.init(isDemoMode() ? { path: '/markets' } : { symbol: 'TCS.NS', tab: 'chart' });
 
   // Fetch secondary feeds concurrently in background
   Promise.allSettled([
@@ -437,7 +432,6 @@ export async function setWorkspace(workspaceName, subTab = null) {
     startMarketTimelineUpdater();
   } else if (previousWorkspace === 'markets' && workspaceName !== 'markets') {
     // Cleanup WebSocket when leaving markets workspace
-    const { marketWS } = await import('./api.js');
     marketWS.disconnect();
     marketWSConnected = false;
 
@@ -1027,24 +1021,34 @@ function setupEventListeners() {
   let searchDebounceTimer = null;
   let searchKeyHandler = null;
 
+  function openSearchResult(symbol) {
+    searchRequestSeq += 1;
+    searchDropdown.classList.remove('open');
+    searchDropdown.setAttribute('aria-busy', 'false');
+    searchInput.setAttribute('aria-expanded', 'false');
+    searchInput.value = '';
+    router.navigate(router.formatSymbolRoute(symbol, 'chart'));
+  }
+
   // Function to render search results in the dropdown
   function renderSearchDropdown(results) {
+    searchDropdown.setAttribute('aria-busy', 'false');
     if (!results || results.length === 0) {
-      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true" style="padding: 12px; text-align: center;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">No symbols found</div><div style="font-size: 11px; color: var(--text-muted);">Try searching for a company name or ticker symbol</div><div style="font-size: 10px; margin-top: 6px; color: var(--text-muted);">Last search: ${new Date().toLocaleTimeString()}</div></div>';
+      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-disabled="true">No matching symbols. Try a company name or ticker.</div>';
       return;
     }
 
     searchDropdown.innerHTML = results
       .map(
         (item, index) => `
-          <div class="search-item" data-index="${index}" role="option" aria-selected="false">
+          <button type="button" class="search-item" data-index="${index}" role="option" aria-selected="false">
             <div class="search-item-info">
               <div class="search-item-symbol">${item.symbol}</div>
               <div class="search-item-name">${item.name}</div>
               ${item.exchange ? `<div class="search-item-exchange">${item.exchange}</div>` : ''}
               ${item.type ? `<div class="search-item-type">${item.type}</div>` : ''}
             </div>
-          </div>
+          </button>
         `
       )
       .join('');
@@ -1057,6 +1061,7 @@ function setupEventListeners() {
     // Handle keyboard navigation
     let activeIndex = 0;
     const items = searchDropdown.querySelectorAll('.search-item');
+    items.forEach((item, index) => item.addEventListener('click', () => openSearchResult(results[index].symbol)));
 
     // Set first item as active by default
     if (items.length > 0) {
@@ -1106,16 +1111,7 @@ function setupEventListeners() {
         e.preventDefault();
         if (items.length > 0 && activeIndex >= 0 && activeIndex < items.length) {
           const result = results[activeIndex];
-          if (result) {
-            // Navigate to the symbol's analyze workspace
-            router.navigate(router.formatSymbolRoute(result.symbol, 'chart'));
-            // Close the dropdown
-            searchDropdown.classList.remove('open');
-            searchInput.setAttribute('aria-expanded', 'false');
-            // Clear the search input
-            searchInput.value = '';
-            currentIndicatorSearch = '';
-          }
+          if (result) openSearchResult(result.symbol);
         }
         return;
       }
@@ -1145,7 +1141,7 @@ function setupEventListeners() {
         try {
           const res = await api.searchAssets(query);
           if (requestSeq !== searchRequestSeq) return;
-          renderSearchDropdown(res.results || []);
+          renderSearchDropdown(Array.isArray(res) ? res : res.results || []);
         } catch (err) {
           if (requestSeq !== searchRequestSeq) return;
           console.error('Search query failed:', err);
@@ -1338,6 +1334,7 @@ function setupEventListeners() {
   // Header Demo Mode Quick Toggle
   const demoToggleBtn = document.getElementById('demo-mode-toggle-btn');
   if (demoToggleBtn) {
+    demoToggleBtn.hidden = isShowcaseBuild;
     const isDemo = isDemoMode();
     if (isDemo) {
       demoToggleBtn.classList.add('active');
@@ -2816,7 +2813,7 @@ function renderWatchlistRows(quotes) {
               <div class="wl-item-price-block">
                 ${
                   isPending
-                    ? `<span class="meta-badge" style="font-size:10px; color:#fbbf24;">Queued</span>`
+                    ? `<span class="meta-badge" style="font-size:10px; color:#fbbf24;">Awaiting data</span>`
                     : `<span class="wl-item-price">${item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable')}</span>
                        <span class="tape-chg ${chgClass}" style="font-size:10px;">${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%</span>`
                 }
@@ -2921,7 +2918,7 @@ function renderWatchlistRows(quotes) {
               <tr data-symbol="${sym}" data-price="${item.current_price}" data-change="${item.change_pct || 0}">
                 <td class="screener-sym-col">${sym}</td>
                 <td style="font-weight: 500;">${item.name || sym}</td>
-                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Queued</span>' : (item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable'))}</td>
+                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Awaiting data</span>' : (item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable'))}</td>
                 <td><span class="tape-chg ${chgClass}">${isPending ? formatWithState(null, 'unavailable') : `${chgGlyph}${Math.abs(item.change_pct || 0).toFixed(2)}%`}</span></td>
                 <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
                 <td>
@@ -2977,65 +2974,6 @@ function renderWatchlistRows(quotes) {
   }
 }
 
-
-// Render Search Dropdown Results
-function renderSearchDropdown(items) {
-  const searchDropdown = document.getElementById('search-dropdown');
-  if (!searchDropdown) return;
-
-  if (items.length === 0) {
-    searchDropdown.innerHTML = `
-      <div class="search-empty-state" role="option" aria-selected="false" aria-disabled="true">
-        <div style="margin-bottom: 6px; color: var(--text);">No matching assets found</div>
-        <div style="font-size: 11px;">Try searching for <strong>TCS</strong>, <strong>RELIANCE</strong>, <strong>NVDA</strong>, or <strong>BTC</strong></div>
-      </div>
-    `;
-    searchDropdown.setAttribute('aria-busy', 'false');
-    searchDropdown.classList.add('open');
-    document.getElementById('global-search-input')?.setAttribute('aria-expanded', 'true');
-    return;
-  }
-
-  searchDropdown.innerHTML = items
-    .map(
-      (item) => `
-      <button class="search-item" type="button" role="option" aria-selected="false" data-symbol="${item.symbol}">
-        <div>
-          <div class="search-item-symbol">${item.symbol}</div>
-          <div class="search-item-name">${item.name}</div>
-        </div>
-        <span class="search-item-category">${item.category || item.exchange || 'Asset'}</span>
-      </button>
-    `
-    )
-    .join('');
-
-  searchDropdown.classList.add('open');
-  searchDropdown.setAttribute('aria-busy', 'false');
-  document.getElementById('global-search-input')?.setAttribute('aria-expanded', 'true');
-
-  // Attach click to each result item
-  searchDropdown.querySelectorAll('.search-item').forEach((elem) => {
-    elem.addEventListener('click', () => {
-      const sym = elem.getAttribute('data-symbol');
-      searchRequestSeq += 1;
-      searchDropdown.classList.remove('open');
-      searchDropdown.setAttribute('aria-busy', 'false');
-      const searchInput = document.getElementById('global-search-input');
-      if (searchInput) {
-        searchInput.value = '';
-        searchInput.setAttribute('aria-expanded', 'false');
-      }
-      if (currentActiveWorkspace === 'compare') {
-        router.navigate(router.formatWorkspaceRoute('compare', sym));
-      } else if (currentActiveWorkspace === 'research') {
-        router.navigate(router.formatWorkspaceRoute('research', sym, currentResearchTab || 'news'));
-      } else {
-        router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
-      }
-    });
-  });
-}
 
 // Sparkline SVG Generator for Macro Mini-Cards
 function generateSparklineSvg(isUp, seedStr = '') {
@@ -3184,7 +3122,7 @@ async function loadMarketOverview(force = false) {
   }
 
   // Show sync status toast during initial load or cold start
-  const isColdStart = !marketDataCache || !marketDataCache.macro?.Indices;
+  const isColdStart = !isDemoMode() && !marketDataCache?.macro?.Indices;
   if (isColdStart) {
     showSyncStatus('Connecting to backend...', false);
     const coldBanner = document.getElementById('cold-start-banner');
@@ -3347,7 +3285,6 @@ async function loadMarketOverview(force = false) {
     }
 
     // Hide sync status toast and cold-start banner
-    const isColdStart = !marketDataCache || !marketDataCache.macro?.Indices;
     if (isColdStart) {
       hideSyncStatus();
       const coldBanner = document.getElementById('cold-start-banner');
@@ -5675,6 +5612,7 @@ function getMarketSessionTelemetry() {
 const MARKET_CACHE_STORAGE_KEY = 'mara_market_snapshot_v2';
 
 function loadPersistedMarketSnapshot() {
+  if (isDemoMode()) return null;
   try {
     const raw = localStorage.getItem(MARKET_CACHE_STORAGE_KEY);
     if (!raw) return null;
@@ -5693,6 +5631,7 @@ function loadPersistedMarketSnapshot() {
 }
 
 function persistMarketSnapshot(data) {
+  if (isDemoMode()) return;
   try {
     if (data && data.macro?.Indices?.some((item) => typeof item.price === 'number' && item.price > 0)) {
       localStorage.setItem(MARKET_CACHE_STORAGE_KEY, JSON.stringify(data));
@@ -5861,12 +5800,12 @@ function updateBenchmarkFooter(benchmarks, marketDataCache) {
   if (!liveCountEl || !lastRefreshEl || !feedStatusEl) return;
 
   const liveCount = benchmarks.filter(b => b.price != null && b.price > 0).length;
-  liveCountEl.textContent = `${liveCount} / ${benchmarks.length} Live`;
+  liveCountEl.textContent = `${liveCount} of ${benchmarks.length} with prices`;
 
   const lastRefresh = marketDataCache?.retrieved_at
     ? new Date(marketDataCache.retrieved_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
     : '—';
-  lastRefreshEl.textContent = `Source: ${lastRefresh}`;
+  lastRefreshEl.textContent = `Snapshot ${lastRefresh}`;
 
   // Feed status based on backend feed_health
   const feedHealthValues = Object.values(marketDataCache?.feed_health || {});
@@ -5877,7 +5816,9 @@ function updateBenchmarkFooter(benchmarks, marketDataCache) {
   // Reset classes
   feedStatusEl.classList.remove('live', 'delayed', 'cached', 'offline');
 
-  if (isStale) {
+  if (marketDataCache?.demo_mode) {
+    feedStatusEl.textContent = 'Synthetic';
+  } else if (isStale) {
     feedStatusEl.textContent = 'Cached';
     feedStatusEl.classList.add('cached');
   } else if (hasLiveFeed) {
@@ -5956,18 +5897,7 @@ function renderMarketStateBar(data) {
   const feedSource = document.getElementById('mkt-feed-source');
   const lastUpdated = document.getElementById('mkt-last-updated');
 
-  // Debug: verify DOM elements exist
-  console.log('[MarketStatus] DOM elements found:', {
-    sessionDot: !!sessionDot,
-    sessionName: !!sessionName,
-    nseStatus: !!nseStatus,
-    nyseStatus: !!nyseStatus,
-    lseStatus: !!lseStatus,
-    tyoStatus: !!tyoStatus
-  });
-
   const telemetry = getMarketSessionTelemetry();
-  console.log('[MarketStatus] Telemetry:', telemetry);
   const indices = data?.macro?.Indices || [];
   const validPriceCount = indices.filter((i) => typeof i.price === 'number' && Number.isFinite(i.price) && i.price > 0).length;
   const isStale = Boolean(data?.is_stale || data?.hero?.is_stale);
@@ -6047,7 +5977,7 @@ function renderMarketStateBar(data) {
   if (feedDot && feedSource) {
     const rawSrc = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
     const srcLabel = rawSrc ? rawSrc.toUpperCase() : 'DATA FEED';
-    feedSource.textContent = `${srcLabel} · ${feedStatus}`;
+    feedSource.textContent = data?.demo_mode ? 'SYNTHETIC DATA' : `${srcLabel} · ${feedStatus}`;
     // Map feed status to feed dot classes
     const feedDotClass = {
       'LIVE': 'live',
@@ -6885,7 +6815,6 @@ async function initMarketWebSocket() {
   if (marketWSConnected) return;
 
   try {
-    const { marketWS } = await import('./api.js');
 
     marketWS.onStatusChange = (status) => {
       console.log('[MarketWS] Status:', status);
@@ -6966,7 +6895,6 @@ async function refreshWSSubscriptions() {
   if (!marketWSConnected) return;
 
   try {
-    const { marketWS } = await import('./api.js');
     if (marketWS.ws?.readyState !== WebSocket.OPEN) return;
 
     const visibleSymbols = new Set(collectVisibleSymbols());

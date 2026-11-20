@@ -41,7 +41,8 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     // 1. Demo banner must be visible
     const banner = page.locator('#demo-banner');
     await expect(banner).toBeVisible({ timeout: 10000 });
-    await expect(banner).toContainText('🧪 DEMO MODE');
+    await expect(banner).toContainText('Synthetic market data');
+    await expect(page.locator('#exit-demo-mode-btn')).toBeHidden();
 
     // 2. All static fixtures must resolve (200)
     const fixtures = [
@@ -58,6 +59,16 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
       const res = await page.request.get(f);
       expect(res.ok(), `fixture ${f} returned ${res.status()}`).toBe(true);
     }
+
+    await page.locator('#global-search-input').fill('AAPL');
+    await page.locator('#search-dropdown').getByRole('option', { name: /AAPL/ }).click();
+    await expect(page).toHaveURL(/AAPL/);
+    await expect(page.locator('#tv-chart-container canvas').first()).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/#/markets');
+    await expect(page.locator('#mara-status-bar')).toBeInViewport();
+    await expect(page.locator('#global-search-input')).toBeInViewport();
 
     // 3. Zero live API / Supabase calls
     expect(apiCalls, `unexpected /api/ calls: ${apiCalls.join(', ')}`).toEqual([]);

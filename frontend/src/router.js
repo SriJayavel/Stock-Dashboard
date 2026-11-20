@@ -244,13 +244,13 @@ export class HashRouter {
    * Initialize router on app startup.
    * If URL has no hash, normalizes to default fallback route.
    * If hash exists, dispatches the parsed route.
-   * @param {Object} fallback - { symbol: 'TCS.NS', tab: 'chart' }
+   * @param {Object} fallback - A workspace path or a symbol and chart tab.
    */
   async init(fallback = { symbol: 'TCS.NS', tab: 'chart' }) {
     const current = this.parseHash(window.location.hash);
     if (current.type === 'root' || current.type === 'unknown') {
-      const defaultPath = this.formatSymbolRoute(fallback.symbol, fallback.tab);
-      this.navigate(defaultPath, true);
+      const defaultPath = fallback.path || this.formatSymbolRoute(fallback.symbol, fallback.tab);
+      await this.navigate(defaultPath, true);
     } else {
       this.currentRoute = current;
       await this.notify(current);

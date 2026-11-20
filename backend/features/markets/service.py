@@ -21,25 +21,21 @@ class MarketService:
         self._cache = cache
         self._market_data = market_data
 
-    async def get_overview(self, refresh: bool = False) -> Dict[str, Any]:
-        """Get market overview with indices, sectors, and macro data."""
-        # Check cache first
-        if not refresh:
-            cached = await self._cache.get("market:overview", "full")
-            if cached:
-                cached["data_freshness"] = "cached"
-                # Ensure timestamps exist for frontend refresh detection
-                cached.setdefault("last_attempted_at", datetime.now().isoformat())
-                cached.setdefault("retrieved_at", datetime.now().isoformat())
-                return cached
+    async def get_overview(self) -> Dict[str, Any]:
+        """Read a snapshot produced by the scheduled refresh worker."""
+        cached = await self._cache.get("market:overview", "full")
+        if cached:
+            return {**cached, "data_freshness": "cached"}
+        return await self._get_stale_overview()
 
-        # Fetch fresh data
-        data = await self._fetch_market_overview()
-
-        # Cache for next time - include all timestamps for refresh detection
-        await self._cache.set("market:overview", "full", data, ttl=300)
-        await self._cache.set("market:overview_stale", "full", data, ttl=3600)
-        return data
+    async def _get_stale_overview(self) -> Dict[str, Any]:
+        cached = await self._cache.get("market:overview_stale", "full")
+        if not cached:
+            return self._empty_overview()
+        stale = {**cached, "is_stale": True, "data_freshness": "stale"}
+        if "macro" not in stale and "macro_assets" in stale:
+            stale["macro"] = stale["macro_assets"]
+        return stale
 
     async def _fetch_market_overview(self) -> Dict[str, Any]:
         """Fetch comprehensive market overview from providers.
@@ -111,29 +107,7 @@ class MarketService:
                 "source": overview.get("source", "unknown"),
             }
         except Exception as e:
-            logger.error(f"Market overview fetch failed: {e}")
-            # Return stale cache if available
-            stale = await self._cache.get("market:overview_stale", "full")
-            if stale:
-                stale = dict(stale)
-                # Normalize old cache format (macro_assets -> macro)
-                if "macro_assets" in stale and "macro" not in stale:
-                    stale["macro"] = {
-                        "Indices": [],
-                        "India": [], "Americas": [], "Europe": [], "Asia": [],
-                        "Forex": stale["macro_assets"].get("Forex", []),
-                        "Commodities": stale["macro_assets"].get("Commodities", []),
-                        "Crypto": stale["macro_assets"].get("Crypto", []),
-                    }
-                stale["is_stale"] = True
-                stale["data_freshness"] = "stale"
-                # Ensure timestamps exist for refresh detection
-                if "last_attempted_at" not in stale:
-                    stale["last_attempted_at"] = datetime.now().isoformat()
-                if "retrieved_at" not in stale:
-                    stale["retrieved_at"] = datetime.now().isoformat()
-                return stale
-            # Return minimal structure
+            logger.warning("Market overview fetch failed: %s", e)
             return self._empty_overview()
 
     def _categorize_benchmarks(self, symbols: List[str], quotes: List) -> Dict[str, List[Dict]]:
@@ -447,7 +421,7 @@ class MarketService:
         if total == 0:
             return {"indices": "OFFLINE", "sectors": "OFFLINE", "macro": "OFFLINE"}
         if available == total:
-            return {"indices": "LIVE", "sectors": "LIVE", "macro": "LIVE"}
+            return {"indices": "DELAYED", "sectors": "DELAYED", "macro": "DELAYED"}
         elif available > total * 0.5:
             return {"indices": "PARTIAL", "sectors": "PARTIAL", "macro": "PARTIAL"}
         return {"indices": "STALE", "sectors": "STALE", "macro": "STALE"}
@@ -476,8 +450,14 @@ class MarketService:
         """Force refresh market overview."""
         try:
             data = await self._fetch_market_overview()
-            await self._cache.set("market:overview", "full", data, ttl=300)
-            await self._cache.set("market:overview_stale", "full", data, ttl=3600)
+            if not any(
+                item.get("price") is not None
+                for items in data.get("macro", {}).values()
+                for item in items
+            ):
+                return {"status": "unavailable", "data": await self._get_stale_overview()}
+            await self._cache.set("market:overview", "full", data, ttl=900)
+            await self._cache.set("market:overview_stale", "full", data, ttl=86400)
             return {"status": "success", "data": data}
         except Exception as e:
             logger.error(f"Market refresh failed: {e}")

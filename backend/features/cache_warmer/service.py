@@ -3,10 +3,11 @@ import logging
 import time
 import asyncio
 from datetime import datetime
-from typing import Dict, Any, List, Set
-from backend.core.contracts.cache import CacheProtocol, LockProtocol
-from backend.core.contracts.market_data import MarketDataProvider
-from backend.core.services.symbol_resolver import resolve_symbol, get_popular_universe
+from typing import Dict, Any, List, Optional
+from backend.core.contracts.cache import LockProtocol
+from backend.core.services.symbol_resolver import get_popular_universe
+from backend.features.markets.service import MarketService
+from backend.features.stocks.service import StockService
 
 logger = logging.getLogger(__name__)
 
@@ -14,15 +15,15 @@ logger = logging.getLogger(__name__)
 class CacheWarmerService:
     def __init__(
         self,
-        cache: CacheProtocol,
-        market_data: MarketDataProvider,
+        markets: MarketService,
+        stocks: StockService,
         lock: LockProtocol,
     ):
-        self._cache = cache
-        self._market_data = market_data
+        self._markets = markets
+        self._stocks = stocks
         self._lock = lock
         self._warming_in_progress = False
-        self._last_warmed_at: datetime = None
+        self._last_warmed_at: Optional[datetime] = None
         self._total_symbols_warmed = 0
 
     async def warm_all_caches(self) -> Dict[str, Any]:
@@ -39,10 +40,13 @@ class CacheWarmerService:
         started_at = datetime.utcnow()
         errors = []
         warmed_symbols = 0
+        warmed_market = False
 
         try:
             # Warm market overview first
-            await self._warm_market_overview()
+            warmed_market = (await self._markets.refresh()).get("status") == "success"
+            if not warmed_market:
+                errors.append("Market snapshot unavailable")
 
             # Get symbols to warm (popular + any in cache namespace)
             symbols_to_warm = await self._get_symbols_to_warm()
@@ -72,27 +76,12 @@ class CacheWarmerService:
         return {
             "status": "completed" if not errors else "partial",
             "warmed_symbols": warmed_symbols,
-            "warmed_market": True,
+            "warmed_market": warmed_market,
             "errors": errors,
             "duration_seconds": duration,
             "started_at": started_at,
             "completed_at": datetime.utcnow(),
         }
-
-    async def _warm_market_overview(self) -> bool:
-        try:
-            overview = await self._market_data.get_market_overview()
-            if overview:
-                await self._cache.set(
-                    "market:overview",
-                    "current",
-                    overview,
-                    ttl=300,
-                )
-                return True
-        except Exception as e:
-            logger.warning(f"Market overview warming failed: {e}")
-        return False
 
     async def _get_symbols_to_warm(self) -> List[str]:
         # Get popular symbols from our resolver
@@ -110,49 +99,22 @@ class CacheWarmerService:
             "error": None,
         }
 
+        errors = []
         try:
-            # Warm overview via quote (MarketDataProvider protocol has no get_overview)
-            quote = await self._market_data.get_quote(symbol_str)
-            if quote:
-                overview = {
-                    "symbol": symbol_str,
-                    "current_price": getattr(quote, 'price', None),
-                    "prev_close": getattr(quote, 'prev_close', None),
-                    "change": getattr(quote, 'change', None),
-                    "change_pct": getattr(quote, 'change_pct', None),
-                    "volume": getattr(quote, 'volume', None),
-                    "high_52w": getattr(quote, 'high_52w', None),
-                    "low_52w": getattr(quote, 'low_52w', None),
-                    "market_cap": getattr(quote, 'market_cap', None),
-                    "timestamp": getattr(quote, 'timestamp', None),
-                    "data_source": "Composite Provider",
-                    "is_stale": False,
-                }
-                await self._cache.set(
-                    "stock:overview",
-                    symbol_str,
-                    overview,
-                    ttl=1800,
-                )
-                result["overview_cached"] = True
+            overview = await self._stocks.get_overview(symbol_str)
+            result["overview_cached"] = bool(overview and not overview.get("is_stale"))
+        except Exception:
+            logger.exception("Stock overview warming failed for %s", symbol_str)
+            errors.append(f"{symbol_str} overview unavailable")
 
-            # Warm history (1d, 1mo)
-            history = await self._market_data.get_history(
-                symbol_str, interval="1d", range_="1mo"
-            )
-            if history:
-                await self._cache.set(
-                    "stock:history",
-                    f"{symbol_str}:1d:1mo",
-                    history,
-                    ttl=1800,
-                )
-                result["history_cached"] = True
+        try:
+            history = await self._stocks.get_history(symbol_str, "1mo", "1d")
+            result["history_cached"] = bool(history.get("candles"))
+        except Exception:
+            logger.exception("Stock history warming failed for %s", symbol_str)
+            errors.append(f"{symbol_str} history unavailable")
 
-        except Exception as e:
-            logger.warning(f"Symbol warming failed for {symbol_str}: {e}")
-            result["error"] = str(e)
-
+        result["error"] = "; ".join(errors) or None
         return result
 
     async def warm_symbol_cache(self, symbol: str) -> Dict[str, Any]:

@@ -95,5 +95,5 @@ async def get_rss_news(
         raise HTTPException(502, "Failed to parse RSS feed")
     except httpx.TimeoutException:
         raise HTTPException(504, "RSS feed timeout")
-    except Exception as e:
-        raise HTTPException(500, f"RSS fetch error: {e}")
+    except httpx.RequestError:
+        raise HTTPException(502, "RSS feed unavailable")

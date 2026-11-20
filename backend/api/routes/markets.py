@@ -2,17 +2,15 @@
 Markets API Routes - Market overview, candles, search.
 Thin HTTP layer, delegates to domain services.
 """
-from typing import Optional, List
-from fastapi import APIRouter, Query, Depends, HTTPException, BackgroundTasks
+from typing import List
+from fastapi import APIRouter, Query, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.api.dependencies import (
-    get_cache_dep,
     get_market_data_dep,
     get_stock_service_dep,
     get_market_service_dep,
 )
-from backend.core.contracts.cache import CacheProtocol
 from backend.core.contracts.market_data import MarketDataProvider
 from backend.features.stocks.service import StockService
 from backend.features.markets.service import MarketService
@@ -26,50 +24,13 @@ class BatchRequest(BaseModel):
 
 @router.get("/overview")
 async def get_market_overview(
-    background_tasks: BackgroundTasks,
     market_service: MarketService = Depends(get_market_service_dep),
 ):
     """
     Get cached market overview.
     Returns macro categories (indices, sectors, etc.) with quotes.
     """
-    data = await market_service.get_overview()
-
-    # Check if we should trigger background refresh
-    # market_status is a dict with exchange keys, check if ALL are closed/unavailable
-    market_status = data.get("market_status", {})
-    feed_health = data.get("feed_health", {})
-    is_feed_offline = all(v in ("OFFLINE", "STALE") for v in (feed_health.values() if feed_health else ["OFFLINE"]))
-    should_refresh = is_feed_offline and not data.get("is_stale")
-
-    if should_refresh:
-        background_tasks.add_task(refresh_market_overview_background)
-
-    return data
-
-
-async def refresh_market_overview_background():
-    """Background task to refresh market overview."""
-    from backend.core.contracts.events import emit_market_data_updated
-    from backend.api.dependencies import get_container
-    import logging
-
-    logger = logging.getLogger(__name__)
-    try:
-        container = get_container()
-        market_service = container.market_service()
-        data = await market_service.refresh()
-
-        if data and data.get("data"):
-            overview_data = data["data"]
-            for category, items in overview_data.get("macro", {}).items():
-                for item in items:
-                    if item.get("symbol"):
-                        await emit_market_data_updated(item["symbol"], item)
-            if overview_data.get("hero"):
-                await emit_market_data_updated(overview_data["hero"]["symbol"], overview_data["hero"])
-    except Exception as e:
-        logger.error(f"Background refresh failed: {e}")
+    return await market_service.get_overview()
 
 
 @router.post("/stocks/batch")
@@ -103,7 +64,7 @@ async def get_market_candles(
             "symbol": symbol,
             "interval": interval,
             "range": range,
-            "candles": [c.__dict__ for c in candles],
+            "candles": [{**c.__dict__, "time": c.timestamp // 1000} for c in candles],
             "count": len(candles),
         }
     except Exception as e:

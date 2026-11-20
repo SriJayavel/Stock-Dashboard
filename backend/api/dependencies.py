@@ -163,8 +163,8 @@ class Container:
     def cache_warmer_service(self) -> CacheWarmerService:
         if self._cache_warmer_service is None:
             self._cache_warmer_service = CacheWarmerService(
-                cache=self.cache(),
-                market_data=self.market_data(),
+                markets=self.market_service(),
+                stocks=self.stock_service(),
                 lock=self.cache(),  # CacheProtocol extends LockProtocol
             )
         return self._cache_warmer_service
@@ -234,7 +234,7 @@ def get_container() -> Container:
     return _container
 
 
-def set_container(container: Container) -> None:
+def set_container(container: Optional[Container]) -> None:
     """Set container (for testing)."""
     global _container
     _container = container
@@ -291,5 +291,10 @@ async def lifespan(app):
     """FastAPI lifespan handler."""
     container = get_container()
     await container.startup()
-    yield
-    await container.shutdown()
+    try:
+        yield
+    finally:
+        try:
+            await container.shutdown()
+        finally:
+            set_container(None)

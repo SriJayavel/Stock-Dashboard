@@ -1,14 +1,23 @@
 # 📈 Apex Financial Terminal (MARA) v2.0
 
 [![CI Pipeline](https://github.com/Phantom-Jay/Stock-Dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Phantom-Jay/Stock-Dashboard/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-102%20passed-success)](https://github.com/Phantom-Jay/Stock-Dashboard)
 [![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.14-blue)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **High-Performance Equities Research Terminal for Indian (NSE/BSE) & Global Financial Assets**  
 > Built with **FastAPI**, **Hexagonal Architecture**, **Two-Tier Cache (L1 Memory + L2 Redis)**, and a custom **HTML5 Canvas Charting Engine**.
 
-🔗 **Live Static Demo:** [https://stock-dashboard-five-nu.vercel.app](https://stock-dashboard-five-nu.vercel.app) *(Runs 100% client-side with synthetic fixtures — zero backend/login required)*
+## Portfolio demo
+
+Explore global benchmarks, search for AAPL or TCS, open an interactive price chart, and try the screener or watchlist. The demo uses synthetic fixtures and browser storage. It requires no account, API keys, or backend.
+
+```bash
+cd frontend
+npm ci
+npm run build:demo
+npm run preview
+```
+
+The root Vercel configuration publishes this static build. Deploy a FastAPI instance separately for authorized provider-backed use. For that setup, call the protected `POST /internal/refresh-cache` endpoint from a scheduler to populate the market snapshot. The public portfolio host serves only the static demo.
 
 ---
 
@@ -72,7 +81,7 @@ pip install -r backend/requirements.txt && pytest backend/tests
 uvicorn backend.main:app --port 8000
 
 # 4. In a new terminal: Install frontend dependencies & run demo verification
-cd frontend && npm install && npm run test:demo
+cd frontend && npm ci && npm run build:demo && npm run test:demo
 
 # 5. Launch frontend dev server
 npm run dev
@@ -84,11 +93,11 @@ Open your browser at `http://localhost:5173`.
 
 ## ⚠️ Known Limitations & Compliance Position
 
-- **NSE Real-Time Data:** Direct calls to unofficial NSE web endpoints return HTTP 403 access barriers. The terminal automatically falls back to secondary market providers for research. Official commercial live feeds require licensing via NSE Data & Analytics Ltd.
-- **Educational Scope:** This software is an informational equities research workstation, not a registered investment advisor. It produces zero algorithmic buy/sell recommendations or price targets.
-- **Data Protection:** Authentication credentials (if used) are processed by Supabase Auth (US/EU data centers). For data protection inquiries, contact `dpo@mara-financial.com`.
+- The portfolio deployment uses synthetic data for research and education. It cannot place trades.
+- Before hosting provider data, verify rights for collection, caching, display, export, and redistribution. Review the intended research output with qualified counsel before offering it publicly. See the [NSE data usage policy](https://betanseapi.nseindia.com/static/market-data/nse-data-policy), [yfinance usage note](https://github.com/ranaroussi/yfinance), and [SEBI Research Analysts FAQ](https://www.sebi.gov.in/sebi_data/attachdocs/jul-2025/1753268710217.pdf).
+- A separately operated account-enabled deployment must document its actual authentication provider, hosting region, retention, and privacy contact.
 
 ---
 
 ## 📄 License
-This project is open-source under the [MIT License](./LICENSE).
+Confirm ownership and add an explicit repository license before representing this code as open source or granting reuse rights. Third-party code, assets, and market data retain their own terms.

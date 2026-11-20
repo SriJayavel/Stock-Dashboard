@@ -2,7 +2,7 @@ name: Keep-Alive & Cache Warmer
 
 on:
   schedule:
-    # Refresh the Vercel backend cache and register database activity in Supabase.
+    # Refresh the separately hosted backend and register database activity.
     - cron: '*/12 * * * *'
   workflow_dispatch:
 
@@ -36,13 +36,13 @@ jobs:
           fi
           echo "Supabase health query returned 1."
 
-      - name: Schedule Vercel backend cache refresh
+      - name: Schedule backend cache refresh
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           if [[ -z "$BACKEND_API_URL" ]]; then
-            echo "ERROR: BACKEND_API_URL repository secret must be set to the Vercel deployment origin."
+            echo "ERROR: BACKEND_API_URL repository secret must be set to the FastAPI origin."
             exit 1
           fi
           if [[ -z "$INTERNAL_REFRESH_SECRET" ]]; then

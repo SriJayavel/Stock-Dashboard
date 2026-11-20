@@ -4,7 +4,8 @@ Uses clean architecture with dependency injection and auto-discovery.
 """
 import os
 import logging
-from contextlib import asynccontextmanager
+from pathlib import Path
+from secrets import compare_digest
 from fastapi import FastAPI, HTTPException, status, Depends, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -18,7 +19,13 @@ from backend.api.dependencies import (
     get_cache_warmer_service_dep,
 )
 from backend.api.routes import markets, stocks, analytics, research, websocket
-from backend.core.contracts.events import get_event_bus
+
+PUBLIC_API_PATHS = {
+    "/api/health", "/api/markets/overview", "/api/markets/candles",
+    "/api/stocks/batch", "/api/search", "/api/screener",
+    "/api/analytics/sectors", "/api/analytics/correlation",
+    "/api/analytics/portfolio-risk",
+}
 
 # Configure logging
 logging.basicConfig(
@@ -33,22 +40,12 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Mara Stock Dashboard API",
-        description="High-frequency financial market terminal and analytics engine.",
+        description="Market snapshots, historical prices, and research analytics.",
         version="3.0.0",
         lifespan=lifespan,
     )
 
-    # HTTP Compression
     app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-    # CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
     # Security headers middleware
     @app.middleware("http")
@@ -77,19 +74,6 @@ def create_app() -> FastAPI:
     async def auth_middleware(request, call_next):
         path = request.url.path
 
-        # Public paths
-        public_prefixes = [
-            "/api/health",
-            "/api/markets/overview",
-            "/api/markets/candles",
-            "/api/stocks/batch",
-            "/api/search",
-            "/api/screener",
-            "/api/analytics/sectors",  # Sector intelligence - public market data
-            "/api/analytics/correlation",  # Public analytics - no account data
-            "/api/analytics/portfolio-risk",  # Public analytics - no account data
-            "/ws/markets",
-        ]
         public_patterns = [
             ("/api/stocks/", "/overview"),
             ("/api/stocks/", "/history"),
@@ -99,7 +83,7 @@ def create_app() -> FastAPI:
             ("/api/stocks/", "/macro-explorer"),
         ]
 
-        is_public = any(path.startswith(p) for p in public_prefixes)
+        is_public = path in PUBLIC_API_PATHS
         if not is_public and path.startswith("/api/"):
             for prefix, suffix in public_patterns:
                 if path.startswith(prefix) and path.endswith(suffix):
@@ -141,9 +125,19 @@ def create_app() -> FastAPI:
 
         return await call_next(request)
 
+    # Wrap auth responses as well as normal route responses in CORS.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     # Internal secret verification
     async def verify_internal_secret(x_internal_secret: str = Header(default=None, alias="X-Internal-Secret")):
-        if not x_internal_secret or x_internal_secret != settings.INTERNAL_REFRESH_SECRET:
+        expected = settings.INTERNAL_REFRESH_SECRET
+        if not x_internal_secret or not expected or not compare_digest(x_internal_secret.encode(), expected.encode()):
             logger.warning("Unauthorized internal endpoint access")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -154,6 +148,7 @@ def create_app() -> FastAPI:
     # Register API routes
     app.include_router(markets.router)
     app.include_router(stocks.router)
+    app.include_router(stocks.search_router)
     app.include_router(analytics.router)
     app.include_router(research.router)
     app.include_router(websocket.router)
@@ -176,7 +171,11 @@ def create_app() -> FastAPI:
             cache_status = "fail"
 
         # Check market data
-        market_healthy = await market_data.health_check()
+        try:
+            market_healthy = await market_data.health_check()
+        except Exception:
+            logger.exception("Market data health check failed")
+            market_healthy = False
 
         overall = "healthy" if (cache_status == "ok" and market_healthy) else "degraded"
 
@@ -199,7 +198,7 @@ def create_app() -> FastAPI:
         cache_warmer = Depends(get_cache_warmer_service_dep),
     ):
         """External cron endpoint - returns immediately, warms cache in background."""
-        from backend.core.contracts.events import emit_cache_warmed, EventTypes, DomainEvent
+        from backend.core.contracts.events import emit_cache_warmed
 
         async def _warm_and_emit():
             try:
@@ -218,40 +217,43 @@ def create_app() -> FastAPI:
         return {"status": "accepted", "message": "Cache warming dispatched"}
 
     # Serve frontend SPA
-    DIST_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
-    PUBLIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "public")
+    frontend_dir = Path(__file__).resolve().parents[1] / "frontend"
+    dist_dir = frontend_dir / "dist"
+    public_dir = frontend_dir / "public"
 
     # Legal pages (served from public folder for Vercel static hosting)
     @app.get("/legal/terms-and-conditions.html")
     async def terms_and_conditions():
-        return FileResponse(os.path.join(PUBLIC_DIR, "legal", "terms-and-conditions.html"), media_type="text/html")
+        return FileResponse(public_dir / "legal" / "terms-and-conditions.html", media_type="text/html")
 
     @app.get("/legal/privacy-policy.html")
     async def privacy_policy():
-        return FileResponse(os.path.join(PUBLIC_DIR, "legal", "privacy-policy.html"), media_type="text/html")
+        return FileResponse(public_dir / "legal" / "privacy-policy.html", media_type="text/html")
 
     @app.get("/legal/risk-disclosure.html")
     async def risk_disclosure():
-        return FileResponse(os.path.join(PUBLIC_DIR, "legal", "risk-disclosure.html"), media_type="text/html")
+        return FileResponse(public_dir / "legal" / "risk-disclosure.html", media_type="text/html")
 
     # Grievance Officer endpoint
     @app.get("/legal/grievance")
     async def grievance_officer():
         return {"contact": {"email": "dpo@mara-financial.com", "name": "Data Protection Officer"}, "note": "Contact for data protection and other grievances"}
 
-    if os.path.isdir(DIST_DIR):
-        assets_dir = os.path.join(DIST_DIR, "assets")
+    if dist_dir.is_dir():
+        assets_dir = dist_dir / "assets"
         if os.path.isdir(assets_dir):
             app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
         @app.get("/{full_path:path}")
         async def serve_spa(full_path: str):
-            if full_path.startswith("api/") or full_path.startswith("internal/") or full_path.startswith("ws/"):
+            if full_path.split("/", 1)[0] in {"api", "internal", "ws"}:
                 raise HTTPException(status_code=404, detail="Not Found")
-            target_file = os.path.join(DIST_DIR, full_path)
-            if full_path and os.path.isfile(target_file):
+            target_file = (dist_dir / full_path).resolve()
+            if not target_file.is_relative_to(dist_dir.resolve()):
+                raise HTTPException(status_code=404, detail="Not Found")
+            if target_file.is_file():
                 return FileResponse(target_file)
-            return FileResponse(os.path.join(DIST_DIR, "index.html"))
+            return FileResponse(dist_dir / "index.html")
 
     return app
 
