@@ -65,7 +65,7 @@
 |-------------|------------------|
 | `docs/supabase-account-setup.md` | Authentication architecture |
 | `AGENTS.md` | Project rules and architecture principles |
-| `ARCHITECTURE.md` | System architecture overview |
+| `ARCHITECTURE.md` (retired) | System architecture overview at the time of the audit. See [ADR 001](../adr/0001-hexagonal-architecture.md) for the current architecture. |
 | `CODEBASE_STRUCTURE.md` | Technical documentation |
 
 ### 6. Data Files

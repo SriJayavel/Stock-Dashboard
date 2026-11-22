@@ -1,15 +1,13 @@
-# Project Rules: Apex Financial Terminal
+# MARA project rules
 
 ## Architecture Principles
 1. **Separation of Concerns**:
-   - `backend/services/data_pipeline.py`: Ticker resolution, multi-tier cache coordination, historical price fetching, company valuation multiples, and TradingView Lightweight Charts formatting.
-   - `backend/services/cache_manager.py`: Hybrid two-tier caching (L1 TTLCache + L2 Upstash Redis), strictly checking L1 first to preserve free-tier command limits.
-   - `backend/services/nse_fetcher.py`: Session-aware direct NSE India fetcher with cookie handshake and graceful fallback to yfinance.
-   - `backend/services/indicators.py`: Pure mathematical calculations for technical indicators (RSI, MACD, Bollinger Bands, EMAs).
-   - `backend/services/research_pipeline.py`: Multi-year audited financials, structural observations, and comparative peer dossiers.
-   - `backend/services/deep_research.py`: Deep research analytics engine (quarterly trends, corporate actions, historical valuation envelope, relative benchmarking, correlation matrix, sector intelligence, and auditable financial health score).
+   - `backend/core/services/`: Symbol resolution, chart data formatting, and pure technical indicator calculations.
+   - `backend/adapters/cache/`: Hybrid two-tier caching (L1 TTLCache + L2 Upstash Redis). Check L1 first to preserve Redis command limits.
+   - `backend/adapters/market_data/`: Session-aware NSE and yfinance providers and their fallback routing.
+   - `backend/features/`: Stock, research, screener, market, and cache refresh services. Keep API routing and dependency wiring in `backend/api/`.
    - `backend/main.py`: FastAPI endpoints and protected internal cache refresh worker (`POST /internal/refresh-cache`).
-   - `frontend/src/chart.js`: High-performance TradingView Lightweight Charts rendering candles, volume, EMA overlays, Bollinger Bands, real-time crosshair tooltip, and event/signal markers.
+   - `frontend/src/chart.js`: Custom Canvas chart for candles, volume, indicators, crosshair readouts, and event markers.
    - `frontend/src/watchlist.js`: Multi-tab synchronized, regex-validated localStorage watchlist with export/import backup.
    - `frontend/src/alerts.js`: 100% client-side rule alerts with browser notifications and toast banners (zero server accounts).
    - `frontend/src/notebook.js`: Per-asset persistent research notebook with markdown export.
