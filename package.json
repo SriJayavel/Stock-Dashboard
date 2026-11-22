@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "benchmark": "node benchmarks/run.mjs",
+    "gen:demo": "node scripts/gen-demo-data.mjs"
+  },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2"

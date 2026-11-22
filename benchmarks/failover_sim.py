@@ -8,9 +8,11 @@ Usage:
     python benchmarks/failover_sim.py
 """
 import asyncio
+from unittest.mock import AsyncMock, patch
 from backend.adapters.cache.memory_cache import MemoryCache
 from backend.adapters.market_data.composite_provider import CompositeMarketProvider
 from backend.core.contracts.events import InMemoryEventBus, set_event_bus
+from backend.core.contracts.market_data import Quote
 
 
 async def test_cache_degradation():
@@ -41,6 +43,17 @@ async def test_composite_provider_routing():
     print(f" Route for TCS.NS: {[p.name for p in in_routes]}")
     assert in_routes[0].name.lower() == "nse" and in_routes[1].name.lower() == "yfinance"
     print(" [PASS] Indian symbols route to NSE primary with automatic yfinance fallback.")
+
+    for label, fault in [("HTTP 403", PermissionError("HTTP 403")), ("timeout", TimeoutError())]:
+        provider = CompositeMarketProvider(cache=MemoryCache())
+        primary, fallback = provider._select_provider("TCS.NS")
+        quote = Quote("TCS.NS", 123.45, 0.12, 0.10, 100, 1700000000)
+        with patch.object(primary, "get_quote", AsyncMock(side_effect=fault)) as primary_get:
+            with patch.object(fallback, "get_quote", AsyncMock(return_value=quote)) as fallback_get:
+                assert await provider.get_quote("TCS.NS") is quote
+                primary_get.assert_awaited_once_with("TCS.NS")
+                fallback_get.assert_awaited_once_with("TCS.NS")
+        print(f" [PASS] Composite quote fallback after injected {label}.")
 
 
 async def main():

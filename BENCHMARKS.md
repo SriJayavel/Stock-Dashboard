@@ -1,60 +1,108 @@
-# 📊 Apex Financial Terminal: Engineering Benchmarks & Scale Proof
+# MARA benchmarks
 
-> **Date:** November 18, 2026  
-> **Environment:** Intel/AMD x86_64, Windows 11 / Linux CI, Python 3.12/3.14, Node.js 20+  
-> **Reproducibility:** All benchmarks are reproducible via scripts committed in `/benchmarks`.
+Run on 2026-11-22 UTC with AMD Ryzen 5 PRO 3500U w/ Radeon Vega Mobile Gfx, Windows_NT 10.0.19045 (Windows 10 Pro), Python 3.14.2 and Node v24.15.0.
 
----
+Run `npm run benchmark` from the repository root to regenerate this report. It uses NumPy and pandas from `backend/requirements.txt`.
 
-## 1. Two-Tier Cache Performance & Latency
+| Measurement | Result | Scope |
+| --- | --- | --- |
+| Simulated L1 workload throughput | 8,245.8 requests/sec | One process and one sequential asyncio worker, 2,000 iterations. Wall-clock time includes NumPy symbol sampling, cache lookups, and bookkeeping. No HTTP, Redis, or serialization. |
+| In-process L1 lookup latency | p50 0.0049 ms · p90 0.0077 ms · p95 0.0094 ms · p99 0.0184 ms | Same worker and iterations. Per-request clock surrounds the awaited memory cache lookup. No HTTP, Redis, symbol sampling, or serialization. |
+| Simulated hit rate | 94.85% (1,897 hits / 103 misses) | Eight prewarmed symbols out of ten. No production traffic. |
+| Indicator formula checks | 5.6843e-13 max absolute error | SMA, EMA, and Bollinger series checks, plus an RSI bounds check. Bollinger reuses the app’s helpers. See the independent pandas check below. |
+| Provider fallback | Passed | Offline composite quote routing with injected HTTP 403 and timeout errors. L1 was checked separately in isolation. |
 
-Measured by `python benchmarks/benchmark_cache.py` simulating 2,000 requests with 80/20 power-law asset distribution:
+The workload samples a fixed, power-law-style popularity profile with weights `[0.25, 0.20, 0.15, 0.10, 0.10, 0.05, 0.05, 0.05, 0.025, 0.025]`. If each uncached lookup required an upstream call, the simulated reduction versus no cache would be (2,000 − 103) ÷ 2,000 = 1,897 ÷ 2,000 = 94.85%. The previous “over 88%” figure had no separate measurement in this harness. The script uses unseeded sampling, so timings and hit counts vary.
 
-| Metric | Result | Benchmark Target | Status |
-|---|---|---|---|
-| **Simulated Hit Rate** | **94.70%** (1,894 hits / 106 misses) | > 85% | **EXCEEDED** |
-| **Throughput** | **19,186 req/sec** | > 10,000 req/sec | **EXCEEDED** |
-| **p50 Latency (L1 In-Memory)** | **0.0029 ms** (2.9 µs) | < 1 ms | **EXCEEDED** |
-| **p90 Latency** | **0.0036 ms** (3.6 µs) | < 2 ms | **EXCEEDED** |
-| **p95 Latency** | **0.0037 ms** (3.7 µs) | < 5 ms | **EXCEEDED** |
-| **p99 Latency** | **0.0041 ms** (4.1 µs) | < 10 ms | **EXCEEDED** |
+The failover simulation covers composite single-quote routing. It does not exercise a Redis disconnect or measure circuit-breaker state transitions.
 
-*Methodology: Requests evaluated against primed L1 in-memory `TTLCache` with TTL eviction and namespace isolation (`stock:overview`).*
+### `python -m benchmarks.benchmark_cache`
 
----
+```text
+=================================================================
+ 🚀 APEX FINANCIAL TERMINAL — CACHE BENCHMARK RESULTS
+=================================================================
+ Total Requests:      2,000
+ Total Duration:      0.2425 seconds
+ Throughput:          8,245.8 requests/sec
+ Cache Hit Rate:      94.85% (1,897 hits / 103 misses)
+-----------------------------------------------------------------
+ Latency Distribution (L1 In-Memory):
+   p50 (Median):      0.0049 ms
+   p90:               0.0077 ms
+   p95:               0.0094 ms
+   p99:               0.0184 ms
+=================================================================
+```
 
-## 2. Mathematical Indicator Precision ($MAE$)
+### `python -m benchmarks.failover_sim`
 
-Measured by `node benchmarks/verify_indicators.mjs` against analytical mathematical reference formulas over 300 deterministic OHLCV bars:
+```text
+=================================================================
+ 🛡️ APEX FINANCIAL TERMINAL — FAILOVER & RESILIENCE SIMULATION
+=================================================================
 
-| Indicator | Implementation Tested | Max Absolute Error ($MAE$) | Formula / Tolerance |
-|---|---|---|---|
-| **SMA (20-bar)** | `calculateSMAValues` | **$3.98 \times 10^{-13}$** | $\frac{1}{n} \sum_{i=0}^{n-1} P_i$ ($< 10^{-10}$) |
-| **SMA (50-bar)** | `calculateSMAValues` | **$5.68 \times 10^{-13}$** | $\frac{1}{n} \sum_{i=0}^{n-1} P_i$ ($< 10^{-10}$) |
-| **EMA (12-bar)** | `calculateEMAValues` | **$0.0000$** | $\alpha = \frac{2}{n+1}$, recursive ($< 10^{-10}$) |
-| **EMA (26-bar)** | `calculateEMAValues` | **$0.0000$** | $\alpha = \frac{2}{n+1}$, recursive ($< 10^{-10}$) |
-| **Bollinger Bands** | `computeIndicator('bollinger')` | **$0.0000$** | $\mu \pm 2\sigma$ ($< 10^{-10}$) |
-| **RSI (14-bar)** | `computeIndicator('rsi')` | **$0.0000$** | Wilder Smoothing, strictly bounded $[0, 100]$ |
+--- 1. Testing Cache Degradation (Redis Unreachable) ---
+ [PASS] In-memory L1 cache successfully handles reads and writes during Redis downtime.
 
-*Methodology: Comparing client HTML5 Canvas indicator computations against analytical floating point series.*
+--- 2. Testing Composite Market Data Fallback Routing ---
+ Route for AAPL: ['yfinance']
+ [PASS] US symbols cleanly routed to primary yfinance provider.
+ Route for TCS.NS: ['nse', 'yfinance']
+ [PASS] Indian symbols route to NSE primary with automatic yfinance fallback.
+ [PASS] Composite quote fallback after injected HTTP 403.
+ [PASS] Composite quote fallback after injected timeout.
+=================================================================
+ ALL RESILIENCE & FAILOVER CHECKS PASSED
+=================================================================
+```
 
----
+### `node benchmarks/verify_indicators.mjs`
 
-## 3. High Availability & Failover Routing
+```text
+=================================================================
+ 📐 MATHEMATICAL INDICATOR PRECISION VERIFICATION
+=================================================================
+ [PASS] SMA(20)                        Max Error: 3.9790e-13 (281 bars)
+ [PASS] SMA(50)                        Max Error: 5.6843e-13 (251 bars)
+ [PASS] EMA(12)                        Max Error: 0.0000e+0 (289 bars)
+ [PASS] EMA(26)                        Max Error: 0.0000e+0 (275 bars)
+ [PASS] BollingerBands(20,2)           Max Error: 0.0000e+0 (281 bars)
+ [PASS] RSI(14) Bounds [0, 100]        Max Error: 0.0000e+0 (286 bars)
+=================================================================
+ Overall Status: ALL MATHEMATICAL CHECKS PASSED (Max Error < 1e-10)
+=================================================================
+```
 
-Measured by `python benchmarks/failover_sim.py`:
+### `node benchmarks/verify_reference.mjs`
 
-| Component | Failure Simulated | Degraded Mode Behavior | Verification |
-|---|---|---|---|
-| **Cache Layer** | Redis connection dropped / offline | Auto-downgrades to L1 In-Memory `TTLCache`. Zero 500 errors. | **PASS** |
-| **US Equities** | Primary routing | Direct route to `YFinanceProvider`. | **PASS** |
-| **Indian Equities (`.NS`)** | Primary routing + 403 block | Direct route to `NSEProvider`; on HTTP 403 / timeout, circuit breaker fails over to `YFinanceProvider`. | **PASS** |
+```text
+[PASS] TCS-NS: 251 bars against pandas 3.0.3
+[PASS] AAPL: 251 bars against pandas 3.0.3
+sma max absolute error: 3.6380e-12
+ema max absolute error: 0.0000e+0
+upper max absolute error: 2.3647e-11
+lower max absolute error: 2.2283e-11
+rsi max absolute error: 0.0000e+0
+macd max absolute error: 8.8818e-16
+```
 
----
+<!-- Browser audit -->
+## Mobile browser audit
 
-## 4. Test Suite Coverage & Scale Facts
+Lighthouse 13.0.1 ran on 2026-11-22 against the built Markets demo at `/?freeze=1#/markets`, with the default mobile preset and simulated throttling.
 
-- **Backend Pytest Suite:** 102 passing tests (100% contract compliance).
-- **Frontend E2E Demo Mode:** 100% passing Playwright smoke tests (zero live network calls).
-- **Equity Catalog:** 2,369 NSE companies mapped with sector, market cap, and symbol aliases (`companies.csv`).
-- **Workspaces:** 6 synchronized client environments (**Markets, Discover, Analyze, Compare, Research, Monitor**).
+| Category | Score |
+| --- | ---: |
+| Performance | 55 |
+| Accessibility | 100 |
+| Best practices | 100 |
+| SEO | 100 |
+
+The first run recorded Performance 31 and cumulative layout shift of 0.42. After removing the duplicate loading screen, parallelizing demo quote loading, and deferring Canvas initialization, the repeat run recorded 0.001 layout shift, 3.3 s largest contentful paint, and 5,030 ms total blocking time. The trace attributed its longest task to no specific script. It also reported unused CSS and JavaScript on the Markets route.
+
+With the built demo served on port 8182, run:
+
+```sh
+npx --yes lighthouse@13.0.1 'http://127.0.0.1:8182/?freeze=1#/markets' --chrome-flags=--headless
+```
