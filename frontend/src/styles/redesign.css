@@ -2980,6 +2980,13 @@ body.authenticated .mara-app {
   font-size: .8125rem;
 }
 
+.mara-active-asset-strip:has(#stock-change-pct:empty) #stock-change-badge { display: none; }
+.mara-unified-header .mara-active-asset-strip .mara-asset-name { max-inline-size: 8rem; }
+body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { display: none; }
+@media (min-width: 1281px) {
+  body[data-workspace="markets"] .mara-unified-header { grid-template-columns: auto minmax(9rem, 1fr) auto auto; }
+}
+
 .mara-unified-header .mara-ws-tab-btn[aria-selected="true"] {
   color: var(--accent);
   box-shadow: inset 0 -2px var(--accent);
@@ -3071,7 +3078,7 @@ body.authenticated .mara-app {
 #workspace-markets .markets-page-heading { margin-block-end: var(--space-3); }
 #workspace-markets .markets-skeleton { display: none; }
 #workspace-markets .markets-status-strip { min-block-size: 40px; padding-block: 0; }
-#workspace-markets :is(.status-session-name, .status-desk-val, .status-breadth, .status-updated) {
+#workspace-markets :is(.status-session-name, .status-desk-val, .status-breadth, .status-updated, .status-feed-text, .benchmark-filter-btn, .macro-tab-btn) {
   font-size: var(--type-label);
   letter-spacing: normal;
   text-transform: none;
@@ -3130,6 +3137,8 @@ body.authenticated .mara-app {
 .benchmark-sparkline.gain { color: var(--gain); }
 .benchmark-sparkline.loss { color: var(--loss); }
 #workspace-markets .sparkline-mini { background: transparent; }
+#workspace-markets .sparkline-mini::before,
+#workspace-markets .sparkline-mini::after { content: none; }
 #workspace-markets .benchmark-board-table .active-row { background: var(--surface-hover); }
 #workspace-markets .benchmark-board-table .active-row > :first-child {
   box-shadow: inset 2px 0 var(--accent);

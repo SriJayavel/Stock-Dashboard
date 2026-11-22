@@ -1,105 +1,91 @@
-# 📈 Apex Financial Terminal (MARA) v2.0
+# MARA · Equities research terminal
 
-[![CI Pipeline](https://github.com/Phantom-Jay/Stock-Dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Phantom-Jay/Stock-Dashboard/actions/workflows/ci.yml)
-[![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.14-blue)](https://www.python.org/)
+Research Indian and global equities, compare market benchmarks, and inspect price action in a custom Canvas chart.
 
-> **High-Performance Equities Research Terminal for Indian (NSE/BSE) & Global Financial Assets**  
-> Built with **FastAPI**, **Hexagonal Architecture**, **Two-Tier Cache (L1 Memory + L2 Redis)**, and a custom **HTML5 Canvas Charting Engine**.
+[Open the live demo](https://mara-stock-terminal.vercel.app/) · [Engineering benchmarks](BENCHMARKS.md)
 
-## Portfolio demo
+![MARA Markets with sortable benchmark quotes and intraday sparklines](docs/assets/markets.png)
+![MARA Analyze showing the TCS daily candlestick chart and volume](docs/assets/chart.png)
 
-Explore global benchmarks, search for AAPL or TCS, open an interactive price chart, and try the screener or watchlist. The demo uses synthetic fixtures and browser storage. It requires no account, API keys, or backend.
+[![CI](https://github.com/SriJayavel/Stock-Dashboard/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SriJayavel/Stock-Dashboard/actions/workflows/ci.yml)
+
+## Run the demo
+
+The demo loads bundled market fixtures and works without accounts, API keys, or a backend. Start with Markets, press **Ctrl+K** or **⌘K** to find TCS or AAPL, then press **?** for the keyboard shortcuts. Append `?freeze=1` before the hash route to freeze simulated prices.
 
 ```bash
-cd frontend
+git clone https://github.com/SriJayavel/Stock-Dashboard.git
+cd Stock-Dashboard/frontend
 npm ci
 npm run build
 npm run preview
 ```
 
-The root Vercel configuration builds this static demo. If your static host uses `frontend` as its project root, set the build command to `npm run build` and the output directory to `dist`. The demo uses bundled fixtures even when the host has live API or Supabase environment variables.
+Open the local URL printed by Vite.
 
-For authorized provider-backed use, build with `npm run build:live` or use the Dockerfile, which builds and serves the live frontend with FastAPI. For a separately hosted live frontend, set `VITE_API_BASE_URL` to the FastAPI origin. Call the protected `POST /internal/refresh-cache` endpoint from a scheduler to populate the market snapshot.
+## Architecture
 
----
-
-## 🏗️ Architecture Overview
-
-The platform uses a decoupled hexagonal pattern separating core quantitative algorithms from external market providers:
-
-```text
-Stock-Dashboard/
-├── backend/
-│   ├── core/                  # Pure domain entities, value objects & abstract protocols
-│   ├── adapters/              # Concrete implementations (NSE, yfinance, Upstash Redis, Supabase)
-│   ├── features/              # Modular services (research, screener, deep research, warmer)
-│   ├── api/                   # Thin FastAPI HTTP routes, security headers & CORS allowlist
-│   └── tests/                 # 102 unit, contract, and regression tests (100% offline)
-├── frontend/                  # Vite + Vanilla JS Client
-│   ├── src/
-│   │   ├── chart.js           # 60fps hardware-accelerated HTML5 Canvas chart
-│   │   ├── indicators.js      # Zero-dependency mathematical indicators (RSI, MACD, BB, EMAs)
-│   │   ├── backtester.js      # Strategy simulator (Sharpe, Sortino, Drawdown, Friction)
-│   │   ├── watchlist.js       # Multi-tab synchronized localStorage manager
-│   │   └── api.js             # Resilient client with cold-start retry & demo routing
-│   └── public/demo/           # Deterministic synthetic data fixtures for offline demo mode
-├── benchmarks/                # Reproducible latency, throughput & indicator precision scripts
-├── docs/                      # Compliance audits, data-flow matrices & Architecture Decision Records (ADRs)
-└── .github/workflows/         # CI testing (pytest + Playwright) & automated cache warming
+```mermaid
+flowchart LR
+    Client["MARA browser client"] --> API["FastAPI"]
+    API --> Service["Feature service"]
+    Service --> L1["L1 · in-memory TTL cache"]
+    L1 -->|"miss"| L2["L2 · Upstash Redis"]
+    L2 -->|"cache refill"| Adapter["Market data adapter"]
+    Adapter --> Providers["NSE and yfinance"]
+    Client -.->|"demo build"| Fixtures["Bundled synthetic fixtures"]
 ```
 
----
+The [hexagonal architecture ADR](docs/adr/0001-hexagonal-architecture.md) explains the domain and adapter boundaries. The [cache ADR](docs/adr/0002-two-tier-hybrid-cache.md) covers lookup order and refresh. The [research ADR](docs/adr/0003-epistemological-contract-no-speculation.md) describes how the terminal labels source data, calculations, and interpretation.
 
-## ⚡ Measured Engineering Benchmarks
+| Layer | Technology | Why |
+| --- | --- | --- |
+| Client | Vanilla JavaScript and Vite | Static, no-backend demo and direct DOM updates |
+| Charting | Canvas 2D, JavaScript indicators and backtester | Custom price rendering and auditable calculations |
+| API | FastAPI and Python | Typed service boundaries and provider adapters |
+| Cache | TTLCache and Upstash Redis | Fast local reads with a shared second tier |
+| Verification | pytest, Node test runner, Playwright | Contracts, deterministic series, and browser workflows |
 
-Every claim in this repository is measured and reproducible via scripts committed in [`/benchmarks`](./benchmarks) (see [`BENCHMARKS.md`](./BENCHMARKS.md)):
+## Measured results
 
-- **Cache Throughput:** `19,186 req/sec` with **`0.0037 ms` (3.7 µs)** p95 latency on primed L1 in-memory hits (`benchmarks/benchmark_cache.py`).
-- **Cache Hit Rate:** **`94.70%`** under power-law equity distribution, reducing upstream provider calls by > 88%.
-- **Indicator Accuracy:** **$MAE < 10^{-12}$** maximum absolute error verified against analytical formulas across RSI, MACD, EMAs, and Bollinger Bands (`benchmarks/verify_indicators.mjs`).
-- **Failover Routing:** Automated circuit-breaker switches from direct NSE (`.NS`) to fallback provider on HTTP 403 or network timeout with zero unhandled exceptions (`benchmarks/failover_sim.py`).
+- **L1 workload throughput** was 8,245.8 requests/sec in a sequential in-process simulation. **L1 lookup latency** was 0.0094 ms at p95. The first measurement includes workload generation and bookkeeping.
+- **Simulated cache hit rate** was 94.85% across 2,000 requests with popularity weights `[0.25, 0.20, 0.15, 0.10, 0.10, 0.05, 0.05, 0.05, 0.025, 0.025]` and the most popular symbols prewarmed.
+- **Indicator formula checks** recorded max absolute error below 1e-12 (measured maximum 5.6843e-13). The independent pandas check used the bundled AAPL and TCS histories.
+- **Provider fallback** passed a simulation with injected HTTP 403 and timeout errors at the primary quote adapter.
 
----
+Run `npm run benchmark` from the repository root after installing `backend/requirements.txt`. [BENCHMARKS.md](BENCHMARKS.md) records the machine, commands, and raw results.
 
-## 🧠 Key Architectural Decisions
+## Run the full stack
 
-1. **Hexagonal Domain Boundaries ([ADR-001](./docs/adr/0001-hexagonal-architecture.md)):** Core analytics depend strictly on abstract protocols (`MarketDataProvider`, `CacheProtocol`), enabling 102 tests to run in seconds without internet access.
-2. **Two-Tier Resilient Cache ([ADR-002](./docs/adr/0002-two-tier-hybrid-cache.md)):** L1 in-memory `TTLCache` handles microsecond repeat reads; L2 Upstash Redis persists data across serverless container restarts.
-3. **Epistemological Contract ([ADR-003](./docs/adr/0003-epistemological-contract-no-speculation.md)):** Strict separation of *Fact $\rightarrow$ Metric $\rightarrow$ Context*. Valuation multiples are represented strictly as historical distribution percentiles (e.g. 82nd percentile), avoiding subjective advice triggers under SEBI (Research Analysts) Regulations 2014.
-4. **Zero-Knowledge Client Storage ([ADR-004](./docs/adr/0004-client-side-only-user-storage.md)):** User watchlists, notes, and alerts reside exclusively in browser `localStorage`. Zero personal portfolio data is sent to or stored in backend databases, honoring India's DPDP Act 2023.
-
----
-
-## 🚀 Quick Start (5 Commands)
+From the repository root:
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/Phantom-Jay/Stock-Dashboard.git && cd Stock-Dashboard
+python -m pip install -r backend/requirements.txt
+python -m uvicorn backend.main:app --port 8080
+```
 
-# 2. Run backend test suite (102 tests)
-pip install -r backend/requirements.txt && pytest backend/tests
+In a second terminal:
 
-# 3. Start FastAPI backend
-uvicorn backend.main:app --port 8000
-
-# 4. In a new terminal: Install frontend dependencies & run demo verification
-cd frontend && npm ci && npm run build:demo && npm run test:demo
-
-# 5. Launch frontend dev server
+```bash
+cd frontend
+npm ci
 npm run dev
 ```
 
-Open your browser at `http://localhost:5173`.
+Vite proxies API and WebSocket requests to the local backend. The Dockerfile packages the provider-backed build. A separately hosted frontend can use `npm run build:live` with `VITE_API_BASE_URL` set to the FastAPI origin. The scheduled cache warmer calls the protected refresh endpoint to populate market snapshots.
 
----
+## What I would do next
 
-## ⚠️ Known Limitations & Compliance Position
+- Extend the typed contract between API responses and workstation views.
+- Virtualize the screener table for larger universes.
+- Add provider-specific timing and cache hit metrics to the refresh worker.
 
-- The portfolio deployment uses synthetic data for research and education. It cannot place trades.
-- Before hosting provider data, verify rights for collection, caching, display, export, and redistribution. Review the intended research output with qualified counsel before offering it publicly. See the [NSE data usage policy](https://betanseapi.nseindia.com/static/market-data/nse-data-policy), [yfinance usage note](https://github.com/ranaroussi/yfinance), and [SEBI Research Analysts FAQ](https://www.sebi.gov.in/sebi_data/attachdocs/jul-2025/1753268710217.pdf).
-- A separately operated account-enabled deployment must document its actual authentication provider, hosting region, retention, and privacy contact.
+## Data and compliance
 
----
+The public demo uses synthetic market data for research and education and cannot place trades.
 
-## 📄 License
-Confirm ownership and add an explicit repository license before representing this code as open source or granting reuse rights. Third-party code, assets, and market data retain their own terms.
+See the [data and compliance note](docs/compliance.md) for provider terms and research output considerations.
+
+## License
+
+MIT. Third-party data and assets keep their own terms.

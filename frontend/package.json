@@ -1,5 +1,7 @@
 {
-  "name": "mara-market-intelligence",
+  "name": "mara",
+  "description": "Equities research terminal",
+  "repository": "https://github.com/SriJayavel/Stock-Dashboard.git",
   "private": true,
   "version": "2.0.0",
   "type": "module",

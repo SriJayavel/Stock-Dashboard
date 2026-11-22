@@ -3877,7 +3877,7 @@ function renderStockOverview(data) {
   const currSym = data.currency_symbol || getCurrencySymbol(data.symbol, data.currency);
 
   if (stockPrice) {
-    stockPrice.textContent = data.current_price != null ? `${currSym}${data.current_price.toFixed(decimals)}` : '—';
+    stockPrice.textContent = data.current_price != null ? `${currSym}${data.current_price.toFixed(decimals)}` : 'Quote unavailable';
 
     // Live-price 300ms flash (emerald / rose)
     if (lastStockPrice !== null && data.current_price !== lastStockPrice) {
@@ -3891,7 +3891,8 @@ function renderStockOverview(data) {
   }
 
   if (stockChangePct) {
-    stockChangePct.textContent = `${sign}${chgVal} (${sign}${chgPct}%)`;
+    stockChangePct.textContent = data.change != null && data.change_pct != null
+      ? `${sign}${chgVal} (${sign}${chgPct}%)` : '';
   }
   if (stockChangeBadge) {
     stockChangeBadge.className = `hero-change-badge ${isUp ? 'chg-up' : 'chg-down'}`;
@@ -7445,7 +7446,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             </td>
             <td class="col-name"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.name}</td>
             <td class="col-symbol"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.symbol}</td>
-            <td class="col-price text-right${hasValidPrice && !m.is_stale && !isMarketClosed ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}" data-sort-value="${m.price ?? ''}">
+            <td class="col-price text-right" data-prev-price="${m.prev_price || ''}" data-sort-value="${m.price ?? ''}">
               ${priceDisplay}
             </td>
             <td data-sort-value="${m.change ?? ''}" class="col-change text-right ${chgClass}">${chgDisplay}</td>
