@@ -2674,6 +2674,101 @@ export const INDICATOR_REGISTRY = {
     },
   },
 
+  vwma: {
+    id: 'vwma', name: 'Volume Weighted Moving Average', short: 'VWMA', advanced: true,
+    group: 'moving_averages', pane: 'overlay',
+    params: { period: 20 },
+    paramDefs: [{ key: 'period', name: 'Period', type: 'number', min: 1, max: 300, default: 20 }],
+    needsVolume: true,
+    warmup: ({ period }) => period,
+    formula: 'VWMA = Sum(Close × Volume, N) / Sum(Volume, N)',
+    levels: [],
+    render: [{ key: 'vwma', type: 'line', title: 'VWMA', defaultColor: '#fbbf24' }],
+    compute(bars, { period }) {
+      if (!hasValidVolume(bars)) return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      const values = bars.map((_, i) => {
+        if (i < period - 1) return null;
+        let weighted = 0;
+        let volume = 0;
+        for (let j = i - period + 1; j <= i; j++) {
+          const barVolume = Number(bars[j].volume) || 0;
+          weighted += bars[j].close * barVolume;
+          volume += barVolume;
+        }
+        return volume > 0 ? weighted / volume : null;
+      });
+      return { vwma: toPoints(bars, values) };
+    },
+  },
+
+  relative_volume: {
+    id: 'relative_volume', name: 'Relative Volume', short: 'RVOL', advanced: true,
+    group: 'volume', pane: 'separate',
+    params: { period: 20 },
+    paramDefs: [{ key: 'period', name: 'Average volume period', type: 'number', min: 2, max: 300, default: 20 }],
+    needsVolume: true,
+    warmup: ({ period }) => period,
+    formula: 'Relative Volume = Volume / SMA(Volume, N); 1.0 equals the lookback average.',
+    levels: [1],
+    render: [{ key: 'relativeVolume', type: 'histogram', title: 'Relative Volume', defaultColor: '#38bdf8' }],
+    compute(bars, { period }) {
+      if (!hasValidVolume(bars)) return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
+      const volumes = bars.map(({ volume }) => Number(volume) || 0);
+      const average = calculateSMAValues(volumes, period);
+      return { relativeVolume: toPoints(bars, volumes.map((volume, i) => average[i] > 0 ? volume / average[i] : null)) };
+    },
+  },
+
+  elder_ray: {
+    id: 'elder_ray', name: 'Elder-Ray Index', short: 'Elder-Ray', advanced: true,
+    group: 'momentum', pane: 'separate',
+    params: { period: 13 },
+    paramDefs: [{ key: 'period', name: 'EMA period', type: 'number', min: 2, max: 300, default: 13 }],
+    warmup: ({ period }) => period,
+    formula: 'Bull Power = High − EMA(Close, N); Bear Power = Low − EMA(Close, N).',
+    levels: [0],
+    render: [
+      { key: 'bullPower', type: 'histogram', title: 'Bull Power', defaultColor: '#10b981' },
+      { key: 'bearPower', type: 'histogram', title: 'Bear Power', defaultColor: '#f43f5e' },
+    ],
+    compute(bars, { period }) {
+      const ema = calculateEMAValues(bars.map(({ close }) => close), period);
+      return {
+        bullPower: toPoints(bars, bars.map(({ high }, i) => ema[i] == null ? null : high - ema[i])),
+        bearPower: toPoints(bars, bars.map(({ low }, i) => ema[i] == null ? null : low - ema[i])),
+      };
+    },
+  },
+
+  choppiness_index: {
+    id: 'choppiness_index', name: 'Choppiness Index', short: 'CHOP', advanced: true,
+    group: 'volatility', pane: 'separate',
+    params: { period: 14 },
+    paramDefs: [{ key: 'period', name: 'Period', type: 'number', min: 2, max: 300, default: 14 }],
+    warmup: ({ period }) => period,
+    formula: '100 × log10(Sum(True Range, N) / (Highest High − Lowest Low, N)) / log10(N).',
+    levels: [38.2, 61.8],
+    render: [{ key: 'choppiness', type: 'line', title: 'Choppiness', defaultColor: '#c084fc' }],
+    compute(bars, { period }) {
+      const trueRange = calculateTrueRange(bars);
+      const values = bars.map((_, i) => {
+        if (i < period - 1) return null;
+        let rangeSum = 0;
+        let highest = -Infinity;
+        let lowest = Infinity;
+        for (let j = i - period + 1; j <= i; j++) {
+          rangeSum += trueRange[j];
+          highest = Math.max(highest, bars[j].high);
+          lowest = Math.min(lowest, bars[j].low);
+        }
+        const channelRange = highest - lowest;
+        if (!(rangeSum > 0) || !(channelRange > 0)) return null;
+        return 100 * Math.log10(rangeSum / channelRange) / Math.log10(period);
+      });
+      return { choppiness: toPoints(bars, values) };
+    },
+  },
+
   volatility_squeeze: {
     id: 'volatility_squeeze', name: 'Volatility Squeeze', short: 'Squeeze', advanced: true,
     group: 'volatility', pane: 'separate',
