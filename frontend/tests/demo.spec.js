@@ -37,7 +37,7 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
   });
 
   test('demo loads markets, sector details and charts with zero live API calls', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?freeze=1');
     await page.waitForLoadState('domcontentloaded');
 
     // 1. Demo banner must be visible
@@ -83,10 +83,13 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     const watchlist = page.locator('#watchlist-items-list');
     await expect(watchlist.locator('[data-symbol="TCS.NS"].wl-item-row .wl-item-price'))
       .toHaveText(`₹${tcsQuote.price.toFixed(2)}`);
+    const snapshot = await (await page.request.get('/demo/market-overview.json')).json();
+    const bitcoin = snapshot.indices.find(({ symbol }) => symbol === 'BTC-USD');
+    const euro = snapshot.forex.find(({ symbol }) => symbol === 'EURUSD=X');
     await expect(watchlist.locator('[data-symbol="BTC-USD"].wl-item-row .wl-item-price'))
-      .toContainText('67450.00');
+      .toContainText(bitcoin.price.toFixed(2));
     await expect(watchlist.locator('[data-symbol="EURUSD=X"].wl-item-row .wl-item-price'))
-      .toContainText('1.0850');
+      .toContainText(euro.price.toFixed(4));
     await page.locator('#close-watchlist-drawer-btn').click();
 
     const indicators = await page.locator('#tv-indicators-menu-btn').boundingBox();
@@ -133,8 +136,8 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await expect(page.locator('#tv-leg-close')).toHaveText(aapl.candles.at(-1).close.toFixed(2));
 
     await page.goto('/#/symbol/%5ENSEI/chart');
-    await expect(page.locator('#tv-bb-status')).toHaveText('No synthetic price history is available for this symbol.');
-    await expect(page.locator('#tv-leg-close')).toHaveText('—');
+    await expect(page.locator('#tv-bb-status')).toHaveText('Synthetic price history');
+    await expect(page.locator('#tv-leg-close')).toHaveText(snapshot.indices[0].price.toFixed(2));
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/#/markets');

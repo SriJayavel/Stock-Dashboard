@@ -80,10 +80,19 @@ async function readFixture(path) {
 
 async function demoChartHistory(symbol, interval) {
   const unavailable = { symbol, interval, candles: [], demo_mode: true, freshness: 'unavailable' };
+  const daily = ['1d', '1wk', '1mo'].includes(interval);
   if (!DEMO_STOCKS.has(symbol)) {
-    return { ...unavailable, message: 'No synthetic price history is available for this symbol.' };
+    const histories = await readFixture(`${DEMO_BASE}/benchmark-candles.json`);
+    const candles = histories && Object.hasOwn(histories, symbol) ? histories[symbol] : null;
+    if (!candles) return { ...unavailable, message: 'No synthetic price history is available for this symbol.' };
+    if (!daily) return { ...unavailable, message: 'Intraday history is unavailable in demo mode. Choose 1D, 1W, or 1M.' };
+    const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview']);
+    return {
+      ...unavailable, candles, freshness: 'synthetic', data_source: 'Synthetic demo',
+      last_updated: snapshot?.timestamp, latest_quote: demoSnapshotQuote(symbol, snapshot),
+    };
   }
-  if (!['1d', '1wk', '1mo'].includes(interval)) {
+  if (!daily) {
     return { ...unavailable, message: 'Intraday history is unavailable in demo mode. Choose 1D, 1W, or 1M.' };
   }
   const fixture = await readFixture(demoStockFile(symbol, 'candles'));

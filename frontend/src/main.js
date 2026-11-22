@@ -1,4 +1,5 @@
 import { sparklineSvg } from './sparkline.js';
+import { roundPrice, seededRandom, walkStep } from './demo/simulator.js';
 /**
  * Mara - Frontend Controller
  * Reactive orchestration of Lightweight Charts, valuation matrices,
@@ -231,6 +232,7 @@ async function startApp() {
     document.getElementById('mara-app')?.classList.add('is-demo');
     const banner = document.getElementById('demo-banner');
     if (banner) banner.style.display = 'block';
+    setupDemoUpdates();
     const exitDemo = document.getElementById('exit-demo-mode-btn');
     if (exitDemo) exitDemo.hidden = isShowcaseBuild;
     exitDemo?.addEventListener('click', () => {
@@ -866,6 +868,70 @@ const benchmarkCollator = new Intl.Collator(undefined, { numeric: true, sensitiv
 const benchmarkTime = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
 });
+
+function setupDemoUpdates() {
+  const button = document.getElementById('pause-demo-updates');
+  if (!button || new URLSearchParams(location.search).get('freeze') === '1') return;
+  const random = seededRandom('MARA demo ticks');
+  let paused = false;
+  let timer;
+  button.hidden = false;
+
+  const schedule = () => {
+    timer = setTimeout(() => {
+      if (!document.hidden && currentActiveWorkspace === 'markets') updatePrices();
+      schedule();
+    }, 1000 + random() * 1000);
+  };
+  const updatePrices = () => {
+    const rows = [...document.querySelectorAll('#markets-indices-table-body .benchmark-row')]
+      .filter((row) => row.getClientRects().length && Number(row.querySelector('.col-price')?.dataset.sortValue) > 0);
+    const snapshot = marketDataCache?.macro?.Indices || [];
+    for (let count = 0; count < 2 && rows.length; count++) {
+      const [row] = rows.splice(Math.floor(random() * rows.length), 1);
+      const quote = snapshot.find((item) => item.symbol === row.dataset.sym);
+      if (!quote?.prev_close) continue;
+      const cell = row.querySelector('.col-price');
+      const price = Number(cell.dataset.sortValue);
+      // Keep the simulation close to the fixture's close over long sessions.
+      const nextPrice = roundPrice(walkStep(price, .00055, random, Math.log(quote.price / price) * .08));
+      if (nextPrice === price) continue;
+      const format = new Intl.NumberFormat(row.dataset.region === 'india' ? 'en-IN' : 'en-US', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2,
+      });
+      cell.textContent = `${row.dataset.currency}${format.format(nextPrice)}`;
+      cell.dataset.sortValue = String(nextPrice);
+      const change = roundPrice(nextPrice - quote.prev_close);
+      const percentage = roundPrice(100 * change / quote.prev_close);
+      for (const [selector, value, suffix] of [['.col-change', change, ''], ['.col-pct', percentage, '%']]) {
+        const target = row.querySelector(selector);
+        target.dataset.sortValue = String(value);
+        target.classList.toggle('gain', value > 0);
+        target.classList.toggle('loss', value < 0);
+        target.textContent = `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(2)}${suffix}`;
+      }
+      const high = row.querySelector('.col-high');
+      const low = row.querySelector('.col-low');
+      for (const [target, extreme] of [[high, Math.max], [low, Math.min]]) {
+        const value = extreme(Number(target.dataset.sortValue), nextPrice);
+        target.dataset.sortValue = String(value);
+        target.textContent = `${row.dataset.currency}${format.format(value)}`;
+      }
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const flash = nextPrice > price ? '--gain-bg' : '--loss-bg';
+        cell.animate([{ backgroundColor: `var(${flash})` }, { backgroundColor: 'transparent' }], 400);
+      }
+    }
+  };
+
+  button.addEventListener('click', () => {
+    paused = !paused;
+    button.setAttribute('aria-pressed', String(paused));
+    clearTimeout(timer);
+    if (!paused) schedule();
+  });
+  schedule();
+}
 
 function sortBenchmarkRows(table) {
   const header = table.querySelector('th[aria-sort]');
@@ -7358,16 +7424,13 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
         const isDefaultActive = idx === 0;
 
-        const changeDirection = isMarketClosed ? '' : (!hasChange ? '' : isUp ? ' up' : isDown ? ' down' : '');
-        const ariaChangeText = isMarketClosed ? 'market closed' : (hasChange ? `${pctDisplay.replace('+', 'up ').replace('−', 'down ')}` : 'no change data');
-
         return `
           <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}${isMarketClosed ? ' market-closed' : ''}"
               data-region="${m.regionCode}"
               data-sym="${m.symbol}"
+              data-currency="${m.curr}"
               tabindex="0"
-              role="row"
-              aria-label="${m.name} (${m.symbol}) ${m.region}: ${priceDisplay}, change${changeDirection} ${ariaChangeText}">
+              role="row">
             <td class="col-region">
               <span class="region-badge ${regionTagClass}">${m.tag}</span>
             </td>
