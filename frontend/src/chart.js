@@ -3,11 +3,119 @@
  * First-party, dependency-free market chart renderer with institutional-grade features.
  * All plotted values come from the supplied OHLCV series or the project's indicator calculations.
  */
-import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition } from './indicators.js';
+import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition, normalizeIndicatorParams } from './indicators.js';
 import { getAccountStorageKey } from './auth.js';
 
 const bullColor = '#10b981';
 const bearColor = '#f43f5e';
+
+function drawStudySeries(ctx, points, style, color, x, y, barWidth) {
+  if (style.type === 'histogram' || style.type === 'dots') {
+    const baseline = y(0);
+    const width = Math.max(1, Math.min(9, barWidth * 0.65));
+    points.forEach((point, index) => {
+      if (!Number.isFinite(point?.value)) return;
+      const yy = y(point.value);
+      if (!Number.isFinite(yy)) return;
+      if (style.type === 'histogram') {
+        if (point.value === 0) return;
+        ctx.fillStyle = point.color || (point.value > 0 ? bullColor : bearColor);
+        ctx.fillRect(x(index) - width / 2, Math.min(yy, baseline), width, Math.max(1, Math.abs(yy - baseline)));
+      } else {
+        ctx.beginPath();
+        ctx.arc(x(index), yy, Math.min(3, Math.max(1.3, barWidth * 0.32)), 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        if (point.hollow) ctx.stroke();
+        else ctx.fill();
+      }
+    });
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.lineWidth = style.lineWidth || 1.5;
+  ctx.setLineDash(style.lineStyle === 2 ? [5, 4] : style.lineStyle === 3 ? [2, 3] : []);
+  let previous;
+  let stroke = color;
+  points.forEach((point, index) => {
+    const yy = Number.isFinite(point?.value) ? y(point.value) : NaN;
+    if (!Number.isFinite(yy)) {
+      previous = undefined;
+      return;
+    }
+    const xx = x(index);
+    const nextColor = point.color || color;
+    if (stroke !== nextColor) {
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+      ctx.beginPath();
+      if (previous) ctx.moveTo(...previous);
+      stroke = nextColor;
+    }
+    if (previous) ctx.lineTo(xx, yy);
+    else ctx.moveTo(xx, yy);
+    previous = [xx, yy];
+  });
+  ctx.strokeStyle = stroke;
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function fillStudyBand(ctx, upper, lower, x, y, color) {
+  let start = 0;
+  const valid = (i) => Number.isFinite(upper[i]?.value) && Number.isFinite(lower[i]?.value)
+    && Number.isFinite(y(upper[i].value)) && Number.isFinite(y(lower[i].value));
+  ctx.save();
+  ctx.globalAlpha = 0.14;
+  ctx.fillStyle = color;
+  while (start < upper.length) {
+    while (start < upper.length && !valid(start)) start++;
+    let end = start;
+    while (end < upper.length && valid(end)) end++;
+    if (end - start > 1) {
+      ctx.beginPath();
+      ctx.moveTo(x(start), y(upper[start].value));
+      for (let i = start + 1; i < end; i++) ctx.lineTo(x(i), y(upper[i].value));
+      for (let i = end - 1; i >= start; i--) ctx.lineTo(x(i), y(lower[i].value));
+      ctx.closePath();
+      ctx.fill();
+    }
+    start = end;
+  }
+  ctx.restore();
+}
+
+function drawVolumeProfile(ctx, profile, area, y, color) {
+  const maxVolume = Math.max(...profile.volumeProfile);
+  if (maxVolume <= 0) return;
+  const maxWidth = (area.right - area.left) * 0.23;
+  profile.volumeProfile.forEach((volume, index) => {
+    if (volume <= 0) return;
+    const price = profile.priceRange.min + index * profile.rowHeight;
+    const top = y(price + profile.rowHeight);
+    const bottom = y(price);
+    if (!Number.isFinite(top) || !Number.isFinite(bottom)) return;
+    const width = volume / maxVolume * maxWidth;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = index === profile.pocIndex ? 0.75 : 0.34;
+    ctx.fillRect(area.right - width, top, width, Math.max(1, bottom - top - 1));
+  });
+  ctx.globalAlpha = 0.7;
+  ctx.strokeStyle = color;
+  const midpoint = profile.priceRange.min + (profile.pocIndex + 0.5) * profile.rowHeight;
+  ctx.setLineDash([4, 4]);
+  for (const level of [profile.valueArea.low, midpoint, profile.valueArea.high]) {
+    const yy = y(level);
+    if (!Number.isFinite(yy)) continue;
+    ctx.beginPath();
+    ctx.moveTo(area.left, yy);
+    ctx.lineTo(area.right, yy);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
+}
 
 function priceTickStep(span) {
   const rawStep = span / 5;
@@ -147,7 +255,7 @@ export class TerminalChart {
     }
 
     const instanceId=`${id}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-    const instance={instanceId,id,name:def.name,short:def.short,group:def.group,pane:def.pane,paneIndex:pane,params:{...def.params,...params},color:INDICATOR_PALETTE[this.paletteIndex++%INDICATOR_PALETTE.length],visible,unavailable:false,unavailableReason:'',headerElement:null,def,values:{}};
+    const instance={instanceId,id,name:def.name,short:def.short,group:def.group,pane:def.pane,paneIndex:pane,params:normalizeIndicatorParams(def, params),color:INDICATOR_PALETTE[this.paletteIndex++%INDICATOR_PALETTE.length],visible,unavailable:false,unavailableReason:'',headerElement:null,def,values:{}};
 
     this.activeIndicators.set(instanceId,instance);
     if(pane) {
@@ -155,7 +263,8 @@ export class TerminalChart {
       this.mountSubPaneHeader(instance);
     }
     this.computeAndApplyIndicator(instance,this.currentCandles);
-    this.render();
+    if (pane) this.rebalancePanes();
+    else this.render();
 
     if(persist)this.saveIndicatorsState();
     if(this.onStateChange)this.onStateChange(this.getActiveIndicatorsList());
@@ -212,7 +321,6 @@ export class TerminalChart {
       const inst=this.activeIndicators.get(value);
       if(inst){
         inst.paneIndex=n;
-        inst.headerElement.style.top=`${this.height*this.mainRatio+(n-1)*120+6}px`;
       }
       n++;
     }
@@ -235,7 +343,7 @@ export class TerminalChart {
   updateIndicatorParams(id,params) {
     const i=this.activeIndicators.get(id);
     if(!i)return;
-    i.params={...i.params,...params};
+    i.params=normalizeIndicatorParams(i.def, {...i.params,...params});
     this.computeAndApplyIndicator(i,this.currentCandles);
     if(i.headerElement)i.headerElement.querySelector('.pane-hdr-title').textContent=this.formatIndicatorTitle(i);
     this.saveIndicatorsState();
@@ -248,15 +356,14 @@ export class TerminalChart {
   }
 
   computeAndApplyIndicator(i,candles) {
-    if(!candles?.length)return;
-    const r=computeIndicator(i.id,candles,i.params);
+    const r=computeIndicator(i.id,candles || [],i.params);
     i.unavailable=!!r.unavailable;
     i.unavailableReason=r.reason||'';
     i.values=r.seriesData||{};
     const un=i.headerElement?.querySelector(`#subpane-unavail-${i.instanceId}`);
     if(un){
       un.textContent=i.unavailableReason;
-      un.style.display=i.unavailable?'inline':'';
+      un.style.display=i.unavailable?'inline':'none';
     }
   }
 
@@ -306,7 +413,9 @@ export class TerminalChart {
     this.subPanes.forEach((id,p)=>{
       const i=this.activeIndicators.get(id);
       if(i?.headerElement){
-        i.headerElement.style.top=`${this.height*this.mainRatio+(p-1)*120+6}px`;
+        const mainHeight = Math.max(180, this.height * this.mainRatio);
+        const paneHeight = (this.height - mainHeight) / this.subPanes.size;
+        i.headerElement.style.top=`${mainHeight + (p - 1) * paneHeight + 6}px`;
         i.headerElement.style.left='14px';
       }
     });
@@ -578,9 +687,9 @@ export class TerminalChart {
   }
 
   indexAt(x) {
-    const start = Math.max(0, this.endIndex - this.visibleCount);
-    const plotW = this.width - 78;
-    return Math.max(start, Math.min(this.endIndex - 1, start + Math.floor((x - 12) / plotW * this.visibleCount)));
+    const indices = this.renderedBarIndices || [];
+    if (!indices.length) return -1;
+    return indices[Math.max(0, Math.min(indices.length - 1, Math.floor((x - 12) / this.barWidth)))];
   }
 
   // Premium enhancement: smooth rendering with animation frame
@@ -605,6 +714,8 @@ export class TerminalChart {
     c.fillRect(0, 0, w, h);
     const bars = this.currentCandles || [];
     if (!bars.length) {
+      this.renderedBarIndices = [];
+      this.renderStudyReadouts();
       c.fillStyle = muted;
       c.font = '13px sans-serif';
       c.fillText(this.unavailableMessage || 'Load a symbol to view price history', 20, 32);
@@ -622,10 +733,9 @@ export class TerminalChart {
       c.fillText(this.unavailableMessage || 'Load a symbol to view price history', 20, 32);
       return;
     }
-    this.barWidth = (plot.right - plot.left) / Math.max(barsToRender.length, 1);
-
     // Validate candle data - filter out invalid candles
-    const validBars = barsToRender.filter(b => {
+    const indices = [];
+    const validBars = barsToRender.filter((b, index) => {
       const close = b?.close;
       const open = b?.open;
       const high = b?.high;
@@ -635,8 +745,11 @@ export class TerminalChart {
       // Check for valid timestamp (non-zero, finite)
       const ts = b?.time;
       if (typeof ts === 'number' && (ts === 0 || !Number.isFinite(ts))) return false;
+      indices.push((visible.length ? start : 0) + index);
       return true;
     });
+    this.renderedBarIndices = indices;
+    this.barWidth = (plot.right - plot.left) / Math.max(validBars.length, 1);
 
     // If no valid bars remain, show unavailable message
     if (validBars.length === 0) {
@@ -789,44 +902,78 @@ export class TerminalChart {
     this.activeIndicators.forEach((inst) => {
       if (!inst.visible || inst.unavailable) return;
       const pane = inst.paneIndex, area = pane ? { left: plot.left, right: plot.right, top: mainH + (pane - 1) * (h - mainH) / panes + 26, bottom: mainH + pane * (h - mainH) / panes - 20 } : plot;
-      const series = Object.entries(inst.values || {});
-      series.forEach(([key, points], si) => {
-        const color = inst.def.render?.[si]?.color || inst.color;
-        c.beginPath();
-        let begun = false;
-        points.forEach((point, idx) => {
-          if (!point || point.value == null || idx < start || idx >= end) return;
-          const xx = plot.left + (idx - start + 0.5) * this.barWidth, val = point.value;
-          let yy;
-          if (pane) {
-            const valid = points.slice(start, end).map((q) => q?.value).filter(Number.isFinite), lo = Math.min(...valid), hi = Math.max(...valid);
-            yy = area.bottom - (val - lo) / (hi - lo || 1) * (area.bottom - area.top);
-          } else yy = y(val);
-          if (!begun) { c.moveTo(xx, yy); begun = true; } else c.lineTo(xx, yy);
-        });
-        c.strokeStyle = color;
-        c.lineWidth = 1.4;
-        c.stroke();
-      });
+      if (area.bottom <= area.top) return;
+      const series = inst.def.render.map((style) => ({
+        style,
+        points: indices.map((index) => inst.values[style.key]?.[index]),
+      }));
+      const x = (index) => area.left + (index + 0.5) * this.barWidth;
+      const levels = new Set(inst.def.levels || []);
+      let studyY = y;
       if (pane) {
-        c.strokeStyle = grid;
-        c.beginPath();
-        c.moveTo(area.left, area.top);
-        c.lineTo(w - 4, area.top);
-        c.stroke();
+        if (series.some(({ style }) => ['histogram', 'dots'].includes(style.type))) levels.add(0);
+        let low = Infinity;
+        let high = -Infinity;
+        for (const { points } of series) {
+          for (const point of points) {
+            if (!Number.isFinite(point?.value)) continue;
+            low = Math.min(low, point.value);
+            high = Math.max(high, point.value);
+          }
+        }
+        if (!Number.isFinite(low)) return;
+        for (const level of levels) {
+          low = Math.min(low, level);
+          high = Math.max(high, level);
+        }
+        const padding = (high - low) * 0.12 || Math.max(1, Math.abs(high) * 0.05);
+        studyY = (value) => area.bottom - (value - low + padding) / (high - low + 2 * padding) * (area.bottom - area.top);
+        c.save();
+        c.strokeStyle = isLight ? '#cbd5e1' : '#2c3545';
+        c.fillStyle = muted;
+        c.textAlign = 'right';
+        c.font = '10px ui-monospace, monospace';
+        c.setLineDash([4, 4]);
+        for (const level of levels) {
+          const yy = studyY(level);
+          c.beginPath();
+          c.moveTo(area.left, yy);
+          c.lineTo(area.right, yy);
+          c.stroke();
+          c.fillText(`${level}${inst.def.unit || ''}`, w - 8, yy);
+        }
+        c.restore();
       }
+      c.save();
+      c.beginPath();
+      c.rect(area.left, area.top, area.right - area.left, area.bottom - area.top);
+      c.clip();
+      if (inst.def.band) {
+        const [upper, lower] = inst.def.band.map((key) => series.find(({ style }) => style.key === key)?.points || []);
+        fillStudyBand(c, upper, lower, x, studyY, inst.color);
+      }
+      for (const { style, points } of series) {
+        const color = series.length > 1 ? style.defaultColor || inst.color : inst.color;
+        if (style.type === 'profile') {
+          const profile = points.at(-1)?.value;
+          if (profile) drawVolumeProfile(c, profile, area, studyY, color);
+        } else {
+          drawStudySeries(c, points, style, color, x, studyY, this.barWidth);
+        }
+      }
+      c.restore();
     });
     this.markers.forEach((m) => {
       const idx = barsToRenderSafe.findIndex((b) => dateString(b.time) === String(m.time));
-      if (idx < start || idx >= end) return;
-      const xx = plot.left + (idx - start + 0.5) * this.barWidth, yy = plot.top + 12;
+      if (idx < 0) return;
+      const xx = plot.left + (idx + 0.5) * this.barWidth, yy = plot.top + 12;
       c.fillStyle = m.color || '#5b9cf6';
       c.beginPath();
       c.arc(xx, yy, 4, 0, Math.PI * 2);
       c.fill();
     });
     if (this.pointer && this.crosshairEnabled) {
-      const xx = this.pointer.x, idx = this.indexAt(xx), b = barsToRenderSafe[idx];
+      const xx = this.pointer.x, idx = this.indexAt(xx), b = bars[idx];
       if (b) {
         c.strokeStyle = isLight ? '#2563eb' : '#60a5fa';
         c.setLineDash([4, 4]);
@@ -841,7 +988,7 @@ export class TerminalChart {
         c.setLineDash([]);
       }
     }
-    if (this.subPanes.size) this.renderPaneSplitters();
+    this.renderStudyReadouts();
   }
 
   updateTooltip(param) {
@@ -880,17 +1027,40 @@ export class TerminalChart {
       ch.textContent=`O→C ${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;
       ch.style.color=col;
     }
-    const ind=document.getElementById('tv-legend-indicators');
-    if(ind)ind.innerHTML=[...this.activeIndicators.values()].filter(i=>i.visible&&i.pane==='overlay').map(i=>`<span class="tv-leg-ind" style="color:${i.color};margin-right:10px;font-size:11px">${i.short} (${Object.values(i.params).join(', ')})</span>`).join('');
   }
 
-  renderSubPaneValues(){
-    this.subPanes.forEach(id=>{
-      const i=this.activeIndicators.get(id),el=i?.headerElement?.querySelector(`#subpane-val-${id}`);
-      if(!el||!this.currentCandles.length)return;
-      const idx=this.pointer?this.indexAt(this.pointer.x):this.currentCandles.length-1;
-      el.textContent=Object.entries(i.values||{}).map(([k,v])=>v[idx]?.value!=null?`${k}: ${Number(v[idx].value).toFixed(2)}`:'').filter(Boolean).join('  ')||'—';
-    });
+  renderStudyReadouts() {
+    const index = this.pointer ? this.indexAt(this.pointer.x) : this.renderedBarIndices?.at(-1);
+    const overlay = document.getElementById('tv-legend-indicators');
+    const overlays = [];
+    for (const inst of this.activeIndicators.values()) {
+      const values = [];
+      if (inst.visible) {
+        for (const { key, title, type } of inst.def.render) {
+          const point = inst.values[key]?.[index];
+          if (point?.label) values.push(`${title}: ${point.label}`);
+          else if (Number.isFinite(point?.value)) {
+            const prefix = inst.paneIndex || inst.def.render.length > 1 ? `${title} ` : '';
+            values.push(`${prefix}${point.value.toFixed(2)}${inst.def.unit || ''}`);
+          }
+          else if (type === 'profile' && point?.value) {
+            const profile = point.value;
+            const poc = profile.priceRange.min + (profile.pocIndex + 0.5) * profile.rowHeight;
+            values.push(`Point of control ${poc.toFixed(2)}`);
+          }
+        }
+      }
+      const label = values.join(' · ') || (inst.unavailable ? inst.unavailableReason : 'No plotted value');
+      if (inst.paneIndex) {
+        const readout = inst.headerElement?.querySelector('.pane-hdr-value');
+        const text = inst.visible && !inst.unavailable ? label : '';
+        if (readout && readout.textContent !== text) readout.textContent = text;
+      } else if (inst.visible) {
+        overlays.push(`<span class="tv-leg-ind" style="--study-color:${inst.color}">${inst.short} ${label}</span>`);
+      }
+    }
+    const content = overlays.join('');
+    if (overlay && overlay.innerHTML !== content) overlay.innerHTML = content;
   }
 
   resetCornerLegend(symbol='',interval=null){

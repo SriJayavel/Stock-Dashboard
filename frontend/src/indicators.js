@@ -1,6 +1,6 @@
 /**
  * Mara - Client-Side Technical Indicator Engine & Registry
- * Provides pure mathematical computation for 37 technical indicators.
+ * Provides pure mathematical computation for the chart's technical studies.
  *
  * Epistemological & Honesty Contracts:
  * 1. Warm-up bars are strictly null (never 0, never plotted).
@@ -26,13 +26,7 @@ export const INDICATOR_PALETTE = [
 
 // Helper to check if instrument has valid volume data
 export function hasValidVolume(bars) {
-  if (!bars || bars.length === 0) return false;
-  let nonZeroCount = 0;
-  for (let i = 0; i < Math.min(bars.length, 50); i++) {
-    const v = bars[i].volume;
-    if (v != null && v > 0) nonZeroCount++;
-  }
-  return nonZeroCount > 0;
+  return bars?.some(({ volume }) => Number.isFinite(volume) && volume > 0) ?? false;
 }
 
 // --------------------------------------------------------------------------
@@ -171,6 +165,31 @@ export function calculateTrueRange(bars) {
 // Indicator Calculation Registry
 // --------------------------------------------------------------------------
 
+function toPoints(bars, values) {
+  return bars.map(({ time }, index) => ({ time, value: values[index] ?? null }));
+}
+
+function cascadedEMA(values, period, depth) {
+  const offset = period - 1;
+  const stages = [calculateEMAValues(values, period)];
+  for (let stage = 1; stage < depth; stage++) {
+    const warmup = stage * offset;
+    const previous = stages[stage - 1].slice(warmup);
+    stages.push([...Array(warmup).fill(null), ...calculateEMAValues(previous, period)]);
+  }
+  return stages;
+}
+
+function dateBoundary(date) {
+  return date ? Date.parse(`${date}T00:00:00Z`) / 1000 : -Infinity;
+}
+
+function candleTimestamp(time) {
+  if (typeof time === 'number') return time < 1e11 ? time : time / 1000;
+  if (typeof time === 'string') return Date.parse(time) / 1000;
+  return time?.year ? Date.UTC(time.year, time.month - 1, time.day) / 1000 : NaN;
+}
+
 export const INDICATOR_REGISTRY = {
   // ==========================================
   // TIER 1: OVERLAYS
@@ -248,6 +267,7 @@ export const INDICATOR_REGISTRY = {
     short: 'BB',
     group: 'overlay',
     pane: 'overlay',
+    band: ['upper', 'lower'],
     params: { period: 20, stdDev: 2 },
     paramDefs: [
       { key: 'period', name: 'Period', type: 'number', min: 1, max: 200, default: 20 },
@@ -1147,8 +1167,8 @@ export const INDICATOR_REGISTRY = {
           if (signalEma[signalIndex] != null) {
             kvoSignal[i] = signalEma[signalIndex];
             kvoHist[i] = kvoRaw[i] - signalEma[signalIndex];
-            signalIndex++;
           }
+          signalIndex++;
         }
       }
 
@@ -1231,6 +1251,7 @@ export const INDICATOR_REGISTRY = {
     short: 'KC',
     group: 'overlay',
     pane: 'overlay',
+    band: ['upper', 'lower'],
     params: { period: 20, multiplier: 2, atrPeriod: 10 },
     paramDefs: [
       { key: 'period', name: 'EMA Period', type: 'number', min: 2, max: 200, default: 20 },
@@ -1276,6 +1297,7 @@ export const INDICATOR_REGISTRY = {
     short: 'DC',
     group: 'overlay',
     pane: 'overlay',
+    band: ['upper', 'lower'],
     params: { period: 20 },
     paramDefs: [{ key: 'period', name: 'Period', type: 'number', min: 2, max: 200, default: 20 }],
     needsVolume: false,
@@ -2107,6 +2129,7 @@ export const INDICATOR_REGISTRY = {
     short: 'Ichimoku',
     group: 'overlay',
     pane: 'overlay',
+    band: ['leadingSpanA', 'leadingSpanB'],
     params: { conversionPeriod: 9, basePeriod: 26, laggingPeriod: 52, displacement: 26 },
     paramDefs: [
       { key: 'conversionPeriod', name: 'Conversion Line Period', type: 'number', min: 1, max: 100, default: 9 },
@@ -2115,8 +2138,8 @@ export const INDICATOR_REGISTRY = {
       { key: 'displacement', name: 'Displacement', type: 'number', min: 1, max: 100, default: 26 },
     ],
     needsVolume: false,
-    warmup: (p) => p.laggingPeriod + p.displacement,
-    formula: 'Conversion Line = (Highest High + Lowest Low)/2 for Conversion Period; Base Line = (Highest High + Lowest Low)/2 for Base Period; Leading Span A = (Conversion Line + Base Line)/2; Leading Span B = (Highest High + Lowest Low)/2 for Lagging Period; Lagging Span = Close plotted Displacement periods behind',
+    warmup: (p) => Math.max(p.conversionPeriod, p.basePeriod, p.laggingPeriod) + p.displacement,
+    formula: 'Conversion and base are high–low midpoints. Span A averages them, Span B is the long midpoint, and both shift forward. Close shifts backward. All plots stop at the loaded dates.',
     levels: [],
     render: [
       { key: 'conversionLine', type: 'line', title: 'Conversion Line', defaultColor: '#ff6b6b' },
@@ -2152,29 +2175,21 @@ export const INDICATOR_REGISTRY = {
         baseLine[i] = (hh + ll) / 2;
       }
 
-      for (let i = p.laggingPeriod - 1; i < bars.length; i++) {
+      for (let i = p.laggingPeriod - 1; i + p.displacement < bars.length; i++) {
         let hh = -Infinity;
         let ll = Infinity;
         for (let j = 0; j < p.laggingPeriod; j++) {
           hh = Math.max(hh, bars[i - j].high);
           ll = Math.min(ll, bars[i - j].low);
         }
-        leadingSpanB[i] = (hh + ll) / 2;
+        leadingSpanB[i + p.displacement] = (hh + ll) / 2;
       }
 
-      for (let i = 0; i < bars.length; i++) {
+      for (let i = 0; i + p.displacement < bars.length; i++) {
         if (conversionLine[i] != null && baseLine[i] != null) {
-          leadingSpanA[i] = (conversionLine[i] + baseLine[i]) / 2;
+          leadingSpanA[i + p.displacement] = (conversionLine[i] + baseLine[i]) / 2;
         }
-      }
-
-      for (let i = p.displacement; i < bars.length; i++) {
-        if (leadingSpanB[i - p.displacement] != null) {
-          leadingSpanB[i] = leadingSpanB[i - p.displacement];
-        }
-        if (laggingSpan[i - p.displacement] != null) {
-          laggingSpan[i] = bars[i - p.displacement].close;
-        }
+        laggingSpan[i] = bars[i + p.displacement].close;
       }
 
       return {
@@ -2195,8 +2210,8 @@ export const INDICATOR_REGISTRY = {
     pane: 'overlay',
     params: { swingHigh: 0, swingLow: 0 },
     paramDefs: [
-      { key: 'swingHigh', name: 'Swing High Price', type: 'number', min: 0.01, default: 0 },
-      { key: 'swingLow', name: 'Swing Low Price', type: 'number', min: 0.01, default: 0 },
+      { key: 'swingHigh', name: 'Swing high (0 = auto)', type: 'number', min: 0, max: 1e9, step: 0.01, default: 0 },
+      { key: 'swingLow', name: 'Swing low (0 = auto)', type: 'number', min: 0, max: 1e9, step: 0.01, default: 0 },
     ],
     needsVolume: false,
     warmup: () => 1,
@@ -2204,12 +2219,12 @@ export const INDICATOR_REGISTRY = {
     levels: [0.236, 0.382, 0.5, 0.618, 0.786],
     render: [
       { key: 'level0', type: 'line', title: '0%', defaultColor: '#6c757d', lineStyle: 3 },
-      { key: 'level236', type: 'line', title: '23.6%', defaultColor: '#fd7e14', lineStyle: 3 },
-      { key: 'level382', type: 'line', title: '38.2%', defaultColor: '#ffc107', lineStyle: 3 },
-      { key: 'level50', type: 'line', title: '50%', defaultColor: '#28a745', lineStyle: 3 },
-      { key: 'level618', type: 'line', title: '61.8%', defaultColor: '#17a2b8', lineStyle: 3 },
-      { key: 'level786', type: 'line', title: '78.6%', defaultColor: '#6f42c1', lineStyle: 3 },
-      { key: 'level100', type: 'line', title: '100%', defaultColor: '#dc3545', lineStyle: 3 },
+      { key: 'level0.236', type: 'line', title: '23.6%', defaultColor: '#fd7e14', lineStyle: 3 },
+      { key: 'level0.382', type: 'line', title: '38.2%', defaultColor: '#ffc107', lineStyle: 3 },
+      { key: 'level0.5', type: 'line', title: '50%', defaultColor: '#28a745', lineStyle: 3 },
+      { key: 'level0.618', type: 'line', title: '61.8%', defaultColor: '#17a2b8', lineStyle: 3 },
+      { key: 'level0.786', type: 'line', title: '78.6%', defaultColor: '#6f42c1', lineStyle: 3 },
+      { key: 'level1', type: 'line', title: '100%', defaultColor: '#dc3545', lineStyle: 3 },
     ],
     compute: (bars, p) => {
       // If swing points are not provided, calculate from recent data
@@ -2249,9 +2264,9 @@ export const INDICATOR_REGISTRY = {
     ],
     needsVolume: true,
     warmup: () => 1,
-    formula: 'Volume distribution across price levels',
+    formula: 'Assigns each bar’s volume to its high–low midpoint across the loaded history. Shows the most active bin and its surrounding value area.',
     levels: [],
-    render: [{ key: 'profile', type: 'histogram', title: 'Volume Profile', defaultColor: 'rgba(108, 91, 123, 0.5)' }],
+    render: [{ key: 'profile', type: 'profile', title: 'Volume Profile' }],
     compute: (bars, p) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -2266,6 +2281,11 @@ export const INDICATOR_REGISTRY = {
         minPrice = Math.min(minPrice, bar.low);
       }
 
+      if (maxPrice === minPrice) {
+        const pad = Math.max(Math.abs(minPrice) * 0.0001, 0.000001);
+        minPrice -= pad;
+        maxPrice += pad;
+      }
       const priceRange = maxPrice - minPrice;
       const rowHeight = priceRange / p.rows;
 
@@ -2275,11 +2295,10 @@ export const INDICATOR_REGISTRY = {
       // Distribute volume across price levels
       for (const bar of bars) {
         // Distribute volume across the bar's price range
-        const barPriceRange = bar.high - bar.low;
         const barMidPrice = (bar.high + bar.low) / 2;
 
         // Simple approach: allocate volume to the row containing the mid price
-        const rowIndex = Math.floor((barMidPrice - minPrice) / rowHeight);
+        const rowIndex = Math.min(p.rows - 1, Math.floor((barMidPrice - minPrice) / rowHeight));
         if (rowIndex >= 0 && rowIndex < p.rows) {
           volumeProfile[rowIndex] += bar.volume || 0;
         }
@@ -2480,6 +2499,210 @@ export const INDICATOR_REGISTRY = {
       };
     },
   },
+  dema: {
+    id: 'dema', name: 'Double Exponential Moving Average', short: 'DEMA', advanced: true,
+    group: 'overlay', pane: 'overlay',
+    params: { period: 20 },
+    paramDefs: [{ key: 'period', name: 'Period', type: 'number', min: 1, max: 200, default: 20 }],
+    warmup: ({ period }) => 2 * (period - 1) + 1,
+    formula: '2 × EMA(close) − EMA(EMA(close))',
+    render: [{ key: 'dema', type: 'line', title: 'DEMA' }],
+    compute(bars, { period }) {
+      const closes = bars.map(({ close }) => close);
+      const [first, second] = cascadedEMA(closes, period, 2);
+      return { dema: toPoints(bars, closes.map((close, i) =>
+        period === 1 ? close : second[i] == null ? null : 2 * first[i] - second[i])) };
+    },
+  },
+
+  tema: {
+    id: 'tema', name: 'Triple Exponential Moving Average', short: 'TEMA', advanced: true,
+    group: 'overlay', pane: 'overlay',
+    params: { period: 20 },
+    paramDefs: [{ key: 'period', name: 'Period', type: 'number', min: 1, max: 200, default: 20 }],
+    warmup: ({ period }) => 3 * (period - 1) + 1,
+    formula: '3 × EMA₁ − 3 × EMA₂ + EMA₃, with each EMA smoothing the previous stage',
+    render: [{ key: 'tema', type: 'line', title: 'TEMA' }],
+    compute(bars, { period }) {
+      const closes = bars.map(({ close }) => close);
+      const [first, second, third] = cascadedEMA(closes, period, 3);
+      return { tema: toPoints(bars, closes.map((close, i) =>
+        period === 1 ? close : third[i] == null ? null : 3 * (first[i] - second[i]) + third[i])) };
+    },
+  },
+
+  kama: {
+    id: 'kama', name: 'Kaufman Adaptive Moving Average', short: 'KAMA', advanced: true,
+    group: 'overlay', pane: 'overlay',
+    params: { period: 10, fast: 2, slow: 30 },
+    paramDefs: [
+      { key: 'period', name: 'Efficiency period', type: 'number', min: 2, max: 200, default: 10 },
+      { key: 'fast', name: 'Fast period', type: 'number', min: 1, max: 100, default: 2 },
+      { key: 'slow', name: 'Slow period', type: 'number', min: 2, max: 200, default: 30 },
+    ],
+    warmup: ({ period }) => period + 1,
+    availability: (_bars, { fast, slow }) => fast >= slow ? 'Fast period must be shorter than slow period' : '',
+    formula: 'Smooth close using [efficiency ratio × (fast α − slow α) + slow α]². Efficiency ratio is net change ÷ total movement.',
+    render: [{ key: 'kama', type: 'line', title: 'KAMA' }],
+    compute(bars, { period, fast, slow }) {
+      const closes = bars.map(({ close }) => close);
+      const movement = closes.map((close, i) => i ? Math.abs(close - closes[i - 1]) : 0);
+      const slowAlpha = 2 / (slow + 1);
+      const alphaRange = 2 / (fast + 1) - slowAlpha;
+      let previous = closes[period - 1];
+      let total = movement.slice(0, period).reduce((sum, step) => sum + step, 0);
+      return { kama: toPoints(bars, closes.map((close, i) => {
+        if (i < period) return null;
+        total += movement[i] - movement[i - period];
+        const efficiency = total > 0 ? Math.min(1, Math.abs(close - closes[i - period]) / total) : 0;
+        const weight = (slowAlpha + efficiency * alphaRange) ** 2;
+        previous += weight * (close - previous);
+        return previous;
+      })) };
+    },
+  },
+
+  chandelier_exit: {
+    id: 'chandelier_exit', name: 'Chandelier Exit', short: 'CE', advanced: true,
+    group: 'overlay', pane: 'overlay',
+    params: { period: 22, multiplier: 3 },
+    paramDefs: [
+      { key: 'period', name: 'Lookback and ATR period', type: 'number', min: 2, max: 200, default: 22 },
+      { key: 'multiplier', name: 'ATR multiplier', type: 'number', min: 0.1, max: 20, step: 0.1, default: 3 },
+    ],
+    warmup: ({ period }) => period,
+    formula: 'Rolling high − ATR × multiplier and rolling low + ATR × multiplier',
+    render: [
+      { key: 'long', type: 'line', title: 'Long level', defaultColor: '#3b82f6' },
+      { key: 'short', type: 'line', title: 'Short level', defaultColor: '#a855f7', lineStyle: 2 },
+    ],
+    compute(bars, { period, multiplier }) {
+      const atr = calculateWilderValues(calculateTrueRange(bars), period);
+      const long = Array(bars.length).fill(null);
+      const short = Array(bars.length).fill(null);
+      for (let i = period - 1; i < bars.length; i++) {
+        let high = -Infinity;
+        let low = Infinity;
+        for (let j = i - period + 1; j <= i; j++) {
+          high = Math.max(high, bars[j].high);
+          low = Math.min(low, bars[j].low);
+        }
+        long[i] = high - atr[i] * multiplier;
+        short[i] = low + atr[i] * multiplier;
+      }
+      return { long: toPoints(bars, long), short: toPoints(bars, short) };
+    },
+  },
+
+  anchored_vwap: {
+    id: 'anchored_vwap', name: 'Anchored VWAP', short: 'AVWAP', advanced: true,
+    group: 'volume', pane: 'overlay',
+    params: { anchorDate: '' },
+    paramDefs: [{ key: 'anchorDate', name: 'Anchor date (UTC)', type: 'date', default: '' }],
+    needsVolume: true,
+    warmup: () => 1,
+    availability(bars, { anchorDate }) {
+      const boundary = dateBoundary(anchorDate);
+      if (candleTimestamp(bars.at(-1).time) < boundary) return 'Anchor date is after the loaded history';
+      if (candleTimestamp(bars[0].time) >= boundary + 86400 && anchorDate) {
+        return 'Anchor date is before the loaded history';
+      }
+      if (!bars.some(({ time, volume }) => candleTimestamp(time) >= boundary && Number.isFinite(volume) && volume > 0)) {
+        return 'Volume data unavailable from the anchor date';
+      }
+      return '';
+    },
+    formula: 'Cumulative sum of typical price × volume ÷ cumulative volume from the UTC anchor date. Blank uses the first loaded bar.',
+    render: [{ key: 'vwap', type: 'line', title: 'Anchored VWAP', lineWidth: 2 }],
+    compute(bars, { anchorDate }) {
+      const boundary = dateBoundary(anchorDate);
+      let weighted = 0;
+      let totalVolume = 0;
+      return { vwap: bars.map(({ time, high, low, close, volume }) => {
+        if (!(candleTimestamp(time) >= boundary)) return { time, value: null };
+        if (Number.isFinite(volume) && volume > 0) {
+          weighted += ((high + low + close) / 3) * volume;
+          totalVolume += volume;
+        }
+        return { time, value: totalVolume > 0 ? weighted / totalVolume : null };
+      }) };
+    },
+  },
+
+  ppo: {
+    id: 'ppo', name: 'Percentage Price Oscillator', short: 'PPO', advanced: true,
+    group: 'momentum', pane: 'separate',
+    params: { fast: 12, slow: 26, signal: 9 },
+    paramDefs: [
+      { key: 'fast', name: 'Fast EMA period', type: 'number', min: 1, max: 100, default: 12 },
+      { key: 'slow', name: 'Slow EMA period', type: 'number', min: 2, max: 200, default: 26 },
+      { key: 'signal', name: 'Signal EMA period', type: 'number', min: 1, max: 100, default: 9 },
+    ],
+    warmup: ({ fast, slow }) => Math.max(fast, slow),
+    availability: (_bars, { fast, slow }) => fast >= slow ? 'Fast period must be shorter than slow period' : '',
+    formula: '100 × (fast EMA − slow EMA) ÷ slow EMA; signal is EMA(PPO); histogram is PPO − signal.',
+    levels: [0],
+    unit: '%',
+    render: [
+      { key: 'hist', type: 'histogram', title: 'Histogram' },
+      { key: 'ppo', type: 'line', title: 'PPO', defaultColor: '#3b82f6' },
+      { key: 'signal', type: 'line', title: 'Signal', defaultColor: '#a855f7' },
+    ],
+    compute(bars, { fast, slow, signal }) {
+      const closes = bars.map(({ close }) => close);
+      const fastEma = calculateEMAValues(closes, fast);
+      const slowEma = calculateEMAValues(closes, slow);
+      const ppo = closes.map((_, i) => slowEma[i] && fastEma[i] != null
+        ? 100 * (fastEma[i] - slowEma[i]) / slowEma[i] : null);
+      let count = 0;
+      let average = 0;
+      const alpha = 2 / (signal + 1);
+      const signalValues = ppo.map((value) => {
+        if (value == null) {
+          count = 0;
+          return null;
+        }
+        average = count ? average + alpha * (value - average) : value;
+        count++;
+        return count >= signal ? average : null;
+      });
+      return {
+        ppo: toPoints(bars, ppo),
+        signal: toPoints(bars, signalValues),
+        hist: toPoints(bars, ppo.map((value, i) => signalValues[i] == null ? null : value - signalValues[i])),
+      };
+    },
+  },
+
+  volatility_squeeze: {
+    id: 'volatility_squeeze', name: 'Volatility Squeeze', short: 'Squeeze', advanced: true,
+    group: 'volatility', pane: 'separate',
+    params: { period: 20, stdDev: 2, atrMultiplier: 1.5 },
+    paramDefs: [
+      { key: 'period', name: 'Lookback period', type: 'number', min: 2, max: 200, default: 20 },
+      { key: 'stdDev', name: 'Bollinger deviation multiplier', type: 'number', min: 0.1, max: 10, step: 0.1, default: 2 },
+      { key: 'atrMultiplier', name: 'Keltner ATR multiplier', type: 'number', min: 0.1, max: 10, step: 0.1, default: 1.5 },
+    ],
+    warmup: ({ period }) => period,
+    formula: 'Compression when both Bollinger Bands are inside the Keltner Channel. Histogram shows close − SMA(close).',
+    levels: [0],
+    render: [
+      { key: 'momentum', type: 'histogram', title: 'Close − SMA' },
+      { key: 'squeeze', type: 'dots', title: 'Compression' },
+    ],
+    compute(bars, { period, stdDev, atrMultiplier }) {
+      const bb = INDICATOR_REGISTRY.bollinger.compute(bars, { period, stdDev });
+      const kc = INDICATOR_REGISTRY.keltner.compute(bars, { period, atrPeriod: period, multiplier: atrMultiplier });
+      return {
+        momentum: toPoints(bars, bars.map(({ close }, i) => bb.middle[i].value == null ? null : close - bb.middle[i].value)),
+        squeeze: bars.map(({ time }, i) => {
+          if (i < period - 1) return { time, value: null };
+          const compressed = bb.upper[i].value <= kc.upper[i].value && bb.lower[i].value >= kc.lower[i].value;
+          return { time, value: 0, label: compressed ? 'Inside channel' : 'Outside channel', hollow: !compressed };
+        }),
+      };
+    },
+  },
 };
 
 
@@ -2488,7 +2711,7 @@ export const INDICATOR_REGISTRY = {
 // --------------------------------------------------------------------------
 
 export function getIndicatorDefinition(indicatorId) {
-  return INDICATOR_REGISTRY[indicatorId] || null;
+  return Object.hasOwn(INDICATOR_REGISTRY, indicatorId) ? INDICATOR_REGISTRY[indicatorId] : null;
 }
 
 export function getAllIndicators() {
@@ -2500,32 +2723,59 @@ export function getIndicatorsByGroup(group) {
   return Object.values(INDICATOR_REGISTRY).filter((ind) => ind.group === group);
 }
 
+/** @typedef {{ key: string, type: string, default: number | string, min?: number, max?: number }} IndicatorParameter */
+
+/**
+ * Normalize inputs from the settings form and saved chart preferences.
+ * @param {{ params: Record<string, number | string>, paramDefs: IndicatorParameter[] }} definition
+ * @param {Record<string, number | string>} [input]
+ */
+export function normalizeIndicatorParams(definition, input = {}) {
+  const params = { ...definition.params };
+  for (const parameter of definition.paramDefs) {
+    const value = input[parameter.key];
+    if (parameter.type === 'date') {
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const timestamp = dateBoundary(value) * 1000;
+        if (Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value) params[parameter.key] = value;
+      } else if (value === '') {
+        params[parameter.key] = value;
+      }
+    } else if (typeof value === 'number' && Number.isFinite(value)
+      && value >= (parameter.min ?? 1) && value <= (parameter.max ?? 500)
+      && ('step' in parameter || Number.isInteger(value))) {
+      params[parameter.key] = value;
+    }
+  }
+  return params;
+}
+
 // Compute an indicator with memoization & data honesty validation
 const indicatorCaches = new WeakMap();
 
 /** @param {string} indicatorId
- * @param {{ time: number, open: number, high: number, low: number, close: number, volume?: number }[]} bars
- * @param {Record<string, number>} [customParams]
+ * @param {{ time: number | string | { year: number, month: number, day: number }, open: number, high: number, low: number, close: number, volume?: number }[]} bars
+ * @param {Record<string, number | string>} [customParams]
  */
 export function computeIndicator(indicatorId, bars, customParams = {}) {
-  const def = INDICATOR_REGISTRY[indicatorId];
+  const def = getIndicatorDefinition(indicatorId);
   if (!def) throw new Error(`Unknown indicator ID: ${indicatorId}`);
 
-  const params = { ...def.params, ...customParams };
-  const volFlag = def.needsVolume ? (hasValidVolume(bars) ? 'v1' : 'v0') : '';
+  const params = normalizeIndicatorParams(def, customParams);
+  const hasVolume = !def.needsVolume || hasValidVolume(bars);
   let indicatorCache = indicatorCaches.get(bars);
   if (!indicatorCache) {
     indicatorCache = new Map();
     indicatorCaches.set(bars, indicatorCache);
   }
-  const cacheKey = JSON.stringify([indicatorId, params, bars.length, bars.at(-1), volFlag]);
+  const cacheKey = JSON.stringify([indicatorId, params, bars.length, bars.at(-1), hasVolume]);
 
   if (indicatorCache.has(cacheKey)) {
     return indicatorCache.get(cacheKey);
   }
 
   // Volume verification gate
-  if (def.needsVolume && !hasValidVolume(bars)) {
+  if (!hasVolume) {
     const unavailableRes = {
       unavailable: true,
       reason: 'Volume data unavailable for this instrument',
@@ -2547,6 +2797,13 @@ export function computeIndicator(indicatorId, bars, customParams = {}) {
     };
     indicatorCache.set(cacheKey, insufficientRes);
     return insufficientRes;
+  }
+
+  const unavailableReason = def.availability?.(bars, params);
+  if (unavailableReason) {
+    const unavailableResult = { unavailable: true, reason: unavailableReason, definition: def, params };
+    indicatorCache.set(cacheKey, unavailableResult);
+    return unavailableResult;
   }
 
   const seriesData = def.compute(bars, params);

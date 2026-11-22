@@ -3175,6 +3175,38 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
 .benchmark-sort { inline-size: 100%; justify-content: flex-start; }
 .text-right .benchmark-sort { justify-content: flex-end; }
 .benchmark-sort:focus-visible { outline-offset: -3px; }
+
+.tv-leg-ind {
+  color: var(--text);
+  border-inline-start: 2px solid var(--study-color);
+  padding-inline: var(--space-2);
+  font-size: var(--type-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-subpane-headers .tv-subpane-header {
+  position: absolute;
+  max-inline-size: calc(100% - 2rem);
+  background: var(--surface);
+  border-color: var(--border);
+  font-size: var(--type-label);
+}
+
+.tv-subpane-header .pane-hdr-left { min-inline-size: 0; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.tv-subpane-header .pane-hdr-value { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tv-subpane-header :is(.pane-btn-eye, .pane-btn-close) { pointer-events: auto; }
+.tv-subpane-header:focus-within .pane-hdr-actions { opacity: 1; }
+
+#tv-indicator-settings-modal input {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  font-size: var(--type-control);
+  max-inline-size: 100%;
+}
+
+#tv-indicator-settings-modal input[type="date"] { inline-size: 10rem; }
+#tv-indicator-settings-modal :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .benchmark-board-table .region-badge { font-size: var(--type-label); }
 
 #keyboard-shortcuts {

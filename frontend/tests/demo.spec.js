@@ -1,5 +1,40 @@
 import { test, expect } from '@playwright/test';
 
+test('adds advanced studies, saves an anchored VWAP date and restores them on reload', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/?freeze=1#/symbol/TCS.NS/chart');
+  await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/Last close/);
+  const response = await page.request.get('/demo/candles-TCS-NS.json');
+  const { candles } = await response.json();
+  const anchorDate = new Date(candles.at(-12).time * 1000).toISOString().slice(0, 10);
+  await page.getByRole('button', { name: 'Technical Indicators' }).click();
+  await page.getByRole('button', { name: 'Advanced' }).click();
+  const library = page.locator('#tv-indicator-list');
+  await expect(library.locator('[data-ind-id]')).toHaveCount(7);
+  for (const id of ['anchored_vwap', 'ppo', 'volatility_squeeze']) {
+    await library.locator(`[data-add-id="${id}"]`).click();
+  }
+  await page.getByRole('button', { name: /^Active \(/ }).click();
+  await library.locator('.tv-ind-card').filter({ hasText: 'Anchored VWAP' }).getByRole('button', { name: 'Parameters' }).click();
+  const anchor = page.getByLabel('Anchor date (UTC)');
+  await expect(anchor).toBeFocused();
+  await anchor.fill(anchorDate);
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(library.locator('.tv-ind-card').filter({ hasText: 'Anchored VWAP' })).toContainText(anchorDate);
+  await page.locator('#close-indicator-picker-btn').click();
+  await expect(page.locator('#tv-legend-indicators')).toContainText(/AVWAP \d/);
+  const ppo = page.locator('.tv-subpane-header').filter({ hasText: 'Percentage Price Oscillator' });
+  const squeeze = page.locator('.tv-subpane-header').filter({ hasText: 'Volatility Squeeze' });
+  await expect(ppo.locator('.pane-hdr-value')).toContainText(/PPO .*%/);
+  await expect(squeeze.locator('.pane-hdr-value')).toContainText(/Compression: (Inside|Outside) channel/);
+  await page.reload();
+  await expect(page.locator('#tv-legend-indicators')).toContainText(/AVWAP \d/);
+  await expect(ppo.locator('.pane-hdr-value')).toContainText(/PPO .*%/);
+  await expect(squeeze.locator('.pane-hdr-value')).toContainText(/Compression/);
+  expect(errors).toEqual([]);
+});
+
 test.describe('Markets and chart interactions', () => {
   test('sorts benchmarks and opens a chart from the keyboard', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 768 });
@@ -187,9 +222,11 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
       .toContainText(euro.price.toFixed(4));
     await page.locator('#close-watchlist-drawer-btn').click();
 
-    const indicators = await page.locator('#tv-indicators-menu-btn').boundingBox();
-    const events = await page.locator('#tv-toggle-events-btn').boundingBox();
-    expect(events.x - (indicators.x + indicators.width)).toBeGreaterThanOrEqual(4);
+    await expect.poll(() => page.evaluate(() => {
+      const indicators = document.getElementById('tv-indicators-menu-btn').getBoundingClientRect();
+      const events = document.getElementById('tv-toggle-events-btn').getBoundingClientRect();
+      return events.left - indicators.right;
+    })).toBeGreaterThanOrEqual(4);
 
     const ticks = await page.evaluate(() => {
       const chart = window.apexChartInstance;

@@ -1624,11 +1624,12 @@
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="text" id="tv-ind-search-input" placeholder="Search indicators by name or symbol (e.g. RSI, MACD, Bollinger)..." autocomplete="off" />
-          <button class="tv-ind-clear-search-btn" id="tv-ind-clear-search" style="display: none;">✕</button>
+          <input type="search" id="tv-ind-search-input" aria-label="Search indicators" placeholder="Search indicators" autocomplete="off" />
+          <button type="button" class="tv-ind-clear-search-btn" id="tv-ind-clear-search" aria-label="Clear indicator search" style="display: none;">✕</button>
         </div>
         <div class="tv-ind-tabs" id="tv-ind-category-tabs">
-          <button class="tv-ind-tab active" data-category="all">All (37)</button>
+          <button class="tv-ind-tab active" data-category="all" aria-pressed="true">All (<span id="tv-ind-library-count"></span>)</button>
+          <button class="tv-ind-tab" data-category="advanced" aria-pressed="false">Advanced</button>
           <button class="tv-ind-tab" data-category="favorites">
             <svg class="star-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             Favorites (<span id="tv-fav-count">0</span>)
@@ -1648,21 +1649,21 @@
 
     <!-- Indicator Settings (Parameters) Modal -->
     <div class="tv-modal-backdrop" id="tv-indicator-settings-backdrop"></div>
-    <div class="tv-modal tv-modal-sm" id="tv-indicator-settings-modal">
+    <form class="tv-modal tv-modal-sm" id="tv-indicator-settings-modal" role="dialog" aria-labelledby="tv-ind-settings-title">
       <div class="tv-modal-header">
         <div class="tv-modal-title-row">
           <div class="tv-modal-title" id="tv-ind-settings-title">Indicator Settings</div>
-          <button class="tv-modal-close-btn" id="close-indicator-settings-btn" title="Close">✕</button>
+          <button type="button" class="tv-modal-close-btn" id="close-indicator-settings-btn" aria-label="Close indicator settings">✕</button>
         </div>
       </div>
       <div class="tv-modal-body" id="tv-ind-settings-body">
         <!-- Parameter inputs rendered dynamically -->
       </div>
       <div class="tv-modal-footer">
-        <button class="tv-btn tv-btn-secondary" id="tv-ind-settings-reset">Reset to Defaults</button>
-        <button class="tv-btn tv-btn-primary" id="tv-ind-settings-save">Apply</button>
+        <button type="button" class="tv-btn tv-btn-secondary" id="tv-ind-settings-reset">Reset to defaults</button>
+        <button type="submit" class="tv-btn tv-btn-primary" id="tv-ind-settings-save">Apply</button>
       </div>
-    </div>
+    </form>
 
     <script type="module" src="/src/main.js"></script>
   </body>

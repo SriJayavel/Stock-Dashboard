@@ -1485,7 +1485,7 @@ function renderIndicatorList() {
 
     listContainer.innerHTML = activeInstances
       .map((inst) => {
-        const paramStr = Object.values(inst.params).join(', ');
+        const paramStr = Object.values(inst.params).filter((value) => value !== '').join(', ');
         return `
           <div class="tv-ind-card" data-instance-id="${inst.instanceId}">
             <div class="tv-ind-card-left">
@@ -1493,7 +1493,7 @@ function renderIndicatorList() {
               <div class="tv-ind-info">
                 <div class="tv-ind-name-row">
                   <span class="tv-ind-name">${inst.name}</span>
-                  <span class="tv-ind-short">(${inst.short} ${paramStr})</span>
+                  <span class="tv-ind-short">(${inst.short}${paramStr ? ` ${paramStr}` : ''})</span>
                   <span class="tv-ind-group-tag">${inst.pane === 'overlay' ? 'Overlay' : 'Sub-Pane'}</span>
                   ${inst.unavailable ? `<span class="tv-ind-warning-tag">${inst.unavailableReason}</span>` : ''}
                 </div>
@@ -1501,13 +1501,13 @@ function renderIndicatorList() {
               </div>
             </div>
             <div class="tv-ind-card-right">
-              <button class="pane-btn act-ind-eye-btn" data-inst="${inst.instanceId}" title="Toggle Visibility" style="font-size: 13px;">
+              <button class="pane-btn act-ind-eye-btn" data-inst="${inst.instanceId}" aria-label="Toggle visibility" aria-pressed="${inst.visible}" style="font-size: 13px;">
                 ${inst.visible ? '👁' : 'Ø'}
               </button>
-              <button class="pane-btn act-ind-gear-btn" data-inst="${inst.instanceId}" title="Parameters" style="font-size: 13px;">
+              <button class="pane-btn act-ind-gear-btn" data-inst="${inst.instanceId}" aria-label="Parameters" style="font-size: 13px;">
                 ⚙
               </button>
-              <button class="pane-btn pane-btn-close act-ind-remove-btn" data-inst="${inst.instanceId}" title="Remove Indicator" style="font-size: 13px;">
+              <button class="pane-btn pane-btn-close act-ind-remove-btn" data-inst="${inst.instanceId}" aria-label="Remove indicator" style="font-size: 13px;">
                 ✕
               </button>
             </div>
@@ -1544,6 +1544,8 @@ function renderIndicatorList() {
   let indicators = getAllIndicators();
   if (currentIndicatorCategory === 'favorites') {
     indicators = indicators.filter((ind) => favs.has(ind.id));
+  } else if (currentIndicatorCategory === 'advanced') {
+    indicators = indicators.filter((ind) => ind.advanced);
   } else if (currentIndicatorCategory !== 'all') {
     indicators = indicators.filter((ind) => ind.group === currentIndicatorCategory);
   }
@@ -1574,7 +1576,8 @@ function renderIndicatorList() {
       const isFav = favs.has(ind.id);
       const isActive = activeDefIds.has(ind.id);
       const volumeMissing = ind.needsVolume && !instrumentHasVolume;
-      const paramStr = Object.entries(ind.params).map(([k, v]) => `${k}: ${v}`).join(', ');
+      const paramStr = Object.entries(ind.params).filter(([, value]) => value !== '')
+        .map(([key, value]) => `${key}: ${value}`).join(', ');
 
       return `
         <div class="tv-ind-card" data-ind-id="${ind.id}">
@@ -1590,7 +1593,7 @@ function renderIndicatorList() {
                 <span class="tv-ind-group-tag">${ind.group}</span>
                 ${volumeMissing ? `<span class="tv-ind-warning-tag" title="This instrument does not report trading volume">Volume unavailable</span>` : ''}
               </div>
-              <div class="tv-ind-formula" title="${ind.formula}">${ind.formula} · <span style="color: var(--text-muted);">${paramStr}</span></div>
+              <div class="tv-ind-formula" title="${ind.formula}">${ind.formula}${paramStr ? ` · ${paramStr}` : ''}</div>
             </div>
           </div>
           <div class="tv-ind-card-right">
@@ -1661,17 +1664,18 @@ function openIndicatorSettings(instanceId) {
         ${paramDefs
           .map((p) => {
             const currentVal = inst.params[p.key] ?? p.default;
+            const attributes = p.type === 'date'
+              ? ''
+              : `min="${p.min ?? 1}" max="${p.max ?? 500}" step="${p.step ?? 1}" required`;
             return `
               <div class="tv-ind-settings-row">
                 <label for="param-input-${p.key}">${p.name}</label>
                 <input
-                  type="number"
+                  type="${p.type}"
                   id="param-input-${p.key}"
-                  data-key="${p.key}"
+                  name="${p.key}"
                   value="${currentVal}"
-                  min="${p.min ?? 1}"
-                  max="${p.max ?? 500}"
-                  step="${p.step ?? 1}"
+                  ${attributes}
                 />
               </div>
             `;
@@ -1687,6 +1691,7 @@ function openIndicatorSettings(instanceId) {
 
   if (modal) modal.classList.add('open');
   if (backdrop) backdrop.classList.add('open');
+  bodyEl?.querySelector('input')?.focus();
 }
 
 function closeIndicatorSettings() {
@@ -1707,6 +1712,8 @@ function setupIndicatorControls() {
   const searchInput = document.getElementById('tv-ind-search-input');
   const clearSearchBtn = document.getElementById('tv-ind-clear-search');
   const categoryTabs = document.querySelectorAll('#tv-ind-category-tabs .tv-ind-tab');
+  const libraryCount = document.getElementById('tv-ind-library-count');
+  if (libraryCount) libraryCount.textContent = String(getAllIndicators().length);
 
   if (indBtn) indBtn.addEventListener('click', openIndicatorPicker);
   if (railIndBtn) railIndBtn.addEventListener('click', openIndicatorPicker);
@@ -1736,9 +1743,12 @@ function setupIndicatorControls() {
 
   // Category tabs
   categoryTabs.forEach((tab) => {
-    tab.addEventListener('click', (e) => {
-      categoryTabs.forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
+    tab.setAttribute('aria-pressed', String(tab.classList.contains('active')));
+    tab.addEventListener('click', () => {
+      for (const option of categoryTabs) {
+        option.classList.toggle('active', option === tab);
+        option.setAttribute('aria-pressed', String(option === tab));
+      }
       currentIndicatorCategory = tab.getAttribute('data-category');
       renderIndicatorList();
     });
@@ -1748,7 +1758,7 @@ function setupIndicatorControls() {
   const settingsCloseBtn = document.getElementById('close-indicator-settings-btn');
   const settingsBackdrop = document.getElementById('tv-indicator-settings-backdrop');
   const settingsResetBtn = document.getElementById('tv-ind-settings-reset');
-  const settingsSaveBtn = document.getElementById('tv-ind-settings-save');
+  const settingsForm = document.getElementById('tv-indicator-settings-modal');
 
   if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeIndicatorSettings);
   if (settingsBackdrop) settingsBackdrop.addEventListener('click', closeIndicatorSettings);
@@ -1765,16 +1775,14 @@ function setupIndicatorControls() {
     });
   }
 
-  if (settingsSaveBtn) {
-    settingsSaveBtn.addEventListener('click', () => {
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', (event) => {
+      event.preventDefault();
       if (!currentSettingsInstanceId || !chartInstance) return;
-      const inputs = document.querySelectorAll('#tv-ind-settings-body input[data-key]');
-      const newParams = {};
-      inputs.forEach((inp) => {
-        const key = inp.getAttribute('data-key');
-        const val = parseFloat(inp.value);
-        if (!isNaN(val)) newParams[key] = val;
-      });
+      const inputs = [...settingsForm.querySelectorAll('input[name]')];
+      const newParams = Object.fromEntries(inputs.map((input) => [
+        input.name, input.type === 'date' ? input.value : input.valueAsNumber,
+      ]));
       chartInstance.updateIndicatorParams(currentSettingsInstanceId, newParams);
       closeIndicatorSettings();
       if (isIndicatorPickerOpen()) renderIndicatorList();
