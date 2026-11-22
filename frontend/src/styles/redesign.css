@@ -1,3 +1,98 @@
+:root {
+  color-scheme: light dark;
+  --font-display: "Bahnschrift", "Avenir Next", system-ui, sans-serif;
+  --font-sans: system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", ui-monospace, monospace;
+}
+
+html:not(.light-theme) {
+  --bg: #101114;
+  --bg-deep: #151619;
+  --bg-canvas: #101114;
+  --surface: #1a1b20;
+  --surface-solid: #1a1b20;
+  --surface-card: #1a1b20;
+  --surface-hover: #25262b;
+  --border: #303035;
+  --border-strong: #424147;
+  --text: #f2efea;
+  --text-dim: #c0bab3;
+  --text-muted: #a49d96;
+  --accent: #eac47a;
+  --accent-rgb: 234, 196, 122;
+  --accent-cyan: var(--accent);
+  --accent-blue: var(--accent);
+  --gain: #34D399;
+  --loss: #F87171;
+  --gain-bg: rgba(52, 211, 153, 0.12);
+  --loss-bg: rgba(248, 113, 113, 0.12);
+  --shadow-dropdown: 0 18px 48px rgba(0, 0, 0, 0.3);
+  --shell-header-h: 56px;
+  --shell-status-bar-h: 28px;
+  --shell-rail-w: 64px;
+  --shell-workspace-bar-h: 46px;
+  --shell-context-panel-w: 360px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  /* Region colors */
+  --region-india: #eab308;
+  --region-india-rgb: 234, 179, 8;
+  --warning: #eab308;
+  --warning-rgb: 234, 179, 8;
+  --region-americas: #3b82f6;
+  --region-americas-rgb: 59, 130, 246;
+  --region-europe: #22c55e;
+  --region-europe-rgb: 34, 197, 94;
+  --region-asia: #a855f7;
+  --region-asia-rgb: 168, 85, 247;
+}
+
+html.light-theme {
+  --bg: #f8fafc;
+  --bg-deep: #f1f5f9;
+  --bg-canvas: #f8fafc;
+  --surface: #ffffff;
+  --surface-solid: #ffffff;
+  --surface-card: #ffffff;
+  --surface-hover: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #1e293b;
+  --text-dim: #475569;
+  --text-muted: #64748b;
+  --accent: #80551b;
+  --accent-rgb: 128, 85, 27;
+  --accent-cyan: var(--accent);
+  --accent-blue: var(--accent);
+  --gain: #059669;
+  --loss: #ef4444;
+  --gain-bg: rgba(16, 185, 129, 0.1);
+  --loss-bg: rgba(239, 68, 68, 0.1);
+  --font-sans: "Inter", "JetBrains Mono", "SF Pro Text", sans-serif;
+  --font-mono: "JetBrains Mono", "Inter", "SF Pro Text", monospace;
+  --shadow-dropdown: 0 18px 48px rgba(0, 0, 0, 0.08);
+  --shell-header-h: 56px;
+  --shell-status-bar-h: 28px;
+  --shell-rail-w: 64px;
+  --shell-workspace-bar-h: 46px;
+  --shell-context-panel-w: 360px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  /* Region colors */
+  --region-india: #d97706;
+  --region-india-rgb: 217, 119, 6;
+  --warning: #d97706;
+  --warning-rgb: 217, 119, 6;
+  --region-americas: #2563eb;
+  --region-americas-rgb: 37, 99, 235;
+  --region-europe: #16a34a;
+  --region-europe-rgb: 22, 163, 74;
+  --region-asia: #9333ea;
+  --region-asia-rgb: 147, 51, 234;
+}
+
 html,
 body {
   background: var(--bg);
@@ -3060,9 +3155,10 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
 }
 
 .benchmark-panel {
-  background: transparent;
-  border: 0;
-  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: clamp(.65rem, 1.5vw, 1.25rem);
 }
 
 .benchmark-panel .section-sub-header {
@@ -3074,7 +3170,6 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
 .benchmark-panel .benchmark-toolbar { margin: 0; gap: .5rem; }
 .benchmark-panel .benchmark-actions { flex-wrap: wrap; }
 
-#workspace-markets .markets-page-heading h1 { font-size: var(--type-page); }
 #workspace-markets .markets-page-heading { margin-block-end: var(--space-3); }
 #workspace-markets .markets-skeleton { display: none; }
 #workspace-markets .markets-status-strip { min-block-size: 40px; padding-block: 0; }
@@ -3086,29 +3181,13 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
 #workspace-markets .status-session-dot { background: var(--text-muted); box-shadow: none; animation: none; }
 #workspace-markets .status-session-dot.market-open { background: var(--up); }
 #workspace-markets .status-feed-dot { background: var(--text-muted); box-shadow: none; animation: none; }
-#workspace-markets .section-sub-title { font-size: var(--type-section); }
-#workspace-markets .benchmark-filter-group {
-  background: transparent;
-  border: 0;
-  padding: 0;
-}
-
-#workspace-markets .benchmark-filter-btn.active {
-  background: var(--surface-hover);
-  color: var(--accent);
-  box-shadow: inset 0 -2px var(--accent);
-}
 
 #workspace-markets .benchmark-board-table :is(th, td) {
-  font-size: var(--type-table);
   font-variant-numeric: tabular-nums;
   box-sizing: border-box;
   white-space: nowrap;
 }
 
-#workspace-markets .benchmark-board-table thead { background: var(--surface); }
-#workspace-markets .benchmark-board-table th { font-size: var(--type-label); }
-#workspace-markets .benchmark-board-table td { background: transparent; }
 #workspace-markets .benchmark-board-table td.col-region { display: table-cell; text-align: center; }
 #workspace-markets .benchmark-board-table td { block-size: 40px; padding-block: var(--space-1); }
 #workspace-markets .benchmark-board-table th { block-size: 36px; padding-block: var(--space-1); }
@@ -3139,21 +3218,6 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
 #workspace-markets .sparkline-mini { background: transparent; }
 #workspace-markets .sparkline-mini::before,
 #workspace-markets .sparkline-mini::after { content: none; }
-#workspace-markets .benchmark-board-table .active-row { background: var(--surface-hover); }
-#workspace-markets .benchmark-board-table .active-row > :first-child {
-  box-shadow: inset 2px 0 var(--accent);
-}
-
-#workspace-markets :is(.section-sub-caption, .status-desk, .status-feed-text, .market-ticker-identity) {
-  color: var(--text-muted);
-  font-size: var(--type-label);
-}
-
-.mara-app :is(button, a, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .benchmark-panel .benchmark-board-professional {
   overflow: hidden;
 }
