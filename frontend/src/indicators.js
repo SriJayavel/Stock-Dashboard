@@ -169,6 +169,33 @@ function toPoints(bars, values) {
   return bars.map(({ time }, index) => ({ time, value: values[index] ?? null }));
 }
 
+function smoothAvailableEMA(values, period) {
+  const result = new Array(values.length).fill(null);
+  const alpha = 2 / (period + 1);
+  let count = 0;
+  let average = null;
+  values.forEach((value, index) => {
+    if (!Number.isFinite(value)) {
+      count = 0;
+      average = null;
+      return;
+    }
+    average = count === 0 ? value : average + alpha * (value - average);
+    count++;
+    if (count >= period) result[index] = average;
+  });
+  return result;
+}
+
+function smoothAvailableSMA(values, period) {
+  const result = new Array(values.length).fill(null);
+  for (let i = period - 1; i < values.length; i++) {
+    const window = values.slice(i - period + 1, i + 1);
+    if (window.every(Number.isFinite)) result[i] = window.reduce((sum, value) => sum + value, 0) / period;
+  }
+  return result;
+}
+
 function cascadedEMA(values, period, depth) {
   const offset = period - 1;
   const stages = [calculateEMAValues(values, period)];
@@ -2736,6 +2763,108 @@ export const INDICATOR_REGISTRY = {
       return {
         bullPower: toPoints(bars, bars.map(({ high }, i) => ema[i] == null ? null : high - ema[i])),
         bearPower: toPoints(bars, bars.map(({ low }, i) => ema[i] == null ? null : low - ema[i])),
+      };
+    },
+  },
+
+  chande_momentum: {
+    id: 'chande_momentum', name: 'Chande Momentum Oscillator', short: 'CMO', advanced: true,
+    group: 'momentum', pane: 'separate',
+    params: { period: 20 },
+    paramDefs: [{ key: 'period', name: 'Period', type: 'number', min: 2, max: 300, default: 20 }],
+    warmup: ({ period }) => period + 1,
+    formula: '100 × (Sum of gains − Sum of losses) / (Sum of gains + Sum of losses).',
+    levels: [-50, 0, 50],
+    render: [{ key: 'cmo', type: 'line', title: 'CMO', defaultColor: '#fb7185' }],
+    compute(bars, { period }) {
+      const values = bars.map((_, i) => {
+        if (i < period) return null;
+        let gains = 0;
+        let losses = 0;
+        for (let j = i - period + 1; j <= i; j++) {
+          const change = bars[j].close - bars[j - 1].close;
+          if (change > 0) gains += change;
+          else losses -= change;
+        }
+        const total = gains + losses;
+        return total > 0 ? 100 * (gains - losses) / total : null;
+      });
+      return { cmo: toPoints(bars, values) };
+    },
+  },
+
+  true_strength_index: {
+    id: 'true_strength_index', name: 'True Strength Index', short: 'TSI', advanced: true,
+    group: 'momentum', pane: 'separate',
+    params: { long: 25, short: 13, signal: 7 },
+    paramDefs: [
+      { key: 'long', name: 'Long EMA', type: 'number', min: 2, max: 300, default: 25 },
+      { key: 'short', name: 'Short EMA', type: 'number', min: 2, max: 200, default: 13 },
+      { key: 'signal', name: 'Signal EMA', type: 'number', min: 1, max: 100, default: 7 },
+    ],
+    warmup: ({ long, short, signal }) => long + short + signal - 1,
+    formula: '100 × EMA(EMA(price change, long), short) / EMA(EMA(abs(price change), long), short); signal is EMA(TSI).',
+    levels: [0],
+    render: [
+      { key: 'tsi', type: 'line', title: 'TSI', defaultColor: '#38bdf8' },
+      { key: 'signal', type: 'line', title: 'Signal', defaultColor: '#fbbf24' },
+      { key: 'hist', type: 'histogram', title: 'Difference' },
+    ],
+    compute(bars, { long, short, signal }) {
+      const change = bars.map((bar, i) => i ? bar.close - bars[i - 1].close : null);
+      const numerator = smoothAvailableEMA(smoothAvailableEMA(change, long), short);
+      const denominator = smoothAvailableEMA(smoothAvailableEMA(change.map((value) => Number.isFinite(value) ? Math.abs(value) : null), long), short);
+      const tsi = numerator.map((value, i) => Number.isFinite(value) && denominator[i] > 0 ? 100 * value / denominator[i] : null);
+      const signalLine = smoothAvailableEMA(tsi, signal);
+      return {
+        tsi: toPoints(bars, tsi),
+        signal: toPoints(bars, signalLine),
+        hist: toPoints(bars, tsi.map((value, i) => Number.isFinite(value) && Number.isFinite(signalLine[i]) ? value - signalLine[i] : null)),
+      };
+    },
+  },
+
+  know_sure_thing: {
+    id: 'know_sure_thing', name: 'Know Sure Thing', short: 'KST', advanced: true,
+    group: 'momentum', pane: 'separate',
+    params: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, smooth1: 10, smooth2: 10, smooth3: 10, smooth4: 15, signal: 9 },
+    paramDefs: [
+      { key: 'roc1', name: 'ROC 1 period', type: 'number', min: 1, max: 300, default: 10 },
+      { key: 'roc2', name: 'ROC 2 period', type: 'number', min: 1, max: 300, default: 15 },
+      { key: 'roc3', name: 'ROC 3 period', type: 'number', min: 1, max: 300, default: 20 },
+      { key: 'roc4', name: 'ROC 4 period', type: 'number', min: 1, max: 300, default: 30 },
+      { key: 'smooth1', name: 'ROC 1 smoothing', type: 'number', min: 1, max: 300, default: 10 },
+      { key: 'smooth2', name: 'ROC 2 smoothing', type: 'number', min: 1, max: 300, default: 10 },
+      { key: 'smooth3', name: 'ROC 3 smoothing', type: 'number', min: 1, max: 300, default: 10 },
+      { key: 'smooth4', name: 'ROC 4 smoothing', type: 'number', min: 1, max: 300, default: 15 },
+      { key: 'signal', name: 'Signal smoothing', type: 'number', min: 1, max: 300, default: 9 },
+    ],
+    warmup: (p) => Math.max(p.roc1 + p.smooth1, p.roc2 + p.smooth2, p.roc3 + p.smooth3, p.roc4 + p.smooth4) + p.signal - 1,
+    formula: 'KST = 1×SMA(ROC1) + 2×SMA(ROC2) + 3×SMA(ROC3) + 4×SMA(ROC4); signal is SMA(KST).',
+    levels: [0],
+    render: [
+      { key: 'kst', type: 'line', title: 'KST', defaultColor: '#a78bfa' },
+      { key: 'signal', type: 'line', title: 'Signal', defaultColor: '#fbbf24' },
+      { key: 'hist', type: 'histogram', title: 'Difference' },
+    ],
+    compute(bars, p) {
+      const periods = [p.roc1, p.roc2, p.roc3, p.roc4];
+      const smoothings = [p.smooth1, p.smooth2, p.smooth3, p.smooth4];
+      const weights = [1, 2, 3, 4];
+      const close = bars.map(({ close }) => close);
+      const components = periods.map((period, component) => {
+        const roc = close.map((value, i) => i < period || close[i - period] === 0
+          ? null : 100 * (value / close[i - period] - 1));
+        return smoothAvailableSMA(roc, smoothings[component]);
+      });
+      const kst = bars.map((_, i) => components.every((component) => Number.isFinite(component[i]))
+        ? components.reduce((sum, component, componentIndex) => sum + component[i] * weights[componentIndex], 0)
+        : null);
+      const signalLine = smoothAvailableSMA(kst, p.signal);
+      return {
+        kst: toPoints(bars, kst),
+        signal: toPoints(bars, signalLine),
+        hist: toPoints(bars, kst.map((value, i) => Number.isFinite(value) && Number.isFinite(signalLine[i]) ? value - signalLine[i] : null)),
       };
     },
   },
