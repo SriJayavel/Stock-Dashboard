@@ -90,19 +90,19 @@ macd max absolute error: 8.8818e-16
 <!-- Browser audit -->
 ## Mobile browser audit
 
-Lighthouse 13.0.1 ran on 2026-11-22 against the built Markets demo at `/?freeze=1#/markets`, with the default mobile preset and simulated throttling.
+Lighthouse 13.0.1 ran on 2026-11-22 against a clean-clone build of the Markets demo at `/?freeze=1#/markets`, with the default mobile preset and simulated throttling.
 
 | Category | Score |
 | --- | ---: |
-| Performance | 55 |
+| Performance | 57 |
 | Accessibility | 100 |
 | Best practices | 100 |
 | SEO | 100 |
 
-The first run recorded Performance 31 and cumulative layout shift of 0.42. After removing the duplicate loading screen, parallelizing demo quote loading, and deferring Canvas initialization, the repeat run recorded 0.001 layout shift, 3.3 s largest contentful paint, and 5,030 ms total blocking time. The trace attributed its longest task to no specific script. It also reported unused CSS and JavaScript on the Markets route.
+The first run recorded Performance 31 and cumulative layout shift of 0.42. After removing the duplicate loading screen, parallelizing demo quote loading, and deferring Canvas initialization, Performance reached 55 and layout shift fell to 0.001. The clean-clone run recorded zero layout shift, 3.1 s largest contentful paint, and 8,970 ms total blocking time. Lighthouse could not attribute the longest task to a specific script. The audit still flags unused CSS and JavaScript on the Markets route.
 
-With the built demo served on port 8182, run:
+To reproduce, serve the built demo on port 8184 and run:
 
 ```sh
-npx --yes lighthouse@13.0.1 'http://127.0.0.1:8182/?freeze=1#/markets' --chrome-flags=--headless
+npx --yes lighthouse@13.0.1 'http://127.0.0.1:8184/?freeze=1#/markets' --chrome-flags=--headless
 ```
