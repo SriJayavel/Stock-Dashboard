@@ -6,6 +6,7 @@ __pycache__/
 # Local agent tooling
 /.agents/
 /.claude/
+/.codex/
 /.impeccable/
 /skills/
 /skills-lock.json
@@ -52,9 +53,17 @@ ENV/
 build/
 dist/
 *.egg-info/
+*.tsbuildinfo
 
 # Environment variables
 .env*
+
+# Local deployment tooling
+/.aws/
+.vercel/
+.wrangler/
+/supabase/.temp/
+/supabase/.branches/
 
 # IDE settings
 .vscode/
@@ -70,7 +79,12 @@ Thumbs.db
 .pytest_cache/
 .ruff_cache/
 .coverage
+.coverage.*
+/coverage.xml
+htmlcov/
+coverage/
 node_modules/
+.vite/
 test-results/
 playwright-report/
 /test_output.json
@@ -78,5 +92,3 @@ scratch/
 claude-code-setup/
 free-claude-code/
 dist_screenshots/
-
-.vercel
