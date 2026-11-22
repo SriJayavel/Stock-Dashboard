@@ -36,7 +36,7 @@ flowchart LR
     Client -.->|"demo build"| Fixtures["Bundled synthetic fixtures"]
 ```
 
-The [hexagonal architecture ADR](docs/adr/0001-hexagonal-architecture.md) explains the domain and adapter boundaries. The [cache ADR](docs/adr/0002-two-tier-hybrid-cache.md) covers lookup order and refresh. The [research ADR](docs/adr/0003-epistemological-contract-no-speculation.md) describes how the terminal labels source data, calculations, and interpretation.
+The architecture decision records explain the [domain and adapter boundaries](docs/adr/0001-hexagonal-architecture.md), [cache lookup and refresh](docs/adr/0002-two-tier-hybrid-cache.md), [research methodology](docs/adr/0003-epistemological-contract-no-speculation.md), and [browser storage](docs/adr/0004-client-side-only-user-storage.md).
 
 | Layer | Technology | Why |
 | --- | --- | --- |
@@ -73,6 +73,37 @@ npm run dev
 ```
 
 Vite proxies API and WebSocket requests to the local backend. The Dockerfile packages the provider-backed build. A separately hosted frontend can use `npm run build:live` with `VITE_API_BASE_URL` set to the FastAPI origin. The scheduled cache warmer calls the protected refresh endpoint to populate market snapshots.
+
+## Development
+
+| Path | Purpose |
+| --- | --- |
+| [`backend/`](backend/) | FastAPI routes, domain contracts, provider adapters, and Python tests |
+| [`frontend/`](frontend/) | Vite app, Canvas chart, browser tests, and bundled demo fixtures |
+| [`scripts/`](scripts/) | Fixture generators and frontend secret scanning |
+| [`benchmarks/`](benchmarks/) | Reproducible cache, indicator, and failover checks |
+| [`docs/`](docs/) | Architecture decisions, screenshots, and compliance notes |
+
+From the repo root, run the backend suite. Pytest reads its settings from [`pyproject.toml`](pyproject.toml).
+
+```bash
+python -m pip install -r backend/requirements.txt pytest pytest-asyncio
+python -m pytest
+```
+
+Run the frontend checks against the built demo. The local Playwright run uses Google Chrome.
+
+```bash
+cd frontend
+npm ci
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run build:demo
+npm run test:demo
+```
+
+From the repo root, use `npm run gen:demo` to regenerate the seeded market snapshot and benchmark histories. Use `node scripts/gen-stock-candles.cjs --candles-only` to regenerate the stock candles and their matching quote fixtures.
 
 ## What I would do next
 
