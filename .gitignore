@@ -3,15 +3,44 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Skills directory (old location - root level only)
+# Local agent tooling
+/.agents/
+/.claude/
+/.impeccable/
 /skills/
+/skills-lock.json
 
-# Downloaded skills (third-party, don't commit)
-.claude/skills/
-
-# AI context files (don't commit - for AI reference only)
-CODEBASE_STRUCTURE.md
-user_prompt.text
+# Local project notes and retired tooling
+/CODEBASE_STRUCTURE.md
+/MARA Stock Terminal Agent Brief.md
+/user_prompt.text
+/response_to_user.md
+/ARCHITECTURE_CLEANUP_SUMMARY.md
+/FINAL_SUMMARY.md
+/FOUNDATION_AUDIT.md
+/IMPROVEMENTS_SUMMARY.md
+/PLAN.md
+/PRODUCTION_DEPLOYMENT_GUIDE.md
+/REDESIGN_PLAN.md
+/SEARCH_FIX_SUMMARY.md
+/STAGE_2_AUDIT.md
+/SYSTEM_REPORT.md
+/audit_2E.md
+/better-colors-review.md
+/consolidated-interface-findings.md
+/layout-findings.md
+/typography-findings.md
+/ui-findings.md
+/writing-findings.md
+/fix_headings.py
+/fix_headings2.py
+/gpt-taste-design.html
+/verify_prod.py
+/frontend/audit_ui.cjs
+/frontend/test_visual.js
+/frontend/public/demo/history-TCS-NS.json
+/frontend/public/og-image.svg
+/.devcontainer/
 
 # Virtual environments
 venv/
@@ -25,8 +54,7 @@ dist/
 *.egg-info/
 
 # Environment variables
-.env
-.env.*
+.env*
 
 # IDE settings
 .vscode/
@@ -40,16 +68,15 @@ Thumbs.db
 *.log
 .streamlit/secrets.toml
 .pytest_cache/
+.ruff_cache/
 .coverage
 node_modules/
-frontend/dist/
-frontend/node_modules/
-frontend/test-results/
-frontend/playwright-report/
+test-results/
+playwright-report/
+/test_output.json
 scratch/
 claude-code-setup/
 free-claude-code/
 dist_screenshots/
 
 .vercel
-.env*

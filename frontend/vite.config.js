@@ -14,8 +14,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5173,
     proxy: {
-      // Backend runs on 8080 (Dockerfile EXPOSE, main.py default, test_visual.js).
-      // 8001 was a stale value that silently broke local dev proxying.
+      // Match the FastAPI default and the Dockerfile.
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,

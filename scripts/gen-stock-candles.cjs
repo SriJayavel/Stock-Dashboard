@@ -1,12 +1,12 @@
 /**
  * Deterministic candle generator for demo mode
- * Run with: node generate-candles.cjs --candles-only
+ * Run from the repository root: node scripts/gen-stock-candles.cjs --candles-only
  * Regenerates daily candles and their matching quote snapshots.
  */
 const fs = require('fs');
 const path = require('path');
 
-const DEMO_DIR = path.join(__dirname);
+const DEMO_DIR = path.join(__dirname, '..', 'frontend', 'public', 'demo');
 
 const DAY_SECONDS = 86400;
 const LAST_SESSION = Date.parse('2026-11-13T00:00:00Z') / 1000;
