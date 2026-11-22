@@ -3139,7 +3139,8 @@ function showSyncStatus(message, isError = false) {
 
   const icon = toast.querySelector('.sync-icon');
   if (icon) {
-    icon.textContent = isError ? '⚠️' : '🔄';
+    icon.textContent = isError ? '!' : '↻';
+    icon.setAttribute('aria-hidden', 'true');
     if (isError) {
       icon.style.animation = 'none';
     } else {
@@ -5003,7 +5004,7 @@ function renderWhatChanged(data) {
 
     <div class="wc-kpi-card">
       <div class="wc-kpi-label">14-Day RSI Shift</div>
-      <div class="wc-kpi-delta" style="color: #38bdf8;">
+      <div class="wc-kpi-delta" style="color: var(--accent);">
         ${rsiDelta != null ? `${rsiDelta >= 0 ? '+' : ''}${rsiDelta}` : '—'}
       </div>
       <div class="wc-kpi-context">
@@ -5453,7 +5454,7 @@ function renderCorporateEvents(corpEvents) {
 
   container.innerHTML = `
     <div style="display: flex; gap: 14px; margin-bottom: 12px; font-size: 12px; flex-wrap: wrap;">
-      ${upcomingEarnings ? `<span class="meta-badge" style="color: #38bdf8; border-color: #38bdf8;">Next Scheduled Earnings: ${upcomingEarnings}</span>` : ''}
+      ${upcomingEarnings ? `<span class="meta-badge" style="color: var(--accent); border-color: var(--accent);">Next Scheduled Earnings: ${upcomingEarnings}</span>` : ''}
       ${divCagr != null ? `<span class="meta-badge" style="color: #fbbf24; border-color: #fbbf24;">3Y Dividend CAGR: +${divCagr}%</span>` : ''}
     </div>
     <table class="timeline-table">
@@ -6514,7 +6515,7 @@ async function exportMarketsPNG(data) {
     // Use html2canvas if available, otherwise fallback
     if (typeof html2canvas !== 'undefined') {
       const canvas = await html2canvas(marketsView, {
-        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#131722',
+        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#101114',
         scale: 2,
         logging: false,
         useCORS: true,
@@ -6544,7 +6545,7 @@ async function exportMarketsPNGCanvas(data) {
   canvas.height = height;
 
   // Background
-  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#131722';
+  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#101114';
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, width, height);
 
@@ -8172,7 +8173,7 @@ function drawSparkline(canvas, candles) {
   ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
   ctx.fillStyle = lineColor;
   ctx.fill();
-  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#131722';
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#101114';
   ctx.lineWidth = 2;
   ctx.stroke();
 }

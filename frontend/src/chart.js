@@ -9,6 +9,10 @@ import { getAccountStorageKey } from './auth.js';
 const bullColor = '#10b981';
 const bearColor = '#f43f5e';
 
+function getThemeColor(token, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
+}
+
 function drawStudySeries(ctx, points, style, color, x, y, barWidth) {
   if (style.type === 'histogram' || style.type === 'dots') {
     const baseline = y(0);
@@ -706,9 +710,10 @@ export class TerminalChart {
     if (!this.ctx || !this.width) return;
     const c = this.ctx, w = this.width, h = this.height;
     const isLight = document.documentElement.classList.contains('light-theme');
-    const bg = isLight ? '#ffffff' : '#0f1117';
+    const bg = getThemeColor('--bg', isLight ? '#ffffff' : '#101114');
     const grid = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.035)';
-    const muted = isLight ? '#64748b' : '#94a3b8';
+    const muted = getThemeColor('--text-muted', isLight ? '#64748b' : '#a49d96');
+    const accent = getThemeColor('--accent', isLight ? '#80551b' : '#eac47a');
     c.clearRect(0, 0, w, h);
     c.fillStyle = bg;
     c.fillRect(0, 0, w, h);
@@ -872,13 +877,13 @@ export class TerminalChart {
         c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
       });
     } else {
-      // Premium enhancement: smooth line chart with gradient glow
+      // Draw a clear price line using the active theme accent.
       c.beginPath();
       barsToRenderSafe.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth, yy = y(b.close);
         j ? c.lineTo(x, yy) : c.moveTo(x, yy);
       });
-      c.strokeStyle = isLight ? '#2563eb' : '#60a5fa';
+      c.strokeStyle = accent;
       c.lineWidth = 2;
       c.stroke();
       if (this.chartType === 'area') {
@@ -886,11 +891,10 @@ export class TerminalChart {
         c.lineTo(plot.left + (last + 0.5) * this.barWidth, plot.bottom);
         c.lineTo(plot.left + this.barWidth / 2, plot.bottom);
         c.closePath();
-        const g = c.createLinearGradient(0, plot.top, 0, plot.bottom);
-        g.addColorStop(0, isLight ? 'rgba(37,99,235,.2)' : 'rgba(96,165,250,.2)');
-        g.addColorStop(1, isLight ? 'rgba(37,99,235,0)' : 'rgba(96,165,250,0)');
-        c.fillStyle = g;
+        c.fillStyle = accent;
+        c.globalAlpha = 0.12;
         c.fill();
+        c.globalAlpha = 1;
       }
     }
     const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...barsToRenderSafe.map((b) => b.volume || 0));
@@ -967,7 +971,7 @@ export class TerminalChart {
       const idx = barsToRenderSafe.findIndex((b) => dateString(b.time) === String(m.time));
       if (idx < 0) return;
       const xx = plot.left + (idx + 0.5) * this.barWidth, yy = plot.top + 12;
-      c.fillStyle = m.color || '#5b9cf6';
+      c.fillStyle = m.color || accent;
       c.beginPath();
       c.arc(xx, yy, 4, 0, Math.PI * 2);
       c.fill();
@@ -975,7 +979,7 @@ export class TerminalChart {
     if (this.pointer && this.crosshairEnabled) {
       const xx = this.pointer.x, idx = this.indexAt(xx), b = bars[idx];
       if (b) {
-        c.strokeStyle = isLight ? '#2563eb' : '#60a5fa';
+        c.strokeStyle = accent;
         c.setLineDash([4, 4]);
         c.beginPath();
         c.moveTo(xx, plot.top);

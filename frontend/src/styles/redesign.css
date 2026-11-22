@@ -20,8 +20,10 @@ html:not(.light-theme) {
   --text-muted: #a49d96;
   --accent: #eac47a;
   --accent-rgb: 234, 196, 122;
+  --accent-primary: var(--accent);
   --accent-cyan: var(--accent);
   --accent-blue: var(--accent);
+  --accent-gradient: var(--accent);
   --gain: #34D399;
   --loss: #F87171;
   --gain-bg: rgba(52, 211, 153, 0.12);
@@ -32,20 +34,24 @@ html:not(.light-theme) {
   --shell-rail-w: 64px;
   --shell-workspace-bar-h: 46px;
   --shell-context-panel-w: 360px;
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --shadow-premium: none;
+  --elev-1: none;
+  --elev-2: none;
+  --elev-3: none;
   /* Region colors */
-  --region-india: #eab308;
-  --region-india-rgb: 234, 179, 8;
+  --region-india: var(--text-muted);
+  --region-india-rgb: 164, 157, 150;
   --warning: #eab308;
   --warning-rgb: 234, 179, 8;
-  --region-americas: #3b82f6;
-  --region-americas-rgb: 59, 130, 246;
-  --region-europe: #22c55e;
-  --region-europe-rgb: 34, 197, 94;
-  --region-asia: #a855f7;
-  --region-asia-rgb: 168, 85, 247;
+  --region-americas: var(--text-muted);
+  --region-americas-rgb: 164, 157, 150;
+  --region-europe: var(--text-muted);
+  --region-europe-rgb: 164, 157, 150;
+  --region-asia: var(--text-muted);
+  --region-asia-rgb: 164, 157, 150;
 }
 
 html.light-theme {
@@ -63,8 +69,10 @@ html.light-theme {
   --text-muted: #64748b;
   --accent: #80551b;
   --accent-rgb: 128, 85, 27;
+  --accent-primary: var(--accent);
   --accent-cyan: var(--accent);
   --accent-blue: var(--accent);
+  --accent-gradient: var(--accent);
   --gain: #059669;
   --loss: #ef4444;
   --gain-bg: rgba(16, 185, 129, 0.1);
@@ -77,20 +85,21 @@ html.light-theme {
   --shell-rail-w: 64px;
   --shell-workspace-bar-h: 46px;
   --shell-context-panel-w: 360px;
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --shadow-premium: none;
   /* Region colors */
-  --region-india: #d97706;
-  --region-india-rgb: 217, 119, 6;
+  --region-india: var(--text-muted);
+  --region-india-rgb: 100, 116, 139;
   --warning: #d97706;
   --warning-rgb: 217, 119, 6;
-  --region-americas: #2563eb;
-  --region-americas-rgb: 37, 99, 235;
-  --region-europe: #16a34a;
-  --region-europe-rgb: 22, 163, 74;
-  --region-asia: #9333ea;
-  --region-asia-rgb: 147, 51, 234;
+  --region-americas: var(--text-muted);
+  --region-americas-rgb: 100, 116, 139;
+  --region-europe: var(--text-muted);
+  --region-europe-rgb: 100, 116, 139;
+  --region-asia: var(--text-muted);
+  --region-asia-rgb: 100, 116, 139;
 }
 
 html,
@@ -131,6 +140,12 @@ html.light-theme .mara-unified-header {
 .mara-brand-group {
   gap: 9px;
   min-width: max-content;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.mara-brand-group:visited {
+  color: var(--text);
 }
 
 .mara-brand-logo {
@@ -3236,6 +3251,23 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
   display: table-cell;
 }
 
+#workspace-markets .benchmark-board-table {
+  inline-size: 100%;
+  min-inline-size: 0;
+  table-layout: fixed;
+}
+
+#workspace-markets .benchmark-board-table :is(th, td).col-region { inline-size: 7rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-name { inline-size: 15rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-symbol { inline-size: 6.5rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-price { inline-size: 7rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-change { inline-size: 6rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-pct { inline-size: 6rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-high,
+#workspace-markets .benchmark-board-table :is(th, td).col-low { inline-size: 6rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-sparkline { inline-size: 8rem; }
+#workspace-markets .benchmark-board-table :is(th, td).col-updated { inline-size: 8rem; }
+
 .benchmark-sort { inline-size: 100%; justify-content: flex-start; }
 .text-right .benchmark-sort { justify-content: flex-end; }
 .benchmark-sort:focus-visible { outline-offset: -3px; }
@@ -3341,6 +3373,11 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
   .mara-unified-header .mara-active-asset-strip { display: none; }
 }
 
+@media (min-width: 1281px) and (max-width: 1536px) {
+  .mara-unified-header { grid-template-columns: auto minmax(9rem, 1fr) auto auto; }
+  .mara-unified-header .mara-active-asset-strip { display: none; }
+}
+
 @media (max-width: 767px) {
   .workspace-scroll-wrap { padding: .75rem .75rem 2rem; }
   .market-ticker-heading { display: none; }
@@ -3389,6 +3426,88 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
   }
 }
 
+/* Calm terminal finish: one accent, flat controls, and data-first hierarchy. */
+.mara-app :is(.glass, .terminal-card, .hero-card, .macro-panel, .screener-card, .benchmark-panel) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+#workspace-markets .markets-page-heading h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+
+#workspace-markets .markets-page-heading p {
+  font-size: .8125rem;
+}
+
+#workspace-markets .benchmark-filter-group {
+  gap: .25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#workspace-markets .benchmark-filter-btn {
+  padding: .55rem .7rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+#workspace-markets .benchmark-filter-btn:hover:not(.active):not([aria-selected="true"]) {
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+
+#workspace-markets .benchmark-filter-btn.active,
+#workspace-markets .benchmark-filter-btn[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  background: transparent;
+  color: var(--accent);
+  box-shadow: none;
+}
+
+#workspace-markets :is(.benchmark-region-tag, .region-tag) {
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .04em;
+}
+
+#workspace-markets :is(.status-session-name, .status-feed) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#workspace-markets .markets-status-strip {
+  box-shadow: none;
+}
+
+#workspace-markets .benchmark-board-table tbody tr.active-row {
+  box-shadow: inset 2px 0 var(--accent);
+}
+
 /* Mobile adjustments */
 @media (max-width: 767px) {
   .landing-header {
@@ -3432,14 +3551,14 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
 
 /* ===== ENHANCED DEMO BANNER & HEADER TOGGLE ===== */
 .demo-banner {
-  background: linear-gradient(90deg, #131722 0%, #1a2035 50%, #131722 100%);
+  background: var(--surface);
   color: var(--text);
   border-bottom: 1px solid rgba(52, 211, 153, 0.35);
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   padding: 8px 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
   position: relative;
   z-index: 1000;
 }

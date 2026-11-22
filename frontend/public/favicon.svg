@@ -1,31 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="tvBg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e222d"/>
-      <stop offset="100%" stop-color="#131722"/>
-    </linearGradient>
-    <linearGradient id="tvBlueGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1e53e5"/>
-      <stop offset="50%" stop-color="#2962ff"/>
-      <stop offset="100%" stop-color="#5b9cf6"/>
-    </linearGradient>
-    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="rgba(152, 161, 178, 0.35)"/>
-      <stop offset="100%" stop-color="rgba(41, 98, 255, 0.25)"/>
-    </linearGradient>
-    <filter id="tvGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
   </defs>
 
-  <!-- TradingView Dark Squircle Card -->
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#tvBg)" stroke="url(#borderGrad)" stroke-width="2"/>
+  <rect x="2" y="2" width="60" height="60" rx="8" fill="#1a1b20" stroke="#303035" stroke-width="1.5"/>
 
-  <!-- TradingView Blue Market Path 'M' -->
-  <path d="M15 45 L15 22 L27 34 L37 23 L49 35" fill="none" stroke="url(#tvBlueGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#tvGlow)"/>
+  <path d="M15 45 L15 22 L27 34 L37 23 L49 35" fill="none" stroke="#eac47a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <path d="M37 23 L49 13" stroke="#70a4ff" stroke-width="4.5" stroke-linecap="round" filter="url(#tvGlow)"/>
-  <circle cx="49" cy="13" r="3.5" fill="#70a4ff" filter="url(#tvGlow)"/>
+  <path d="M37 23 L49 13" stroke="#eac47a" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="49" cy="13" r="3" fill="#eac47a"/>
   <circle cx="49" cy="13" r="1.5" fill="#ffffff"/>
 </svg>

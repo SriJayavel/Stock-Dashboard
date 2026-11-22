@@ -14,14 +14,14 @@
 // Muted 8-Tone Palette for Dynamic Multi-Series Assignment
 // --------------------------------------------------------------------------
 export const INDICATOR_PALETTE = [
-  '#6366f1', // Indigo Slate
-  '#2dd4bf', // Cool Teal
-  '#a855f7', // Muted Violet
-  '#38bdf8', // Steel Cyan
+  '#eac47a', // Warm Gold
+  '#c6a66b', // Sandstone
+  '#a99a84', // Muted Violet
+  '#c1a574', // Warm Taupe
   '#fb7185', // Dusty Rose
-  '#94a3b8', // Slate Neutral
-  '#818cf8', // Periwinkle
-  '#06b6d4', // Cyan Grey
+  '#a3a39a', // Stone Grey
+  '#c2b396', // Pale Sand
+  '#b88b62', // Copper
 ];
 
 // Helper to check if instrument has valid volume data
@@ -234,7 +234,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'Sum(Close, N) / N',
     levels: [],
-    render: [{ key: 'sma', type: 'line', title: 'SMA', defaultColor: '#6366f1' }],
+    render: [{ key: 'sma', type: 'line', title: 'SMA', defaultColor: '#b69b6d' }],
     compute: (bars, p) => {
       const closes = bars.map((b) => b.close);
       const sma = calculateSMAValues(closes, p.period);
@@ -278,7 +278,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'Sum(Close[i-N+1+j] · (j+1)) / (N · (N + 1) / 2)',
     levels: [],
-    render: [{ key: 'wma', type: 'line', title: 'WMA', defaultColor: '#38bdf8' }],
+    render: [{ key: 'wma', type: 'line', title: 'WMA', defaultColor: '#c1a574' }],
     compute: (bars, p) => {
       const closes = bars.map((b) => b.close);
       const wma = calculateWMAValues(closes, p.period);
@@ -306,7 +306,7 @@ export const INDICATOR_REGISTRY = {
     levels: [],
     render: [
       { key: 'upper', type: 'line', title: 'BB Upper', defaultColor: 'rgba(160, 160, 160, 0.4)', lineStyle: 2 },
-      { key: 'middle', type: 'line', title: 'BB Middle', defaultColor: '#6366f1' },
+      { key: 'middle', type: 'line', title: 'BB Middle', defaultColor: '#b69b6d' },
       { key: 'lower', type: 'line', title: 'BB Lower', defaultColor: 'rgba(160, 160, 160, 0.4)', lineStyle: 2 },
     ],
     compute: (bars, p) => {
@@ -346,7 +346,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'HL/2 ± (Multiplier · ATR); Ratchet trailing stop on trend flip',
     levels: [],
-    render: [{ key: 'supertrend', type: 'line', title: 'Supertrend', defaultColor: '#2dd4bf' }],
+    render: [{ key: 'supertrend', type: 'line', title: 'Supertrend', defaultColor: '#c6a66b' }],
     compute: (bars, p) => {
       const tr = calculateTrueRange(bars);
       const atr = calculateWilderValues(tr, p.period);
@@ -491,7 +491,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period + 1,
     formula: 'RSI = 100 - (100 / (1 + AvgGain / AvgLoss)) [Wilder Smoothing]',
     levels: [30, 70],
-    render: [{ key: 'rsi', type: 'line', title: 'RSI', defaultColor: '#6366f1' }],
+    render: [{ key: 'rsi', type: 'line', title: 'RSI', defaultColor: '#b69b6d' }],
     compute: (bars, p) => {
       const rsi = new Array(bars.length).fill(null);
       if (bars.length <= p.period) return { rsi: bars.map((b, i) => ({ time: b.time, value: rsi[i] })) };
@@ -551,9 +551,9 @@ export const INDICATOR_REGISTRY = {
     formula: 'MACD = EMA(fast) - EMA(slow); Signal = EMA(MACD, signal); Hist = MACD - Signal',
     levels: [0],
     render: [
-      { key: 'macd', type: 'line', title: 'MACD', defaultColor: '#6366f1' },
+      { key: 'macd', type: 'line', title: 'MACD', defaultColor: '#b69b6d' },
       { key: 'signal', type: 'line', title: 'Signal', defaultColor: '#e8b34e' },
-      { key: 'hist', type: 'histogram', title: 'Histogram', defaultColor: '#2dd4bf' },
+      { key: 'hist', type: 'histogram', title: 'Histogram', defaultColor: '#c6a66b' },
     ],
     compute: (bars, p) => {
       const closes = bars.map((b) => b.close);
@@ -628,7 +628,7 @@ export const INDICATOR_REGISTRY = {
     formula: '%K = SMA((Close - LL) / (HH - LL) · 100, smoothK); %D = SMA(%K, periodD)',
     levels: [20, 80],
     render: [
-      { key: 'k', type: 'line', title: '%K', defaultColor: '#6366f1' },
+      { key: 'k', type: 'line', title: '%K', defaultColor: '#b69b6d' },
       { key: 'd', type: 'line', title: '%D', defaultColor: '#e8b34e' },
     ],
     compute: (bars, p) => {
@@ -692,7 +692,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'TP = (H+L+C)/3; CCI = (TP - SMA(TP)) / (0.015 · MeanDev(TP))',
     levels: [-100, 100],
-    render: [{ key: 'cci', type: 'line', title: 'CCI', defaultColor: '#a855f7' }],
+    render: [{ key: 'cci', type: 'line', title: 'CCI', defaultColor: '#a99a84' }],
     compute: (bars, p) => {
       const tp = bars.map((b) => (b.high + b.low + b.close) / 3);
       const smaTp = calculateSMAValues(tp, p.period);
@@ -757,7 +757,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: '((Close[i] - Close[i-N]) / Close[i-N]) · 100',
     levels: [0],
-    render: [{ key: 'roc', type: 'line', title: 'ROC', defaultColor: '#2dd4bf' }],
+    render: [{ key: 'roc', type: 'line', title: 'ROC', defaultColor: '#c6a66b' }],
     compute: (bars, p) => {
       const roc = new Array(bars.length).fill(null);
       for (let i = p.period; i < bars.length; i++) {
@@ -787,8 +787,8 @@ export const INDICATOR_REGISTRY = {
     formula: 'DX = 100 · |+DI - -DI| / (+DI + -DI); ADX = Wilder(DX, N)',
     levels: [20, 25],
     render: [
-      { key: 'adx', type: 'line', title: 'ADX', defaultColor: '#6366f1' },
-      { key: 'plusDI', type: 'line', title: '+DI', defaultColor: '#2dd4bf' },
+      { key: 'adx', type: 'line', title: 'ADX', defaultColor: '#b69b6d' },
+      { key: 'plusDI', type: 'line', title: '+DI', defaultColor: '#c6a66b' },
       { key: 'minusDI', type: 'line', title: '-DI', defaultColor: '#fb7185' },
     ],
     compute: (bars, p) => {
@@ -865,7 +865,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'ATR = Wilder(TrueRange, N)',
     levels: [],
-    render: [{ key: 'atr', type: 'line', title: 'ATR', defaultColor: '#a855f7' }],
+    render: [{ key: 'atr', type: 'line', title: 'ATR', defaultColor: '#a99a84' }],
     compute: (bars, p) => {
       const tr = calculateTrueRange(bars);
       const atr = calculateWilderValues(tr, p.period);
@@ -891,7 +891,7 @@ export const INDICATOR_REGISTRY = {
     warmup: () => 1,
     formula: 'Cumulative volume signed by direction of Close vs PrevClose',
     levels: [],
-    render: [{ key: 'obv', type: 'line', title: 'OBV', defaultColor: '#2dd4bf' }],
+    render: [{ key: 'obv', type: 'line', title: 'OBV', defaultColor: '#c6a66b' }],
     compute: (bars) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -926,7 +926,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'Sum(Volume, N) / N',
     levels: [],
-    render: [{ key: 'volSma', type: 'line', title: 'Vol SMA', defaultColor: '#38bdf8' }],
+    render: [{ key: 'volSma', type: 'line', title: 'Vol SMA', defaultColor: '#c1a574' }],
     compute: (bars, p) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -989,7 +989,7 @@ export const INDICATOR_REGISTRY = {
     warmup: () => 1,
     formula: 'Cumulative Volume * ((Close - PrevClose) / PrevClose)',
     levels: [0],
-    render: [{ key: 'pvt', type: 'line', title: 'PVT', defaultColor: '#06b6d4' }],
+    render: [{ key: 'pvt', type: 'line', title: 'PVT', defaultColor: '#b88b62' }],
     compute: (bars) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -1058,7 +1058,7 @@ export const INDICATOR_REGISTRY = {
     warmup: () => 1,
     formula: 'If Volume[t] > Volume[t-1]: PVI = PrevPVI + ((Close[t] - Close[t-1]) / Close[t-1]) * PrevPVI; Else PVI = PrevPVI',
     levels: [],
-    render: [{ key: 'pvi', type: 'line', title: 'PVI', defaultColor: '#38bdf8' }],
+    render: [{ key: 'pvi', type: 'line', title: 'PVI', defaultColor: '#c1a574' }],
     compute: (bars) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -1097,7 +1097,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.longPeriod,
     formula: '((ShortPeriod Volume SMA - LongPeriod Volume SMA) / LongPeriod Volume SMA) * 100',
     levels: [0],
-    render: [{ key: 'volumeOscillator', type: 'line', title: 'Volume Oscillator', defaultColor: '#a855f7' }],
+    render: [{ key: 'volumeOscillator', type: 'line', title: 'Volume Oscillator', defaultColor: '#a99a84' }],
     compute: (bars, p) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -1136,9 +1136,9 @@ export const INDICATOR_REGISTRY = {
     formula: 'EMA(Volume Force, Fast) - EMA(Volume Force, Slow); Signal = EMA(KVO, Signal)',
     levels: [0],
     render: [
-      { key: 'kvo', type: 'line', title: 'KVO', defaultColor: '#6366f1' },
+      { key: 'kvo', type: 'line', title: 'KVO', defaultColor: '#b69b6d' },
       { key: 'kvoSignal', type: 'line', title: 'Signal', defaultColor: '#e8b34e' },
-      { key: 'kvoHist', type: 'histogram', title: 'Histogram', defaultColor: '#2dd4bf' },
+      { key: 'kvoHist', type: 'histogram', title: 'Histogram', defaultColor: '#c6a66b' },
     ],
     compute: (bars, p) => {
       if (!hasValidVolume(bars)) {
@@ -1231,7 +1231,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period + Math.round(Math.sqrt(p.period)),
     formula: 'WMA(2 · WMA(Close, N/2) - WMA(Close, N), sqrt(N))',
     levels: [],
-    render: [{ key: 'hma', type: 'line', title: 'HMA', defaultColor: '#a855f7' }],
+    render: [{ key: 'hma', type: 'line', title: 'HMA', defaultColor: '#a99a84' }],
     compute: (bars, p) => {
       const closes = bars.map((b) => b.close);
       const halfN = Math.floor(p.period / 2);
@@ -1290,9 +1290,9 @@ export const INDICATOR_REGISTRY = {
     formula: 'Middle = EMA(N); Bands = Middle ± (Multiplier · ATR)',
     levels: [],
     render: [
-      { key: 'upper', type: 'line', title: 'KC Upper', defaultColor: 'rgba(56, 189, 248, 0.4)', lineStyle: 2 },
-      { key: 'middle', type: 'line', title: 'KC Middle', defaultColor: '#38bdf8' },
-      { key: 'lower', type: 'line', title: 'KC Lower', defaultColor: 'rgba(56, 189, 248, 0.4)', lineStyle: 2 },
+      { key: 'upper', type: 'line', title: 'KC Upper', defaultColor: 'rgba(184, 178, 167, 0.4)', lineStyle: 2 },
+      { key: 'middle', type: 'line', title: 'KC Middle', defaultColor: '#c1a574' },
+      { key: 'lower', type: 'line', title: 'KC Lower', defaultColor: 'rgba(184, 178, 167, 0.4)', lineStyle: 2 },
     ],
     compute: (bars, p) => {
       const closes = bars.map((b) => b.close);
@@ -1418,9 +1418,9 @@ export const INDICATOR_REGISTRY = {
     render: [
       { key: 'p', type: 'line', title: 'P', defaultColor: '#e8b34e' },
       { key: 'r1', type: 'line', title: 'R1', defaultColor: '#fb7185', lineStyle: 2 },
-      { key: 's1', type: 'line', title: 'S1', defaultColor: '#2dd4bf', lineStyle: 2 },
+      { key: 's1', type: 'line', title: 'S1', defaultColor: '#c6a66b', lineStyle: 2 },
       { key: 'r2', type: 'line', title: 'R2', defaultColor: '#fb7185', lineStyle: 3 },
-      { key: 's2', type: 'line', title: 'S2', defaultColor: '#2dd4bf', lineStyle: 3 },
+      { key: 's2', type: 'line', title: 'S2', defaultColor: '#c6a66b', lineStyle: 3 },
     ],
     compute: (bars) => {
       const p = new Array(bars.length).fill(null);
@@ -1472,7 +1472,7 @@ export const INDICATOR_REGISTRY = {
     formula: 'StochRSI = (RSI - Min(RSI)) / (Max(RSI) - Min(RSI))',
     levels: [20, 80],
     render: [
-      { key: 'k', type: 'line', title: '%K', defaultColor: '#6366f1' },
+      { key: 'k', type: 'line', title: '%K', defaultColor: '#b69b6d' },
       { key: 'd', type: 'line', title: '%D', defaultColor: '#e8b34e' },
     ],
     compute: (bars, p) => {
@@ -1546,7 +1546,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.slow,
     formula: 'AO = SMA(MedianPrice, 5) - SMA(MedianPrice, 34)',
     levels: [0],
-    render: [{ key: 'ao', type: 'histogram', title: 'AO', defaultColor: '#2dd4bf' }],
+    render: [{ key: 'ao', type: 'histogram', title: 'AO', defaultColor: '#c6a66b' }],
     compute: (bars, p) => {
       const medians = bars.map((b) => (b.high + b.low) / 2);
       const smaFast = calculateSMAValues(medians, p.fast);
@@ -1581,7 +1581,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'Close[i] - Close[i-N]',
     levels: [0],
-    render: [{ key: 'mom', type: 'line', title: 'MOM', defaultColor: '#38bdf8' }],
+    render: [{ key: 'mom', type: 'line', title: 'MOM', defaultColor: '#c1a574' }],
     compute: (bars, p) => {
       const mom = new Array(bars.length).fill(null);
       for (let i = p.period; i < bars.length; i++) {
@@ -1646,7 +1646,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.p3,
     formula: '100 · (4 · Avg1 + 2 · Avg2 + Avg3) / (4 + 2 + 1) of Buying Pressure / True Range',
     levels: [30, 70],
-    render: [{ key: 'uo', type: 'line', title: 'UO', defaultColor: '#a855f7' }],
+    render: [{ key: 'uo', type: 'line', title: 'UO', defaultColor: '#a99a84' }],
     compute: (bars, p) => {
       const bp = new Array(bars.length).fill(0);
       const tr = new Array(bars.length).fill(0);
@@ -1696,7 +1696,7 @@ export const INDICATOR_REGISTRY = {
     formula: 'AroonUp = ((N - BarsSinceHH) / N) · 100; AroonDown = ((N - BarsSinceLL) / N) · 100',
     levels: [30, 70],
     render: [
-      { key: 'aroonUp', type: 'line', title: 'Aroon Up', defaultColor: '#2dd4bf' },
+      { key: 'aroonUp', type: 'line', title: 'Aroon Up', defaultColor: '#c6a66b' },
       { key: 'aroonDown', type: 'line', title: 'Aroon Down', defaultColor: '#fb7185' },
     ],
     compute: (bars, p) => {
@@ -1745,7 +1745,7 @@ export const INDICATOR_REGISTRY = {
     formula: '+VM = |High - PrevLow|; -VM = |Low - PrevHigh|; VI± = Sum(VM±, N) / Sum(TR, N)',
     levels: [1.0],
     render: [
-      { key: 'viPlus', type: 'line', title: 'VI+', defaultColor: '#2dd4bf' },
+      { key: 'viPlus', type: 'line', title: 'VI+', defaultColor: '#c6a66b' },
       { key: 'viMinus', type: 'line', title: 'VI-', defaultColor: '#fb7185' },
     ],
     compute: (bars, p) => {
@@ -1808,7 +1808,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: '%B = (Close - LowerBB) / (UpperBB - LowerBB)',
     levels: [0, 0.5, 1.0],
-    render: [{ key: 'pctB', type: 'line', title: '%B', defaultColor: '#6366f1' }],
+    render: [{ key: 'pctB', type: 'line', title: '%B', defaultColor: '#b69b6d' }],
     compute: (bars, p) => {
       const bb = INDICATOR_REGISTRY.bollinger.compute(bars, p);
       const pctB = new Array(bars.length).fill(null);
@@ -1842,7 +1842,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'Bandwidth = ((UpperBB - LowerBB) / MiddleBB) · 100',
     levels: [],
-    render: [{ key: 'bandwidth', type: 'line', title: 'Bandwidth', defaultColor: '#a855f7' }],
+    render: [{ key: 'bandwidth', type: 'line', title: 'Bandwidth', defaultColor: '#a99a84' }],
     compute: (bars, p) => {
       const bb = INDICATOR_REGISTRY.bollinger.compute(bars, p);
       const bw = new Array(bars.length).fill(null);
@@ -1919,7 +1919,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period,
     formula: 'Sample Standard Deviation of Close over N periods',
     levels: [],
-    render: [{ key: 'std', type: 'line', title: 'StdDev', defaultColor: '#38bdf8' }],
+    render: [{ key: 'std', type: 'line', title: 'StdDev', defaultColor: '#c1a574' }],
     compute: (bars, p) => {
       const closes = bars.map((b) => b.close);
       const std = calculateStdDevValues(closes, p.period);
@@ -1945,7 +1945,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period + 1,
     formula: 'MFI = 100 - (100 / (1 + PosMoneyFlow / NegMoneyFlow))',
     levels: [20, 80],
-    render: [{ key: 'mfi', type: 'line', title: 'MFI', defaultColor: '#2dd4bf' }],
+    render: [{ key: 'mfi', type: 'line', title: 'MFI', defaultColor: '#c6a66b' }],
     compute: (bars, p) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -2077,7 +2077,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.period + 1,
     formula: 'EMA((Close[i] - Close[i-1]) · Volume, N)',
     levels: [0],
-    render: [{ key: 'fi', type: 'line', title: 'Force Index', defaultColor: '#6366f1' }],
+    render: [{ key: 'fi', type: 'line', title: 'Force Index', defaultColor: '#b69b6d' }],
     compute: (bars, p) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -2108,7 +2108,7 @@ export const INDICATOR_REGISTRY = {
     warmup: (p) => p.slow,
     formula: 'EMA(A/D Line, 3) - EMA(A/D Line, 10)',
     levels: [0],
-    render: [{ key: 'cho', type: 'histogram', title: 'Chaikin Osc', defaultColor: '#2dd4bf' }],
+    render: [{ key: 'cho', type: 'histogram', title: 'Chaikin Osc', defaultColor: '#c6a66b' }],
     compute: (bars, p) => {
       if (!hasValidVolume(bars)) {
         return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
@@ -2401,7 +2401,7 @@ export const INDICATOR_REGISTRY = {
     formula: 'Linear Regression: y = mx + b; Upper/Lower Channel = Regression ± (Standard Deviation × Multiplier)',
     levels: [],
     render: [
-      { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#6366f1' },
+      { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#b69b6d' },
       { key: 'upperChannel', type: 'line', title: 'Upper Channel', defaultColor: '#28a745', lineStyle: 2 },
       { key: 'lowerChannel', type: 'line', title: 'Lower Channel', defaultColor: '#dc3545', lineStyle: 2 },
     ],
@@ -2472,7 +2472,7 @@ export const INDICATOR_REGISTRY = {
     formula: 'Standard Error Bands: Linear Regression ± (Standard Error × Multiplier)',
     levels: [],
     render: [
-      { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#6366f1' },
+      { key: 'regressionLine', type: 'line', title: 'Regression Line', defaultColor: '#b69b6d' },
       { key: 'upperBand', type: 'line', title: 'Upper Band', defaultColor: '#20c997', lineStyle: 2 },
       { key: 'lowerBand', type: 'line', title: 'Lower Band', defaultColor: '#fd7e14', lineStyle: 2 },
     ],
@@ -2600,8 +2600,8 @@ export const INDICATOR_REGISTRY = {
     warmup: ({ period }) => period,
     formula: 'Rolling high − ATR × multiplier and rolling low + ATR × multiplier',
     render: [
-      { key: 'long', type: 'line', title: 'Long level', defaultColor: '#3b82f6' },
-      { key: 'short', type: 'line', title: 'Short level', defaultColor: '#a855f7', lineStyle: 2 },
+      { key: 'long', type: 'line', title: 'Long level', defaultColor: '#eac47a' },
+      { key: 'short', type: 'line', title: 'Short level', defaultColor: '#a99a84', lineStyle: 2 },
     ],
     compute(bars, { period, multiplier }) {
       const atr = calculateWilderValues(calculateTrueRange(bars), period);
@@ -2672,8 +2672,8 @@ export const INDICATOR_REGISTRY = {
     unit: '%',
     render: [
       { key: 'hist', type: 'histogram', title: 'Histogram' },
-      { key: 'ppo', type: 'line', title: 'PPO', defaultColor: '#3b82f6' },
-      { key: 'signal', type: 'line', title: 'Signal', defaultColor: '#a855f7' },
+      { key: 'ppo', type: 'line', title: 'PPO', defaultColor: '#eac47a' },
+      { key: 'signal', type: 'line', title: 'Signal', defaultColor: '#a99a84' },
     ],
     compute(bars, { fast, slow, signal }) {
       const closes = bars.map(({ close }) => close);
@@ -2737,7 +2737,7 @@ export const INDICATOR_REGISTRY = {
     warmup: ({ period }) => period,
     formula: 'Relative Volume = Volume / SMA(Volume, N); 1.0 equals the lookback average.',
     levels: [1],
-    render: [{ key: 'relativeVolume', type: 'histogram', title: 'Relative Volume', defaultColor: '#38bdf8' }],
+    render: [{ key: 'relativeVolume', type: 'histogram', title: 'Relative Volume', defaultColor: '#c1a574' }],
     compute(bars, { period }) {
       if (!hasValidVolume(bars)) return { unavailable: true, reason: 'Volume data unavailable for this instrument' };
       const volumes = bars.map(({ volume }) => Number(volume) || 0);
@@ -2806,7 +2806,7 @@ export const INDICATOR_REGISTRY = {
     formula: '100 × EMA(EMA(price change, long), short) / EMA(EMA(abs(price change), long), short); signal is EMA(TSI).',
     levels: [0],
     render: [
-      { key: 'tsi', type: 'line', title: 'TSI', defaultColor: '#38bdf8' },
+      { key: 'tsi', type: 'line', title: 'TSI', defaultColor: '#eac47a' },
       { key: 'signal', type: 'line', title: 'Signal', defaultColor: '#fbbf24' },
       { key: 'hist', type: 'histogram', title: 'Difference' },
     ],
