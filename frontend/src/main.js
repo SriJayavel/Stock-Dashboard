@@ -1,3 +1,4 @@
+import { sparklineSvg } from './sparkline.js';
 /**
  * Mara - Frontend Controller
  * Reactive orchestration of Lightweight Charts, valuation matrices,
@@ -382,7 +383,7 @@ export async function setWorkspace(workspaceName, subTab = null) {
 
   // 1c. Status Bar workspace label
   const statusWsLabel = document.getElementById('status-active-ws');
-  if (statusWsLabel && workspaceName) statusWsLabel.textContent = workspaceName.toUpperCase();
+  if (statusWsLabel && workspaceName) statusWsLabel.textContent = workspaceName[0].toUpperCase() + workspaceName.slice(1);
 
   // 2. Main layout & body attributes
   const mainLayout = document.getElementById('main-layout');
@@ -861,7 +862,42 @@ export async function switchChartRange(range) {
 }
 
 // Setup DOM Event Listeners
+const benchmarkCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+const benchmarkTime = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+});
+
+function sortBenchmarkRows(table) {
+  const header = table.querySelector('th[aria-sort]');
+  if (!header || !table.tBodies[0]) return;
+  const index = header.cellIndex;
+  const sign = header.getAttribute('aria-sort') === 'ascending' ? 1 : -1;
+  const number = header.dataset.sort === 'number';
+  const rows = Array.from(table.tBodies[0].rows).filter((row) => !row.classList.contains('skeleton-row'));
+  const value = (row) => {
+    const cell = row.cells[index];
+    return number ? cell?.dataset.sortValue : cell?.textContent.trim();
+  };
+  rows.sort((left, right) => {
+    const a = value(left);
+    const b = value(right);
+    if (!a || !b) return Number(!a) - Number(!b);
+    return sign * (number ? Number(a) - Number(b) : benchmarkCollator.compare(a, b));
+  });
+  table.tBodies[0].append(...rows);
+}
+
 function setupEventListeners() {
+  document.getElementById('markets-indices-table')?.addEventListener('click', (event) => {
+    const button = event.target.closest('.benchmark-sort');
+    if (!button) return;
+    const table = event.currentTarget;
+    const header = button.closest('th');
+    const direction = header.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
+    table.querySelector('[aria-sort]')?.removeAttribute('aria-sort');
+    header.setAttribute('aria-sort', direction);
+    sortBenchmarkRows(table);
+  });
   document.querySelector('.skip-to-content-link')?.addEventListener('click', (event) => {
     event.preventDefault();
     document.getElementById('mara-main-canvas')?.focus();
@@ -2950,7 +2986,19 @@ function renderMarketTicker(data) {
     const empty = document.createElement('span');
     empty.className = 'market-ticker-empty';
     empty.textContent = 'Market snapshot unavailable';
-    track.replaceChildren(empty);
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'ghost-btn';
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', async () => {
+      empty.textContent = 'Loading market snapshot';
+      empty.classList.add('skeleton-text');
+      retry.disabled = true;
+      await loadMarketOverview(true);
+      await loadAndRenderSectorsAndMarketMap();
+      if (retry.isConnected) renderMarketTicker(marketDataCache);
+    });
+    track.replaceChildren(empty, retry);
     return;
   }
 
@@ -2988,10 +3036,10 @@ function renderMarketTicker(data) {
     absoluteChange.className = 'market-ticker-change';
     absoluteChange.textContent = item.change != null && Number.isFinite(Number(item.change))
       ? `${Number(item.change) > 0 ? '+' : Number(item.change) < 0 ? '−' : ''}${currency}${Math.abs(Number(item.change)).toLocaleString('en-US', { maximumFractionDigits: decimals })}`
-      : '—';
+      : 'Unavailable';
     const percentChange = document.createElement('span');
     percentChange.className = 'market-ticker-percent';
-    percentChange.textContent = Number.isFinite(change) ? `${change > 0 ? '+' : ''}${change.toFixed(2)}%` : '—';
+    percentChange.textContent = Number.isFinite(change) ? `${change > 0 ? '+' : ''}${change.toFixed(2)}%` : 'Unavailable';
     movement.append(absoluteChange, percentChange);
     button.append(identity, value, movement);
     button.addEventListener('click', () => {
@@ -3238,6 +3286,7 @@ async function loadMarketOverview(force = false) {
     }
   } catch (err) {
     console.error('Failed to load market overview:', err);
+    renderMarketTicker(marketDataCache);
     hideSyncStatus();
 
     const coldBanner = document.getElementById('cold-start-banner');
@@ -5917,7 +5966,7 @@ function renderMarketStateBar(data) {
   if (feedDot && feedSource) {
     const rawSrc = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
     const srcLabel = rawSrc ? rawSrc.toUpperCase() : 'DATA FEED';
-    feedSource.textContent = data?.demo_mode ? 'SYNTHETIC DATA' : `${srcLabel} · ${feedStatus}`;
+    feedSource.textContent = data?.demo_mode ? 'Demo data' : `${srcLabel} · ${feedStatus}`;
     // Map feed status to feed dot classes
     const feedDotClass = {
       'LIVE': 'live',
@@ -5941,7 +5990,7 @@ function renderMarketStateBar(data) {
       const declining = indices.filter((i) => typeof i.change === 'number' && i.change < 0).length;
       const total = advancing + declining;
       if (total > 0) {
-        breadthVal.textContent = `${advancing} ↑ / ${declining} ↓`;
+        breadthVal.textContent = `${advancing} gaining, ${declining} declining`;
       } else {
         breadthVal.textContent = '—';
       }
@@ -5949,14 +5998,14 @@ function renderMarketStateBar(data) {
   }
 
   if (lastUpdated) {
-    const timestamp = data?.last_successful_update || data?.last_updated || data?.hero?.retrieved_at;
+    const timestamp = data?.last_successful_update || data?.last_updated || data?.hero?.retrieved_at || data?.retrieved_at;
     if (timestamp) {
       const d = new Date(timestamp);
       lastUpdated.textContent = isNaN(d.getTime())
         ? timestamp
         : d.toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' });
     } else {
-      lastUpdated.textContent = isFeedActive ? 'CACHED SNAPSHOT' : 'AWAITING SYNC';
+      lastUpdated.textContent = isFeedActive ? 'Cached snapshot' : 'Awaiting data';
     }
     lastUpdated.title = data?.last_attempted_at
       ? `Last fetch attempt: ${new Date(data.last_attempted_at).toLocaleString()}`
@@ -7255,7 +7304,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         high: rawHigh,
         low: rawLow,
         source,
-        source_timestamp: sourceTimestamp,
+        source_timestamp: sourceTimestamp || (rawPrice != null ? marketDataCache?.retrieved_at : null),
+        sparkline_data: live?.sparkline_data,
         is_stale: isStale,
         session_status: sessionByRegion[m.regionCode] || 'UNAVAILABLE',
         market_closed: marketClosed,
@@ -7274,18 +7324,18 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         // to distinguish "no data / feed offline" from "market closed but price known"
         const isFeedOffline = m.indices_feed_health === 'OFFLINE';
         const priceDisplay = isFeedOffline
-          ? '—'
+          ? 'Unavailable'
           : isMarketClosed
           ? 'Market Closed'
           : hasValidPrice
           ? `${m.curr}${m.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '—';
+          : 'Unavailable';
         const hasChange = m.change_pct != null;
         const isUp = hasChange && m.change_pct > 0.0001;
         const isDown = hasChange && m.change_pct < -0.0001;
         const sign = isUp ? '+' : isDown ? '−' : '';
-        const chgDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : '—'));
-        const pctDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : '—'));
+        const chgDisplay = isFeedOffline ? 'Unavailable' : (isMarketClosed ? 'Unavailable' : (m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : 'Unavailable'));
+        const pctDisplay = isFeedOffline ? 'Unavailable' : (isMarketClosed ? 'Unavailable' : (hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : 'Unavailable'));
         const chgClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
         const pctClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
 
@@ -7298,23 +7348,13 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           'asia-pacific': 'asia'
         }[m.regionCode] || 'india';
 
-        // Updated timestamp
-        const updatedDisplay = m.source_timestamp
-          ? new Date(m.source_timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-          : (m.is_stale ? 'Stale' : (isMarketClosed ? 'Offline' : '—'));
-
-        // High/Low display
-        const highDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (m.high != null
-          ? `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '—'));
-        const lowDisplay = isFeedOffline ? '—' : (isMarketClosed ? '—' : (m.low != null
-          ? `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : '—'));
-
-        // Sparkline data attribute for canvas rendering
-        const sparklineDataAttr = m.sparkline_data
-          ? `data-sparkline="${JSON.stringify(m.sparkline_data).replace(/"/g, '"')}"`
-          : '';
+        const asOf = Date.parse(m.source_timestamp);
+        const updatedDisplay = Number.isFinite(asOf)
+          ? `${benchmarkTime.format(asOf)} IST${marketDataCache?.demo_mode ? ' · Demo data' : ''}`
+          : m.is_stale ? 'Stale' : 'Unavailable';
+        const highDisplay = m.high == null || isFeedOffline ? 'Unavailable' : `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const lowDisplay = m.low == null || isFeedOffline ? 'Unavailable' : `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const sparkline = sparklineSvg(m.sparkline_data);
 
         const isDefaultActive = idx === 0;
 
@@ -7333,34 +7373,23 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             </td>
             <td class="col-name"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.name}</td>
             <td class="col-symbol"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.symbol}</td>
-            <td class="col-price text-right${hasValidPrice && !m.is_stale && !isMarketClosed ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}" aria-live="polite">
+            <td class="col-price text-right${hasValidPrice && !m.is_stale && !isMarketClosed ? ' price-flash' : ''}" data-prev-price="${m.prev_price || ''}" data-sort-value="${m.price ?? ''}">
               ${priceDisplay}
             </td>
-            <td class="col-change text-right ${chgClass}">${chgDisplay}</td>
-            <td class="col-pct text-right ${pctClass}">${pctDisplay}</td>
-            <td class="col-high text-right">${highDisplay}</td>
-            <td class="col-low text-right">${lowDisplay}</td>
+            <td data-sort-value="${m.change ?? ''}" class="col-change text-right ${chgClass}">${chgDisplay}</td>
+            <td data-sort-value="${m.change_pct ?? ''}" class="col-pct text-right ${pctClass}">${pctDisplay}</td>
+            <td data-sort-value="${m.high ?? ''}" class="col-high text-right">${highDisplay}</td>
+            <td data-sort-value="${m.low ?? ''}" class="col-low text-right">${lowDisplay}</td>
             <td class="col-sparkline">
-              <div class="sparkline-mini" ${sparklineDataAttr} data-symbol="${m.symbol}" aria-hidden="true"></div>
+              <div class="sparkline-mini" data-symbol="${m.symbol}">${sparkline || '<span class="benchmark-no-series">No series</span>'}</div>
             </td>
-            <td class="col-updated text-right">${updatedDisplay}</td>
+            <td class="col-updated text-right" data-sort-value="${Number.isFinite(asOf) ? asOf : ''}">${updatedDisplay}</td>
           </tr>
         `;
       })
       .join('');
 
-    // Render sparklines for rows with data
-    processedBenchmarks.forEach((m, idx) => {
-      if (m.sparkline_data && m.sparkline_data.length > 1) {
-        const row = tableBody.querySelector(`tr[data-sym="${m.symbol}"]`);
-        if (row) {
-          const canvasContainer = row.querySelector('.sparkline-mini');
-          if (canvasContainer) {
-            renderMiniSparkline(canvasContainer, m.sparkline_data, m.change_pct > 0);
-          }
-        }
-      }
-    });
+    sortBenchmarkRows(tableBody.closest('table'));
 
     // Default Context Inspector state on Markets load (NIFTY 50)
     if (processedBenchmarks.length > 0 && currentActiveWorkspace === 'markets') {
@@ -7412,20 +7441,18 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           }
         } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault();
-          const currentIdx = benchmarkRows.indexOf(row);
+          const visibleRows = Array.from(tableBody.rows).filter((item) => item.style.display !== 'none');
+          const currentIdx = visibleRows.indexOf(row);
           const nextIdx = e.key === 'ArrowDown'
-            ? Math.min(currentIdx + 1, benchmarkRows.length - 1)
+            ? Math.min(currentIdx + 1, visibleRows.length - 1)
             : Math.max(currentIdx - 1, 0);
-          benchmarkRows[nextIdx].focus({ preventScroll: true });
-          activateRow.call(benchmarkRows[nextIdx]);
+          visibleRows[nextIdx]?.click();
         } else if (e.key === 'Home') {
           e.preventDefault();
-          benchmarkRows[0].focus({ preventScroll: true });
-          activateRow.call(benchmarkRows[0]);
+          Array.from(tableBody.rows).find((item) => item.style.display !== 'none')?.click();
         } else if (e.key === 'End') {
           e.preventDefault();
-          benchmarkRows[benchmarkRows.length - 1].focus({ preventScroll: true });
-          activateRow.call(benchmarkRows[benchmarkRows.length - 1]);
+          Array.from(tableBody.rows).findLast((item) => item.style.display !== 'none')?.click();
         }
       });
     });
