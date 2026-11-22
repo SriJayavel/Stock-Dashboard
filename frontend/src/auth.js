@@ -83,7 +83,7 @@ class MaraAccount {
       }
     });
     document.getElementById('auth-password-toggle')?.addEventListener('click', () => {
-      const input = document.getElementById('auth-password');
+      const input = /** @type {HTMLInputElement | null} */ (document.getElementById('auth-password'));
       const button = document.getElementById('auth-password-toggle');
       if (!input || !button) return;
       input.type = input.type === 'password' ? 'text' : 'password';
@@ -129,10 +129,10 @@ class MaraAccount {
       this.setMessage('Authentication service is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your deployment environment variables and redeploy.');
       return;
     }
-    const email = document.getElementById('auth-email')?.value.trim();
-    const password = document.getElementById('auth-password')?.value || '';
-    const confirmPassword = document.getElementById('auth-confirm-password')?.value || '';
-    const button = document.getElementById('auth-submit');
+    const email = /** @type {HTMLInputElement | null} */ (document.getElementById('auth-email'))?.value.trim();
+    const password = /** @type {HTMLInputElement | null} */ (document.getElementById('auth-password'))?.value || '';
+    const confirmPassword = /** @type {HTMLInputElement | null} */ (document.getElementById('auth-confirm-password'))?.value || '';
+    const button = /** @type {HTMLButtonElement | null} */ (document.getElementById('auth-submit'));
     if (!email) return this.setMessage('Enter your email address.');
     if (this.mode !== 'reset' && !password) return this.setMessage('Enter your password.');
     if (button) { button.disabled = true; button.textContent = 'Please wait…'; }
@@ -202,9 +202,9 @@ class MaraAccount {
     const title = document.getElementById('auth-form-title');
     const description = document.getElementById('auth-form-description');
     const confirm = document.getElementById('auth-confirm-field');
-    const confirmInput = document.getElementById('auth-confirm-password');
+    const confirmInput = /** @type {HTMLInputElement | null} */ (document.getElementById('auth-confirm-password'));
     const password = document.getElementById('auth-password-field');
-    const passwordInput = document.getElementById('auth-password');
+    const passwordInput = /** @type {HTMLInputElement | null} */ (document.getElementById('auth-password'));
     const tabs = document.getElementById('auth-mode-tabs');
     const forgot = document.getElementById('auth-forgot-button');
     const back = document.getElementById('auth-back-button');
@@ -223,7 +223,7 @@ class MaraAccount {
       back.hidden = !(reset || recovery);
       if (reset || recovery) back.textContent = 'Back to sign in';
     }
-    const submit = document.getElementById('auth-submit');
+    const submit = /** @type {HTMLButtonElement | null} */ (document.getElementById('auth-submit'));
     if (submit) submit.textContent = this.submitLabel();
     document.getElementById('auth-mode-signin')?.classList.toggle('active', mode === 'signin');
     document.getElementById('auth-mode-signup')?.classList.toggle('active', signup);
@@ -256,7 +256,7 @@ class MaraAccount {
     document.body.classList.add('authenticated');
     document.getElementById('auth-gate')?.classList.add('auth-gate-hidden');
     const account = document.getElementById('auth-account');
-    const avatar = document.getElementById('auth-avatar');
+    const avatar = /** @type {HTMLImageElement | null} */ (document.getElementById('auth-avatar'));
     const name = document.getElementById('auth-account-name');
     const signout = document.getElementById('auth-signout');
     if (account) account.hidden = false;

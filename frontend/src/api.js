@@ -31,6 +31,7 @@ export function isDemoMode() {
   );
 }
 
+/** @param {boolean} enable */
 export function setDemoMode(enable) {
   if (typeof window === 'undefined') return;
   if (enable) {
@@ -61,11 +62,13 @@ const DEMO_STOCKS = new Set([
   'AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA',
 ]);
 
+/** @param {string} range */
 function normalizeChartRange(range) {
   const value = range.toLowerCase();
   return { '1m': '1mo', '3m': '3mo', '6m': '6mo', all: 'max' }[value] || value;
 }
 
+/** @param {string} symbol @param {string} suffix */
 function demoStockFile(symbol, suffix) {
   const safe = symbol.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
   // Strip query params from suffix (e.g. "history?timeframe=1d" -> "history")
@@ -73,11 +76,13 @@ function demoStockFile(symbol, suffix) {
   return `${DEMO_BASE}/${cleanSuffix}-${safe}.json`;
 }
 
+/** @param {string} path */
 async function readFixture(path) {
   const response = await fetch(path);
   return response.ok ? response.json() : null;
 }
 
+/** @param {string} symbol @param {string} interval */
 async function demoChartHistory(symbol, interval) {
   const unavailable = { symbol, interval, candles: [], demo_mode: true, freshness: 'unavailable' };
   const daily = ['1d', '1wk', '1mo'].includes(interval);
@@ -121,12 +126,11 @@ function demoOverview(quote) {
 
 let demoCatalog;
 async function loadDemoCatalog() {
-  const quotes = new Map();
-  for (const symbol of DEMO_STOCKS) {
+  const entries = await Promise.all([...DEMO_STOCKS].map(async (symbol) => {
     const quote = demoOverview(await readFixture(demoStockFile(symbol, 'overview')));
-    if (quote) quotes.set(symbol, quote);
-  }
-  return quotes;
+    return /** @type {const} */ ([symbol, quote]);
+  }));
+  return new Map(entries.filter(([, quote]) => quote));
 }
 
 function getDemoCatalog() {
@@ -296,9 +300,7 @@ class ApiClient {
       if (!response.ok) {
         if (response.status === 401 && !url.startsWith('/api/auth/')) {
           await auth.expireToken();
-          const expired = new Error('Your Mara session has expired. Please sign in again.');
-          expired.authExpired = true;
-          throw expired;
+          throw Object.assign(new Error('Your MARA session has expired. Please sign in again.'), { authExpired: true });
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -480,12 +482,13 @@ export class MarketWebSocket {
     this.isConnecting = true;
     const wsUrl = `${WS_BASE}/ws/markets`;
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
+      let connectionTimeout;
       try {
         this.ws = new WebSocket(wsUrl);
 
         // Connection timeout - if WebSocket doesn't connect in 5s, fall back to polling
-        const connectionTimeout = setTimeout(() => {
+        connectionTimeout = setTimeout(() => {
           if (this.isConnecting && this.ws?.readyState !== WebSocket.OPEN) {
             console.warn('[MarketWS] Connection timeout - falling back to polling');
             this.ws.close();
@@ -684,7 +687,7 @@ export class MarketWebSocket {
     }
   }
 
-  onPriceUpdate(symbol, callback) {
+  subscribePriceUpdates(symbol, callback) {
     if (!this.handlers.has(symbol)) {
       this.handlers.set(symbol, new Set());
     }

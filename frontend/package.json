@@ -9,6 +9,9 @@
     "build:demo": "npm run build",
     "build:live": "vite build",
     "preview": "vite preview",
+    "lint": "node scripts/check-syntax.mjs",
+    "typecheck": "npm exec --yes --package=typescript@5.9.3 -- tsc -p tsconfig.json",
+    "test:unit": "node --test tests/unit/*.test.js",
     "test:smoke": "playwright test --config=playwright.config.js",
     "test:demo": "playwright test --config=playwright.demo.config.js"
   },

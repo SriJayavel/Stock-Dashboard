@@ -2,9 +2,7 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -54,8 +52,16 @@ jobs:
       - name: Install Node Dependencies
         run: npm ci
 
+      - name: Check frontend syntax and types
+        run: |
+          npm run lint
+          npm run typecheck
+
+      - name: Run frontend unit tests
+        run: npm run test:unit
+
       - name: Build Static Demo Bundle
-        run: npm run build
+        run: npm run build:demo
         env:
           VITE_DEMO_MODE: 'false'
           VITE_API_BASE_URL: https://api.example.invalid

@@ -7,7 +7,6 @@ import { roundPrice, seededRandom, walkStep } from './demo/simulator.js';
  */
 
 import { api, isDemoMode, isShowcaseBuild, marketWS, setDemoMode } from './api.js';
-import { TerminalChart } from './chart.js';
 import { watchlist } from './watchlist.js';
 import { alertsManager } from './alerts.js';
 import { ResearchNotebook } from './notebook.js';
@@ -38,6 +37,7 @@ if (typeof window !== 'undefined') {
 }
 
 let chartInstance = null;
+let chartSetup;
 let currentSymbol = null;
 let currentTimeframe = '1y';
 let currentActiveWorkspace = 'analyze';
@@ -242,28 +242,13 @@ async function startApp() {
   }
 
   alertsManager.activateAccount();
-  const chartContainer = document.getElementById('tv-chart-container');
-  const legendBox = document.getElementById('chart-legend-box');
-
-  if (chartContainer) {
-    chartInstance = new TerminalChart(chartContainer, legendBox, (activeList) => {
-      updateIndicatorsBadge(activeList);
-      if (isIndicatorPickerOpen()) {
-        renderIndicatorList();
-      }
-    });
-    window.apexChartInstance = chartInstance;
-    window.apexPatchLatestBar = (data) => chartInstance?.patchLatestBar(data);
-    window.apexWatchlist = watchlist;
-    window.updateChartTelemetry = updateChartTelemetry;
-    updateIndicatorsBadge(chartInstance.getActiveIndicatorsList());
-  }
+  window.apexWatchlist = watchlist;
+  window.updateChartTelemetry = updateChartTelemetry;
 
   setupEventListeners();
   setupWorkspaceControls();
   setupMaraShellControls();
   setupTradingViewChromeControls();
-  syncChartControlsToPreferences();
   setupIndicatorControls();
   setupWatchlistControls();
 
@@ -1215,11 +1200,21 @@ function setupEventListeners() {
   setupBacktesterControls();
   setupReportControls();
 
-  // Global Keyboard Shortcuts (⌘K, /, Escape, Number keys)
+  const shortcuts = document.getElementById('keyboard-shortcuts');
+  document.getElementById('keyboard-shortcuts-button')?.addEventListener('click', () => shortcuts?.showModal());
+
+  // Global keyboard shortcuts
   window.addEventListener('keydown', (e) => {
+    if (shortcuts?.open) return;
     const isEditingText =
       ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
       Boolean(document.activeElement?.isContentEditable);
+
+    if (e.key === '?' && !isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      shortcuts?.showModal();
+      return;
+    }
 
     // 1. ⌘K / Ctrl+K: Global search focus
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -3594,8 +3589,29 @@ export function renderStockInspector(data, isUp) {
 }
 
 // Load Stock Header & Valuation & Chart with Race Condition Token
+function prepareChart() {
+  chartSetup ||= import('./chart.js').then(({ TerminalChart }) => {
+    const container = document.getElementById('tv-chart-container');
+    if (!container) return;
+    chartInstance = new TerminalChart(container, document.getElementById('chart-legend-box'), (activeList) => {
+      updateIndicatorsBadge(activeList);
+      if (isIndicatorPickerOpen()) renderIndicatorList();
+    });
+    window.apexChartInstance = chartInstance;
+    window.apexPatchLatestBar = (data) => chartInstance?.patchLatestBar(data);
+    updateIndicatorsBadge(chartInstance.getActiveIndicatorsList());
+    syncChartControlsToPreferences();
+  }).catch((error) => {
+    chartSetup = undefined;
+    throw error;
+  });
+  return chartSetup;
+}
+
 async function loadStock(symbol, timeframe = '1y') {
   const token = ++currentLoadToken;
+  await prepareChart();
+  if (token !== currentLoadToken) return;
   currentSymbol = symbol;
   currentTimeframe = timeframe;
   updateStarBtn();
@@ -3714,6 +3730,13 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
     if (token !== currentLoadToken) return; // Discard stale chart response
     currentCandles = historyData?.candles || [];
     currentMarketStatus = historyData?.market_status || 'CLOSED';
+    const firstBar = currentCandles[0];
+    const lastBar = currentCandles.at(-1);
+    const date = (bar) => new Date(bar.time * 1000).toISOString().slice(0, 10);
+    document.getElementById('tv-chart-container')?.setAttribute('aria-label',
+      lastBar
+        ? `${symbol} price chart from ${date(firstBar)} to ${date(lastBar)}. Last close ${formatPrice(lastBar.close, symbol)}.`
+        : `${symbol} price chart. ${historyData?.message || 'Price history unavailable.'}`);
 
     if (chartInstance) {
       chartInstance.setData(historyData);
@@ -3760,6 +3783,7 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
         candles: [],
         message: errMsg
       });
+      document.getElementById('tv-chart-container')?.setAttribute('aria-label', `${symbol} price chart. ${errMsg}.`);
     }
   } finally {
     if (token === currentLoadToken && shimmer) {
@@ -5966,38 +5990,20 @@ function renderMarketStateBar(data) {
   //
   // NEVER infer LIVE from hero.source name or retrieval time alone.
   let feedStatus = 'OFFLINE';
-  let dotStatusClass = 'offline';
   const feedHealthValues = Object.values(data?.feed_health || {});
   const hasLiveFeed = feedHealthValues.some((v) => v === 'LIVE');
   const hasDelayedFeed = feedHealthValues.some((v) => v === 'DELAYED');
 
   if (!isFeedActive) {
     feedStatus = 'OFFLINE';
-    dotStatusClass = 'offline';
   } else if (isStale) {
     // Backend marked snapshot as stale — report CACHED even if source claims DELAYED
     feedStatus = 'CACHED';
-    dotStatusClass = 'stale';
   } else if (hasLiveFeed) {
     feedStatus = 'LIVE';
-    dotStatusClass = ''; // standard pulsing green dot
   } else if (hasDelayedFeed || isFeedActive) {
     // Any active feed without explicit LIVE confirmation is DELAYED (yfinance default)
     feedStatus = 'DELAYED';
-    dotStatusClass = 'delayed';
-  }
-
-  // Session Dot reflects FEED CONNECTIVITY only.
-  // Exchange open/closed hours are already shown in SESSION NAME and GLOBAL DESKS — do not duplicate here.
-  if (sessionDot) {
-    // Map feed status to session dot status classes
-    const sessionDotClass = {
-      'LIVE': 'live',
-      'DELAYED': 'delayed',
-      'CACHED': 'stale',
-      'OFFLINE': 'offline'
-    }[feedStatus] || 'closed';
-    sessionDot.className = `status-session-dot ${sessionDotClass}`;
   }
 
   if (sessionName) {
@@ -6007,32 +6013,35 @@ function renderMarketStateBar(data) {
     if (telemetry.nyseIsOpen) openExchanges.push('NYSE');
     if (telemetry.lseIsOpen) openExchanges.push('LSE');
     if (telemetry.tyoIsOpen) openExchanges.push('TYO');
+    if (sessionDot) sessionDot.className = `status-session-dot ${openExchanges.length ? 'market-open' : 'closed'}`;
 
     if (openExchanges.length > 0) {
-      sessionName.textContent = `GLOBAL MARKETS: ${openExchanges.join(', ')} OPEN`;
+      sessionName.textContent = `${openExchanges.join(', ')} open`;
     } else {
       // Check if any are in pre-market or after-hours
       const preMarket = [];
       if (telemetry.nse === 'PRE-MKT') preMarket.push('NSE');
       if (telemetry.nyse === 'PRE-MKT') preMarket.push('NYSE');
       if (preMarket.length > 0) {
-        sessionName.textContent = `PRE-MARKET: ${preMarket.join(', ')} ACTIVE`;
+        sessionName.textContent = `${preMarket.join(', ')} pre-market`;
       } else {
-        sessionName.textContent = 'GLOBAL MARKETS: CLOSED';
+        sessionName.textContent = 'Global markets closed';
       }
     }
   }
 
   // Update individual global desk statuses
-  if (nseStatus) nseStatus.textContent = telemetry.nse;
-  if (nyseStatus) nyseStatus.textContent = telemetry.nyse;
-  if (lseStatus) lseStatus.textContent = telemetry.lse;
-  if (tyoStatus) tyoStatus.textContent = telemetry.tyo;
+  const sessionLabel = (status) => ({ 'PRE-MKT': 'Pre-market', 'POST-MKT': 'After-hours' }[status]
+    || status[0] + status.slice(1).toLowerCase());
+  if (nseStatus) nseStatus.textContent = sessionLabel(telemetry.nse);
+  if (nyseStatus) nyseStatus.textContent = sessionLabel(telemetry.nyse);
+  if (lseStatus) lseStatus.textContent = sessionLabel(telemetry.lse);
+  if (tyoStatus) tyoStatus.textContent = sessionLabel(telemetry.tyo);
 
   if (feedDot && feedSource) {
     const rawSrc = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
-    const srcLabel = rawSrc ? rawSrc.toUpperCase() : 'DATA FEED';
-    feedSource.textContent = data?.demo_mode ? 'Demo data' : `${srcLabel} · ${feedStatus}`;
+    const srcLabel = rawSrc || 'Data feed';
+    feedSource.textContent = data?.demo_mode ? 'Demo data' : `${srcLabel} · ${feedStatus.toLowerCase()}`;
     // Map feed status to feed dot classes
     const feedDotClass = {
       'LIVE': 'live',
@@ -6047,9 +6056,9 @@ function renderMarketStateBar(data) {
   const breadthVal = document.getElementById('mkt-breadth-val');
   if (breadthVal) {
     if (!isFeedActive) {
-      breadthVal.textContent = 'FEED OFFLINE';
+      breadthVal.textContent = 'Feed offline';
     } else if (isStale) {
-      breadthVal.textContent = 'STALE DATA';
+      breadthVal.textContent = 'Stale data';
     } else {
       // Calculate breadth from indices if available
       const advancing = indices.filter((i) => typeof i.change === 'number' && i.change > 0).length;
@@ -6058,7 +6067,7 @@ function renderMarketStateBar(data) {
       if (total > 0) {
         breadthVal.textContent = `${advancing} gaining, ${declining} declining`;
       } else {
-        breadthVal.textContent = '—';
+        breadthVal.textContent = 'No changes';
       }
     }
   }

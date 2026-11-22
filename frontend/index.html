@@ -231,6 +231,17 @@
             <span class="demo-tag-label" id="demo-tag-label">DEMO</span>
           </button>
 
+          <button id="keyboard-shortcuts-button" class="mara-header-btn" type="button" aria-label="Keyboard shortcuts" aria-keyshortcuts="?">?</button>
+          <dialog id="keyboard-shortcuts" aria-labelledby="keyboard-shortcuts-title">
+            <h2 id="keyboard-shortcuts-title">Keyboard shortcuts</h2>
+            <dl>
+              <div><dt><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>K</kbd></dt><dd>Search for a symbol</dd></div>
+              <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Move between benchmark rows</dd></div>
+              <div><dt><kbd>Enter</kbd></dt><dd>Open the selected chart</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Dismiss the dialog or search</dd></div>
+            </dl>
+            <form method="dialog"><button class="ghost-btn" autofocus>Close</button></form>
+          </dialog>
           <!-- Theme Toggle Button -->
           <button class="mara-header-btn" id="theme-toggle-btn" type="button" title="Toggle Light/Dark Theme" aria-label="Toggle theme">
             <svg class="theme-icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -284,7 +295,6 @@
             <header class="markets-page-heading">
               <div>
                 <h1>Market overview</h1>
-                <p>Benchmarks, sector performance, and global trading hours.</p>
               </div>
             </header>
             <section class="market-ticker-strip" aria-label="Global market snapshot">
@@ -808,7 +818,7 @@
                 <div class="tv-tb-divider"></div>
 
                 <!-- Interval Segmented Control (1m / 5m / 15m / 1h / 1D / 1W / 1M) -->
-                <div class="interval-segmented-control" id="interval-group">
+                <div class="interval-segmented-control" id="interval-group" role="group" aria-label="Chart timeframe">
                   <button class="interval-btn" data-interval="1m" title="1-Minute Intraday Bars">1m</button>
                   <button class="interval-btn" data-interval="5m" title="5-Minute Intraday Bars">5m</button>
                   <button class="interval-btn" data-interval="15m" title="15-Minute Intraday Bars">15m</button>
@@ -828,7 +838,7 @@
                 <div class="tv-tb-divider"></div>
 
                 <!-- Range Segmented Control (1D / 5D / 1M / 3M / 6M / YTD / 1Y / 5Y / All) -->
-                <div class="range-segmented-control" id="range-group">
+                <div class="range-segmented-control" id="range-group" role="group" aria-label="Chart range">
                   <button class="range-btn" data-range="1D" title="1 Day Range">1D</button>
                   <button class="range-btn" data-range="5D" title="5 Days Range">5D</button>
                   <button class="range-btn" data-range="1M" title="1 Month Range">1M</button>
@@ -956,7 +966,7 @@
                 <div class="chart-skeleton-shimmer" id="chart-skeleton-shimmer">
                   <div class="shimmer-pulse-text">Loading chart...</div>
                 </div>
-                <div id="tv-chart-container"></div>
+                <div id="tv-chart-container" role="img" aria-label="Price chart"></div>
               </div>
 
               <!-- 5. Bottom Status Bar (28px) -->

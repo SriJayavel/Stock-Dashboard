@@ -6,7 +6,10 @@
  * - Generates series markers for chart visualization.
  */
 
+/** @typedef {{ time: number | string, close: number, ema50?: number, ema200?: number, rsi?: number }} BacktestBar */
+
 export class Backtester {
+  /** @param {{ candles: BacktestBar[], strategy?: string }} input */
   static run({ candles, strategy = 'ema_crossover' }) {
     if (!candles || candles.length < 50) {
       return { error: 'Insufficient historical bars to simulate backtest (minimum 50 required).' };
@@ -16,6 +19,7 @@ export class Backtester {
     const markers = [];
     let inPosition = false;
     let entryPrice = 0;
+    /** @type {number | string} */
     let entryDate = '';
     let capital = 100000;
     const initialCapital = capital;
@@ -168,6 +172,7 @@ export class Backtester {
   }
 }
 
+/** @param {number} val */
 function round(val, dec = 2) {
-  return Number(Math.round(val + 'e' + dec) + 'e-' + dec);
+  return Number(Math.round(Number(val + 'e' + dec)) + 'e-' + dec);
 }

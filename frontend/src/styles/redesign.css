@@ -3068,6 +3068,17 @@ body.authenticated .mara-app {
 .benchmark-panel .benchmark-actions { flex-wrap: wrap; }
 
 #workspace-markets .markets-page-heading h1 { font-size: var(--type-page); }
+#workspace-markets .markets-page-heading { margin-block-end: var(--space-3); }
+#workspace-markets .markets-skeleton { display: none; }
+#workspace-markets .markets-status-strip { min-block-size: 40px; padding-block: 0; }
+#workspace-markets :is(.status-session-name, .status-desk-val, .status-breadth, .status-updated) {
+  font-size: var(--type-label);
+  letter-spacing: normal;
+  text-transform: none;
+}
+#workspace-markets .status-session-dot { background: var(--text-muted); box-shadow: none; animation: none; }
+#workspace-markets .status-session-dot.market-open { background: var(--up); }
+#workspace-markets .status-feed-dot { background: var(--text-muted); box-shadow: none; animation: none; }
 #workspace-markets .section-sub-title { font-size: var(--type-section); }
 #workspace-markets .benchmark-filter-group {
   background: transparent;
@@ -3084,6 +3095,8 @@ body.authenticated .mara-app {
 #workspace-markets .benchmark-board-table :is(th, td) {
   font-size: var(--type-table);
   font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 #workspace-markets .benchmark-board-table thead { background: var(--surface); }
@@ -3153,6 +3166,27 @@ body.authenticated .mara-app {
 .benchmark-sort { inline-size: 100%; justify-content: flex-start; }
 .text-right .benchmark-sort { justify-content: flex-end; }
 .benchmark-sort:focus-visible { outline-offset: -3px; }
+.benchmark-board-table .region-badge { font-size: var(--type-label); }
+
+#keyboard-shortcuts {
+  max-inline-size: min(28rem, calc(100% - 2rem));
+  padding: var(--space-6);
+  color: var(--text);
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-md);
+}
+#keyboard-shortcuts:modal { overscroll-behavior: contain; }
+#keyboard-shortcuts::backdrop {
+  background: color-mix(in srgb, var(--text) 25%, transparent);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+#keyboard-shortcuts h2 { margin: 0; font-size: var(--type-section); }
+#keyboard-shortcuts dl { display: grid; gap: var(--space-3); font-size: var(--type-body); }
+#keyboard-shortcuts dl div { display: grid; grid-template-columns: 6rem 1fr; gap: var(--space-2); }
+#keyboard-shortcuts dd { margin: 0; color: var(--text-muted); }
+#keyboard-shortcuts button { min-block-size: 40px; }
 
 @media (max-width: 900px) {
   #workspace-markets .benchmark-board-table .col-name {
@@ -3162,6 +3196,13 @@ body.authenticated .mara-app {
     z-index: 1;
   }
   #workspace-markets .benchmark-board-table .active-row .col-name { background: var(--surface-hover); }
+}
+
+@media (pointer: coarse), (max-width: 767px) {
+  #workspace-markets :is(.benchmark-sort, .benchmark-filter-btn, .macro-tab-btn, .benchmark-actions .ghost-btn),
+  #tv-top-toolbar :is(.interval-btn, .range-btn, .tv-tb-btn, .tv-tb-icon-btn),
+  .mara-unified-header :is(.mara-header-btn, .mara-workspace-tab),
+  .demo-banner .demo-exit-btn { min-block-size: 40px; }
 }
 
 .mara-status-bar {
@@ -3203,11 +3244,17 @@ body.authenticated .mara-app {
   .mara-unified-header .mara-header-utilities { gap: .3rem; }
   #tv-top-toolbar .tv-tb-divider { display: none; }
   .mara-unified-header { grid-template-rows: minmax(2.5rem, auto) 2.5rem auto; }
-  .mara-unified-header .mara-ws-tabs { flex-wrap: wrap; }
+  .mara-unified-header .mara-ws-tabs {
+    min-inline-size: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .mara-unified-header .mara-header-utilities { grid-area: 1 / 2 / 2 / -1; }
   .mara-unified-header .mara-ws-tab-btn {
     flex: 0 0 auto;
     min-inline-size: 0;
-    min-block-size: 2.25rem;
+    min-block-size: 40px;
     padding-inline: .45rem;
     font-size: .75rem;
   }

@@ -1,5 +1,100 @@
 import { test, expect } from '@playwright/test';
 
+test.describe('Markets and chart interactions', () => {
+  test('sorts benchmarks and opens a chart from the keyboard', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto('/?freeze=1#/markets');
+    const rows = page.locator('#markets-indices-table .benchmark-row');
+    await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(8);
+    const eighth = await rows.nth(7).boundingBox();
+    expect(eighth.y + eighth.height).toBeLessThanOrEqual(768);
+    const paths = await rows.locator('polyline').evaluateAll(nodes => nodes.map(node => node.getAttribute('points')));
+    expect(paths).toHaveLength(await rows.count());
+    expect(new Set(paths).size).toBe(paths.length);
+    const before = await rows.evaluateAll(nodes => nodes.map(row => row.dataset.sym));
+    const header = page.getByRole('columnheader', { name: 'Last Price' });
+    await header.getByRole('button').click();
+    await expect(header).toHaveAttribute('aria-sort', 'ascending');
+    const after = await rows.evaluateAll(nodes => nodes.map(row => row.dataset.sym));
+    expect(after).not.toEqual(before);
+    await header.getByRole('button').click();
+    await expect(header).toHaveAttribute('aria-sort', 'descending');
+    await page.keyboard.press('Control+k');
+    await expect(page.locator('#global-search-input')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('?');
+    const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+    await expect(shortcuts.getByRole('button', { name: 'Close' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(shortcuts).toBeHidden();
+    await rows.first().focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(rows.nth(1)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/symbol\/.+\/chart/);
+    await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/Last close/);
+  });
+
+  test('keeps the chart canvas sharp on touch and resize', async ({ browser, baseURL }) => {
+    const page = await browser.newPage({ baseURL, deviceScaleFactor: 2, hasTouch: true });
+    try {
+      await page.goto('/?freeze=1#/symbol/TCS.NS/chart');
+      await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/Last close/);
+      const canvas = page.locator('#tv-chart-container canvas').first();
+      await expect.poll(() => canvas.evaluate(node => node.width / node.clientWidth)).toBeCloseTo(2);
+      for (const width of [768, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await expect.poll(() => canvas.evaluate(node => node.width / node.clientWidth)).toBeCloseTo(2);
+        await expect(page.getByRole('group', { name: 'Chart timeframe' })).toBeVisible();
+      }
+      const box = await canvas.boundingBox();
+      await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+      await expect(canvas).toBeVisible();
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('contains horizontal scrolling and persists the selected theme', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?freeze=1#/markets');
+    const table = page.getByRole('region', { name: 'Global benchmarks' });
+    await expect(table.locator('.benchmark-row').first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    const scroller = await table.evaluate(node => {
+      node.scrollLeft = 200;
+      return { scrollLeft: node.scrollLeft, width: node.clientWidth, total: node.scrollWidth };
+    });
+    expect(scroller.total).toBeGreaterThan(scroller.width);
+    expect(scroller.scrollLeft).toBeGreaterThan(0);
+    await expect(table.locator('.benchmark-row .col-name').first()).toHaveCSS('position', 'sticky');
+    await page.getByRole('button', { name: 'Toggle theme' }).click();
+    await expect(page.locator('html')).toHaveClass(/light-theme/);
+    await page.reload();
+    await expect(page.locator('html')).toHaveClass(/light-theme/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  });
+});
+
+test('pauses simulated prices without replacing market rows', async ({ page }) => {
+  await page.goto('/#/markets');
+  const cell = page.locator('#markets-indices-table .col-price[data-sort-value]').first();
+  await expect(cell).toBeVisible();
+  const readPrices = () => page.locator('#markets-indices-table .benchmark-row .col-price')
+    .evaluateAll(nodes => nodes.map(node => node.textContent.trim()));
+  const first = await cell.elementHandle();
+  const prices = await readPrices();
+  await expect.poll(readPrices).not.toEqual(prices);
+  expect(await first.evaluate(node => node.isConnected)).toBe(true);
+  const toggle = page.getByRole('button', { name: 'Pause updates' });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  const paused = await readPrices();
+  // A full tick interval must pass with the simulation paused.
+  await page.waitForTimeout(2100);
+  expect(await readPrices()).toEqual(paused);
+});
+
 /**
  * MARA Phase 3.1 — Static Vercel Demo Deployment Verification
  *
