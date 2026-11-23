@@ -26,12 +26,15 @@
     <meta name="color-scheme" content="light dark" />
     <script>
       try {
-        document.querySelector('meta[name="color-scheme"]').content = localStorage.getItem('mara-theme') === 'light' ? 'light' : 'dark';
+        const theme = localStorage.getItem('mara-theme') === 'light' ? 'light' : 'dark';
+        document.querySelector('meta[name="color-scheme"]').content = theme;
+        document.documentElement.classList.toggle('light-theme', theme === 'light');
       } catch (_) {}
     </script>
     <link rel="stylesheet" href="/src/styles/tokens.css" />
     <link rel="stylesheet" href="/src/styles/terminal.css" />
     <link rel="stylesheet" href="/src/styles/redesign.css" />
+    <link rel="stylesheet" href="/src/styles/provenance.css" />
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -177,8 +180,8 @@
               id="global-search-input"
               class="mara-cmd-input"
               role="combobox"
-              aria-label="Search symbols or companies"
-              placeholder="Search symbols"
+              aria-label="Search symbols, companies or actions"
+              placeholder="Search symbols or type > for actions"
               autocomplete="off"
               aria-controls="search-dropdown"
               aria-autocomplete="list"
@@ -248,6 +251,7 @@
             <form method="dialog"><button class="ghost-btn" autofocus>Close</button></form>
           </dialog>
           <!-- Theme Toggle Button -->
+          <button class="mara-header-btn" id="display-units" type="button" aria-pressed="false" aria-label="International units" title="Use international units for market cap and volume">Units</button>
           <button class="mara-header-btn" id="theme-toggle-btn" type="button" title="Toggle Light/Dark Theme" aria-label="Toggle theme">
             <svg class="theme-icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <circle cx="12" cy="12" r="5"/>
@@ -259,13 +263,13 @@
           </button>
 
           <!-- Watchlist Drawer Button -->
-          <button class="mara-header-btn" id="watchlist-drawer-toggle" type="button" title="Watchlist" aria-label="Watchlist">
+          <button class="mara-header-btn" id="watchlist-drawer-toggle" type="button" title="Watchlist" aria-label="Watchlist 5">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></svg>
             <span>Watchlist</span><span class="nav-count" id="watchlist-nav-count">5</span>
           </button>
 
           <!-- Alerts Modal Button -->
-          <button class="mara-header-btn" id="alerts-modal-toggle" type="button" title="Alerts" aria-label="Alerts">
+          <button class="mara-header-btn" id="alerts-modal-toggle" type="button" title="Alerts" aria-label="Alerts 0">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 20h4"/></svg>
             <span>Alerts</span><span class="nav-count" id="alerts-nav-count">0</span>
           </button>
@@ -444,17 +448,21 @@
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h2 class="section-sub-title" id="benchmark-title">Global benchmarks</h2>
-                  <span class="section-sub-caption">Select a row to inspect it. Press Enter to open its chart.</span>
+                  <button type="button" class="ghost-btn ghost-btn-sm" id="benchmark-density" aria-pressed="false">Comfortable rows</button>
+                  <details class="benchmark-columns"><summary class="ghost-btn ghost-btn-sm">Columns</summary><fieldset><legend>Show columns</legend></fieldset></details>
                 </div>
-                <div class="benchmark-toolbar">
+              </div>
+              <div class="benchmark-toolbar">
+                <div class="benchmark-region-controls">
                   <span class="benchmark-filter-label">Region</span>
-                  <div class="benchmark-filter-group" id="markets-indices-filter" role="tablist" aria-label="Region filter">
-                    <button class="benchmark-filter-btn active" data-region="all" role="tab" aria-selected="true" aria-controls="benchmarks-panel-all" id="tab-all">All</button>
-                    <button class="benchmark-filter-btn" data-region="india" role="tab" aria-selected="false" aria-controls="benchmarks-panel-india" id="tab-india">India</button>
-                    <button class="benchmark-filter-btn" data-region="americas" role="tab" aria-selected="false" aria-controls="benchmarks-panel-americas" id="tab-americas">Americas</button>
-                    <button class="benchmark-filter-btn" data-region="europe" role="tab" aria-selected="false" aria-controls="benchmarks-panel-europe" id="tab-europe">Europe</button>
-                    <button class="benchmark-filter-btn" data-region="asia" role="tab" aria-selected="false" aria-controls="benchmarks-panel-asia" id="tab-asia">Asia-Pacific</button>
+                  <div class="benchmark-filter-group" id="markets-indices-filter" role="group" aria-label="Region filter">
+                    <button class="benchmark-filter-btn active" data-region="all" aria-pressed="true" id="tab-all">All</button>
+                    <button class="benchmark-filter-btn" data-region="india" aria-pressed="false" id="tab-india">India</button>
+                    <button class="benchmark-filter-btn" data-region="americas" aria-pressed="false" id="tab-americas">Americas</button>
+                    <button class="benchmark-filter-btn" data-region="europe" aria-pressed="false" id="tab-europe">Europe</button>
+                    <button class="benchmark-filter-btn" data-region="asia" aria-pressed="false" id="tab-asia">Asia-Pacific</button>
                   </div>
+                </div>
                   <div class="benchmark-actions">
                     <button class="ghost-btn ghost-btn-sm" id="benchmarks-refresh-btn" title="Refresh benchmarks" aria-label="Refresh benchmark data">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
@@ -470,13 +478,12 @@
                       <button class="macro-tab-btn" data-category="Crypto" role="tab" aria-selected="false">Crypto</button>
                     </div>
                   </div>
-                </div>
               </div>
 
               <div class="benchmark-board-professional" id="markets-indices-board">
-                <div role="tabpanel" id="benchmarks-panel-all" aria-labelledby="tab-all" class="benchmark-tabpanel active">
+                <div id="benchmarks-panel-all" class="benchmark-tabpanel active">
                   <div class="benchmark-table-container" role="region" aria-labelledby="benchmark-title" tabindex="0">
-                    <table class="benchmark-board-table" id="markets-indices-table" aria-labelledby="benchmark-title">
+                    <table class="benchmark-board-table" id="markets-indices-table" role="table" aria-labelledby="benchmark-title">
                     <thead>
                       <tr>
                         <th scope="col" class="col-region" style="width: 100px;" data-sort="text"><button type="button" class="benchmark-sort">Region<span aria-hidden="true"></span></button></th>
@@ -499,98 +506,6 @@
                   </table>
                   </div>
                 </div>
-                <div role="tabpanel" id="benchmarks-panel-india" aria-labelledby="tab-india" class="benchmark-tabpanel" hidden>
-                  <div class="benchmark-table-container">
-                    <table class="benchmark-board-table" role="grid" aria-label="India benchmark indices">
-                      <thead>
-                        <tr>
-                          <th scope="col" class="col-region" style="width: 100px;">Region</th>
-                          <th scope="col" class="col-name">Index Name</th>
-                          <th scope="col" class="col-symbol" style="width: 110px;">Symbol</th>
-                          <th scope="col" class="col-price text-right" style="width: 140px;">Last Price</th>
-                          <th scope="col" class="col-change text-right" style="width: 130px;">Change</th>
-                          <th scope="col" class="col-pct text-right" style="width: 110px;">% Chg</th>
-                          <th scope="col" class="col-high text-right" style="width: 100px;">High</th>
-                          <th scope="col" class="col-low text-right" style="width: 100px;">Low</th>
-                          <th scope="col" class="col-sparkline" style="width: 160px;">Intraday</th>
-                          <th scope="col" class="col-updated text-right" style="width: 120px;">Updated</th>
-                        </tr>
-                      </thead>
-                      <tbody id="markets-indices-table-india">
-                        <tr class="loading-row"><td colspan="10" class="table-loading-cell">Loading India benchmarks...</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div role="tabpanel" id="benchmarks-panel-americas" aria-labelledby="tab-americas" class="benchmark-tabpanel" hidden>
-                  <div class="benchmark-table-container">
-                    <table class="benchmark-board-table" role="grid" aria-label="Americas benchmark indices">
-                      <thead>
-                        <tr>
-                          <th scope="col" class="col-region" style="width: 100px;">Region</th>
-                          <th scope="col" class="col-name">Index Name</th>
-                          <th scope="col" class="col-symbol" style="width: 110px;">Symbol</th>
-                          <th scope="col" class="col-price text-right" style="width: 140px;">Last Price</th>
-                          <th scope="col" class="col-change text-right" style="width: 130px;">Change</th>
-                          <th scope="col" class="col-pct text-right" style="width: 110px;">% Chg</th>
-                          <th scope="col" class="col-high text-right" style="width: 100px;">High</th>
-                          <th scope="col" class="col-low text-right" style="width: 100px;">Low</th>
-                          <th scope="col" class="col-sparkline" style="width: 160px;">Intraday</th>
-                          <th scope="col" class="col-updated text-right" style="width: 120px;">Updated</th>
-                        </tr>
-                      </thead>
-                      <tbody id="markets-indices-table-americas">
-                        <tr class="loading-row"><td colspan="10" class="table-loading-cell">Loading Americas benchmarks...</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div role="tabpanel" id="benchmarks-panel-europe" aria-labelledby="tab-europe" class="benchmark-tabpanel" hidden>
-                  <div class="benchmark-table-container">
-                    <table class="benchmark-board-table" role="grid" aria-label="Europe benchmark indices">
-                      <thead>
-                        <tr>
-                          <th scope="col" class="col-region" style="width: 100px;">Region</th>
-                          <th scope="col" class="col-name">Index Name</th>
-                          <th scope="col" class="col-symbol" style="width: 110px;">Symbol</th>
-                          <th scope="col" class="col-price text-right" style="width: 140px;">Last Price</th>
-                          <th scope="col" class="col-change text-right" style="width: 130px;">Change</th>
-                          <th scope="col" class="col-pct text-right" style="width: 110px;">% Chg</th>
-                          <th scope="col" class="col-high text-right" style="width: 100px;">High</th>
-                          <th scope="col" class="col-low text-right" style="width: 100px;">Low</th>
-                          <th scope="col" class="col-sparkline" style="width: 160px;">Intraday</th>
-                          <th scope="col" class="col-updated text-right" style="width: 120px;">Updated</th>
-                        </tr>
-                      </thead>
-                      <tbody id="markets-indices-table-europe">
-                        <tr class="loading-row"><td colspan="10" class="table-loading-cell">Loading Europe benchmarks...</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div role="tabpanel" id="benchmarks-panel-asia" aria-labelledby="tab-asia" class="benchmark-tabpanel" hidden>
-                  <div class="benchmark-table-container">
-                    <table class="benchmark-board-table" role="grid" aria-label="Asia-Pacific benchmark indices">
-                      <thead>
-                        <tr>
-                          <th scope="col" class="col-region" style="width: 100px;">Region</th>
-                          <th scope="col" class="col-name">Index Name</th>
-                          <th scope="col" class="col-symbol" style="width: 110px;">Symbol</th>
-                          <th scope="col" class="col-price text-right" style="width: 140px;">Last Price</th>
-                          <th scope="col" class="col-change text-right" style="width: 130px;">Change</th>
-                          <th scope="col" class="col-pct text-right" style="width: 110px;">% Chg</th>
-                          <th scope="col" class="col-high text-right" style="width: 100px;">High</th>
-                          <th scope="col" class="col-low text-right" style="width: 100px;">Low</th>
-                          <th scope="col" class="col-sparkline" style="width: 160px;">Intraday</th>
-                          <th scope="col" class="col-updated text-right" style="width: 120px;">Updated</th>
-                        </tr>
-                      </thead>
-                      <tbody id="markets-indices-table-asia">
-                        <tr class="loading-row"><td colspan="10" class="table-loading-cell">Loading Asia-Pacific benchmarks...</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
                 <div class="benchmark-footer" id="benchmark-footer">
                   <span class="footer-status" id="benchmarks-status">Initializing...</span>
                   <span class="footer-count" id="benchmarks-count">— indices</span>
@@ -603,12 +518,12 @@
             <div class="ws-section-block market-hours-timeline" id="market-hours-timeline" aria-label="Global market trading hours">
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
-                  <h2 class="section-sub-title">Global Market Hours</h2>
-                  <span class="section-sub-caption">Real-time session status across global exchanges. Timeline shows 24h cycle in exchange local time.</span>
+                  <h2 class="section-sub-title">Trading sessions</h2>
+                  <span class="section-sub-caption">Regular equity hours on a shared IST clock. Holiday calendars cover 2026.</span>
                 </div>
                 <div class="timeline-toolbar">
                   <div class="timeline-time-indicator" id="timeline-current-time" aria-live="polite">
-                    <span class="timeline-time-label">Current UTC</span>
+                    <span class="timeline-time-label">Now &#183; IST</span>
                     <span class="timeline-time-value">--:--:--</span>
                   </div>
                   <button class="ghost-btn ghost-btn-sm" id="timeline-refresh-btn" title="Refresh timeline" aria-label="Refresh market hours">
@@ -619,13 +534,7 @@
               <div class="market-timeline-professional" id="market-timeline-professional" role="list" aria-label="Market hours timeline">
                 <!-- Populated by renderMarketHoursTimelinePro() -->
               </div>
-              <div class="timeline-legend" id="timeline-legend" aria-label="Session legend">
-                <span class="legend-item"><span class="legend-swatch session-open"></span>Regular Session</span>
-                <span class="legend-item"><span class="legend-swatch session-pre"></span>Pre-Market</span>
-                <span class="legend-item"><span class="legend-swatch session-post"></span>After-Hours</span>
-                <span class="legend-item"><span class="legend-swatch session-lunch"></span>Lunch Break</span>
-                <span class="legend-item"><span class="legend-swatch session-closed"></span>Closed</span>
-              </div>
+              <div class="ist-session-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
             </div>
 
             <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP (SECTOR MATRIX) -->
@@ -858,7 +767,7 @@
               <div class="tv-tb-divider"></div>
 
               <div class="tv-overlay-controls" role="group" aria-label="Chart overlays">
-                <button class="tv-tb-btn" id="tv-indicators-menu-btn" aria-label="Technical Indicators">
+                <button class="tv-tb-btn" id="tv-indicators-menu-btn" title="Technical indicators">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                   </svg>
@@ -866,7 +775,7 @@
                   <span class="tv-ind-badge" id="tv-ind-count">0</span>
                 </button>
 
-                <button class="tv-tb-btn active" id="tv-toggle-events-btn" aria-label="Toggle Corporate Event Markers">
+                <button class="tv-tb-btn active" id="tv-toggle-events-btn" aria-label="Events">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"/>
                     <polyline points="12 6 12 12 16 14"/>
@@ -887,7 +796,7 @@
               </button>
 
               <!-- Analyze Action Button -->
-              <button class="tv-tb-btn" id="tv-tb-analyze-btn" aria-label="Analysis Tools">
+              <button class="tv-tb-btn" id="tv-tb-analyze-btn" aria-label="Analyze chart">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M9 4h6M4 9v6M16 16l2 2M12 16l2-2"/>
                 </svg>
@@ -959,6 +868,7 @@
                     <span class="tv-leg-item"><span class="lbl">H</span> <span class="val" id="tv-leg-high">—</span></span>
                     <span class="tv-leg-item"><span class="lbl">L</span> <span class="val" id="tv-leg-low">—</span></span>
                     <span class="tv-leg-item"><span class="lbl">C</span> <span class="val" id="tv-leg-close">—</span></span>
+                    <span id="tv-leg-provenance"></span>
                     <span class="tv-leg-change" id="tv-leg-change" title="Change from this candle’s open to close">—</span>
                   </div>
                   <div class="tv-legend-indicators" id="tv-legend-indicators">
@@ -1076,6 +986,13 @@
            WORKSPACE 4: COMPARE (PEER BENCHMARKING & MULTIPLES MATRIX)
            ===================================================================== -->
       <section class="workspace-view" id="workspace-compare" role="tabpanel" aria-labelledby="ws-btn-compare">
+        <section id="compare-benchmark-pair" class="ws-section-block benchmark-pair" hidden>
+          <h2 id="benchmark-pair-title">NIFTY 50 and SENSEX</h2>
+          <table class="peer-table" aria-labelledby="benchmark-pair-title">
+            <thead><tr><th scope="col">Index</th><th scope="col">Last price</th><th scope="col">Change %</th><th scope="col">Intraday</th></tr></thead>
+            <tbody><tr><td colspan="4">Loading benchmark quotes…</td></tr></tbody>
+          </table>
+        </section>
         <div class="workspace-scroll-wrap">
           <div class="workspace-header">
             <div class="workspace-title-row">
@@ -1296,6 +1213,7 @@
               </div>
             </div>
             <div class="lab-card-shell">
+              <div id="report-quote-provenance" class="report-quote-provenance"></div>
               <div id="report-rendered-preview" style="font-family: var(--font-sans); color: var(--text); font-size: 13px; line-height: 1.6; white-space: pre-wrap;">
                 Generating research report...
               </div>

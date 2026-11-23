@@ -4,8 +4,9 @@ Research Indian and global equities, compare market benchmarks, and inspect pric
 
 [Open the live demo](https://mara-stock-terminal.vercel.app/) · [Engineering benchmarks](BENCHMARKS.md)
 
-![MARA Markets with sortable benchmark quotes and intraday sparklines](docs/assets/markets.png)
-![MARA Analyze showing the TCS daily candlestick chart and volume](docs/assets/chart.png)
+![MARA Markets with synchronized quotes and provenance markers](frontend/tests/visual.spec.js-snapshots/markets-dark-win32.png)
+
+[Interface design and Markets before-and-after](docs/design.md) · [Workspace screenshots](frontend/tests/visual.spec.js-snapshots/) · [Demo GIF](docs/assets/mara-demo.gif)
 
 [![CI](https://github.com/SriJayavel/Stock-Dashboard/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SriJayavel/Stock-Dashboard/actions/workflows/ci.yml)
 

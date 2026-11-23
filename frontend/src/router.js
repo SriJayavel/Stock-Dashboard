@@ -66,12 +66,13 @@ export class HashRouter {
       };
     }
 
-    // #/compare or #/compare/:symbol
+    // #/compare, #/compare/:symbol or #/compare/benchmarks/nifty-sensex
     if (first === 'compare') {
       return {
         type: 'compare',
         workspace: 'compare',
         view: 'compare',
+        benchmarkPair: parts[1] === 'benchmarks' && parts[2] === 'nifty-sensex',
         symbol: parts[1] ? parts[1].toUpperCase() : null,
         raw,
       };

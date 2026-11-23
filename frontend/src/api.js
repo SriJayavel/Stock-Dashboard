@@ -218,6 +218,12 @@ async function demoFetch(url, options) {
     const catalog = await getDemoCatalog();
     return { results: [...catalog.values()].filter(({ symbol, name }) => `${symbol} ${name}`.toLowerCase().includes(term)) };
   }
+  if (pathOnly === '/api/analytics/correlation') {
+    const fixture = await readFixture(DEMO_ROUTES[pathOnly]);
+    if (!fixture) return null;
+    const { symbols, matrix } = fixture;
+    return { ...fixture, matrix: symbols.map(left => symbols.map(right => matrix[left]?.[right] ?? null)) };
+  }
   if (pathOnly === '/api/screener') {
     const fixture = await readFixture(`${DEMO_BASE}/screener.json`);
     if (!fixture) return null;
@@ -249,6 +255,35 @@ async function demoFetch(url, options) {
     }
     demoUrl = demoStockFile(symbol, suffix);
     if (suffix === 'overview') return (await getDemoCatalog()).get(symbol) || null;
+    if (suffix === 'research') {
+      const fixture = await readFixture(demoUrl);
+      if (!fixture) return null;
+      const quote = (await getDemoCatalog()).get(symbol);
+      return {
+        ...fixture,
+        currency_symbol: quote?.currency_symbol,
+        provenance: { primary_source: 'MARA synthetic research fixture', cache_status: 'Sample' },
+        price_structure: { current_price: quote?.price },
+        peer_intelligence: {
+          peers: (fixture.peers || []).map(peer => ({ ...peer, pe_trailing: peer.pe })),
+        },
+        research_dossier: { valuation_peer_context: { current_pe: fixture.valuation?.pe_current } },
+      };
+    }
+    if (suffix === 'deep-research') {
+      const fixture = await readFixture(demoUrl);
+      if (!fixture) return null;
+      const envelope = fixture.valuation_envelope;
+      return {
+        ...fixture,
+        historical_valuation: envelope ? {
+          current_pe: envelope.pe_current,
+          pe_5y_low: envelope.pe_5y_min,
+          pe_5y_high: envelope.pe_5y_max,
+          sample: true,
+        } : null,
+      };
+    }
   } else {
     return null;
   }

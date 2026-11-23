@@ -89,8 +89,8 @@ ${timeline
 * **[FACT] Price to Book (P/B):** ${stockData?.pb_ratio ? `${stockData.pb_ratio}x` : '—'}
 * **[FACT] EV / EBITDA:** ${stockData?.ev_ebitda ? `${stockData.ev_ebitda}x` : '—'}
 * **[FACT] Dividend Yield:** ${stockData?.dividend_yield != null ? `${stockData.dividend_yield.toFixed(2)}%` : '—'}
-* **[CALCULATION] 5-Year Historical P/E Envelope:** Low: ${histVal.pe_5y_low || '—'}x | Median: ${histVal.pe_5y_median || '—'}x | High: ${histVal.pe_5y_high || '—'}x
-* **[INTERPRETATION] Valuation Stance:** ${histVal.valuation_stance || 'Historical median multiple alignment.'}
+* **[CALCULATION] Five-year P/E ${histVal.sample ? 'sample' : 'proxy'} range:** Low: ${histVal.pe_5y_low ?? '—'} | Median: ${histVal.pe_5y_median ?? '—'} | High: ${histVal.pe_5y_high ?? '—'}
+* **[ATTRIBUTED CONTEXT] Range inputs:** ${histVal.sample ? 'MARA synthetic valuation fixture.' : 'Historical closes scaled by current P/E divided by current price.'}
 
 ---
 

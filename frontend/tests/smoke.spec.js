@@ -610,12 +610,12 @@ test.describe('Apex Terminal Comprehensive Smoke Test Suite', () => {
 
     // Wait for feed status to be valid (WebSocket may need time to connect)
     await expect.poll(async () => {
-      const text = await feedSource.innerText();
+      const text = (await feedSource.innerText()).toUpperCase();
       const validStatuses = ['LIVE', 'DELAYED', 'CACHED', 'OFFLINE'];
       return validStatuses.some(s => text.includes(s)) && !text.includes('FEED FEED');
     }, { timeout: 15000, message: 'Feed status did not become valid' }).toBe(true);
 
-    const feedText = await feedSource.innerText();
+    const feedText = (await feedSource.innerText()).toUpperCase();
     expect(feedText).not.toContain('FEED FEED');
     const validStatuses = ['LIVE', 'DELAYED', 'CACHED', 'OFFLINE'];
     expect(validStatuses.some((s) => feedText.includes(s))).toBe(true);

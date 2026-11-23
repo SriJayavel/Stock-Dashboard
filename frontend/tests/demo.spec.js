@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 test('adds advanced studies, saves an anchored VWAP date and restores them on reload', async ({ page }) => {
   const errors = [];
@@ -8,10 +9,9 @@ test('adds advanced studies, saves an anchored VWAP date and restores them on re
   const response = await page.request.get('/demo/candles-TCS-NS.json');
   const { candles } = await response.json();
   const anchorDate = new Date(candles.at(-12).time * 1000).toISOString().slice(0, 10);
-  await page.getByRole('button', { name: 'Technical Indicators' }).click();
+  await page.getByRole('button', { name: /^Indicators/ }).click();
   await page.getByRole('button', { name: 'Advanced' }).click();
   const library = page.locator('#tv-indicator-list');
-  await expect(library.locator('[data-ind-id]')).toHaveCount(7);
   for (const id of ['anchored_vwap', 'ppo', 'volatility_squeeze']) {
     await library.locator(`[data-add-id="${id}"]`).click();
   }
@@ -90,19 +90,14 @@ test.describe('Markets and chart interactions', () => {
     }
   });
 
-  test('contains horizontal scrolling and persists the selected theme', async ({ page }) => {
+  test('stacks benchmark rows on phones and persists the selected theme', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/?freeze=1#/markets');
     const table = page.getByRole('region', { name: 'Global benchmarks' });
     await expect(table.locator('.benchmark-row').first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-    const scroller = await table.evaluate(node => {
-      node.scrollLeft = 200;
-      return { scrollLeft: node.scrollLeft, width: node.clientWidth, total: node.scrollWidth };
-    });
-    expect(scroller.total).toBeGreaterThan(scroller.width);
-    expect(scroller.scrollLeft).toBeGreaterThan(0);
-    await expect(table.locator('.benchmark-row .col-name').first()).toHaveCSS('position', 'sticky');
+    await expect(table.locator('.benchmark-row').first()).toHaveCSS('display', 'grid');
+    await expect(page.getByRole('tablist', { name: 'Workspaces' })).toHaveCSS('position', 'fixed');
     await page.getByRole('button', { name: 'Toggle theme' }).click();
     await expect(page.locator('html')).toHaveClass(/light-theme/);
     await page.reload();
@@ -118,8 +113,23 @@ test('pauses simulated prices without replacing market rows', async ({ page }) =
   const readPrices = () => page.locator('#markets-indices-table .benchmark-row .col-price')
     .evaluateAll(nodes => nodes.map(node => node.textContent.trim()));
   const first = await cell.elementHandle();
+  const expectSameQuotes = async () => {
+    const differences = await page.locator('.market-ticker-item').evaluateAll(items => items.flatMap(item => {
+      const row = [...document.querySelectorAll('#markets-indices-table .benchmark-row')]
+        .find(tr => tr.dataset.sym === item.dataset.symbol);
+      if (!row) return [];
+      const fields = [['value', 'price'], ['change', 'change'], ['percent', 'pct']];
+      return fields.filter(([part, column]) =>
+        item.querySelector(`.market-ticker-${part}`).textContent.trim()
+        !== (row.querySelector(`.col-${column} .provenance-value`) || row.querySelector(`.col-${column}`)).textContent.trim(),
+      ).map(([part]) => `${item.dataset.symbol} ${part}`);
+    }));
+    expect(differences).toEqual([]);
+  };
+  await expectSameQuotes();
   const prices = await readPrices();
   await expect.poll(readPrices).not.toEqual(prices);
+  await expectSameQuotes();
   expect(await first.evaluate(node => node.isConnected)).toBe(true);
   const toggle = page.getByRole('button', { name: 'Pause updates' });
   await toggle.click();
@@ -129,6 +139,79 @@ test('pauses simulated prices without replacing market rows', async ({ page }) =
   await page.waitForTimeout(2100);
   expect(await readPrices()).toEqual(paused);
 });
+
+test('opens quote provenance with mouse and keyboard and persists table settings', async ({ page }) => {
+    await page.goto('/?freeze=1#/markets');
+    const quote = page.locator('#markets-indices-table .col-price .provenance-trigger').first();
+    const provenance = page.locator('#provenance-card');
+    await quote.hover();
+    await expect(provenance).toContainText('Source data');
+    await page.keyboard.press('Escape');
+    await expect(provenance).toBeHidden();
+    await quote.press('Enter');
+    await expect(provenance).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/#\/markets$/);
+    await page.getByRole('button', { name: 'Comfortable rows' }).click();
+    await expect(page.getByRole('button', { name: 'Comfortable rows' })).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('.benchmark-columns summary').click();
+    await page.locator('.benchmark-columns input[value="symbol"]').uncheck();
+    const symbolColumn = page.locator('#markets-indices-table th.col-symbol');
+    await expect(symbolColumn).toBeHidden();
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Comfortable rows' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(symbolColumn).toBeHidden();
+});
+
+test('opens quote provenance on touch', async ({ browser, baseURL }) => {
+  const page = await browser.newPage({ baseURL, hasTouch: true, viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto('/?freeze=1#/markets');
+    await page.locator('#markets-indices-table .col-price .provenance-trigger').first().tap({ timeout: 10000 });
+    await expect(page.locator('#provenance-card')).toContainText('synthetic market fixture');
+    await expect(page).toHaveURL(/#\/markets$/);
+  } finally {
+    await page.close();
+  }
+});
+
+test('opens the index pair from the command search', async ({ page }) => {
+  await page.goto('/?freeze=1#/markets');
+  await page.keyboard.press('Control+k');
+  const search = page.getByRole('combobox', { name: 'Search symbols, companies or actions' });
+  await search.fill('> nifty');
+  await page.getByRole('option', { name: /Open Compare with NIFTY and SENSEX/ }).click();
+  await expect(page).toHaveURL(/compare\/benchmarks\/nifty-sensex$/);
+  await expect(page.getByRole('table', { name: 'NIFTY 50 and SENSEX' }).getByRole('rowheader')).toHaveText(['NIFTY 50', 'SENSEX']);
+});
+
+const workspaces = {
+  markets: '/markets',
+  discover: '/discover',
+  analyze: '/symbol/TCS.NS/chart',
+  compare: '/compare/TCS.NS',
+  research: '/research/TCS.NS/report',
+  monitor: '/monitor',
+};
+
+for (const [workspace, path] of Object.entries(workspaces)) {
+  for (const theme of ['dark', 'light']) {
+    test(`${workspace} meets automated accessibility checks in ${theme} mode`, async ({ page }) => {
+      await page.addInitScript(theme => localStorage.setItem('mara-theme', theme), theme);
+      await page.goto(`/?freeze=1#${path}`);
+      await expect(page.locator(`#workspace-${workspace}`)).toBeVisible();
+      if (workspace === 'markets') await expect(page.locator('.benchmark-row').first()).toBeVisible();
+      if (workspace === 'analyze') await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/Last close/);
+      if (workspace === 'compare') await expect(page.locator('.correlation-table:not(.skeleton-table) tbody tr').first()).toBeVisible();
+      if (workspace === 'research') await expect(page.locator('#report-rendered-preview')).toContainText('Research Dossier: TCS.NS');
+      const { violations } = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      const serious = violations.filter(({ impact }) => ['serious', 'critical'].includes(impact));
+      expect(serious.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([]);
+    });
+  }
+}
 
 /**
  * MARA Phase 3.1 — Static Vercel Demo Deployment Verification

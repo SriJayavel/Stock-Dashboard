@@ -5,6 +5,7 @@
  */
 import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition, normalizeIndicatorParams } from './indicators.js';
 import { getAccountStorageKey } from './auth.js';
+import { provenance } from './provenance.js';
 
 const bullColor = '#10b981';
 const bearColor = '#f43f5e';
@@ -1028,8 +1029,19 @@ export class TerminalChart {
     });
     const ch=document.getElementById('tv-leg-change');
     if(ch){
-      ch.textContent=`O→C ${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;
+      ch.textContent=`O→C ${d > 0 ? '▲ ' : d < 0 ? '▼ ' : ''}${d>=0?'+':''}${d.toFixed(2)} (${p>=0?'+':''}${p.toFixed(2)}%)`;
       ch.style.color=col;
+    }
+    const origin = document.getElementById('tv-leg-provenance');
+    if (origin && origin.dataset.time !== String(bar.time)) {
+      const date = new Date(bar.time * 1000);
+      const provider = this.currentData?.demo_mode ? 'MARA synthetic price history' :
+        this.currentData?.source || this.currentData?.provenance?.primary_source || 'MARA chart history';
+      origin.dataset.time = String(bar.time);
+      origin.innerHTML = provenance('OHLC', {
+        label: 'Candle prices',
+        details: `Source: ${provider}. Bar time: ${Number.isFinite(date.getTime()) ? date.toISOString() : 'Unavailable'}. O→C change is close minus open, and the percent change divides that by the open.`,
+      });
     }
   }
 
@@ -1060,7 +1072,11 @@ export class TerminalChart {
         const text = inst.visible && !inst.unavailable ? label : '';
         if (readout && readout.textContent !== text) readout.textContent = text;
       } else if (inst.visible) {
-        overlays.push(`<span class="tv-leg-ind" style="--study-color:${inst.color}">${inst.short} ${label}</span>`);
+        const settings = Object.entries(inst.params).map(([name, value]) => `${name} ${value}`).join(', ');
+        overlays.push(`<span class="tv-leg-ind" style="--study-color:${inst.color}">${provenance(`${inst.short} ${label}`, {
+          kind: 'calculation', label: inst.name,
+          details: `${inst.def.description || inst.name}. Inputs: ${this.activeInterval} chart candles${settings ? `; ${settings}` : ''}.`,
+        })}</span>`);
       }
     }
     const content = overlays.join('');
@@ -1068,6 +1084,11 @@ export class TerminalChart {
   }
 
   resetCornerLegend(symbol='',interval=null){
+    const origin = document.getElementById('tv-leg-provenance');
+    if (origin) {
+      origin.replaceChildren();
+      delete origin.dataset.time;
+    }
     const ids=['tv-leg-open','tv-leg-high','tv-leg-low','tv-leg-close','tv-leg-change'];
     ids.forEach(id=>{
       const e=document.getElementById(id);

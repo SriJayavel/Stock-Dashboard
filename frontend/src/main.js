@@ -1,4 +1,7 @@
+import { marketSessions } from './market-sessions.js';
 import { sparklineSvg } from './sparkline.js';
+import { marketQuotes, quoteMovement, quotePrice } from './market-quotes.js';
+import { provenance, setupProvenance } from './provenance.js';
 import { roundPrice, seededRandom, walkStep } from './demo/simulator.js';
 /**
  * Mara - Frontend Controller
@@ -259,10 +262,12 @@ async function startApp() {
     } else if (route.type === 'discover' || route.workspace === 'discover' || route.type === 'screener') {
       await setWorkspace('discover', route.universe);
     } else if (route.type === 'compare' || route.workspace === 'compare') {
-      if (route.symbol && route.symbol !== currentSymbol) {
-        await loadStock(route.symbol, currentTimeframe);
+      if (route.benchmarkPair) {
+        await setWorkspace('compare', 'benchmarks');
+      } else {
+        if (route.symbol && route.symbol !== currentSymbol) await loadStock(route.symbol, currentTimeframe);
+        await setWorkspace('compare');
       }
-      await setWorkspace('compare');
     } else if (route.type === 'research' || route.workspace === 'research') {
       if (route.symbol && route.symbol !== currentSymbol) {
         await loadStock(route.symbol, currentTimeframe);
@@ -289,8 +294,7 @@ async function startApp() {
   // Fetch secondary feeds concurrently in background
   Promise.allSettled([
     loadMarketOverview(),
-    loadScreener('indian_leaders'),
-    refreshWatchlistUI()
+    refreshWatchlistUI(),
   ]);
 
   startQuotePatchWorker();
@@ -432,6 +436,9 @@ export async function setWorkspace(workspaceName, subTab = null) {
       loadScreener('indian_leaders');
     }
   } else if (workspaceName === 'compare') {
+    const benchmarkPair = document.getElementById('compare-benchmark-pair');
+    benchmarkPair.hidden = subTab !== 'benchmarks';
+    if (subTab === 'benchmarks') await renderBenchmarkPair();
     if (currentSymbol) {
       loadStockResearch(currentSymbol, currentLoadToken);
       loadAndRenderMacroExplorer(currentSymbol);
@@ -849,6 +856,22 @@ export async function switchChartRange(range) {
 }
 
 // Setup DOM Event Listeners
+const benchmarkMeta = [
+  { name: 'NIFTY 50', symbol: '^NSEI', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
+  { name: 'SENSEX', symbol: '^BSESN', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
+  { name: 'BANK NIFTY', symbol: '^NSEBANK', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
+  { name: 'S&P 500', symbol: '^GSPC', region: 'Americas', regionCode: 'americas', tag: 'US', tagClass: 'tag-us', curr: '$' },
+  { name: 'NASDAQ Composite', symbol: '^IXIC', region: 'Americas', regionCode: 'americas', tag: 'US', tagClass: 'tag-us', curr: '$' },
+  { name: 'FTSE 100', symbol: '^FTSE', region: 'Europe', regionCode: 'europe', tag: 'UK', tagClass: 'tag-eu', curr: '£' },
+  { name: 'NIKKEI 225', symbol: '^N225', region: 'Asia-Pacific', regionCode: 'asia', tag: 'JP', tagClass: 'tag-ap', curr: '¥' },
+  { name: 'HANG SENG', symbol: '^HSI', region: 'Asia-Pacific', regionCode: 'asia', tag: 'HK', tagClass: 'tag-ap', curr: 'HK$' },
+  { name: 'SHANGHAI COMP', symbol: '^SSEC', region: 'Asia-Pacific', regionCode: 'asia', tag: 'CN', tagClass: 'tag-ap', curr: '¥' },
+  { name: 'DAX', symbol: '^GDAXI', region: 'Europe', regionCode: 'europe', tag: 'DE', tagClass: 'tag-eu', curr: '€' },
+  { name: 'CAC 40', symbol: '^FCHI', region: 'Europe', regionCode: 'europe', tag: 'FR', tagClass: 'tag-eu', curr: '€' },
+  { name: 'TSX COMPOSITE', symbol: '^GSPTSE', region: 'Americas', regionCode: 'americas', tag: 'CA', tagClass: 'tag-us', curr: 'C$' },
+  { name: 'ASX 200', symbol: '^AXJO', region: 'Asia-Pacific', regionCode: 'asia', tag: 'AU', tagClass: 'tag-ap', curr: 'A$' },
+];
+
 const benchmarkCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 const benchmarkTime = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
@@ -871,40 +894,45 @@ function setupDemoUpdates() {
   const updatePrices = () => {
     const rows = [...document.querySelectorAll('#markets-indices-table-body .benchmark-row')]
       .filter((row) => row.getClientRects().length && Number(row.querySelector('.col-price')?.dataset.sortValue) > 0);
-    const snapshot = marketDataCache?.macro?.Indices || [];
+    const quotes = marketQuotes(marketDataCache);
     for (let count = 0; count < 2 && rows.length; count++) {
       const [row] = rows.splice(Math.floor(random() * rows.length), 1);
-      const quote = snapshot.find((item) => item.symbol === row.dataset.sym);
+      const quote = quotes.get(row.dataset.sym);
       if (!quote?.prev_close) continue;
       const cell = row.querySelector('.col-price');
-      const price = Number(cell.dataset.sortValue);
+      const price = quote.price;
       // Keep the simulation close to the fixture's close over long sessions.
-      const nextPrice = roundPrice(walkStep(price, .00055, random, Math.log(quote.price / price) * .08));
+      const reference = quote.fixturePrice ?? price;
+      const nextPrice = roundPrice(walkStep(price, .00055, random, Math.log(reference / price) * .08));
       if (nextPrice === price) continue;
-      const format = new Intl.NumberFormat(row.dataset.region === 'india' ? 'en-IN' : 'en-US', {
-        minimumFractionDigits: 2, maximumFractionDigits: 2,
-      });
-      cell.textContent = `${row.dataset.currency}${format.format(nextPrice)}`;
-      cell.dataset.sortValue = String(nextPrice);
       const change = roundPrice(nextPrice - quote.prev_close);
       const percentage = roundPrice(100 * change / quote.prev_close);
-      for (const [selector, value, suffix] of [['.col-change', change, ''], ['.col-pct', percentage, '%']]) {
-        const target = row.querySelector(selector);
+      const next = {
+        ...quote, fixturePrice: reference, price: nextPrice, change, change_pct: percentage,
+        high: Math.max(quote.high ?? nextPrice, nextPrice),
+        low: Math.min(quote.low ?? nextPrice, nextPrice),
+      };
+      quotes.set(row.dataset.sym, next);
+      for (const [column, value, suffix] of [
+        ['price', next.price], ['high', next.high], ['low', next.low],
+        ['change', next.change, ''], ['pct', next.change_pct, '%'],
+      ]) {
+        const target = row.querySelector(`.col-${column}`);
         target.dataset.sortValue = String(value);
-        target.classList.toggle('gain', value > 0);
-        target.classList.toggle('loss', value < 0);
-        target.textContent = `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(2)}${suffix}`;
+        const label = target.querySelector('.provenance-value') || target;
+        if (suffix !== undefined) {
+          target.classList.toggle('gain', value > 0);
+          target.classList.toggle('loss', value < 0);
+          label.textContent = quoteMovement(value, suffix);
+        } else {
+          label.textContent = quotePrice(value, row.dataset.currency);
+        }
       }
-      const high = row.querySelector('.col-high');
-      const low = row.querySelector('.col-low');
-      for (const [target, extreme] of [[high, Math.max], [low, Math.min]]) {
-        const value = extreme(Number(target.dataset.sortValue), nextPrice);
-        target.dataset.sortValue = String(value);
-        target.textContent = `${row.dataset.currency}${format.format(value)}`;
-      }
+      const ticker = document.querySelector(`.market-ticker-item[data-symbol="${CSS.escape(row.dataset.sym)}"]`);
+      if (ticker) updateTickerQuote(ticker, next, row.dataset.currency);
       if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const flash = nextPrice > price ? '--gain-bg' : '--loss-bg';
-        cell.animate([{ backgroundColor: `var(${flash})` }, { backgroundColor: 'transparent' }], 400);
+        cell.animate([{ backgroundColor: `var(${flash})` }, { backgroundColor: 'transparent' }], 180);
       }
     }
   };
@@ -935,10 +963,120 @@ function sortBenchmarkRows(table) {
     if (!a || !b) return Number(!a) - Number(!b);
     return sign * (number ? Number(a) - Number(b) : benchmarkCollator.compare(a, b));
   });
-  table.tBodies[0].append(...rows);
+  const body = table.tBodies[0];
+  for (const row of rows) {
+    if (body.moveBefore) body.moveBefore(row, null);
+    else body.append(row);
+  }
+}
+
+const benchmarkColumns = {
+  region: 'Region', name: 'Index', symbol: 'Symbol', price: 'Last price',
+  change: 'Change', pct: 'Change %', high: 'High', low: 'Low',
+  sparkline: 'Intraday', updated: 'As of',
+};
+
+function applyBenchmarkPreferences() {
+  const table = document.getElementById('markets-indices-table');
+  if (!table) return;
+  const region = document.querySelector('#markets-indices-filter [aria-pressed="true"]')?.dataset.region || 'all';
+  for (const row of table.querySelectorAll('.benchmark-row')) {
+    row.hidden = region !== 'all' && row.dataset.region !== region;
+  }
+  for (const input of document.querySelectorAll('.benchmark-columns input')) {
+    for (const cell of table.querySelectorAll(`.col-${input.value}`)) cell.hidden = !input.checked;
+    if (!input.checked && table.querySelector(`th.col-${input.value}[aria-sort]`)) {
+      table.querySelector('th[aria-sort]').removeAttribute('aria-sort');
+    }
+  }
+  for (const [column, label] of Object.entries(benchmarkColumns)) {
+    for (const cell of table.querySelectorAll(`tbody .col-${column}`)) cell.dataset.label = label;
+  }
+}
+
+const compactIndian = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 2 });
+const compactInternational = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 });
+let useInternationalUnits = false;
+
+function formattedUnits(raw, currency = '') {
+  const format = currency === '₹' && !useInternationalUnits ? compactIndian : compactInternational;
+  return currency + format.format(raw);
+}
+
+function setupDisplayUnits() {
+  const button = document.getElementById('display-units');
+  try { useInternationalUnits = localStorage.getItem('mara-international-units') === 'true'; } catch {}
+  button.setAttribute('aria-pressed', String(useInternationalUnits));
+  button.addEventListener('click', () => {
+    useInternationalUnits = !useInternationalUnits;
+    button.setAttribute('aria-pressed', String(useInternationalUnits));
+    try { localStorage.setItem('mara-international-units', String(useInternationalUnits)); } catch {}
+    for (const node of document.querySelectorAll('[data-units-value]')) {
+      node.textContent = formattedUnits(Number(node.dataset.unitsValue), node.dataset.unitsCurrency);
+    }
+  });
+}
+
+function setupBenchmarkPreferences() {
+  const panel = document.querySelector('.benchmark-panel');
+  if (!panel) return;
+  const density = panel.querySelector('#benchmark-density');
+  const columns = panel.querySelector('.benchmark-columns');
+  const fieldset = columns.querySelector('fieldset');
+  const filters = panel.querySelector('#markets-indices-filter');
+  let preferences = {};
+  try { preferences = JSON.parse(localStorage.getItem('mara-benchmark-view')) || {}; } catch {}
+  const save = () => {
+    try { localStorage.setItem('mara-benchmark-view', JSON.stringify(preferences)); } catch {}
+  };
+  const setDensity = comfortable => {
+    panel.classList.toggle('is-comfortable', comfortable);
+    density.setAttribute('aria-pressed', String(comfortable));
+  };
+  setDensity(preferences.comfortable === true);
+  density.addEventListener('click', () => {
+    preferences.comfortable = density.getAttribute('aria-pressed') !== 'true';
+    setDensity(preferences.comfortable);
+    save();
+  });
+  for (const [column, label] of Object.entries(benchmarkColumns)) {
+    if (column === 'name' || column === 'price') continue;
+    const option = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.value = column;
+    input.checked = Array.isArray(preferences.columns) ? preferences.columns.includes(column) : column !== 'updated';
+    option.append(input, label);
+    fieldset.append(option);
+  }
+  fieldset.addEventListener('change', () => {
+    preferences.columns = [...fieldset.querySelectorAll('input:checked')].map(input => input.value);
+    applyBenchmarkPreferences();
+    save();
+  });
+  columns.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !columns.open) return;
+    columns.open = false;
+    columns.querySelector('summary').focus();
+  });
+  filters.addEventListener('click', event => {
+    const active = event.target.closest('button[data-region]');
+    if (!active) return;
+    for (const button of filters.querySelectorAll('button')) {
+      button.classList.toggle('active', button === active);
+      button.setAttribute('aria-pressed', String(button === active));
+    }
+    applyBenchmarkPreferences();
+    refreshWSSubscriptions();
+  });
+  applyBenchmarkPreferences();
 }
 
 function setupEventListeners() {
+  setupProvenance();
+  setupBenchmarkPreferences();
+  setupDisplayUnits();
+  wireBenchmarkToolbar();
   document.getElementById('markets-indices-table')?.addEventListener('click', (event) => {
     const button = event.target.closest('.benchmark-sort');
     if (!button) return;
@@ -1025,20 +1163,30 @@ function setupEventListeners() {
   let searchDebounceTimer = null;
   let searchKeyHandler = null;
 
-  function openSearchResult(symbol) {
+  const searchCommands = [
+    { name: 'Toggle theme', action: () => document.getElementById('theme-toggle-btn').click() },
+    { name: 'Create alert', action: () => router.navigate('/monitor/alerts') },
+    { name: 'Open Compare', action: () => router.navigate(router.formatWorkspaceRoute('compare', currentSymbol)) },
+    { name: 'Open Compare with NIFTY and SENSEX', action: () => router.navigate('/compare/benchmarks/nifty-sensex') },
+  ];
+
+  function openSearchResult(result) {
     searchRequestSeq += 1;
     searchDropdown.classList.remove('open');
     searchDropdown.setAttribute('aria-busy', 'false');
     searchInput.setAttribute('aria-expanded', 'false');
     searchInput.value = '';
-    router.navigate(router.formatSymbolRoute(symbol, 'chart'));
+    searchInput.removeAttribute('aria-activedescendant');
+    if (result.action) result.action();
+    else router.navigate(router.formatSymbolRoute(result.symbol, 'chart'));
   }
 
   // Function to render search results in the dropdown
   function renderSearchDropdown(results) {
     searchDropdown.setAttribute('aria-busy', 'false');
+    if (searchKeyHandler) searchInput.removeEventListener('keydown', searchKeyHandler);
     if (!results || results.length === 0) {
-      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-disabled="true">No matching symbols. Try a company name or ticker.</div>';
+      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-disabled="true">No matches. Try a symbol, company name or action.</div>';
       return;
     }
 
@@ -1047,8 +1195,8 @@ function setupEventListeners() {
         (item, index) => `
           <button type="button" class="search-item" data-index="${index}" role="option" aria-selected="false">
             <div class="search-item-info">
-              <div class="search-item-symbol">${item.symbol}</div>
-              <div class="search-item-name">${item.name}</div>
+            <div class="search-item-symbol">${item.action ? item.name : item.symbol}</div>
+            <div class="search-item-name">${item.action ? 'Workspace action' : item.name}</div>
               ${item.exchange ? `<div class="search-item-exchange">${item.exchange}</div>` : ''}
               ${item.type ? `<div class="search-item-type">${item.type}</div>` : ''}
             </div>
@@ -1057,20 +1205,19 @@ function setupEventListeners() {
       )
       .join('');
 
-    // Remove any previously attached keydown handler to avoid duplicates
-    if (searchKeyHandler) {
-      searchInput.removeEventListener('keydown', searchKeyHandler);
-    }
-
     // Handle keyboard navigation
     let activeIndex = 0;
     const items = searchDropdown.querySelectorAll('.search-item');
-    items.forEach((item, index) => item.addEventListener('click', () => openSearchResult(results[index].symbol)));
+    items.forEach((item, index) => {
+      item.id = `global-search-option-${index}`;
+      item.addEventListener('click', () => openSearchResult(results[index]));
+    });
 
     // Set first item as active by default
     if (items.length > 0) {
       items[0].classList.add('active-search-item');
       items[0].setAttribute('aria-selected', 'true');
+      searchInput.setAttribute('aria-activedescendant', items[0].id);
       activeIndex = 0;
     }
 
@@ -1093,6 +1240,7 @@ function setupEventListeners() {
           activeIndex++;
           items[activeIndex].classList.add('active-search-item');
           items[activeIndex].setAttribute('aria-selected', 'true');
+          searchInput.setAttribute('aria-activedescendant', items[activeIndex].id);
           items[activeIndex].scrollIntoView({ block: 'nearest' });
         }
         return;
@@ -1106,6 +1254,7 @@ function setupEventListeners() {
           activeIndex--;
           items[activeIndex].classList.add('active-search-item');
           items[activeIndex].setAttribute('aria-selected', 'true');
+          searchInput.setAttribute('aria-activedescendant', items[activeIndex].id);
           items[activeIndex].scrollIntoView({ block: 'nearest' });
         }
         return;
@@ -1115,7 +1264,7 @@ function setupEventListeners() {
         e.preventDefault();
         if (items.length > 0 && activeIndex >= 0 && activeIndex < items.length) {
           const result = results[activeIndex];
-          if (result) openSearchResult(result.symbol);
+          if (result) openSearchResult(result);
         }
         return;
       }
@@ -1129,6 +1278,14 @@ function setupEventListeners() {
       clearTimeout(searchDebounceTimer);
       const requestSeq = ++searchRequestSeq;
       const query = e.target.value.trim();
+      searchInput.removeAttribute('aria-activedescendant');
+      if (query.startsWith('>')) {
+        const command = query.slice(1).trim().toLowerCase();
+        searchDropdown.classList.add('open');
+        searchInput.setAttribute('aria-expanded', 'true');
+        renderSearchDropdown(searchCommands.filter(item => item.name.toLowerCase().includes(command)));
+        return;
+      }
 
       if (query.length === 0) {
         searchDropdown.classList.remove('open');
@@ -1414,6 +1571,7 @@ function updateIndicatorsBadge(activeList = null) {
   const countBadge = document.getElementById('tv-ind-count');
   if (countBadge) {
     countBadge.textContent = list.length;
+    countBadge.closest('button')?.setAttribute('aria-label', `Indicators ${list.length}`);
   }
   const activeTabCount = document.getElementById('tv-active-tab-count');
   if (activeTabCount) {
@@ -2582,7 +2740,8 @@ function setupWatchlistControls() {
     if (themeToggleBtn) {
       themeToggleBtn.title = isLight ? 'Switch to Dark Theme' : 'Switch to Light Theme';
     }
-    localStorage.setItem('mara-theme', theme);
+    document.querySelector('meta[name="color-scheme"]').content = theme;
+    try { localStorage.setItem('mara-theme', theme); } catch {}
     // Remove transition suppression after a frame to allow new theme transitions
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -2592,7 +2751,7 @@ function setupWatchlistControls() {
     });
   };
 
-  const initialTheme = localStorage.getItem('mara-theme') || 'dark';
+  const initialTheme = document.documentElement.classList.contains('light-theme') ? 'light' : 'dark';
   applyTheme(initialTheme);
 
   if (themeToggleBtn) {
@@ -2740,7 +2899,10 @@ async function refreshWatchlistUI() {
   const drawerBadge = document.getElementById('watchlist-drawer-badge');
   const listContainer = document.getElementById('watchlist-items-list');
 
-  if (navCount) navCount.textContent = symbols.length;
+  if (navCount) {
+    navCount.textContent = symbols.length;
+    navCount.closest('button')?.setAttribute('aria-label', `Watchlist ${symbols.length}`);
+  }
   if (drawerBadge) drawerBadge.textContent = `${symbols.length} saved`;
   if (!listContainer) return;
 
@@ -2952,17 +3114,19 @@ function renderWatchlistRows(quotes) {
             const curr = item.currency_symbol || getCurrencySymbol(sym, item.currency);
             const decimals = sym.includes('=X') ? 4 : 2;
             const isPending = item.status === 'pending';
-            const hasIntraday = item.intraday_change_24h != null;
-            const intradayChg = item.intraday_change_24h || 0;
+            const monitorPrice = item.current_price != null
+              ? provenance(`${curr}${Number(item.current_price).toFixed(decimals)}`, {
+                label: `${sym} last price`, details: overviewQuoteDetails(item, 'MARA watchlist snapshot'),
+              }) : formatWithState(item.current_price, 'unavailable');
             return `
               <tr data-symbol="${sym}" data-price="${item.current_price}" data-change="${item.change_pct || 0}">
                 <td class="screener-sym-col">${sym}</td>
                 <td style="font-weight: 500;">${item.name || sym}</td>
-                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Awaiting data</span>' : (item.current_price != null ? `${curr}${Number(item.current_price).toFixed(decimals)}` : formatWithState(item.current_price, 'unavailable'))}</td>
+                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Awaiting data</span>' : monitorPrice}</td>
                 <td><span class="tape-chg ${chgClass}">${item.change_pct == null ? formatWithState(null, 'unavailable') : `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%`}</span></td>
                 <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
                 <td>
-                  <span class="sparkline-mini" data-symbol="${sym}" aria-label="Price trend" tabindex="0"></span>
+                  <span class="sparkline-mini" data-symbol="${sym}" role="img" aria-label="Price trend"></span>
                   <button class="wl-btn wl-btn-alert" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
                   <button class="wl-btn wl-btn-danger ws-remove-btn" data-del="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px;">Remove</button>
                 </td>
@@ -3038,18 +3202,264 @@ function generateSparklineSvg(isUp, seedStr = '') {
   `;
 }
 
+function overviewQuoteDetails(quote, fallback) {
+  if (isDemoMode()) return 'MARA synthetic market fixture.';
+  const source = quote.source || quote.provenance?.primary_source || fallback;
+  const timestamp = quote.source_timestamp || quote.retrieved_at || quote.provenance?.retrieved_at;
+  return `Source: ${source}. ${timestamp ? `As of ${timestamp}.` : 'Timestamp unavailable.'}`;
+}
+
+async function renderBenchmarkPair() {
+  const panel = document.getElementById('compare-benchmark-pair');
+  const output = panel.querySelector('tbody');
+  if (!marketDataCache) await loadMarketOverview();
+  const quotes = marketQuotes(marketDataCache);
+  output.innerHTML = benchmarkMeta.slice(0, 2).map(({ name, symbol, curr }) => {
+    const quote = quotes.get(symbol);
+    const price = quotePrice(quote?.price, curr);
+    const movement = quoteMovement(quote?.change_pct, '%');
+    const details = overviewQuoteDetails(quote || {}, 'MARA market snapshot');
+    return `<tr>
+      <th scope="row">${name}</th>
+      <td>${quote ? provenance(price, { label: `${name} last price`, details }) : price}</td>
+      <td>${quote ? provenance(movement, { label: `${name} session change`, details }) : movement}</td>
+      <td>${sparklineSvg(quote?.sparkline_data) || 'Unavailable'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateTickerQuote(button, quote, currency) {
+  const change = quote.change_pct;
+  button.classList.toggle('is-positive', change > 0);
+  button.classList.toggle('is-negative', change < 0);
+  button.querySelector('.market-ticker-value').textContent = quotePrice(quote.price, currency);
+  button.querySelector('.market-ticker-change').textContent = quoteMovement(quote.change);
+  button.querySelector('.market-ticker-percent').textContent = quoteMovement(change, '%');
+}
+
+let renderedBenchmarkSnapshot;
+let renderedBenchmarkStale;
+
+function renderBenchmarkTable(snapshot) {
+  const tableBody = document.getElementById('markets-indices-table-body');
+  const stale = Boolean(snapshot?.is_stale);
+  if (!tableBody || (renderedBenchmarkSnapshot === snapshot && renderedBenchmarkStale === stale)) return;
+  renderedBenchmarkSnapshot = snapshot;
+  renderedBenchmarkStale = stale;
+  const lookup = marketQuotes(snapshot);
+  const sessionTelemetry = getMarketSessionTelemetry();
+  const sessionByRegion = {
+    india: sessionTelemetry.nse,
+    americas: sessionTelemetry.nyse,
+    europe: sessionTelemetry.lse,
+    asia: sessionTelemetry.tyo,
+  };
+
+  const isValidPrice = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  const isValidNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
+  const processedBenchmarks = benchmarkMeta.map((m) => {
+    const live = lookup.get(m.symbol);
+    let rawPrice = null;
+    let rawChg = null;
+    let rawPct = null;
+    let rawHigh = null;
+    let rawLow = null;
+    let source = null;
+    let sourceTimestamp = null;
+    let isStale = Boolean(snapshot?.is_stale);
+    let marketClosed = false;
+
+    if (live) {
+      if (isValidPrice(live.price)) rawPrice = live.price;
+      if (isValidNum(live.change)) rawChg = live.change;
+      if (isValidNum(live.change_pct)) rawPct = live.change_pct;
+      if (isValidPrice(live.high)) rawHigh = live.high;
+      if (isValidPrice(live.low)) rawLow = live.low;
+      if (live.source) source = live.source;
+      sourceTimestamp = live.source_timestamp || live.retrieved_at;
+      if (live.is_stale) isStale = true;
+    } else if (!live && (sessionByRegion[m.regionCode] || '').includes('CLOSED')) {
+      // For indices in closed sessions, show "Market Closed" instead of dashes
+      marketClosed = true;
+    }
+
+    return {
+      ...m,
+      price: rawPrice,
+      change: rawChg,
+      change_pct: rawPct,
+      high: rawHigh,
+      low: rawLow,
+      source,
+      source_timestamp: sourceTimestamp || (rawPrice != null ? snapshot?.retrieved_at : null),
+      sparkline_data: live?.sparkline_data,
+      is_stale: isStale,
+      session_status: sessionByRegion[m.regionCode] || 'UNAVAILABLE',
+      market_closed: marketClosed,
+      // Pass feed_health so downstream rendering knows if Indices feed is offline
+      indices_feed_health: snapshot?.feed_health?.Indices || null,
+    };
+  });
+
+  tableBody.innerHTML = processedBenchmarks
+    .map((m, idx) => {
+      const hasValidPrice = m.price != null;
+      // Show "Market Closed" for indices in closed session with no price data
+      const isMarketClosed = m.market_closed || (m.symbol.startsWith('^') && !hasValidPrice && (sessionByRegion[m.regionCode] || '').includes('CLOSED'));
+      // If feed_health is explicitly OFFLINE, show dashes instead of "Market Closed"
+      // to distinguish "no data / feed offline" from "market closed but price known"
+      const isFeedOffline = m.indices_feed_health === 'OFFLINE' && !hasValidPrice;
+      const priceDisplay = isFeedOffline
+        ? 'Unavailable'
+        : isMarketClosed
+        ? 'Market Closed'
+        : hasValidPrice
+        ? quotePrice(m.price, m.curr)
+        : 'Unavailable';
+      const hasChange = m.change_pct != null;
+      const isUp = hasChange && m.change_pct > 0.0001;
+      const isDown = hasChange && m.change_pct < -0.0001;
+      const chgDisplay = quoteMovement(isFeedOffline || isMarketClosed ? null : m.change);
+      const pctDisplay = quoteMovement(isFeedOffline || isMarketClosed ? null : m.change_pct, '%');
+      const chgClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
+      const pctClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
+
+      // Region badge
+      const regionTagClass = {
+        'india': 'india',
+        'americas': 'americas',
+        'europe': 'europe',
+        'asia': 'asia',
+        'asia-pacific': 'asia'
+      }[m.regionCode] || 'india';
+
+      const asOf = Date.parse(m.source_timestamp);
+      const updatedDisplay = snapshot?.demo_mode ? '—' : Number.isFinite(asOf)
+        ? `${benchmarkTime.format(asOf)} IST`
+        : m.is_stale ? 'Stale' : 'Unavailable';
+      const highDisplay = quotePrice(isFeedOffline ? null : m.high, m.curr);
+      const lowDisplay = quotePrice(isFeedOffline ? null : m.low, m.curr);
+      const sparkline = sparklineSvg(m.sparkline_data);
+      const details = snapshot?.demo_mode ? 'MARA synthetic market fixture with optional simulated ticks.'
+        : `Provider: ${m.source || 'Unavailable'}. ${Number.isFinite(asOf) ? `As of ${new Date(asOf).toISOString()}.` : 'Timestamp unavailable.'}`;
+      const sourceValue = (value, raw, label) => Number.isFinite(raw) && !isFeedOffline
+        ? provenance(value, { label: `${m.name} ${label}`, details })
+        : value;
+
+      const isDefaultActive = idx === 0;
+
+      return `
+        <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}${isMarketClosed ? ' market-closed' : ''}"
+            data-region="${m.regionCode}"
+            data-sym="${m.symbol}"
+            data-currency="${m.curr}"
+            tabindex="0"
+            role="row">
+          <td class="col-region">
+            <span class="region-badge ${regionTagClass}">${m.tag}</span>
+          </td>
+          <td class="col-name"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.name}</td>
+          <td class="col-symbol"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.symbol}</td>
+          <td class="col-price text-right" data-prev-price="${m.prev_price || ''}" data-sort-value="${m.price ?? ''}">
+            ${sourceValue(priceDisplay, m.price, 'last price')}
+          </td>
+          <td data-sort-value="${m.change ?? ''}" class="col-change text-right ${chgClass}">${sourceValue(chgDisplay, m.change, 'point change')}</td>
+          <td data-sort-value="${m.change_pct ?? ''}" class="col-pct text-right ${pctClass}">${sourceValue(pctDisplay, m.change_pct, 'percent change')}</td>
+          <td data-sort-value="${m.high ?? ''}" class="col-high text-right">${sourceValue(highDisplay, m.high, 'session high')}</td>
+          <td data-sort-value="${m.low ?? ''}" class="col-low text-right">${sourceValue(lowDisplay, m.low, 'session low')}</td>
+          <td class="col-sparkline">
+            <div class="sparkline-mini" data-symbol="${m.symbol}">${sparkline || '<span class="benchmark-no-series">No series</span>'}</div>
+          </td>
+          <td class="col-updated text-right" data-sort-value="${Number.isFinite(asOf) ? asOf : ''}">${updatedDisplay}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  sortBenchmarkRows(tableBody.closest('table'));
+
+  // Default Context Inspector state on Markets load (NIFTY 50)
+  if (processedBenchmarks.length > 0 && currentActiveWorkspace === 'markets') {
+    renderMarketInspector('index', processedBenchmarks[0]);
+  }
+
+  // Update footer
+  updateBenchmarkFooter(processedBenchmarks, snapshot);
+
+  // Wire Row Interactions:
+  // Single Click: Inspect security context
+  // Double Click: Open chart analysis workstation
+  // Keyboard Enter / Space: Open chart analysis workstation
+  // Arrow keys: Navigate between rows (roving tabindex)
+  const benchmarkRows = Array.from(tableBody.querySelectorAll('.benchmark-row'));
+  benchmarkRows.forEach((row, idx) => {
+    const sym = row.getAttribute('data-sym');
+    const found = processedBenchmarks.find((b) => b.symbol === sym);
+
+    // All benchmark rows are focusable (tabindex="0") for accessibility
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('role', 'row');
+
+    const activateRow = () => {
+      benchmarkRows.forEach((r) => {
+        r.classList.remove('active-row');
+      });
+      row.classList.add('active-row');
+      row.focus({ preventScroll: true });
+      if (found) {
+        const quote = marketQuotes(snapshot).get(sym);
+        renderMarketInspector('index', { ...found, ...quote });
+      }
+    };
+
+    row.addEventListener('click', (event) => {
+      if (!event.target.closest('.provenance-trigger')) activateRow();
+    });
+
+    row.addEventListener('dblclick', (event) => {
+      if (sym && !event.target.closest('.provenance-trigger')) {
+        router.navigate(router.formatSymbolRoute(sym, 'chart'));
+      }
+    });
+
+    row.addEventListener('keydown', (e) => {
+      if (e.target !== row) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateRow();
+        if (sym) {
+          router.navigate(router.formatSymbolRoute(sym, 'chart'));
+        }
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const visibleRows = Array.from(tableBody.rows).filter((item) => !item.hidden);
+        const currentIdx = visibleRows.indexOf(row);
+        const nextIdx = e.key === 'ArrowDown'
+          ? Math.min(currentIdx + 1, visibleRows.length - 1)
+          : Math.max(currentIdx - 1, 0);
+        visibleRows[nextIdx]?.click();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        Array.from(tableBody.rows).find((item) => !item.hidden)?.click();
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        Array.from(tableBody.rows).findLast((item) => !item.hidden)?.click();
+      }
+    });
+  });
+  applyBenchmarkPreferences();
+}
+
 function renderMarketTicker(data) {
   const track = document.getElementById('market-ticker-track');
   if (!track) return;
+  renderBenchmarkTable(data);
 
-  const symbols = ['^NSEI', '^BSESN', '^NSEBANK', '^GSPC', '^IXIC', '^FTSE', '^N225', 'GC=F', 'SI=F', 'BTC-USD'];
-  const assets = Object.values(data?.macro || {}).flat();
-  const bySymbol = new Map(assets.map((item) => [item.symbol, item]));
-  if (data?.hero?.price != null && !bySymbol.has('^NSEI')) {
-    bySymbol.set('^NSEI', { ...data.hero, symbol: '^NSEI', name: 'NIFTY 50' });
-  }
+  const symbols = [...benchmarkMeta.map(benchmark => benchmark.symbol), 'GC=F', 'SI=F', 'BTC-USD'];
+  const bySymbol = marketQuotes(data);
   const available = symbols.map((symbol) => bySymbol.get(symbol))
-    .filter((item) => item?.price != null && Number.isFinite(Number(item.price)));
+    .filter((item) => Number.isFinite(item?.price) && item.price > 0);
 
   if (!available.length) {
     const empty = document.createElement('span');
@@ -3078,17 +3488,11 @@ function renderMarketTicker(data) {
 
   for (const item of available) {
     const button = document.createElement('button');
-    const change = item.change_pct == null ? NaN : Number(item.change_pct);
-    const currency = ({
-      '^NSEI': '₹', '^BSESN': '₹', '^NSEBANK': '₹',
-      '^GSPC': '$', '^IXIC': '$', '^FTSE': '£', '^N225': '¥',
-      'GC=F': '$', 'SI=F': '$', 'BTC-USD': '$',
-    })[item.symbol] || '';
-    const decimals = item.symbol?.includes('=X') ? 4 : 2;
+    const currency = benchmarkMeta.find(benchmark => benchmark.symbol === item.symbol)?.curr || '$';
     button.type = 'button';
     button.dataset.symbol = item.symbol;
     if (item.symbol === focusedSymbol) focusedButton = button;
-    button.className = `market-ticker-item ${Number.isFinite(change) ? change >= 0 ? 'is-positive' : 'is-negative' : ''}`;
+    button.className = 'market-ticker-item';
     button.title = `${item.name || item.symbol} · Open in Analyze`;
 
     const identity = document.createElement('span');
@@ -3096,21 +3500,15 @@ function renderMarketTicker(data) {
     identity.textContent = item.name || item.symbol;
     const value = document.createElement('span');
     value.className = 'market-ticker-value';
-    value.textContent = `${currency}${Number(item.price).toLocaleString('en-US', {
-      minimumFractionDigits: decimals, maximumFractionDigits: decimals,
-    })}`;
     const movement = document.createElement('span');
     movement.className = 'market-ticker-movement';
     const absoluteChange = document.createElement('span');
     absoluteChange.className = 'market-ticker-change';
-    absoluteChange.textContent = item.change != null && Number.isFinite(Number(item.change))
-      ? `${Number(item.change) > 0 ? '+' : Number(item.change) < 0 ? '−' : ''}${currency}${Math.abs(Number(item.change)).toLocaleString('en-US', { maximumFractionDigits: decimals })}`
-      : 'Unavailable';
     const percentChange = document.createElement('span');
     percentChange.className = 'market-ticker-percent';
-    percentChange.textContent = Number.isFinite(change) ? `${change > 0 ? '+' : ''}${change.toFixed(2)}%` : 'Unavailable';
     movement.append(absoluteChange, percentChange);
     button.append(identity, value, movement);
+    updateTickerQuote(button, item, currency);
     button.addEventListener('click', () => {
       if (item.symbol) router.navigate(router.formatSymbolRoute(item.symbol, 'chart'));
     });
@@ -3174,7 +3572,6 @@ if (dismissBtn) {
 }
 
 // Load and Render Market Overview
-let lastMarketOverviewFetchDuration = 0;
 async function loadMarketOverview(force = false) {
   const now = Date.now();
   if (!force && marketDataCache?.macro && (now - lastMarketOverviewFetchTime < 60000)) {
@@ -3193,10 +3590,8 @@ async function loadMarketOverview(force = false) {
     }
   }
 
-  const fetchStart = Date.now();
   try {
     const data = await api.getMarketOverview();
-    lastMarketOverviewFetchDuration = Date.now() - fetchStart;
     const prevHero = (marketDataCache?.hero?.price != null) ? marketDataCache.hero : loadPersistedMarketSnapshot()?.hero;
     const hasLiveIndices = (data?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
     if (hasLiveIndices) {
@@ -3832,7 +4227,16 @@ function renderTechnicalSnapshot(snapshot) {
     // Clear loading styles
     node.style.opacity = '';
     node.style.animation = '';
-    node.textContent = Number.isFinite(value) ? `${value > 0 && id !== 'snapshot-rsi' ? '+' : ''}${value.toFixed(1)}${suffix}` : '—';
+    const methods = {
+      'snapshot-return-1m': ['1-month return', '100 × (latest close ÷ first close in the 1-month window − 1).'],
+      'snapshot-return-3m': ['3-month return', '100 × (latest close ÷ first close in the 3-month window − 1).'],
+      'snapshot-rsi': ['RSI (14)', '100 − 100 ÷ (1 + relative strength). Uses smoothed gains and losses over 14 daily closes.'],
+      'snapshot-drawdown': ['1-year maximum drawdown', 'Lowest percentage decline from a running closing-price peak over one year.'],
+    };
+    const [label, details] = methods[id];
+    node.innerHTML = Number.isFinite(value)
+      ? provenance(`${value > 0 && id !== 'snapshot-rsi' ? '+' : ''}${value.toFixed(1)}${suffix}`, { kind: 'calculation', label, details })
+      : 'Insufficient history';
     node.dataset.direction = Number.isFinite(value) ? (value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral') : 'neutral';
   };
   setMetric('snapshot-return-1m', snapshot.return_1m_pct);
@@ -4497,6 +4901,14 @@ function renderPeerIntelligence(data) {
 
   const curr = data.currency_symbol || '$';
   const currPe = data.research_dossier?.valuation_peer_context?.current_pe;
+  const multiple = (value, label, details, unit = '×') => Number.isFinite(value)
+    ? provenance(`${value}${unit}`, {
+      kind: data.demo_mode ? 'source' : 'calculation', label,
+      details: data.demo_mode ? 'Value supplied by the MARA synthetic peer fixture.' : details,
+    })
+    : '—';
+  const priceEarnings = 'Closing share price divided by trailing twelve-month earnings per share.';
+
 
   container.innerHTML = `
     <table class="peer-table">
@@ -4519,12 +4931,12 @@ function renderPeerIntelligence(data) {
           <td style="color: var(--text); font-weight: 600;">${data.symbol}</td>
           <td>${data.name || data.symbol}</td>
           <td>${data.market_position?.market_cap_str || '—'}</td>
-          <td>${curr}${data.price_structure?.current_price?.toLocaleString()}</td>
+          <td>${quotePrice(data.price_structure?.current_price, curr)}</td>
           <td>—</td>
           <td>${currPe != null ? `${currPe}x` : '—'}</td>
-          <td style="color: var(--gain);">${data.research_dossier?.valuation_peer_context?.peer_median_roe != null ? 'Focus' : '—'}</td>
+          <td>${multiple(data.financials?.roe, 'Return on equity', 'Net income divided by shareholder equity, expressed as a percentage.', '%')}</td>
           <td>${data.research_dossier?.financial_trend_summary?.latest_margin_pct != null ? `${data.research_dossier.financial_trend_summary.latest_margin_pct}%` : '—'}</td>
-          <td>Verified</td>
+          <td>${multiple(data.financials?.debt_to_equity, 'Debt to equity', 'Total debt divided by shareholder equity.')}</td>
         </tr>
 
         <!-- Peer Rows -->
@@ -4534,11 +4946,11 @@ function renderPeerIntelligence(data) {
             const chgClass = isUp ? 'chg-up' : 'chg-down';
             return `
             <tr data-symbol="${p.symbol}" class="peer-clickable-row">
-              <td style="font-weight: 600; color: #ffffff;">${p.symbol}</td>
+              <td style="font-weight: 600; color: var(--text);">${p.symbol}</td>
               <td style="color: var(--text-secondary);">${p.name}</td>
-              <td>${p.market_cap_str || '—'}</td>
-              <td>${curr}${p.current_price?.toFixed(2) || '—'}</td>
-              <td><span class="tape-chg ${chgClass}">${isUp ? '+' : '−'}${Math.abs(p.change_pct || 0).toFixed(2)}%</span></td>
+              <td>${p.market_cap_str || (Number.isFinite(p.market_cap) ? formattedUnits(p.market_cap, getCurrencySymbol(p.symbol)) : '—')}</td>
+              <td>${quotePrice(p.current_price, curr)}</td>
+              <td>${Number.isFinite(p.change_pct) ? `<span class="tape-chg ${chgClass}">${quoteMovement(p.change_pct, '%')}</span>` : '—'}</td>
               <td>${p.pe_trailing != null ? `${p.pe_trailing}x` : '—'}</td>
               <td style="color: var(--accent-green);">${p.roe != null ? `${p.roe}%` : '—'}</td>
               <td>${p.profit_margin != null ? `${p.profit_margin}%` : '—'}</td>
@@ -4549,7 +4961,7 @@ function renderPeerIntelligence(data) {
           .join('')}
 
         <!-- Sector Median Benchmark Row -->
-        <tr style="background: #090a0f; border-top: 2px solid #20222e; font-weight: 700;">
+        <tr class="peer-median-row">
           <td colspan="5" style="text-align: left; color: var(--text-muted); text-transform: uppercase; font-size: 11px;">
             Sector Cohort Median Benchmark
           </td>
@@ -4563,7 +4975,8 @@ function renderPeerIntelligence(data) {
 
   // Clicking peer row opens that peer in the terminal
   container.querySelectorAll('.peer-clickable-row').forEach((row) => {
-    row.addEventListener('click', () => {
+    row.addEventListener('click', event => {
+      if (event.target.closest('.provenance-trigger')) return;
       const sym = row.getAttribute('data-symbol');
       if (sym) {
         if (currentActiveWorkspace === 'compare') {
@@ -4602,7 +5015,7 @@ function renderNewsEvents(data) {
             <span class="news-card-date">${item.published_date}</span>
           </div>
           <div class="news-card-title">${item.title}</div>
-          <div class="news-card-summary">${item.summary || 'Market press and regulatory disclosure coverage.'}</div>
+          <div class="news-card-summary attributed-context">${item.summary || 'Market press and regulatory disclosure coverage.'}</div>
         </div>
         <div class="news-card-footer">
           <span>${item.publisher}</span>
@@ -4658,9 +5071,9 @@ function renderResearchDossier(data) {
               .map(
                 (obs) => `
             <div class="dossier-observation-item">
-              <div class="dossier-observation-cat">${obs.category}</div>
+              <div class="dossier-observation-cat">Interpretation · ${obs.category}</div>
               <div class="dossier-observation-text">${obs.observation}</div>
-              <div class="dossier-observation-basis">Factual Basis: ${obs.factual_basis}</div>
+              <div class="dossier-observation-basis">${provenance('View factual basis', { kind: 'interpretation', label: obs.category, details: obs.factual_basis })}</div>
             </div>
           `
               )
@@ -4759,7 +5172,11 @@ function renderScreenerTable(items) {
       const currSym = item.currency_symbol || getCurrencySymbol(item.symbol, item.currency);
       const priceStr = item.price != null ? `${currSym}${item.price.toFixed(item.symbol.includes('=X') ? 4 : 2)}` : '—';
       const chgStr = item.change_pct != null ? `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%` : '—';
-      const metricStr = item.market_cap_str || item.volume_str || (item.pe_trailing ? `P/E ${item.pe_trailing}x` : '—');
+      const rawUnits = item.market_cap ?? item.volume;
+      const unitCurrency = item.market_cap != null ? currSym : '';
+      const metric = Number.isFinite(rawUnits)
+        ? `<span data-units-value="${rawUnits}" data-units-currency="${unitCurrency}">${formattedUnits(rawUnits, unitCurrency)}</span>`
+        : item.market_cap_str || item.volume_str || (item.pe_trailing ? `P/E ${item.pe_trailing}x` : '—');
 
       // Generate inline SVG sparkline for action column
       const sparklineSvg = generateInlineSparkline(item);
@@ -4768,9 +5185,11 @@ function renderScreenerTable(items) {
         <tr data-symbol="${item.symbol}" tabindex="0" role="row" aria-label="${item.name || item.symbol} (${item.symbol}): ${priceStr}, change ${chgStr}">
           <td class="screener-sym-col">${item.symbol}</td>
           <td style="font-weight: 500;">${item.name || item.symbol}</td>
-          <td class="screener-price-col" aria-live="polite">${priceStr}</td>
+          <td class="screener-price-col">${item.price != null ? provenance(priceStr, {
+            label: `${item.symbol} last price`, details: overviewQuoteDetails(item, 'MARA screener snapshot'),
+          }) : priceStr}</td>
           <td><span class="tape-chg ${chgClass}">${chgStr}</span></td>
-          <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metricStr}</td>
+          <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metric}</td>
           <td>
             ${sparklineSvg}
             <button class="wl-btn wl-btn-alert" data-symbol="${item.symbol}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
@@ -4810,8 +5229,11 @@ function renderScreenerTable(items) {
         router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
       }
     };
-    row.addEventListener('click', activate);
+    row.addEventListener('click', event => {
+      if (!event.target.closest('.provenance-trigger')) activate();
+    });
     row.addEventListener('keydown', (e) => {
+      if (e.target !== row) return;
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         activate();
@@ -5532,28 +5954,36 @@ function renderHistoricalValuation(histVal, dd, currency = 'INR') {
 
   const pe = histVal || {};
   const currSym = currency === 'INR' ? '₹' : '$';
+  const rangePosition = Number.isFinite(pe.current_pe) && pe.pe_5y_high > pe.pe_5y_low
+    ? 100 * (pe.current_pe - pe.pe_5y_low) / (pe.pe_5y_high - pe.pe_5y_low)
+    : null;
+  const rangeLabel = rangePosition == null ? 'Position unavailable'
+    : rangePosition < 0 ? 'Below the range' : rangePosition > 100 ? 'Above the range'
+    : `${rangePosition.toFixed(1)}% of the way from the low to the high`;
 
   container.innerHTML = `
     <div class="dossier-card">
-      <div class="dossier-card-title">5-Year Historical P/E Envelope</div>
+      <div class="dossier-card-title">Five-year P/E ${pe.sample ? 'sample' : 'proxy'} range</div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
         <span style="color: var(--text-secondary); font-size: 12px;">Current Trailing P/E:</span>
         <strong style="color: #ffffff; font-family: var(--font-mono);">${pe.current_pe != null ? `${pe.current_pe}x` : '—'}</strong>
       </div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-        <span style="color: var(--text-secondary); font-size: 12px;">5Y Historical Median:</span>
+        <span style="color: var(--text-secondary); font-size: 12px;">Proxy median</span>
         <strong style="color: var(--accent); font-family: var(--font-mono);">${pe.pe_5y_median != null ? `${pe.pe_5y_median}x` : '—'}</strong>
       </div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
         <span style="color: var(--text-secondary); font-size: 12px;">5Y Envelope Range:</span>
         <strong style="color: #cbd5e1; font-family: var(--font-mono);">${pe.pe_5y_low || '—'}x – ${pe.pe_5y_high || '—'}x</strong>
       </div>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-        <span style="color: var(--text-secondary); font-size: 12px;">Current Cycle Percentile:</span>
-        <strong style="color: var(--gain); font-family: var(--font-mono);">${pe.pe_percentile_rank != null ? `${pe.pe_percentile_rank}%` : 'Cycle Mid'}</strong>
-      </div>
-      <div style="font-size: 11px; color: var(--accent); font-weight: 600; margin-top: 10px;">
-        ${pe.valuation_stance || 'Historical median multiple alignment.'}
+      <div class="valuation-range">
+        ${rangePosition == null ? rangeLabel : provenance(rangeLabel, {
+          kind: 'calculation', label: 'P/E range position',
+          details: `100 × (current P/E − low) ÷ (high − low). ${pe.sample
+            ? 'The bounds come from the MARA synthetic valuation fixture.'
+            : 'The proxy multiplies each historical close by current P/E divided by current price.'}`,
+        })}
+        ${rangePosition == null ? '' : `<meter min="0" max="100" value="${Math.max(0, Math.min(100, rangePosition))}" aria-label="Position within the P/E range"></meter>`}
       </div>
     </div>
 
@@ -5891,10 +6321,11 @@ function updateBenchmarkFooter(benchmarks, marketDataCache) {
   const liveCount = benchmarks.filter(b => b.price != null && b.price > 0).length;
   liveCountEl.textContent = `${liveCount} of ${benchmarks.length} with prices`;
 
-  const lastRefresh = marketDataCache?.retrieved_at
-    ? new Date(marketDataCache.retrieved_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-    : '—';
-  lastRefreshEl.textContent = `Snapshot ${lastRefresh}`;
+  const asOf = Date.parse(marketDataCache?.retrieved_at);
+  const ageMinutes = Math.max(0, Math.floor((Date.now() - asOf) / 60000));
+  lastRefreshEl.textContent = marketDataCache?.demo_mode ? 'Sample data'
+    : Number.isFinite(asOf) ? `Snapshot ${benchmarkTime.format(asOf)} IST · ${ageMinutes.toLocaleString()} min old`
+    : 'Snapshot time unavailable';
 
   // Feed status based on backend feed_health
   const feedHealthValues = Object.values(marketDataCache?.feed_health || {});
@@ -5948,7 +6379,7 @@ function wireBenchmarkToolbar() {
       const table = document.getElementById('markets-indices-table');
       if (!table) return;
 
-      const rows = Array.from(table.querySelectorAll('tbody tr.benchmark-row:not([style*="display: none"])'));
+      const rows = Array.from(table.querySelectorAll('tbody tr.benchmark-row:not([hidden])'));
       const headers = ['Region', 'Name', 'Symbol', 'Price', 'Change', 'Change %', 'High', 'Low', 'Sparkline', 'Updated'];
 
       const csvData = [headers.join(',')];
@@ -5957,7 +6388,7 @@ function wireBenchmarkToolbar() {
         const rowData = cells.map(cell => {
           // Skip sparkline column (index 8) or get text content
           if (cell.classList.contains('col-sparkline')) return '';
-          return `"${cell.textContent.trim().replace(/"/g, '""')}"`;
+          return `"${(cell.dataset.sortValue || cell.textContent.trim()).replace(/"/g, '""')}"`;
         });
         csvData.push(rowData.join(','));
       });
@@ -6082,7 +6513,7 @@ function renderMarketStateBar(data) {
     }
   }
 
-  if (lastUpdated) {
+  if (lastUpdated && !data?.demo_mode) {
     const timestamp = data?.last_successful_update || data?.last_updated || data?.hero?.retrieved_at || data?.retrieved_at;
     if (timestamp) {
       const d = new Date(timestamp);
@@ -6095,6 +6526,9 @@ function renderMarketStateBar(data) {
     lastUpdated.title = data?.last_attempted_at
       ? `Last fetch attempt: ${new Date(data.last_attempted_at).toLocaleString()}`
       : 'No refresh attempt timestamp available';
+  } else if (lastUpdated) {
+    lastUpdated.textContent = '';
+    lastUpdated.removeAttribute('title');
   }
 
   // Sync button event
@@ -6177,255 +6611,23 @@ function renderMarketHoursTimelinePro() {
   const timeDisplay = document.getElementById('timeline-current-time');
   if (!container) return;
 
-  const now = new Date();
-  const markets = [
-    { id: 'nse', name: 'NSE India', tz: 'Asia/Kolkata', open: '09:15', close: '15:30', preOpen: '09:00', postClose: '16:00', flag: '🇮🇳', currency: '₹' },
-    { id: 'nyse', name: 'NYSE / NASDAQ', tz: 'America/New_York', open: '09:30', close: '16:00', preOpen: '04:00', postClose: '20:00', flag: '🇺🇸', currency: '$' },
-    { id: 'lse', name: 'London SE', tz: 'Europe/London', open: '08:00', close: '16:30', preOpen: '07:00', postClose: '17:00', flag: '🇬🇧', currency: '£' },
-    { id: 'tyo', name: 'Tokyo SE', tz: 'Asia/Tokyo', open: '09:00', close: '15:00', preOpen: '08:00', postClose: '15:30', flag: '🇯🇵', currency: '¥', lunch: { start: '11:30', end: '12:30' } },
-    { id: 'hkex', name: 'Hong Kong EX', tz: 'Asia/Hong_Kong', open: '09:30', close: '16:00', preOpen: '09:00', postClose: '16:30', flag: '🇭🇰', currency: 'HK$', lunch: { start: '12:00', end: '13:00' } },
-    { id: 'sse', name: 'Shanghai SE', tz: 'Asia/Shanghai', open: '09:30', close: '15:00', preOpen: '09:15', postClose: '15:30', flag: '🇨🇳', currency: '¥', lunch: { start: '11:30', end: '13:00' } },
-    { id: 'tsx', name: 'Toronto SE', tz: 'America/Toronto', open: '09:30', close: '16:00', preOpen: '07:00', postClose: '17:00', flag: '🇨🇦', currency: 'C$' },
-    { id: 'asx', name: 'Australian SE', tz: 'Australia/Sydney', open: '10:00', close: '16:00', preOpen: '07:00', postClose: '16:10', flag: '🇦🇺', currency: 'A$' },
-  ];
-
-  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-
-  // Update current UTC time display
-  if (timeDisplay) {
-    const utcTime = now.toISOString().slice(11, 19);
-    const timeValue = timeDisplay.querySelector('.timeline-time-value');
-    if (timeValue) timeValue.textContent = utcTime;
-  }
-
-  container.innerHTML = markets.map(market => {
-    // Get current time in market's timezone
-    let currentMinutes = 0;
-    let currentTimeStr = '--:--';
-    try {
-      const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: market.tz,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hourCycle: 'h23',
-      }).formatToParts(now);
-      const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-      const hours = parseInt(values.hour, 10);
-      const minutes = parseInt(values.minute, 10);
-      const seconds = parseInt(values.second, 10);
-      currentMinutes = hours * 60 + minutes;
-      currentTimeStr = `${values.hour}:${values.minute}:${values.second}`;
-    } catch (e) {
-      console.warn(`Failed to parse time for ${market.tz}:`, e);
-      currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-      currentTimeStr = now.toISOString().slice(11, 19);
-    }
-
-    // Parse trading hours
-    const [openH, openM] = (market.open || '09:00').split(':').map(Number);
-    const [closeH, closeM] = (market.close || '17:00').split(':').map(Number);
-    const [preOpenH, preOpenM] = (market.preOpen || '08:00').split(':').map(Number);
-    const [postCloseH, postCloseM] = (market.postClose || '18:00').split(':').map(Number);
-
-    const preOpenMinutes = preOpenH * 60 + preOpenM;
-    const openMinutes = openH * 60 + openM;
-    const closeMinutes = closeH * 60 + closeM;
-    const postCloseMinutes = postCloseH * 60 + postCloseM;
-
-    const totalDayMinutes = 24 * 60;
-
-    // Calculate session blocks for visual timeline
-    const sessions = [];
-    if (!isWeekend) {
-      // Pre-market
-      if (preOpenMinutes < openMinutes) {
-        sessions.push({
-          type: 'pre-market',
-          start: preOpenMinutes / totalDayMinutes * 100,
-          width: (openMinutes - preOpenMinutes) / totalDayMinutes * 100,
-          label: market.preOpen
-        });
-      }
-      // Regular session (with lunch break handling)
-      if (market.lunch) {
-        const [lunchStartH, lunchStartM] = (market.lunch.start || '12:00').split(':').map(Number);
-        const [lunchEndH, lunchEndM] = (market.lunch.end || '13:00').split(':').map(Number);
-        const lunchStartMin = lunchStartH * 60 + lunchStartM;
-        const lunchEndMin = lunchEndH * 60 + lunchEndM;
-
-        // Morning session
-        if (openMinutes < lunchStartMin) {
-          sessions.push({
-            type: 'regular',
-            start: openMinutes / totalDayMinutes * 100,
-            width: (lunchStartMin - openMinutes) / totalDayMinutes * 100,
-            label: market.open
-          });
-        }
-        // Lunch break
-        sessions.push({
-          type: 'lunch',
-          start: lunchStartMin / totalDayMinutes * 100,
-          width: (lunchEndMin - lunchStartMin) / totalDayMinutes * 100,
-          label: market.lunch.start
-        });
-        // Afternoon session
-        if (lunchEndMin < closeMinutes) {
-          sessions.push({
-            type: 'regular',
-            start: lunchEndMin / totalDayMinutes * 100,
-            width: (closeMinutes - lunchEndMin) / totalDayMinutes * 100,
-            label: market.lunch.end
-          });
-        }
-      } else {
-        // Continuous regular session
-        sessions.push({
-          type: 'regular',
-          start: openMinutes / totalDayMinutes * 100,
-          width: (closeMinutes - openMinutes) / totalDayMinutes * 100,
-          label: market.open
-        });
-      }
-      // After-hours
-      if (closeMinutes < postCloseMinutes) {
-        sessions.push({
-          type: 'after-hours',
-          start: closeMinutes / totalDayMinutes * 100,
-          width: (postCloseMinutes - closeMinutes) / totalDayMinutes * 100,
-          label: market.close
-        });
-      }
-      // Closed periods (before pre-market and after post-close)
-      if (preOpenMinutes > 0) {
-        sessions.unshift({ type: 'closed', start: 0, width: preOpenMinutes / totalDayMinutes * 100 });
-      }
-      if (postCloseMinutes < totalDayMinutes) {
-        sessions.push({ type: 'closed', start: postCloseMinutes / totalDayMinutes * 100, width: (totalDayMinutes - postCloseMinutes) / totalDayMinutes * 100 });
-      }
-    } else {
-      sessions.push({ type: 'closed', start: 0, width: 100 });
-    }
-
-    // Determine current session state
-    let sessionState = 'CLOSED';
-    let sessionClass = 'closed';
-    let nextEvent = '';
-    let showCurrentMarker = false;
-    let markerPosition = 0;
-
-    if (isWeekend) {
-      sessionState = 'WEEKEND';
-      sessionClass = 'weekend';
-      nextEvent = 'Opens Monday';
-    } else if (currentMinutes < preOpenMinutes) {
-      sessionState = 'PRE-MARKET SOON';
-      sessionClass = 'pre-soon';
-      nextEvent = `Pre-market opens at ${market.preOpen}`;
-    } else if (currentMinutes < openMinutes) {
-      sessionState = 'PRE-MARKET';
-      sessionClass = 'pre-market';
-      showCurrentMarker = true;
-      markerPosition = currentMinutes / totalDayMinutes * 100;
-      nextEvent = `Regular session at ${market.open}`;
-    } else if (market.lunch) {
-      const [lunchStartH, lunchStartM] = (market.lunch.start || '12:00').split(':').map(Number);
-      const [lunchEndH, lunchEndM] = (market.lunch.end || '13:00').split(':').map(Number);
-      const lunchStartMin = lunchStartH * 60 + lunchStartM;
-      const lunchEndMin = lunchEndH * 60 + lunchEndM;
-
-      if (currentMinutes >= lunchStartMin && currentMinutes < lunchEndMin) {
-        sessionState = 'LUNCH BREAK';
-        sessionClass = 'lunch';
-        showCurrentMarker = true;
-        markerPosition = currentMinutes / totalDayMinutes * 100;
-        nextEvent = `Resumes at ${market.lunch.end}`;
-      } else if (currentMinutes < closeMinutes) {
-        sessionState = 'OPEN';
-        sessionClass = 'open';
-        showCurrentMarker = true;
-        markerPosition = currentMinutes / totalDayMinutes * 100;
-        nextEvent = `Closes at ${market.close}`;
-      } else if (currentMinutes < postCloseMinutes) {
-        sessionState = 'AFTER-HOURS';
-        sessionClass = 'after-hours';
-        showCurrentMarker = true;
-        markerPosition = currentMinutes / totalDayMinutes * 100;
-        nextEvent = `After-hours ends at ${market.postClose}`;
-      } else {
-        sessionState = 'CLOSED';
-        sessionClass = 'closed';
-        nextEvent = `Opens tomorrow at ${market.preOpen}`;
-      }
-    } else {
-      if (currentMinutes < closeMinutes) {
-        sessionState = 'OPEN';
-        sessionClass = 'open';
-        showCurrentMarker = true;
-        markerPosition = currentMinutes / totalDayMinutes * 100;
-        nextEvent = `Closes at ${market.close}`;
-      } else if (currentMinutes < postCloseMinutes) {
-        sessionState = 'AFTER-HOURS';
-        sessionClass = 'after-hours';
-        showCurrentMarker = true;
-        markerPosition = currentMinutes / totalDayMinutes * 100;
-        nextEvent = `After-hours ends at ${market.postClose}`;
-      } else {
-        sessionState = 'CLOSED';
-        sessionClass = 'closed';
-        nextEvent = `Opens tomorrow at ${market.preOpen}`;
-      }
-    }
-
-    // Build session blocks HTML
-    const sessionBlocksHtml = sessions.map(s => {
-      if (s.width < 0.5) return '';
-      const label = s.label ? `<span>${s.label}</span>` : '';
-      return `<div class="timeline-session-block ${s.type}" style="left: ${s.start}%; width: ${s.width}%;" data-label="${s.label || ''}">${label}</div>`;
-    }).join('');
-
-    // Build session labels (key times)
-    const labelTimes = [];
-    if (!isWeekend) {
-      labelTimes.push({ time: preOpenMinutes, label: market.preOpen });
-      labelTimes.push({ time: openMinutes, label: market.open });
-      if (market.lunch) {
-        const [lsH, lsM] = (market.lunch.start || '12:00').split(':').map(Number);
-        const [leH, leM] = (market.lunch.end || '13:00').split(':').map(Number);
-        labelTimes.push({ time: lsH * 60 + lsM, label: market.lunch.start });
-        labelTimes.push({ time: leH * 60 + leM, label: market.lunch.end });
-      }
-      labelTimes.push({ time: closeMinutes, label: market.close });
-      labelTimes.push({ time: postCloseMinutes, label: market.postClose });
-    }
-    const labelsHtml = labelTimes.map(l => `<span style="left: ${l.time / totalDayMinutes * 100}%;">${l.label}</span>`).join('');
-
-    return `
-      <div class="timeline-exchange-card ${sessionClass}" data-market="${market.id}" role="listitem">
-        <div class="timeline-exchange-header">
-          <span class="timeline-flag">${market.flag}</span>
-          <div class="timeline-exchange-info">
-            <div class="timeline-exchange-name">${market.name}</div>
-            <div class="timeline-exchange-tz">${market.tz.replace(/_/g, ' ')}</div>
-          </div>
-          <span class="timeline-exchange-status ${sessionClass}">${sessionState}</span>
-        </div>
-        <div class="timeline-visual-track" role="img" aria-label="${market.name} trading sessions">
-          <div class="timeline-sessions">${sessionBlocksHtml}</div>
-          ${showCurrentMarker ? `
-            <div class="timeline-current-marker" style="left: ${markerPosition}%;" data-time="${currentTimeStr}" title="Current time: ${currentTimeStr} ${market.tz}"></div>
-          ` : ''}
-        </div>
-        <!-- Labels moved below progress bar to prevent text collision -->
-        <div class="timeline-session-labels-below">${labelsHtml}</div>
-        <div class="timeline-next-event">
-          <svg class="event-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span class="event-text">${nextEvent}</span>
-        </div>
+  const now = Date.now();
+  const { markets, nowPosition } = marketSessions(now);
+  const timeValue = timeDisplay?.querySelector('.timeline-time-value');
+  if (timeValue) timeValue.textContent = benchmarkTime.format(now);
+  container.style.setProperty('--now-position', `${nowPosition}%`);
+  container.innerHTML = markets.map(({ name, state, sessions }) => {
+    const ranges = sessions.map(({ open, close }) =>
+      `${benchmarkTime.format(open)}–${benchmarkTime.format(close)} IST`).join(', ');
+    return `<div class="ist-session-row" role="listitem">
+      <strong>${name}</strong>
+      <div class="ist-session-track" role="img" aria-label="${ranges || 'No regular session on this IST date'}">
+        ${sessions.map(({ from, to }) => `<span style="left:${from}%;width:${to - from}%"></span>`).join('')}
       </div>
-    `;
+      <span>${state}</span>
+    </div>`;
   }).join('');
+
 }
 
 // Initialize market hours timeline updates (every 30 seconds for smooth current time marker)
@@ -7291,7 +7493,6 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
           }, 3500);
         }
       }
-      renderMarketTicker(marketDataCache);
     } catch (e) {
       console.warn('Could not fetch market overview for indices table:', e);
       if (hasCachedIndices) {
@@ -7304,298 +7505,9 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     renderMarketStateBar(marketDataCache);
   }
 
-  const benchmarkMeta = [
-    { name: 'NIFTY 50', symbol: '^NSEI', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
-    { name: 'SENSEX', symbol: '^BSESN', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
-    { name: 'BANK NIFTY', symbol: '^NSEBANK', region: 'India', regionCode: 'india', tag: 'IN', tagClass: 'tag-in', curr: '₹' },
-    { name: 'S&P 500', symbol: '^GSPC', region: 'Americas', regionCode: 'americas', tag: 'US', tagClass: 'tag-us', curr: '$' },
-    { name: 'NASDAQ Composite', symbol: '^IXIC', region: 'Americas', regionCode: 'americas', tag: 'US', tagClass: 'tag-us', curr: '$' },
-    { name: 'FTSE 100', symbol: '^FTSE', region: 'Europe', regionCode: 'europe', tag: 'UK', tagClass: 'tag-eu', curr: '£' },
-    { name: 'NIKKEI 225', symbol: '^N225', region: 'Asia-Pacific', regionCode: 'asia', tag: 'JP', tagClass: 'tag-ap', curr: '¥' },
-    { name: 'HANG SENG', symbol: '^HSI', region: 'Asia-Pacific', regionCode: 'asia', tag: 'HK', tagClass: 'tag-ap', curr: 'HK$' },
-    { name: 'SHANGHAI COMP', symbol: '^SSEC', region: 'Asia-Pacific', regionCode: 'asia', tag: 'CN', tagClass: 'tag-ap', curr: '¥' },
-    { name: 'DAX', symbol: '^GDAXI', region: 'Europe', regionCode: 'europe', tag: 'DE', tagClass: 'tag-eu', curr: '€' },
-    { name: 'CAC 40', symbol: '^FCHI', region: 'Europe', regionCode: 'europe', tag: 'FR', tagClass: 'tag-eu', curr: '€' },
-    { name: 'TSX COMPOSITE', symbol: '^GSPTSE', region: 'Americas', regionCode: 'americas', tag: 'CA', tagClass: 'tag-us', curr: 'C$' },
-    { name: 'ASX 200', symbol: '^AXJO', region: 'Asia-Pacific', regionCode: 'asia', tag: 'AU', tagClass: 'tag-ap', curr: 'A$' },
-  ];
 
-  // 1. Populate Global Benchmark Indices Table - Professional Version
-  const hasAnyValidPrice = (marketDataCache?.macro?.Indices || []).some((i) => typeof i.price === 'number' && i.price > 0);
-  const isSlowFetch = lastMarketOverviewFetchDuration > 1000;
-  const shouldShowSkeleton = !marketDataCache && !hasAnyValidPrice && !force && isSlowFetch;
 
-  const sessionTelemetry = getMarketSessionTelemetry();
-  const sessionByRegion = {
-    india: sessionTelemetry.nse,
-    americas: sessionTelemetry.nyse,
-    europe: sessionTelemetry.lse,
-    asia: sessionTelemetry.tyo,
-  };
-
-  const isValidPrice = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
-  const isValidNum = (v) => typeof v === 'number' && Number.isFinite(v);
-
-  // Always render benchmark table if tableBody exists
-  if (tableBody) {
-    const liveIndices = (marketDataCache?.macro?.Indices || []);
-    const lookup = new Map(liveIndices.map((i) => [i.symbol, i]));
-
-    if (shouldShowSkeleton) {
-      renderBenchmarkSkeleton(tableBody);
-    } else {
-
-    const processedBenchmarks = benchmarkMeta.map((m) => {
-      const live = lookup.get(m.symbol);
-      let rawPrice = null;
-      let rawChg = null;
-      let rawPct = null;
-      let rawHigh = null;
-      let rawLow = null;
-      let source = m.symbol === '^NSEI' ? (marketDataCache?.hero?.source || 'NSE Direct') : 'yfinance';
-      let sourceTimestamp = null;
-      let isStale = Boolean(marketDataCache?.is_stale);
-      let marketClosed = false;
-
-      if (live) {
-        if (isValidPrice(live.price)) rawPrice = live.price;
-        if (isValidNum(live.change)) rawChg = live.change;
-        if (isValidNum(live.change_pct)) rawPct = live.change_pct;
-        if (isValidPrice(live.high)) rawHigh = live.high;
-        if (isValidPrice(live.low)) rawLow = live.low;
-        if (live.source) source = live.source;
-        if (live.source_timestamp) sourceTimestamp = live.source_timestamp;
-        if (live.is_stale) isStale = true;
-      } else if (m.symbol === '^NSEI' && marketDataCache?.hero) {
-        const h = marketDataCache.hero;
-        if (isValidPrice(h.price)) rawPrice = h.price;
-        if (isValidNum(h.change)) rawChg = h.change;
-        if (isValidNum(h.change_pct)) rawPct = h.change_pct;
-        if (isValidPrice(h.high)) rawHigh = h.high;
-        if (isValidPrice(h.low)) rawLow = h.low;
-        if (h.source) source = h.source;
-        if (h.retrieved_at) sourceTimestamp = h.retrieved_at;
-        if (h.is_stale) isStale = true;
-      } else if (!live && (sessionByRegion[m.regionCode] || '').includes('CLOSED')) {
-        // For indices in closed sessions, show "Market Closed" instead of dashes
-        marketClosed = true;
-      }
-
-      return {
-        ...m,
-        price: rawPrice,
-        change: rawChg,
-        change_pct: rawPct,
-        high: rawHigh,
-        low: rawLow,
-        source,
-        source_timestamp: sourceTimestamp || (rawPrice != null ? marketDataCache?.retrieved_at : null),
-        sparkline_data: live?.sparkline_data,
-        is_stale: isStale,
-        session_status: sessionByRegion[m.regionCode] || 'UNAVAILABLE',
-        market_closed: marketClosed,
-        // Pass feed_health so downstream rendering knows if Indices feed is offline
-        indices_feed_health: marketDataCache?.feed_health?.Indices || null,
-      };
-    });
-
-    tableBody.innerHTML = processedBenchmarks
-      .map((m, idx) => {
-        const isIndia = m.curr === '₹' || m.regionCode === 'india';
-        const hasValidPrice = m.price != null;
-        // Show "Market Closed" for indices in closed session with no price data
-        const isMarketClosed = m.market_closed || (m.symbol.startsWith('^') && !hasValidPrice && (sessionByRegion[m.regionCode] || '').includes('CLOSED'));
-        // If feed_health is explicitly OFFLINE, show dashes instead of "Market Closed"
-        // to distinguish "no data / feed offline" from "market closed but price known"
-        const isFeedOffline = m.indices_feed_health === 'OFFLINE';
-        const priceDisplay = isFeedOffline
-          ? 'Unavailable'
-          : isMarketClosed
-          ? 'Market Closed'
-          : hasValidPrice
-          ? `${m.curr}${m.price.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : 'Unavailable';
-        const hasChange = m.change_pct != null;
-        const isUp = hasChange && m.change_pct > 0.0001;
-        const isDown = hasChange && m.change_pct < -0.0001;
-        const sign = isUp ? '+' : isDown ? '−' : '';
-        const chgDisplay = isFeedOffline ? 'Unavailable' : (isMarketClosed ? 'Unavailable' : (m.change != null ? `${sign}${Math.abs(m.change).toFixed(2)}` : 'Unavailable'));
-        const pctDisplay = isFeedOffline ? 'Unavailable' : (isMarketClosed ? 'Unavailable' : (hasChange ? `${sign}${Math.abs(m.change_pct).toFixed(2)}%` : 'Unavailable'));
-        const chgClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
-        const pctClass = isFeedOffline ? '' : (isMarketClosed ? '' : (!hasChange ? '' : isUp ? 'gain' : isDown ? 'loss' : ''));
-
-        // Region badge
-        const regionTagClass = {
-          'india': 'india',
-          'americas': 'americas',
-          'europe': 'europe',
-          'asia': 'asia',
-          'asia-pacific': 'asia'
-        }[m.regionCode] || 'india';
-
-        const asOf = Date.parse(m.source_timestamp);
-        const updatedDisplay = Number.isFinite(asOf)
-          ? `${benchmarkTime.format(asOf)} IST${marketDataCache?.demo_mode ? ' · Demo data' : ''}`
-          : m.is_stale ? 'Stale' : 'Unavailable';
-        const highDisplay = m.high == null || isFeedOffline ? 'Unavailable' : `${m.curr}${m.high.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const lowDisplay = m.low == null || isFeedOffline ? 'Unavailable' : `${m.curr}${m.low.toLocaleString(isIndia ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const sparkline = sparklineSvg(m.sparkline_data);
-
-        const isDefaultActive = idx === 0;
-
-        return `
-          <tr class="benchmark-row ${isDefaultActive ? 'active-row' : ''}${isMarketClosed ? ' market-closed' : ''}"
-              data-region="${m.regionCode}"
-              data-sym="${m.symbol}"
-              data-currency="${m.curr}"
-              tabindex="0"
-              role="row">
-            <td class="col-region">
-              <span class="region-badge ${regionTagClass}">${m.tag}</span>
-            </td>
-            <td class="col-name"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.name}</td>
-            <td class="col-symbol"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.symbol}</td>
-            <td class="col-price text-right" data-prev-price="${m.prev_price || ''}" data-sort-value="${m.price ?? ''}">
-              ${priceDisplay}
-            </td>
-            <td data-sort-value="${m.change ?? ''}" class="col-change text-right ${chgClass}">${chgDisplay}</td>
-            <td data-sort-value="${m.change_pct ?? ''}" class="col-pct text-right ${pctClass}">${pctDisplay}</td>
-            <td data-sort-value="${m.high ?? ''}" class="col-high text-right">${highDisplay}</td>
-            <td data-sort-value="${m.low ?? ''}" class="col-low text-right">${lowDisplay}</td>
-            <td class="col-sparkline">
-              <div class="sparkline-mini" data-symbol="${m.symbol}">${sparkline || '<span class="benchmark-no-series">No series</span>'}</div>
-            </td>
-            <td class="col-updated text-right" data-sort-value="${Number.isFinite(asOf) ? asOf : ''}">${updatedDisplay}</td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    sortBenchmarkRows(tableBody.closest('table'));
-
-    // Default Context Inspector state on Markets load (NIFTY 50)
-    if (processedBenchmarks.length > 0 && currentActiveWorkspace === 'markets') {
-      renderMarketInspector('index', processedBenchmarks[0]);
-    }
-
-    // Update footer
-    updateBenchmarkFooter(processedBenchmarks, marketDataCache);
-
-    // Wire Row Interactions:
-    // Single Click: Inspect security context
-    // Double Click: Open chart analysis workstation
-    // Keyboard Enter / Space: Open chart analysis workstation
-    // Arrow keys: Navigate between rows (roving tabindex)
-    const benchmarkRows = Array.from(tableBody.querySelectorAll('.benchmark-row'));
-    benchmarkRows.forEach((row, idx) => {
-      const sym = row.getAttribute('data-sym');
-      const found = processedBenchmarks.find((b) => b.symbol === sym);
-
-      // All benchmark rows are focusable (tabindex="0") for accessibility
-      row.setAttribute('tabindex', '0');
-      row.setAttribute('role', 'row');
-
-      const activateRow = () => {
-        benchmarkRows.forEach((r) => {
-          r.classList.remove('active-row');
-        });
-        row.classList.add('active-row');
-        row.focus({ preventScroll: true });
-        if (found) {
-          renderMarketInspector('index', found);
-        }
-      };
-
-      row.addEventListener('click', activateRow);
-
-      row.addEventListener('dblclick', () => {
-        if (sym) {
-          router.navigate(router.formatSymbolRoute(sym, 'chart'));
-        }
-      });
-
-      row.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          activateRow();
-          if (sym) {
-            router.navigate(router.formatSymbolRoute(sym, 'chart'));
-          }
-        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-          e.preventDefault();
-          const visibleRows = Array.from(tableBody.rows).filter((item) => item.style.display !== 'none');
-          const currentIdx = visibleRows.indexOf(row);
-          const nextIdx = e.key === 'ArrowDown'
-            ? Math.min(currentIdx + 1, visibleRows.length - 1)
-            : Math.max(currentIdx - 1, 0);
-          visibleRows[nextIdx]?.click();
-        } else if (e.key === 'Home') {
-          e.preventDefault();
-          Array.from(tableBody.rows).find((item) => item.style.display !== 'none')?.click();
-        } else if (e.key === 'End') {
-          e.preventDefault();
-          Array.from(tableBody.rows).findLast((item) => item.style.display !== 'none')?.click();
-        }
-      });
-    });
-    // Wire Filter Buttons
-    const filterBtns = document.querySelectorAll('#markets-indices-filter .benchmark-filter-btn');
-    const filterBtnsArray = Array.from(filterBtns);
-
-    filterBtnsArray.forEach((btn, idx) => {
-      btn.addEventListener('click', async () => {
-        activateFilterBtn(btn);
-      });
-
-      // Keyboard navigation for tabs (ARIA best practice)
-      btn.addEventListener('keydown', (e) => {
-        let targetIdx = idx;
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          targetIdx = (idx + 1) % filterBtnsArray.length;
-        } else if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          targetIdx = (idx - 1 + filterBtnsArray.length) % filterBtnsArray.length;
-        } else if (e.key === 'Home') {
-          e.preventDefault();
-          targetIdx = 0;
-        } else if (e.key === 'End') {
-          e.preventDefault();
-          targetIdx = filterBtnsArray.length - 1;
-        } else {
-          return;
-        }
-        filterBtnsArray[targetIdx].focus({ preventScroll: true });
-        activateFilterBtn(filterBtnsArray[targetIdx]);
-      });
-    });
-
-    function activateFilterBtn(btn) {
-      filterBtnsArray.forEach((b) => {
-        b.classList.remove('active');
-        b.setAttribute('aria-selected', 'false');
-        b.setAttribute('tabindex', '-1');
-      });
-      btn.classList.add('active');
-      btn.setAttribute('aria-selected', 'true');
-      btn.setAttribute('tabindex', '0');
-      const region = btn.getAttribute('data-region');
-      tableBody.querySelectorAll('.benchmark-row').forEach((row) => {
-        if (region === 'all' || row.getAttribute('data-region') === region) {
-          row.style.display = '';
-        } else {
-          row.style.display = 'none';
-        }
-      });
-      // Update WebSocket subscriptions for visible symbols
-      refreshWSSubscriptions();
-    }
-
-    // Wire Toolbar Buttons
-    wireBenchmarkToolbar();
-
-  } // Close else block
-} // Close if (tableBody)
+  renderMarketTicker(marketDataCache);
 
   // 2. Render Sector Constituents Detail Function
   function renderSelectedSectorDetail(sector) {
@@ -8363,15 +8275,20 @@ async function loadAndRenderCorrelation(period = '1y') {
               if (!Array.isArray(row)) return '';
               return `
             <tr>
-              <th style="text-align: left; font-weight: 700; color: #ffffff;">${s1}</th>
+              <th scope="row" style="text-align: left; font-weight: 700; color: var(--text);">${s1}</th>
               ${row
-                .map((val) => {
+                .map((val, column) => {
                   if (val == null || typeof val !== 'number') return '<td class="corr-neutral">—</td>';
                   let cls = 'corr-neutral';
                   if (val >= 0.7) cls = 'corr-high-pos';
                   else if (val >= 0.25) cls = 'corr-med-pos';
                   else if (val <= -0.1) cls = 'corr-neg';
-                  return `<td class="${cls}">${val.toFixed(2)}</td>`;
+                  return `<td class="${cls}">${provenance(val.toFixed(2), {
+                    kind: 'calculation', label: `${s1} and ${symbols[column]} correlation`,
+                    details: data.demo_mode
+                      ? 'MARA synthetic correlation fixture. The demo uses the same sample matrix across date ranges.'
+                      : `Pearson correlation of aligned daily returns over ${period}. Covariance divided by the product of both standard deviations.`,
+                  })}</td>`;
                 })
                 .join('')}
             </tr>
@@ -8656,6 +8573,15 @@ function renderOneClickReport(stockData, researchData, deepData, v4Data) {
   const rData = researchData || currentResearchData;
   const dData = deepData || currentDeepResearchData;
   const vData = v4Data || currentV4Data;
+  const quote = document.getElementById('report-quote-provenance');
+  if (quote) {
+    const currency = sData?.currency_symbol || getCurrencySymbol(sData?.symbol, sData?.currency);
+    quote.innerHTML = Number.isFinite(sData?.current_price)
+      ? provenance(`Last price ${quotePrice(sData.current_price, currency)}`, {
+        label: `${sData.symbol} last price`, details: overviewQuoteDetails(sData, 'MARA research snapshot'),
+      })
+      : '';
+  }
 
   const md = ResearchReportGenerator.generateMarkdownReport({
     stockData: sData,
@@ -8706,7 +8632,10 @@ function refreshAlertsUI() {
   const allAlerts = alertsManager.getAllAlerts();
   const activeAlerts = allAlerts.filter((a) => !a.triggered);
 
-  if (countNav) countNav.textContent = activeAlerts.length;
+  if (countNav) {
+    countNav.textContent = activeAlerts.length;
+    countNav.closest('button')?.setAttribute('aria-label', `Alerts ${activeAlerts.length}`);
+  }
   if (badge) badge.textContent = `${activeAlerts.length} Active`;
 
   if (!container) return;

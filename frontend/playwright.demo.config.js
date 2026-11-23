@@ -7,13 +7,14 @@ const baseURL = `http://127.0.0.1:${port}`;
 const webServer = {
   command: `node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port ${port} --strictPort`,
   url: baseURL,
-  reuseExistingServer: false,
+  reuseExistingServer: !process.env.CI,
   timeout: 30000,
 };
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['**/demo.spec.js'],
+  testMatch: process.env.MARA_VISUAL === '1' ? ['**/visual.spec.js'] : ['**/demo.spec.js'],
+  outputDir: process.env.MARA_VISUAL === '1' ? 'test-results/visual' : 'test-results/demo',
   timeout: 60000,
   expect: { timeout: 10000 },
   fullyParallel: false,
