@@ -282,7 +282,16 @@
         <section class="workspace-view" id="workspace-markets" role="tabpanel" aria-labelledby="ws-btn-markets">
           <div class="workspace-scroll-wrap">
             <header class="markets-page-heading">
-              <h1>Market overview</h1>
+              <div>
+                <h1>Market overview</h1>
+              </div>
+            </header>
+            <section class="market-ticker-strip" aria-label="Global market snapshot">
+              <div class="market-ticker-heading">Market snapshot</div>
+              <div class="market-ticker-track" id="market-ticker-track">
+                <span class="market-ticker-empty skeleton-text" role="status">Loading market snapshot</span>
+              </div>
+            </section>
 
             <!-- Market sessions and feed status -->
             <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
@@ -312,7 +321,6 @@
               </div>
             </div>
 
-            </header>
             <!-- SKELETON SCREENS - Match final layout exactly -->
             <div class="markets-skeleton" id="markets-skeleton" aria-hidden="true" role="status" aria-label="Loading market data">
               <!-- Skeleton: Benchmark Board -->
@@ -420,6 +428,8 @@
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h2 class="section-sub-title" id="benchmark-title">Global benchmarks</h2>
+                  <button type="button" class="ghost-btn ghost-btn-sm" id="benchmark-density" aria-pressed="false">Comfortable rows</button>
+                  <details class="benchmark-columns"><summary class="ghost-btn ghost-btn-sm">Columns</summary><fieldset><legend>Show columns</legend></fieldset></details>
                 </div>
               </div>
               <div class="benchmark-toolbar">
@@ -440,8 +450,6 @@
                     <button class="ghost-btn ghost-btn-sm" id="benchmarks-export-btn" title="Export to CSV" aria-label="Export benchmarks to CSV">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                     </button>
-                    <button type="button" class="ghost-btn ghost-btn-sm" id="benchmark-density" aria-pressed="false">Comfortable rows</button>
-                    <details class="benchmark-columns"><summary class="ghost-btn ghost-btn-sm">Columns</summary><fieldset><legend>Show columns</legend></fieldset></details>
                   </div>
               </div>
 
@@ -500,86 +508,81 @@
               </div>
               <div class="ist-session-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
             </div>
-            <div class="markets-analysis-grid">
-              <details class="markets-analysis-column">
-                <summary>Sector performance</summary>
-                <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP (SECTOR MATRIX) -->
-                <div class="ws-section-block">
-                  <div class="section-sub-header">
-                    <div class="section-sub-title-group">
-                      <span class="section-sub-caption">24h return and breadth</span>
-                    </div>
-                    <div class="sector-matrix-legend" id="sector-matrix-legend" role="img" aria-label="Sector return legend">
-                      <span class="legend-label">Return:</span>
-                      <span class="sector-swatch sector-swatch-deep-loss" aria-label="Strong loss">&le; -1.5%</span>
-                      <span class="sector-swatch sector-swatch-mod-loss" aria-label="Moderate loss">-0.5%</span>
-                      <span class="sector-swatch sector-swatch-neutral" aria-label="Flat">Flat</span>
-                      <span class="sector-swatch sector-swatch-mod-gain" aria-label="Moderate gain">+0.5%</span>
-                      <span class="sector-swatch sector-swatch-deep-gain" aria-label="Strong gain">&ge; +1.5%</span>
-                    </div>
-                  </div>
+            <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP (SECTOR MATRIX) -->
+            <div class="ws-section-block">
+              <div class="section-sub-header">
+                <div class="section-sub-title-group">
+                  <h2 class="section-sub-title">Sector performance</h2>
+                  <span class="section-sub-caption">24h return and breadth</span>
+                </div>
+                <div class="sector-matrix-legend" id="sector-matrix-legend" role="img" aria-label="Sector return legend">
+                  <span class="legend-label">Return:</span>
+                  <span class="sector-swatch sector-swatch-deep-loss" aria-label="Strong loss">&le; -1.5%</span>
+                  <span class="sector-swatch sector-swatch-mod-loss" aria-label="Moderate loss">-0.5%</span>
+                  <span class="sector-swatch sector-swatch-neutral" aria-label="Flat">Flat</span>
+                  <span class="sector-swatch sector-swatch-mod-gain" aria-label="Moderate gain">+0.5%</span>
+                  <span class="sector-swatch sector-swatch-deep-gain" aria-label="Strong gain">&ge; +1.5%</span>
+                </div>
+              </div>
 
-                  <!-- Authentic Financial Sector Matrix Grid -->
-                  <div class="sector-matrix-grid" id="sector-intelligence-grid" role="grid" aria-label="Sector performance matrix" aria-rowcount="0">
-                    <!-- Populated dynamically via loadAndRenderSectorsAndMarketMap -->
-                    <!-- Structure: grid > row > gridcell (each sector tile is a gridcell within a row) -->
+              <!-- Authentic Financial Sector Matrix Grid -->
+              <div class="sector-matrix-grid" id="sector-intelligence-grid" role="grid" aria-label="Sector performance matrix" aria-rowcount="0">
+                <!-- Populated dynamically via loadAndRenderSectorsAndMarketMap -->
+                <!-- Structure: grid > row > gridcell (each sector tile is a gridcell within a row) -->
+              </div>
+            </div>
+
+            <!-- SECTION 3: SECTOR CONSTITUENTS DEEP-DIVE -->
+            <div class="ws-section-block" id="sector-detail-section">
+              <div class="section-sub-header">
+                <div class="section-sub-title-group">
+                  <h2 class="section-sub-title" id="sector-detail-title">Sector Constituents</h2>
+                  <span class="section-sub-caption" id="sector-detail-meta">Loading constituents</span>
+                </div>
+                <div class="constituent-search-wrap">
+                  <label for="sector-constituent-search" class="constituent-search-label">Filter Constituents</label>
+                  <input type="text" id="sector-constituent-search" class="constituent-search" placeholder="Filter constituents..." autocomplete="off" />
+                </div>
+              </div>
+              <div class="constituent-table-wrap" id="sector-detail-body">
+                <!-- Populated via JavaScript renderSelectedSectorDetail -->
+              </div>
+            </div>
+
+            <!-- SECTION 4: CROSS-ASSET MACRO RADAR (FOREX, COMMODITIES, DIGITAL ASSETS) -->
+            <div class="ws-section-block">
+              <div class="section-sub-header"><h2 class="section-sub-title">Cross-asset quotes</h2></div>
+              <div class="macro-panels-grid">
+                <!-- Macro Panel 1: Forex Major Pairs -->
+                <div class="macro-panel">
+                  <div class="macro-panel-header">
+                    <div class="macro-panel-title">FX</div>
+                  </div>
+                  <div class="macro-panel-body" id="markets-macro-forex-list">
+                    <!-- Populated via JS -->
                   </div>
                 </div>
 
-                <!-- SECTION 3: SECTOR CONSTITUENTS DEEP-DIVE -->
-                <div class="ws-section-block" id="sector-detail-section">
-                  <div class="section-sub-header">
-                    <div class="section-sub-title-group">
-                      <h2 class="section-sub-title" id="sector-detail-title">Sector Constituents</h2>
-                      <span class="section-sub-caption" id="sector-detail-meta">Loading constituents</span>
-                    </div>
-                    <div class="constituent-search-wrap">
-                      <label for="sector-constituent-search" class="constituent-search-label">Filter Constituents</label>
-                      <input type="text" id="sector-constituent-search" class="constituent-search" placeholder="Filter constituents..." autocomplete="off" />
-                    </div>
+                <!-- Macro Panel 2: Commodities -->
+                <div class="macro-panel">
+                  <div class="macro-panel-header">
+                    <div class="macro-panel-title">Commodities</div>
                   </div>
-                  <div class="constituent-table-wrap" id="sector-detail-body">
-                    <!-- Populated via JavaScript renderSelectedSectorDetail -->
+                  <div class="macro-panel-body" id="markets-macro-commodities-list">
+                    <!-- Populated via JS -->
                   </div>
                 </div>
-              </details>
-              <details class="markets-analysis-column markets-cross-asset">
-                <summary>Cross-asset quotes</summary>
-                <!-- SECTION 4: CROSS-ASSET MACRO RADAR (FOREX, COMMODITIES, DIGITAL ASSETS) -->
-                <div class="ws-section-block">
-                  <div class="macro-panels-grid">
-                    <!-- Macro Panel 1: Forex Major Pairs -->
-                    <div class="macro-panel">
-                      <div class="macro-panel-header">
-                        <div class="macro-panel-title">FX</div>
-                      </div>
-                      <div class="macro-panel-body" id="markets-macro-forex-list">
-                        <!-- Populated via JS -->
-                      </div>
-                    </div>
 
-                    <!-- Macro Panel 2: Commodities -->
-                    <div class="macro-panel">
-                      <div class="macro-panel-header">
-                        <div class="macro-panel-title">Commodities</div>
-                      </div>
-                      <div class="macro-panel-body" id="markets-macro-commodities-list">
-                        <!-- Populated via JS -->
-                      </div>
-                    </div>
-
-                    <!-- Macro Panel 3: Digital Assets -->
-                    <div class="macro-panel">
-                      <div class="macro-panel-header">
-                        <div class="macro-panel-title">Crypto</div>
-                      </div>
-                      <div class="macro-panel-body" id="markets-macro-crypto-list">
-                        <!-- Populated via JS -->
-                      </div>
-                    </div>
+                <!-- Macro Panel 3: Digital Assets -->
+                <div class="macro-panel">
+                  <div class="macro-panel-header">
+                    <div class="macro-panel-title">Crypto</div>
+                  </div>
+                  <div class="macro-panel-body" id="markets-macro-crypto-list">
+                    <!-- Populated via JS -->
                   </div>
                 </div>
-              </details>
+              </div>
             </div>
           </div>
         </section>

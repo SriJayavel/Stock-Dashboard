@@ -140,9 +140,17 @@ test('pauses simulated prices without replacing market rows', async ({ page }) =
   const readPrices = () => page.locator('#markets-indices-table .benchmark-row .col-price')
     .evaluateAll(nodes => nodes.map(node => node.textContent.trim()));
   const first = await cell.elementHandle();
-  await expect(page.locator('.market-ticker-item, .tape-item')).toHaveCount(0);
+  await expect(page.locator('.market-ticker-item').first()).toBeVisible();
+  await expect(page.locator('.tape-item')).toHaveCount(0);
   const prices = await readPrices();
   await expect.poll(readPrices).not.toEqual(prices);
+  const mismatches = await page.locator('.market-ticker-item').evaluateAll(items => items.filter(item => {
+    const symbol = CSS.escape(item.dataset.symbol);
+    const row = document.querySelector(`#markets-indices-table [data-sym="${symbol}"]`);
+    const price = row?.querySelector('.col-price .provenance-value') || row?.querySelector('.col-price');
+    return price && item.querySelector('.market-ticker-value').textContent.trim() !== price.textContent.trim();
+  }).length);
+  expect(mismatches).toBe(0);
   expect(await first.evaluate(node => node.isConnected)).toBe(true);
   const toggle = page.getByRole('button', { name: 'Pause updates' });
   await toggle.click();
@@ -311,8 +319,7 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await expect(page.locator('#demo-banner, #ticker-tape-track')).toHaveCount(0);
 
     const sectors = page.locator('#sector-intelligence-grid');
-    await expect(sectors).toBeHidden();
-    await page.getByText('Sector performance', { exact: true }).click();
+    await expect(sectors).toBeVisible();
     const tech = sectors.getByRole('gridcell', { name: /Technology/ });
     await expect(sectors.getByRole('gridcell')).toHaveCount(2);
     await expect(tech).toContainText('+1.20%');
@@ -324,8 +331,7 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await expect(detail.getByText('HDFCBANK.NS', { exact: true })).toBeVisible();
     await expect(detail.getByRole('columnheader', { name: 'Weight' })).toHaveCount(0);
     const fx = page.locator('#markets-macro-forex-list');
-    await expect(fx).toBeHidden();
-    await page.getByText('Cross-asset quotes', { exact: true }).click();
+    await expect(fx).toBeVisible();
     await expect(fx.locator('.macro-asset-freshness').first()).toContainText('IST');
 
     // 2. All static fixtures must resolve (200)

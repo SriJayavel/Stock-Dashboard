@@ -924,6 +924,8 @@ function setupUpdateControls() {
           label.textContent = quotePrice(value, row.dataset.currency);
         }
       }
+      const ticker = document.querySelector(`.market-ticker-item[data-symbol="${CSS.escape(row.dataset.sym)}"]`);
+      if (ticker) updateTickerQuote(ticker, next, row.dataset.currency);
       if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const flash = nextPrice > price ? '--gain-bg' : '--loss-bg';
         cell.animate([{ backgroundColor: `var(${flash})` }, { backgroundColor: 'transparent' }], 180);
@@ -3263,6 +3265,15 @@ async function renderBenchmarkPair() {
   }).join('');
 }
 
+function updateTickerQuote(button, quote, currency) {
+  const change = quote.change_pct;
+  button.classList.toggle('is-positive', change > 0);
+  button.classList.toggle('is-negative', change < 0);
+  button.querySelector('.market-ticker-value').textContent = quotePrice(quote.price, currency);
+  button.querySelector('.market-ticker-change').textContent = quoteMovement(quote.change);
+  button.querySelector('.market-ticker-percent').textContent = quoteMovement(change, '%');
+}
+
 let renderedBenchmarkSnapshot;
 let renderedBenchmarkStale;
 function renderBenchmarkTable(snapshot) {
@@ -3476,12 +3487,80 @@ function renderBenchmarkTable(snapshot) {
   applyBenchmarkPreferences();
 }
 
+function renderMarketTicker(data) {
+  const track = document.getElementById('market-ticker-track');
+  if (!track) return;
+  renderBenchmarkTable(data);
+
+  const symbols = [...benchmarkMeta.map(benchmark => benchmark.symbol), 'GC=F', 'SI=F', 'BTC-USD'];
+  const bySymbol = marketQuotes(data);
+  const available = symbols.map((symbol) => bySymbol.get(symbol))
+    .filter((item) => Number.isFinite(item?.price) && item.price > 0);
+
+  if (!available.length) {
+    const empty = document.createElement('span');
+    empty.className = 'market-ticker-empty';
+    empty.textContent = 'Market snapshot unavailable';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'ghost-btn';
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', async () => {
+      empty.textContent = 'Loading market snapshot';
+      empty.classList.add('skeleton-text');
+      retry.disabled = true;
+      await loadMarketOverview(true);
+      await loadAndRenderSectorsAndMarketMap();
+      if (retry.isConnected) renderMarketTicker(marketDataCache);
+    });
+    track.replaceChildren(empty, retry);
+    return;
+  }
+
+  const focusedSymbol = track.contains(document.activeElement) ? document.activeElement.dataset.symbol : null;
+  const scrollPosition = track.scrollLeft;
+  const items = document.createDocumentFragment();
+  let focusedButton;
+
+  for (const item of available) {
+    const button = document.createElement('button');
+    const currency = benchmarkMeta.find(benchmark => benchmark.symbol === item.symbol)?.curr || '$';
+    button.type = 'button';
+    button.dataset.symbol = item.symbol;
+    if (item.symbol === focusedSymbol) focusedButton = button;
+    button.className = 'market-ticker-item';
+    button.title = `${item.name || item.symbol} · Open in Analyze`;
+
+    const identity = document.createElement('span');
+    identity.className = 'market-ticker-identity';
+    identity.textContent = item.name || item.symbol;
+    const value = document.createElement('span');
+    value.className = 'market-ticker-value';
+    const movement = document.createElement('span');
+    movement.className = 'market-ticker-movement';
+    const absoluteChange = document.createElement('span');
+    absoluteChange.className = 'market-ticker-change';
+    const percentChange = document.createElement('span');
+    percentChange.className = 'market-ticker-percent';
+    movement.append(absoluteChange, percentChange);
+    button.append(identity, value, movement);
+    updateTickerQuote(button, item, currency);
+    button.addEventListener('click', () => {
+      if (item.symbol) router.navigate(router.formatSymbolRoute(item.symbol, 'chart'));
+    });
+    items.append(button);
+  }
+  track.replaceChildren(items);
+  track.scrollLeft = scrollPosition;
+  focusedButton?.focus({ preventScroll: true });
+}
+
 // Load and Render Market Overview
 async function loadMarketOverview(force = false) {
   const now = Date.now();
   if (!force && marketDataCache?.macro && (now - lastMarketOverviewFetchTime < 60000)) {
     renderMarketStateBar(marketDataCache);
-    renderBenchmarkTable(marketDataCache);
+    renderMarketTicker(marketDataCache);
     return;
   }
 
@@ -3500,7 +3579,7 @@ async function loadMarketOverview(force = false) {
     }
     lastMarketOverviewFetchTime = now;
     renderMarketStateBar(marketDataCache);
-    renderBenchmarkTable(marketDataCache);
+    renderMarketTicker(marketDataCache);
 
     // Render Hero Card
     if (data.hero || prevHero) {
@@ -3639,7 +3718,7 @@ async function loadMarketOverview(force = false) {
     console.error('Failed to load market overview:', err);
     if (marketDataCache) marketDataCache.is_stale = true;
     renderMarketStateBar(marketDataCache);
-    renderBenchmarkTable(marketDataCache);
+    renderMarketTicker(marketDataCache);
 
     // Also show skeleton as error state
     const skeleton = document.getElementById('markets-skeleton');
@@ -6499,7 +6578,7 @@ function renderMarketStateBar(data) {
           if (latest?.last_attempted_at && latest.last_attempted_at !== previousAttempt) {
             marketDataCache = latest;
             renderMarketStateBar(latest);
-            renderBenchmarkTable(latest);
+            renderMarketTicker(latest);
             renderMacroRadarPanels();
             refreshed = true;
             const hasDelayed = Object.values(latest.feed_health || {}).some((state) => state === 'DELAYED');
@@ -7188,34 +7267,41 @@ function handleLivePriceUpdate(symbol, data, timestamp) {
 }
 
 function updateBenchmarkRowLive(row, data, timestamp) {
-  const priceCell = row.querySelector('td:nth-child(4)');
-  const changeCell = row.querySelector('td:nth-child(5)');
-  const pctCell = row.querySelector('td:nth-child(6)');
-  const rangeCell = row.querySelector('td:nth-child(7)');
-
-  if (priceCell && data.price != null) {
-    const oldPrice = parseFloat(priceCell.textContent.replace(/[₹$,]/g, ''));
-    const newPrice = data.price;
-    priceCell.textContent = formatPrice(newPrice, row.getAttribute('data-sym'));
-
-    // Price flash animation
-    priceCell.classList.add(data.price >= (oldPrice || 0) ? 'price-flash-up' : 'price-flash-down');
-    setTimeout(() => priceCell.classList.remove('price-flash-up', 'price-flash-down'), 1000);
+  const currency = row.dataset.currency;
+  const quote = {};
+  for (const [column, key, movement, suffix] of [
+    ['price', 'price', false, ''],
+    ['change', 'change', true, ''],
+    ['pct', 'change_pct', true, '%'],
+  ]) {
+    const cell = row.querySelector(`.col-${column}`);
+    if (!cell) continue;
+    if (Number.isFinite(data[key])) {
+      const value = data[key];
+      cell.dataset.sortValue = String(value);
+      const text = movement ? quoteMovement(value, suffix) : quotePrice(value, currency);
+      const label = cell.querySelector('.provenance-value') || cell;
+      label.textContent = text;
+      const trigger = label.closest('.provenance-trigger');
+      if (trigger) {
+        const sourceTime = Date.parse(data.source_timestamp);
+        const details = [
+          data.source ? `Provider: ${data.source}.` : 'Market feed.',
+          Number.isFinite(sourceTime) ? `As of ${new Date(sourceTime).toISOString()}.` : '',
+        ].filter(Boolean).join(' ');
+        trigger.dataset.details = details;
+        trigger.setAttribute('aria-description', `${trigger.dataset.label} · Source data: ${details}`);
+      }
+      if (movement) {
+        cell.classList.toggle('gain', value > 0);
+        cell.classList.toggle('loss', value < 0);
+      }
+    }
+    quote[key] = cell.dataset.sortValue ? Number(cell.dataset.sortValue) : null;
   }
 
-  if (changeCell && data.change != null) {
-    const sign = data.change >= 0 ? '+' : '';
-    changeCell.textContent = `${sign}${data.change.toFixed(2)}`;
-    changeCell.className = `tape-chg ${data.change >= 0 ? 'chg-up' : 'chg-down'}`;
-  }
-
-  if (pctCell && data.change_pct != null) {
-    const sign = data.change_pct >= 0 ? '+' : '';
-    pctCell.textContent = `${sign}${data.change_pct.toFixed(2)}%`;
-    pctCell.className = `tape-chg ${data.change_pct >= 0 ? 'chg-up' : 'chg-down'}`;
-  }
-
-  // Update staleness badge
+  const ticker = document.querySelector(`.market-ticker-item[data-symbol="${CSS.escape(row.dataset.sym)}"]`);
+  if (ticker) updateTickerQuote(ticker, quote, currency);
   updateRowStalenessBadge(row, data.freshness || 'LIVE', timestamp);
 }
 
@@ -7434,7 +7520,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
 
 
-  renderBenchmarkTable(marketDataCache);
+  renderMarketTicker(marketDataCache);
 
   // 2. Render Sector Constituents Detail Function
   function renderSelectedSectorDetail(sector) {
