@@ -335,6 +335,20 @@ body, button, input, select, textarea {
   overflow-x: auto;
 }
 
+.sector-filter-status {
+  margin: .5rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-label);
+}
+
+.sector-filter-status:empty {
+  margin: 0;
+}
+
+#watchlist-drawer [hidden] {
+  display: none !important;
+}
+
 #workspace-markets .hm-tile {
   background: color-mix(in srgb, var(--sector-color, var(--surface)) var(--sector-tint, 0%), var(--surface));
   border-color: var(--border);

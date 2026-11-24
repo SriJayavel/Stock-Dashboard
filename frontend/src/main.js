@@ -1,5 +1,7 @@
 import { marketSessions } from './market-sessions.js';
 import { sparklineSvg } from './sparkline.js';
+import { mountBenchmarkComparison } from './benchmark-comparison.js';
+import { internationalMarket } from './equity-directory.js';
 import { marketQuotes, quoteMovement, quotePrice } from './market-quotes.js';
 import { provenance, setupProvenance } from './provenance.js';
 import { roundPrice, seededRandom, walkStep } from './demo/simulator.js';
@@ -45,6 +47,7 @@ let currentSymbol = null;
 let currentTimeframe = '1y';
 let currentActiveWorkspace = 'analyze';
 let workspaceRun = 0;
+let unmountBenchmarkComparison;
 let routeRun = 0;
 let chartRequest;
 let stockRequest;
@@ -138,19 +141,13 @@ let staleCheckTimer = null;
 
 // Centralized Financial Currency Formatter
 export function getCurrencySymbol(symbol = '', currency = '') {
-  if (currency === 'INR' || (typeof symbol === 'string' && (symbol.endsWith('.NS') || symbol.endsWith('.BO')))) {
-    return '₹';
-  }
-  if (currency === 'EUR' || (typeof symbol === 'string' && (symbol.endsWith('.DE') || symbol.endsWith('.PA')))) {
-    return '€';
-  }
-  if (currency === 'GBP' || (typeof symbol === 'string' && symbol.endsWith('.L'))) {
-    return '£';
-  }
-  if (currency === 'JPY' || (typeof symbol === 'string' && symbol.endsWith('.T'))) {
-    return '¥';
-  }
-  return '$';
+  const ticker = typeof symbol === 'string' ? symbol : '';
+  const units = currency || internationalMarket(ticker)?.[2] || (/\.(NS|BO)$/.test(ticker) ? 'INR' : 'USD');
+  const unitsSymbol = {
+    INR: '₹', USD: '$', EUR: '€', GBP: '£', JPY: '¥', HKD: 'HK$', CAD: 'CA$', AUD: 'A$',
+    NZD: 'NZ$', KRW: '₩', CNY: 'CN¥', TWD: 'NT$', SGD: 'S$', BRL: 'R$', MXN: 'MX$',
+  };
+  return Object.hasOwn(unitsSymbol, units) ? unitsSymbol[units] : units + ' ';
 }
 
 export function formatCurrencyValue(val, symbol = '', currency = '', state = null) {
@@ -326,8 +323,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Primary Workspace Switcher
 export async function setWorkspace(workspaceName, subTab = null) {
   const run = ++workspaceRun;
+  const startingFocus = document.activeElement;
   const previousWorkspace = currentActiveWorkspace;
   currentActiveWorkspace = workspaceName;
+  if (workspaceName !== 'compare' || subTab !== 'benchmarks') {
+    unmountBenchmarkComparison?.();
+    unmountBenchmarkComparison = undefined;
+  }
   if (previousWorkspace !== workspaceName) {
     if (document.getElementById('mara-app')?.classList.contains('context-panel-open')) {
       document.getElementById('close-context-panel-btn')?.click();
@@ -420,19 +422,27 @@ export async function setWorkspace(workspaceName, subTab = null) {
   } else if (workspaceName === 'compare') {
     const benchmarkPair = document.getElementById('compare-benchmark-pair');
     benchmarkPair.hidden = subTab !== 'benchmarks';
-    if (subTab === 'benchmarks') await renderBenchmarkPair();
-    if (run !== workspaceRun) return;
-    if (currentSymbol) {
-      loadStockResearch(currentSymbol, currentLoadToken);
-      loadAndRenderMacroExplorer(currentSymbol);
+    document.getElementById('compare-asset-workspace').hidden = !benchmarkPair.hidden;
+    if (!benchmarkPair.hidden) {
+      unmountBenchmarkComparison ??= mountBenchmarkComparison(benchmarkPair);
+      renderBenchmarkPair();
+    } else {
+      if (currentSymbol) {
+        loadStockResearch(currentSymbol, currentLoadToken);
+        loadAndRenderMacroExplorer(currentSymbol);
+      }
+      loadAndRenderCorrelation(activeCorrelationPeriod);
     }
-    loadAndRenderCorrelation(activeCorrelationPeriod);
   }
 
   // 5. Focus management - move focus to first interactive element in new workspace
   // Defer to next tick to ensure DOM is updated
   requestAnimationFrame(() => {
-    if (run === workspaceRun) focusFirstInteractiveInWorkspace(workspaceName);
+    if (run !== workspaceRun) return;
+    const focused = document.activeElement;
+    if (focused === startingFocus || focused === document.body) {
+      focusFirstInteractiveInWorkspace(workspaceName);
+    }
   });
 }
 
@@ -448,7 +458,7 @@ function focusFirstInteractiveInWorkspace(workspaceName) {
     markets: '.benchmark-filter-btn.active, .benchmark-row[data-sym], .sector-tile, .macro-asset-row',
     discover: '.screener-tab-btn.active, .screener-table tbody tr[tabindex="0"], #toggle-screener-builder-btn',
     analyze: '.interval-btn.active, .range-btn.active, #tv-rail-crosshair, #tv-tb-symbol-btn',
-    compare: '.corr-tf-btn.active, .peer-table-wrapper [tabindex="0"]',
+    compare: '#compare-benchmark-pair:not([hidden]) h1, #compare-asset-workspace:not([hidden]) .corr-tf-btn.active',
     research: '.ws-sub-btn.active, .news-grid [tabindex="0"], #scenario-rev-slider',
     monitor: '.ws-sub-btn.active, .watchlist-items-list [tabindex="0"], #ws-alert-sym-input'
   };
@@ -1172,6 +1182,7 @@ function setupEventListeners() {
   const searchInput = document.getElementById('global-search-input');
   const searchDropdown = document.getElementById('search-dropdown');
   let searchDebounceTimer = null;
+  let searchRequest;
   let searchKeyHandler = null;
 
   const researchCommands = { delta: 'whatchanged', anomalies: 'anomalies', scenarios: 'lab' };
@@ -1188,6 +1199,7 @@ function setupEventListeners() {
   ];
 
   function openSearchResult(result) {
+    searchRequest?.abort();
     searchRequestSeq += 1;
     searchDropdown.classList.remove('open');
     searchDropdown.setAttribute('aria-busy', 'false');
@@ -1199,28 +1211,42 @@ function setupEventListeners() {
   }
 
   // Function to render search results in the dropdown
-  function renderSearchDropdown(results) {
+  function renderSearchDropdown(results, emptyMessage = 'No matches. Try a company name or exchange ticker.') {
     searchDropdown.setAttribute('aria-busy', 'false');
     if (searchKeyHandler) searchInput.removeEventListener('keydown', searchKeyHandler);
     if (!results || results.length === 0) {
-      searchDropdown.innerHTML = '<div class="search-empty-state" role="option" aria-disabled="true">No matches. Try a symbol, company name or action.</div>';
+      const empty = document.createElement('div');
+      empty.className = 'search-empty-state';
+      empty.setAttribute('role', 'option');
+      empty.setAttribute('aria-disabled', 'true');
+      empty.textContent = emptyMessage;
+      searchDropdown.replaceChildren(empty);
       return;
     }
 
-    searchDropdown.innerHTML = results
-      .map(
-        (item, index) => `
-          <button type="button" class="search-item" data-index="${index}" role="option" aria-selected="false">
-            <div class="search-item-info">
-            <div class="search-item-symbol">${item.action ? item.name : item.symbol}</div>
-            <div class="search-item-name">${item.action ? 'Workspace action' : item.name}</div>
-              ${item.exchange ? `<div class="search-item-exchange">${item.exchange}</div>` : ''}
-              ${item.type ? `<div class="search-item-type">${item.type}</div>` : ''}
-            </div>
-          </button>
-        `
-      )
-      .join('');
+    searchDropdown.replaceChildren(...results.map(item => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'search-item';
+      button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', 'false');
+      const info = document.createElement('div');
+      info.className = 'search-item-info';
+      const fields = [
+        ['symbol', item.action ? item.name : item.symbol],
+        ['name', item.action ? 'Workspace action' : item.name],
+        ['exchange', [item.exchange, item.country, item.currency].filter(Boolean).join(' · ')],
+      ];
+      for (const [role, value] of fields) {
+        if (!value) continue;
+        const text = document.createElement('div');
+        text.className = 'search-item-' + role;
+        text.textContent = value;
+        info.append(text);
+      }
+      button.append(info);
+      return button;
+    }));
 
     // Handle keyboard navigation
     let activeIndex = 0;
@@ -1243,8 +1269,12 @@ function setupEventListeners() {
 
       if (e.key === 'Escape') {
         e.preventDefault();
+        clearTimeout(searchDebounceTimer);
+        searchRequest?.abort();
+        searchRequestSeq += 1;
         searchDropdown.classList.remove('open');
         searchInput.setAttribute('aria-expanded', 'false');
+        searchInput.removeAttribute('aria-activedescendant');
         searchInput.blur();
         return;
       }
@@ -1278,6 +1308,7 @@ function setupEventListeners() {
       }
 
       if (e.key === 'Enter') {
+        if (e.isComposing || e.keyCode === 229) return;
         e.preventDefault();
         if (items.length > 0 && activeIndex >= 0 && activeIndex < items.length) {
           const result = results[activeIndex];
@@ -1293,6 +1324,7 @@ function setupEventListeners() {
   if (searchInput && searchDropdown) {
     searchInput.addEventListener('input', (e) => {
       clearTimeout(searchDebounceTimer);
+      searchRequest?.abort();
       const requestSeq = ++searchRequestSeq;
       const query = e.target.value.trim();
       searchInput.removeAttribute('aria-activedescendant');
@@ -1326,17 +1358,23 @@ function setupEventListeners() {
       searchDropdown.setAttribute('aria-busy', 'true');
       searchInput.setAttribute('aria-expanded', 'true');
       searchDebounceTimer = setTimeout(async () => {
+        const controller = new AbortController();
+        searchRequest = controller;
         try {
-          const res = await api.searchAssets(query);
+          const res = await api.searchAssets(query, controller.signal);
           if (requestSeq !== searchRequestSeq) return;
-          renderSearchDropdown(Array.isArray(res) ? res : res.results || []);
-        } catch (err) {
-          if (requestSeq !== searchRequestSeq) return;
-          console.error('Search query failed:', err);
-          searchDropdown.innerHTML = `<div class="search-error-state" role="option" aria-selected="false" aria-disabled="true" style="padding: 12px; text-align: center;"><div style="font-weight: 500; color: var(--loss); margin-bottom: 4px;">Search temporarily unavailable</div><div style="font-size: 11px; color: var(--text-muted);">The search service is not responding. Please try again shortly.</div><div style="font-size: 10px; margin-top: 6px; color: var(--text-muted);">Error: ${err.message || 'Unknown error'}</div></div>`;
-          searchDropdown.setAttribute('aria-busy', 'false');
+          const results = Array.isArray(res) ? res : res.results || [];
+          const ticker = query.toUpperCase();
+          if (!results.length && !isDemoMode() && /^[A-Z0-9][A-Z0-9&-]{0,19}\.[A-Z]{1,3}$/.test(ticker)) {
+            results.push({ symbol: ticker, name: 'Open ticker directly', exchange: internationalMarket(ticker)?.[0] });
+          }
+          renderSearchDropdown(results);
+        } catch (error) {
+          if (controller.signal.aborted || requestSeq !== searchRequestSeq) return;
+          console.error('Search query failed:', error);
+          renderSearchDropdown([], 'Search unavailable. Try again in a moment.');
         }
-      }, 200);
+      }, 325);
     });
 
     // Click on kbd shortcut hint also focuses search
@@ -1357,6 +1395,7 @@ function setupEventListeners() {
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
         clearTimeout(searchDebounceTimer);
+        searchRequest?.abort();
         searchRequestSeq += 1;
         searchDropdown.classList.remove('open');
         searchDropdown.setAttribute('aria-busy', 'false');
@@ -2394,7 +2433,10 @@ export function updateChartTelemetry(meta) {
 
   // 2. Market Session Badge
   if (marketBadge) {
-    if (currentMarketSession === 'OPEN') {
+    if (currentMarketSession === 'UNAVAILABLE') {
+      marketBadge.textContent = 'SESSION UNKNOWN';
+      marketBadge.className = 'tv-market-badge';
+    } else if (currentMarketSession === 'OPEN') {
       marketBadge.textContent = 'MARKET OPEN';
       marketBadge.className = 'tv-market-badge open';
     } else if (currentMarketSession === 'PRE_MARKET' || currentMarketSession === 'PRE-MARKET') {
@@ -2417,7 +2459,9 @@ export function updateChartTelemetry(meta) {
 
   // 3. Status Bar Telemetry
   if (bbStatus) {
-    if (currentMarketSession === 'CLOSED') {
+    if (currentMarketSession === 'UNAVAILABLE') {
+      bbStatus.textContent = `${lastKnownExchange} · Session calendar unavailable`;
+    } else if (currentMarketSession === 'CLOSED') {
       bbStatus.textContent = `${lastKnownExchange} · Market Closed`;
     } else if (currentMarketSession === 'HOLIDAY') {
       bbStatus.textContent = `${lastKnownExchange} · Trading Holiday`;
@@ -2713,30 +2757,54 @@ function setupWatchlistControls() {
   const clearBtn = document.getElementById('clear-watchlist-btn');
 
   const tvSidebarToggle = document.getElementById('tv-sidebar-toggle-btn');
+  const app = document.getElementById('mara-app');
+  const overlay = matchMedia('(width < 1024px)');
+  let opener;
 
-  const openDrawer = () => {
+  const syncDrawerModality = () => {
+    const modal = overlay.matches && drawer.classList.contains('open');
+    app.inert = modal;
+    const skipLink = document.querySelector('.skip-to-content-link');
+    if (skipLink) skipLink.inert = modal;
+    backdrop.classList.toggle('open', modal);
+    if (modal) {
+      drawer.setAttribute('role', 'dialog');
+      drawer.setAttribute('aria-modal', 'true');
+      if (!drawer.contains(document.activeElement)) closeBtn.focus({ preventScroll: true });
+    } else {
+      drawer.removeAttribute('role');
+      drawer.removeAttribute('aria-modal');
+    }
+  };
+  overlay.addEventListener('change', syncDrawerModality);
+
+  const openDrawer = (trigger, section) => {
+    if (drawer.classList.contains('open') && trigger === opener && trigger.classList.contains('active')) {
+      closeDrawer();
+      return;
+    }
+    opener = trigger;
     if (drawer) drawer.classList.add('open');
     drawer?.removeAttribute('inert');
-    if (backdrop && window.innerWidth < 1024) backdrop.classList.add('open');
     if (tvSidebarToggle) tvSidebarToggle.classList.add('active');
     document.body.classList.add('watchlist-drawer-open');
     toggleBtn?.setAttribute('aria-expanded', 'true');
     document.getElementById('alerts-modal-toggle')?.setAttribute('aria-expanded', 'true');
-    refreshWatchlistUI();
+    switchTab(section);
+    syncDrawerModality();
+    closeBtn.focus({ preventScroll: true });
     if (chartInstance) {
       setTimeout(() => chartInstance.resize(), 50);
     }
   };
 
   const closeDrawer = () => {
-    if (drawer?.contains(document.activeElement)) {
-      const trigger = drawer.querySelector('#drawer-tab-alerts.active')
-        ? document.getElementById('alerts-modal-toggle') : toggleBtn;
-      trigger?.focus({ preventScroll: true });
-    }
+    const restoreFocus = drawer.contains(document.activeElement);
     drawer?.setAttribute('inert', '');
     if (drawer) drawer.classList.remove('open');
-    if (backdrop) backdrop.classList.remove('open');
+    syncDrawerModality();
+    if (restoreFocus) opener?.focus({ preventScroll: true });
+    opener = undefined;
     if (tvSidebarToggle) tvSidebarToggle.classList.remove('active');
     toggleBtn?.classList.remove('active');
     document.getElementById('alerts-modal-toggle')?.classList.remove('active');
@@ -2751,8 +2819,7 @@ function setupWatchlistControls() {
 
   if (toggleBtn) {
     toggleBtn.addEventListener('click', () => {
-      openDrawer();
-      switchTab('watchlist');
+      openDrawer(toggleBtn, 'watchlist');
     });
   }
   if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
@@ -2761,8 +2828,7 @@ function setupWatchlistControls() {
   const navAlertsBtn = document.getElementById('alerts-modal-toggle');
   if (navAlertsBtn) {
     navAlertsBtn.addEventListener('click', () => {
-      openDrawer();
-      switchTab('alerts');
+      openDrawer(navAlertsBtn, 'alerts');
     });
   }
 
@@ -2810,8 +2876,7 @@ function setupWatchlistControls() {
       if (drawer && drawer.classList.contains('open')) {
         closeDrawer();
       } else {
-        openDrawer();
-        switchTab(tabAlerts?.classList.contains('active') ? 'alerts' : 'watchlist');
+        openDrawer(tvSidebarToggle, tabAlerts?.classList.contains('active') ? 'alerts' : 'watchlist');
       }
     });
   }
@@ -2823,6 +2888,8 @@ function setupWatchlistControls() {
   const viewAlerts = document.getElementById('tv-drawer-view-alerts');
 
   const switchTab = (tab) => {
+    tabWl?.setAttribute('aria-pressed', String(tab === 'watchlist'));
+    tabAlerts?.setAttribute('aria-pressed', String(tab === 'alerts'));
     toggleBtn?.classList.toggle('active', tab !== 'alerts');
     document.getElementById('alerts-modal-toggle')?.classList.toggle('active', tab === 'alerts');
     if (tab === 'alerts') {
@@ -2847,8 +2914,7 @@ function setupWatchlistControls() {
   const tbAlertBtn = document.getElementById('tv-tb-alert-btn');
   if (tbAlertBtn) {
     tbAlertBtn.addEventListener('click', () => {
-      openDrawer();
-      switchTab('alerts');
+      openDrawer(tbAlertBtn, 'alerts');
     });
   }
 
@@ -3248,8 +3314,9 @@ function overviewQuoteDetails(quote, fallback) {
 
 async function renderBenchmarkPair() {
   const panel = document.getElementById('compare-benchmark-pair');
-  const output = panel.querySelector('tbody');
+  const output = document.getElementById('pair-quote-rows');
   if (!marketDataCache) await loadMarketOverview();
+  if (panel.hidden) return;
   const quotes = marketQuotes(marketDataCache);
   output.innerHTML = benchmarkMeta.slice(0, 2).map(({ name, symbol, curr }) => {
     const quote = quotes.get(symbol);
@@ -3260,7 +3327,6 @@ async function renderBenchmarkPair() {
       <th scope="row">${name}</th>
       <td>${quote ? provenance(price, { label: `${name} last price`, details }) : price}</td>
       <td>${quote ? provenance(movement, { label: `${name} session change`, details }) : movement}</td>
-      <td>${sparklineSvg(quote?.sparkline_data) || 'Unavailable'}</td>
     </tr>`;
   }).join('');
 }
@@ -3868,6 +3934,7 @@ function prepareChart() {
 }
 
 async function loadStock(symbol, timeframe = '1y') {
+  renderTechnicalSnapshot(null);
   cancelBacktest(true);
   stockRequest?.abort();
   chartRequest?.abort();
@@ -4032,7 +4099,7 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
     const date = (bar) => new Date(bar.time * 1000).toISOString().slice(0, 10);
     document.getElementById('tv-chart-container')?.setAttribute('aria-label',
       lastBar
-        ? `${symbol} price chart from ${date(firstBar)} to ${date(lastBar)}. Last close ${formatPrice(lastBar.close, symbol)}.`
+        ? `${symbol} price chart from ${date(firstBar)} to ${date(lastBar)}. Last close ${formatPrice(lastBar.close, symbol, historyData.currency)}.`
         : `${symbol} price chart. ${historyData?.message || 'Price history unavailable.'}`);
 
     if (chartInstance) {
@@ -4040,9 +4107,7 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
       updateChartEventMarkers();
     }
     updateChartTelemetry(historyData);
-    if (historyData?.technical_snapshot) {
-      renderTechnicalSnapshot(historyData.technical_snapshot);
-    }
+    renderTechnicalSnapshot(historyData?.technical_snapshot);
     if (historyData?.observations) {
       renderObservations(historyData.observations);
     }
@@ -4091,18 +4156,10 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
 }
 
 function renderTechnicalSnapshot(snapshot) {
+  const panel = document.getElementById('drawer-asset-telemetry');
+  if (panel) panel.hidden = !snapshot;
   const trend = document.getElementById('snapshot-trend');
-  if (!trend) return;
-  if (!snapshot) {
-    trend.textContent = 'Loading...';
-    trend.dataset.state = 'loading';
-    const detail = document.getElementById('snapshot-trend-detail');
-    if (detail) detail.textContent = 'Calculating indicators...';
-    // Animate loading state
-    trend.style.opacity = '0.7';
-    setTimeout(() => { trend.style.opacity = ''; }, 1000);
-    return;
-  }
+  if (!trend || !snapshot) return;
   trend.textContent = snapshot.trend_context || 'Insufficient history';
   trend.dataset.state = (snapshot.trend_context || '').toLowerCase().replace(/\s+/g, '-');
   const detail = document.getElementById('snapshot-trend-detail');
@@ -4110,14 +4167,8 @@ function renderTechnicalSnapshot(snapshot) {
   const setMetric = (id, value, suffix = '%') => {
     const node = document.getElementById(id);
     if (!node) return;
-    if (value === null || value === undefined) {
-      // Show loading skeleton for missing values
-      node.textContent = '…';
-      node.style.opacity = '0.5';
-      node.style.animation = 'pulse 1.5s ease-in-out infinite';
-      node.dataset.direction = 'neutral';
-      return;
-    }
+    node.closest('.drawer-kpi-cell').hidden = !Number.isFinite(value);
+    if (!Number.isFinite(value)) return;
     // Clear loading styles
     node.style.opacity = '';
     node.style.animation = '';
@@ -7448,7 +7499,7 @@ function getOrCreateLiveRegion() {
   return region;
 }
 
-function formatPrice(price, symbol) {
+function formatPrice(price, symbol, currency) {
   if (price == null) return '—';
   if (symbol?.includes('USDINR') || symbol?.endsWith('.NS') || symbol?.endsWith('.BO')) {
     return `₹${price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -7456,7 +7507,7 @@ function formatPrice(price, symbol) {
   if (symbol?.includes('=X')) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   }
-  return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return quotePrice(price, getCurrencySymbol(symbol, currency));
 }
 
 async function loadAndRenderSectorsAndMarketMap(force = false) {
@@ -7578,7 +7629,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
                   </td>
                   ${weightCell(sym)}
                   <td class="text-right">
-                    <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
+                    <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" aria-label="Analyze ${sym}">Analyze ↗</button>
                   </td>
                 </tr>
               `;
@@ -7600,7 +7651,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               </td>
               ${weightCell(sym)}
               <td class="text-right">
-                <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
+                <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" aria-label="Analyze ${sym}">Analyze ↗</button>
               </td>
             </tr>
           `).join('')}
@@ -7639,28 +7690,24 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
       row.addEventListener('click', () => activateConstituentRow(row));
 
       row.addEventListener('keydown', (e) => {
-        const currentIdx = constituentRows.indexOf(row);
+        if (e.target !== row) return;
+        const visibleRows = constituentRows.filter(item => !item.hidden);
+        const currentIdx = visibleRows.indexOf(row);
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           activateConstituentRow(row);
         } else if (e.key === 'ArrowDown') {
           e.preventDefault();
-          const nextIdx = Math.min(currentIdx + 1, constituentRows.length - 1);
-          constituentRows[nextIdx].focus({ preventScroll: true });
-          activateConstituentRow(constituentRows[nextIdx]);
+          activateConstituentRow(visibleRows[Math.min(currentIdx + 1, visibleRows.length - 1)]);
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          const prevIdx = Math.max(currentIdx - 1, 0);
-          constituentRows[prevIdx].focus({ preventScroll: true });
-          activateConstituentRow(constituentRows[prevIdx]);
+          activateConstituentRow(visibleRows[Math.max(currentIdx - 1, 0)]);
         } else if (e.key === 'Home') {
           e.preventDefault();
-          constituentRows[0].focus({ preventScroll: true });
-          activateConstituentRow(constituentRows[0]);
+          activateConstituentRow(visibleRows[0]);
         } else if (e.key === 'End') {
           e.preventDefault();
-          constituentRows[constituentRows.length - 1].focus({ preventScroll: true });
-          activateConstituentRow(constituentRows[constituentRows.length - 1]);
+          activateConstituentRow(visibleRows.at(-1));
         }
       });
     });
@@ -7676,14 +7723,18 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
     // Wire Search Input Filter
     if (searchInput) {
-      searchInput.value = '';
+      const status = document.getElementById('sector-filter-status');
       searchInput.oninput = () => {
-        const q = (searchInput.value || '').trim().toUpperCase();
-        bodyEl.querySelectorAll('.constituent-row').forEach((row) => {
-          const sym = row.getAttribute('data-sym') || '';
-          row.style.display = sym.toUpperCase().includes(q) ? '' : 'none';
-        });
+        const q = searchInput.value.trim().toUpperCase();
+        for (const row of constituentRows) row.hidden = !row.dataset.sym.includes(q);
+        const visibleRows = constituentRows.filter(row => !row.hidden);
+        const activeRow = visibleRows.find(row => row.classList.contains('active-row')) || visibleRows[0];
+        for (const row of constituentRows) row.tabIndex = row === activeRow ? 0 : -1;
+        status.textContent = !q ? '' : visibleRows.length
+          ? `${visibleRows.length} of ${constituentRows.length} constituents`
+          : 'No matching symbols. Clear the filter to see all constituents.';
       };
+      searchInput.oninput();
     }
   }
 

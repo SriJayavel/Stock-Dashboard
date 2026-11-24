@@ -77,6 +77,8 @@ class StockService:
                 return stale
             raise ValueError(f"No quote available for {sym}")
 
+        session_info = get_calendar_for_symbol(sym).get_session_state()
+        currency = asset_info.currency if asset_info and asset_info.currency else session_info["currency"]
         # Build overview response
         overview = {
             "symbol": sym,
@@ -86,10 +88,10 @@ class StockService:
             "prev_close": quote.prev_close,
             "change": quote.change,
             "change_pct": quote.change_pct,
-            "currency": asset_info.currency if asset_info else "USD",
-            "currency_symbol": self._get_currency_symbol(asset_info.currency if asset_info else "USD"),
+            "currency": currency,
+            "currency_symbol": self._get_currency_symbol(currency),
             "market_cap": quote.market_cap,
-            "market_cap_str": self._format_market_cap(quote.market_cap, asset_info.currency if asset_info else "USD"),
+            "market_cap_str": self._format_market_cap(quote.market_cap, currency),
             "sector": asset_info.sector if asset_info else "General",
             "industry": asset_info.industry if asset_info else "Market Asset",
             "summary": asset_info.description if asset_info else "Financial asset live market tracking and valuation terminal.",
@@ -111,8 +113,10 @@ class StockService:
             "recommendation": quote.recommendation or "",
             "volume": quote.volume,
             "avg_volume": quote.avg_volume,
-            "exchange": asset_info.exchange if asset_info else "US",
-            "exchange_timezone": asset_info.timezone if asset_info else "America/New_York",
+            "exchange": session_info["exchange"] if session_info["session"] == "UNAVAILABLE"
+                else (asset_info.exchange if asset_info else session_info["exchange"]),
+            "exchange_timezone": session_info["timezone"] if session_info["session"] == "UNAVAILABLE"
+                else (asset_info.timezone if asset_info else session_info["timezone"]),
             "data_source": "Composite Provider",
             "is_stale": False,
             "last_updated": (
@@ -255,8 +259,24 @@ class StockService:
         return results
 
     async def search(self, query: str) -> List[Dict[str, Any]]:
-        """Search assets by query."""
-        return search_assets(query)
+        """Return local matches first, with one bounded provider search when needed."""
+        query = query.strip()
+        matches = search_assets(query)
+        minimum = 3 if query.isascii() else 2
+        if matches or len(query) < minimum:
+            return matches
+        seen = {item["symbol"] for item in matches}
+        categories = {"equity": "Equities", "etf": "ETFs", "index": "Indices",
+                      "crypto": "Crypto", "forex": "Forex", "commodity": "Commodities"}
+        for asset in await self._market_data.search_symbols(query, limit=12):
+            if asset.symbol in seen:
+                continue
+            matches.append({
+                "symbol": asset.symbol, "name": asset.name, "category": categories.get(asset.asset_type, "Assets"),
+                "exchange": asset.exchange, "country": asset.country, "currency": asset.currency,
+            })
+            seen.add(asset.symbol)
+        return matches[:20]
 
     async def get_popular_universe(self) -> List[Dict[str, Any]]:
         """Get popular universe for discovery."""
@@ -287,6 +307,8 @@ class StockService:
         }
 
     def _get_currency_symbol(self, currency: str) -> str:
+        if currency in {"GBp", "GBX", "ZAc", "ZAC"}:
+            return f"{currency} "
         symbols = {
             "INR": "₹", "USD": "$", "EUR": "€", "GBP": "£",
             "JPY": "¥", "CAD": "CA$", "AUD": "A$", "CHF": "CHF",

@@ -17,6 +17,9 @@ Market Session States:
 import datetime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, Set
+from functools import lru_cache
+
+from backend.core.services.equity_directory import market_for_symbol
 
 
 class ExchangeCalendar:
@@ -288,6 +291,26 @@ _crypto_inr_cal = CryptoExchangeCalendar(currency="INR")
 _forex_cal = ForexExchangeCalendar(currency="USD")
 
 
+class UnscheduledExchangeCalendar(ExchangeCalendar):
+    """Known exchange metadata with no verified session schedule."""
+
+    def get_session_state(self, dt: Optional[datetime.datetime] = None) -> Dict[str, Any]:
+        return {
+            "session": "UNAVAILABLE",
+            "reason": "Session calendar unavailable",
+            "exchange": self.exchange_code,
+            "timezone": self.timezone_name,
+            "currency": self.currency,
+            "session_start": None,
+            "session_end": None,
+        }
+
+
+@lru_cache(maxsize=32)
+def _international_calendar(exchange: str, currency: str, timezone: str):
+    return UnscheduledExchangeCalendar(exchange, timezone, currency)
+
+
 def get_calendar_for_symbol(symbol: str) -> ExchangeCalendar:
     """Resolve the appropriate exchange calendar for any given ticker."""
     sym = (symbol or "").strip().upper()
@@ -301,4 +324,8 @@ def get_calendar_for_symbol(symbol: str) -> ExchangeCalendar:
         return _bse_cal
     if sym.endswith(".NS") or sym in ["^NSEI", "^NSEBANK"]:
         return _nse_cal
+    market = market_for_symbol(sym)
+    if market:
+        exchange, _country, currency, timezone = market
+        return _international_calendar(exchange, currency, timezone)
     return _us_cal

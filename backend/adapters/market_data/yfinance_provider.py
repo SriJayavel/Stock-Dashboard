@@ -6,7 +6,11 @@ import asyncio
 import logging
 import math
 import os
+import re
 import tempfile
+from threading import Lock
+from time import monotonic
+from cachetools import TTLCache
 import yfinance as yf
 import pandas as pd
 from typing import Any, Optional, List
@@ -17,8 +21,13 @@ from backend.core.contracts.market_data import (
     MarketDataProvider, Candle, Quote, AssetInfo, ProviderCapabilities
 )
 from backend.config import settings
+from backend.core.services.equity_directory import market_for_symbol
 
 logger = logging.getLogger("yfinance_provider")
+_symbol_pattern = re.compile(r"[A-Z0-9^][A-Z0-9.^=&-]{0,29}")
+_search_cache = TTLCache(maxsize=512, ttl=900)
+_search_lock = Lock()
+_retry_search_after = 0.0
 
 # Configure yfinance cache locations to use writable temp directory
 # This prevents "CookieCache folder creation failed" and "TzCache folder creation failed"
@@ -67,17 +76,52 @@ class YFinanceProvider:
     # --- Asset Discovery ---
 
     async def search_symbols(self, query: str, limit: int = 20) -> List[AssetInfo]:
-        """Search symbols using yfinance."""
-        # yfinance doesn't have built-in search, use a simple approach
-        # In production, you'd use a proper search API
+        """Search company names and tickers without fetching individual quotes."""
+        normalized = " ".join(query.casefold().split())
+        if len(normalized) < (3 if normalized.isascii() else 2):
+            return []
+        results = await asyncio.to_thread(self._search_directory, normalized)
+        return list(results[:limit])
+
+    def _search_directory(self, query: str) -> tuple:
+        global _retry_search_after
+        # Bound upstream work to one request at a time per process.
+        if not _search_lock.acquire(timeout=1):
+            return ()
         try:
-            ticker = await self._get_ticker(query.upper())
-            info = ticker.info
-            if info and info.get('symbol'):
-                return [self._info_to_asset(info)]
-        except Exception:
-            pass
-        return []
+            if query in _search_cache:
+                return _search_cache[query]
+            if monotonic() < _retry_search_after:
+                return ()
+            quotes = yf.Search(query, max_results=16, news_count=0, lists_count=0,
+                               include_cb=False, timeout=3).quotes
+            results = []
+            for record in quotes:
+                symbol = str(record.get("symbol") or "").upper()
+                quote_type = record.get("quoteType")
+                if not _symbol_pattern.fullmatch(symbol) or quote_type not in {
+                    "EQUITY", "ETF", "INDEX", "CRYPTOCURRENCY", "CURRENCY", "FUTURE", "COMMODITY"
+                }:
+                    continue
+                market = market_for_symbol(symbol)
+                results.append(AssetInfo(
+                    symbol=symbol,
+                    name=record.get("longname") or record.get("shortname") or symbol,
+                    exchange=(market[0] if market else record.get("exchDisp") or record.get("exchange")) or "",
+                    asset_type=self._map_asset_type(quote_type),
+                    currency=record.get("currency") or (market[2] if market else ""),
+                    country=market[1] if market else "",
+                    timezone=market[3] if market else "UTC",
+                    market_hours={},
+                ))
+            _search_cache[query] = tuple(results)
+            return _search_cache[query]
+        except Exception as error:
+            _retry_search_after = monotonic() + 30
+            logger.debug("Provider directory lookup failed: %s", error)
+            return ()
+        finally:
+            _search_lock.release()
 
     async def get_asset_info(self, symbol: str) -> Optional[AssetInfo]:
         """Get asset metadata."""
@@ -123,6 +167,7 @@ class YFinanceProvider:
             'CRYPTOCURRENCY': 'crypto',
             'CURRENCY': 'forex',
             'COMMODITY': 'commodity',
+            'FUTURE': 'commodity',
         }
         return mapping.get(quote_type.upper(), 'equity')
 

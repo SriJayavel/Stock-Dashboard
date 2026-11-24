@@ -428,6 +428,7 @@
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h2 class="section-sub-title" id="benchmark-title">Global benchmarks</h2>
+                  <a class="ghost-btn ghost-btn-sm benchmark-compare-link" href="#/compare/benchmarks/nifty-sensex">Compare NIFTY and SENSEX <span aria-hidden="true">↗</span></a>
                   <button type="button" class="ghost-btn ghost-btn-sm" id="benchmark-density" aria-pressed="false">Comfortable rows</button>
                   <details class="benchmark-columns"><summary class="ghost-btn ghost-btn-sm">Columns</summary><fieldset><legend>Show columns</legend></fieldset></details>
                 </div>
@@ -547,6 +548,7 @@
               <div class="constituent-table-wrap" id="sector-detail-body">
                 <!-- Populated via JavaScript renderSelectedSectorDetail -->
               </div>
+              <p id="sector-filter-status" class="sector-filter-status" role="status"></p>
             </div>
 
             <!-- SECTION 4: CROSS-ASSET MACRO RADAR (FOREX, COMMODITIES, DIGITAL ASSETS) -->
@@ -949,17 +951,72 @@
            WORKSPACE 4: COMPARE (PEER BENCHMARKING & MULTIPLES MATRIX)
            ===================================================================== -->
       <section class="workspace-view" id="workspace-compare" role="tabpanel" aria-labelledby="ws-btn-compare">
-        <section id="compare-benchmark-pair" class="ws-section-block benchmark-pair" hidden>
-          <h2 id="benchmark-pair-title">NIFTY 50 and SENSEX</h2>
-          <table class="peer-table" aria-labelledby="benchmark-pair-title">
-            <thead><tr><th scope="col">Index</th><th scope="col">Last price</th><th scope="col">Change %</th><th scope="col">Intraday</th></tr></thead>
-            <tbody><tr><td colspan="4">Loading benchmark quotes…</td></tr></tbody>
-          </table>
+        <section id="compare-benchmark-pair" class="workspace-scroll-wrap benchmark-comparison" aria-labelledby="benchmark-pair-title" hidden>
+          <header class="benchmark-comparison-header">
+            <a href="#/markets">← Global benchmarks</a>
+            <h1 id="benchmark-pair-title" tabindex="-1">NIFTY 50 and SENSEX</h1>
+          </header>
+          <div class="benchmark-comparison-panel">
+            <div class="benchmark-comparison-toolbar">
+              <div>
+                <h2>Relative performance</h2>
+                <p>Each index starts at 100 on the first shared session.</p>
+              </div>
+              <div class="benchmark-comparison-periods" role="group" aria-label="Comparison period">
+                <button type="button" data-sessions="21" aria-pressed="false">21 sessions</button>
+                <button type="button" data-sessions="63" aria-pressed="true">63 sessions</button>
+                <button type="button" data-sessions="126" aria-pressed="false">126 sessions</button>
+              </div>
+            </div>
+            <div class="benchmark-comparison-state" id="pair-state">
+              <p id="pair-status" role="status">Loading daily closes…</p>
+              <button type="button" id="pair-retry" class="ghost-btn ghost-btn-sm" hidden>Retry</button>
+            </div>
+            <div id="pair-performance" hidden>
+              <div class="benchmark-comparison-board">
+                <div class="benchmark-comparison-plot">
+                  <canvas id="pair-canvas" aria-hidden="true"></canvas>
+                  <div class="benchmark-comparison-scrubber">
+                    <label for="pair-session">Inspect session</label>
+                    <input type="range" id="pair-session" min="0" max="1" value="1">
+                  </div>
+                </div>
+                <div class="benchmark-comparison-readout">
+                  <time id="pair-date"></time>
+                  <dl>
+                    <div><dt><span class="pair-line pair-line-nifty" aria-hidden="true"></span>NIFTY 50</dt><dd id="pair-nifty-return"></dd></div>
+                    <div><dt><span class="pair-line pair-line-sensex" aria-hidden="true"></span>SENSEX</dt><dd id="pair-sensex-return"></dd></div>
+                  </dl>
+                  <p id="pair-gap"></p>
+                </div>
+              </div>
+              <div class="benchmark-comparison-notes">
+                <p id="pair-source"></p>
+                <details>
+                  <summary>View session data</summary>
+                  <div class="pair-data-scroll" role="region" aria-label="Daily index returns" tabindex="0">
+                    <table class="peer-table" aria-label="Daily index returns">
+                      <thead><tr><th scope="col">Session</th><th scope="col">NIFTY 50</th><th scope="col">SENSEX</th></tr></thead>
+                      <tbody id="pair-history-rows"></tbody>
+                    </table>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+          <section class="benchmark-comparison-quotes" aria-labelledby="pair-quote-title">
+            <h2 id="pair-quote-title">Latest quotes</h2>
+            <table class="peer-table" aria-labelledby="benchmark-pair-title">
+              <thead><tr><th scope="col">Index</th><th scope="col">Last price</th><th scope="col">Session change</th></tr></thead>
+              <tbody id="pair-quote-rows"><tr><td colspan="3">Loading benchmark quotes…</td></tr></tbody>
+            </table>
+          </section>
         </section>
-        <div class="workspace-scroll-wrap">
+        <div class="workspace-scroll-wrap" id="compare-asset-workspace">
           <div class="workspace-header">
             <div class="workspace-title-row">
               <h2 class="workspace-title">Compare assets</h2>
+              <a class="ghost-btn ghost-btn-sm benchmark-compare-link" href="#/compare/benchmarks/nifty-sensex">Compare NIFTY and SENSEX <span aria-hidden="true">↗</span></a>
             </div>
           </div>
 
@@ -1350,8 +1407,8 @@
     <aside id="watchlist-drawer" class="watchlist-drawer" aria-label="Watchlist and alerts" inert>
       <div class="watchlist-drawer-header">
         <div class="tv-drawer-tabs">
-          <button class="tv-drawer-tab-btn active" id="drawer-tab-watchlist">Watchlist</button>
-          <button class="tv-drawer-tab-btn" id="drawer-tab-alerts">Alerts</button>
+          <button class="tv-drawer-tab-btn active" id="drawer-tab-watchlist" aria-pressed="true" aria-controls="tv-drawer-view-watchlist">Watchlist</button>
+          <button class="tv-drawer-tab-btn" id="drawer-tab-alerts" aria-pressed="false" aria-controls="tv-drawer-view-alerts">Alerts</button>
         </div>
         <button id="close-watchlist-drawer-btn" class="close-drawer-btn" aria-label="Close watchlist drawer">✕</button>
       </div>
@@ -1359,42 +1416,42 @@
       <!-- VIEW 1: WATCHLIST & INSPECTOR -->
       <div id="tv-drawer-view-watchlist" class="tv-drawer-view active">
         <!-- Active Asset Telemetry Card -->
-        <div class="drawer-section drawer-telemetry-section">
+        <div class="drawer-section drawer-telemetry-section" id="drawer-asset-telemetry" hidden>
           <div class="drawer-section-header">
             <span class="drawer-section-title">ACTIVE TELEMETRY</span>
             <div class="drawer-prov-badge">
               <span class="prov-dot"></span>
-              <span id="provenance-source">Direct NSE</span>
-              <span id="provenance-status" style="display:none;">Live</span>
+              <span id="provenance-source"></span>
+              <span id="provenance-status" style="display:none;"></span>
               <span id="provenance-timestamp" style="display:none;">—</span>
             </div>
           </div>
           <div class="drawer-meta-line">
-            <span id="stock-sector">Information Technology</span>
+            <span id="stock-sector"></span>
             <span class="meta-dot">·</span>
-            <span id="stock-mcap">₹14.2 Lakh Cr</span>
+            <span id="stock-mcap"></span>
           </div>
           <div class="drawer-kpi-grid">
             <div class="drawer-kpi-cell">
               <span class="kpi-label">RSI (14)</span>
-              <strong class="kpi-val" id="snapshot-rsi">56.4</strong>
+              <strong class="kpi-val" id="snapshot-rsi"></strong>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">Trend 50/200</span>
-              <strong class="kpi-val" id="snapshot-trend">Above 50/200</strong>
+              <strong class="kpi-val" id="snapshot-trend"></strong>
               <span id="snapshot-trend-detail" style="display:none;"></span>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">1M Return</span>
-              <strong class="kpi-val chg-up" id="snapshot-return-1m">+3.4%</strong>
+              <strong class="kpi-val" id="snapshot-return-1m"></strong>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">3M Return</span>
-              <strong class="kpi-val chg-up" id="snapshot-return-3m">+8.2%</strong>
+              <strong class="kpi-val" id="snapshot-return-3m"></strong>
             </div>
             <div class="drawer-kpi-cell">
               <span class="kpi-label">1Y Max DD</span>
-              <strong class="kpi-val chg-down" id="snapshot-drawdown">−6.2%</strong>
+              <strong class="kpi-val" id="snapshot-drawdown"></strong>
             </div>
           </div>
         </div>

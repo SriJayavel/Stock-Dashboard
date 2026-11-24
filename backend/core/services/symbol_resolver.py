@@ -6,11 +6,13 @@ Pure domain logic - no external I/O.
 
 import os
 import logging
+import unicodedata
 from typing import Optional, List, Dict, Any
 
 import pandas as pd
 
 from backend.config import settings
+from backend.core.services.equity_directory import GLOBAL_EQUITIES, GLOBAL_EQUITY_ALIASES
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +141,7 @@ def resolve_symbol(query: str) -> str:
         "SILVER": "SI=F",
         "CRUDE": "CL=F",
         "OIL": "CL=F",
+        "BRK.B": "BRK-B",
     }
     if upper in aliases:
         return aliases[upper]
@@ -155,6 +158,9 @@ def resolve_symbol(query: str) -> str:
     if any(ch in upper for ch in [".", "^", "=", "-"]):
         return upper
 
+    if any(item["symbol"] == upper for item in [*POPULAR_UNIVERSE, *GLOBAL_EQUITIES]):
+        return upper
+
     # Check local Indian catalog
     cat = get_companies_catalog()
     if not cat.empty and "SYMBOL" in cat.columns:
@@ -164,11 +170,13 @@ def resolve_symbol(query: str) -> str:
     return upper
 
 
+def _search_text(value: str) -> str:
+    text = unicodedata.normalize("NFKD", value.casefold().replace("’", "'"))
+    return "".join(char for char in text if not unicodedata.combining(char))
+
+
 def search_assets(query: str) -> List[Dict[str, Any]]:
-    """
-    Instant asset directory lookup across Popular Universe, Local Catalog, and Yahoo.
-    Returns up to 15 matches.
-    """
+    """Rank the local directory without fetching quotes or using the network."""
     if not query or len(query.strip()) < 1:
         return POPULAR_UNIVERSE[:12]
 
@@ -182,58 +190,41 @@ def search_assets(query: str) -> List[Dict[str, Any]]:
         if canonical_match:
             return [canonical_match]
 
-    q_low = q_clean.lower()
-    matches: List[Dict[str, Any]] = []
-    seen: set = set()
-
-    # 1. Match from Popular Universe
-    for item in POPULAR_UNIVERSE:
-        if q_low in item["symbol"].lower() or q_low in item["name"].lower():
-            matches.append(item)
-            seen.add(item["symbol"])
-
-    # 2. Match from Indian Catalog
+    q = _search_text(q_clean)
+    candidates = POPULAR_UNIVERSE + GLOBAL_EQUITIES
     cat = get_companies_catalog()
-    if not cat.empty and "SYMBOL" in cat.columns:
+    if not cat.empty and {"SYMBOL", "NAME OF COMPANY"}.issubset(cat.columns):
+        ticker = q_clean.upper().removesuffix(".NS")
         hits = cat[
-            cat["SYMBOL"].str.contains(q_clean, case=False, na=False)
-            | cat["NAME OF COMPANY"].str.contains(q_clean, case=False, na=False)
-        ].head(8)
-        for _, row in hits.iterrows():
-            sym = f"{row['SYMBOL']}.NS"
-            if sym not in seen:
-                matches.append({
-                    "symbol": sym,
-                    "name": row["NAME OF COMPANY"],
-                    "category": "Equities",
-                    "exchange": "NSE",
-                    "country": "IN",
-                })
-                seen.add(sym)
+            cat["SYMBOL"].str.contains(ticker, case=False, na=False, regex=False)
+            | cat["NAME OF COMPANY"].str.contains(q_clean, case=False, na=False, regex=False)
+        ]
+        candidates += [
+            {"symbol": f"{symbol}.NS", "name": name if isinstance(name, str) else symbol,
+             "category": "Equities", "exchange": "NSE", "country": "IN", "currency": "INR"}
+            for symbol, name in hits[["SYMBOL", "NAME OF COMPANY"]].itertuples(index=False, name=None)
+        ]
 
-    # 3. Quick Yahoo Fallback if few results (optional - requires yfinance)
-    if len(matches) < 5:
-        try:
-            import yfinance as yf
-            search_obj = yf.Search(q_clean, max_results=6)
-            for q in getattr(search_obj, "quotes", []):
-                sym = q.get("symbol")
-                if not sym or sym in seen:
-                    continue
-                name = q.get("shortname") or q.get("longname") or sym
-                exch = q.get("exchange") or "Global"
-                matches.append({
-                    "symbol": sym,
-                    "name": name,
-                    "category": "Equities",
-                    "exchange": exch,
-                    "country": "Global",
-                })
-                seen.add(sym)
-        except Exception:
-            pass
+    def rank(item):
+        symbol = item["symbol"].casefold()
+        name = _search_text(item["name"])
+        if symbol == q:
+            return 0
+        if symbol.split(".")[0] == q or name == q or q in aliases_for(item):
+            return 1
+        if symbol.startswith(q) or name.startswith(q):
+            return 2
+        return 3
 
-    return matches[:15]
+    def aliases_for(item):
+        return [_search_text(alias) for alias in GLOBAL_EQUITY_ALIASES.get(item["symbol"], [])]
+
+    matches = {
+        item["symbol"]: item for item in reversed(candidates)
+        if q in item["symbol"].casefold() or q in _search_text(item["name"])
+        or any(q in alias for alias in aliases_for(item))
+    }
+    return sorted(matches.values(), key=lambda item: (rank(item), item["symbol"]))[:20]
 
 
 def get_popular_universe() -> List[Dict[str, Any]]:

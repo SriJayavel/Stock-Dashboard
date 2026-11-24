@@ -9,6 +9,15 @@ const workspaces = {
   monitor: ['/monitor', '#workspace-watchlist-container tr[data-symbol]'],
 };
 
+test('benchmark comparison on desktop', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.clock.setFixedTime(new Date('2026-11-23T08:00:00Z'));
+  await page.goto('/?freeze=1#/compare/benchmarks/nifty-sensex');
+  await expect(page.locator('#pair-source')).toContainText('63 shared sessions');
+  await expect(page.locator('#pair-canvas')).toBeVisible();
+  await expect(page).toHaveScreenshot('benchmark-comparison-dark.png');
+});
+
 test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', timezoneId: 'Asia/Kolkata' });
 
 for (const [theme, colorScheme] of [['dark', 'dark'], ['light', 'light']]) {

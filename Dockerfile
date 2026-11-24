@@ -31,6 +31,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend application, metadata catalog, and compiled frontend SPA
 COPY backend/ ./backend/
 COPY companies.csv ./companies.csv
+COPY frontend/src/global-equities.json ./frontend/src/global-equities.json
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Default environment variables

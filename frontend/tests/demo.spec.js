@@ -1,6 +1,52 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('keeps search focused while Markets finishes loading', async ({ page }) => {
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  await page.route('**/demo/sectors.json', async route => {
+    await pending;
+    await route.continue();
+  });
+  await page.goto('/?freeze=1#/markets');
+  const search = page.locator('#global-search-input');
+  await search.fill('>watchlist');
+  release();
+  const sector = page.locator('#sector-intelligence-grid').getByRole('gridcell', { name: /Technology/ });
+  await expect(sector).toBeVisible();
+  await expect(search).toBeFocused();
+  await expect(page.getByRole('option', { name: 'Watchlist' })).toBeVisible();
+});
+
+test('opens the Watchlist as a mobile overlay and restores focus on Escape', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?freeze=1#/markets');
+  await expect(page.locator('#tab-all')).toBeFocused();
+  const trigger = page.locator('#watchlist-drawer-toggle');
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Watchlist and alerts' });
+  const close = dialog.getByRole('button', { name: 'Close watchlist drawer' });
+  await expect(close).toBeFocused();
+  await expect(page.locator('#mara-app')).toHaveAttribute('inert', '');
+  await expect(page.locator('#drawer-asset-telemetry')).toBeHidden();
+  await close.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test('filters constituents and lets keyboard users activate Analyze', async ({ page }) => {
+  await page.goto('/?freeze=1#/markets');
+  await page.locator('#sector-intelligence-grid').getByRole('gridcell', { name: /Technology/ }).click();
+  const filter = page.getByLabel('Filter Constituents');
+  const status = page.locator('#sector-filter-status');
+  await filter.fill('missing-symbol');
+  await expect(status).toContainText('No matching symbols');
+  await filter.fill('AAPL');
+  await expect(status).toHaveText('1 of 4 constituents');
+  await page.getByRole('button', { name: 'Analyze AAPL' }).press('Enter');
+  await expect(page).toHaveURL(/\/symbol\/AAPL\/chart$/);
+});
+
 test('backtest trace cancels when leaving Research and completes with fixture provenance', async ({ page }) => {
   let holdHistory = true;
   let releaseHistory;
@@ -206,6 +252,30 @@ test('opens the index pair from the command search', async ({ page }) => {
   await expect(page.getByRole('table', { name: 'NIFTY 50 and SENSEX' }).getByRole('rowheader')).toHaveText(['NIFTY 50', 'SENSEX']);
 });
 
+test('compares common sessions and scrubs the shared history on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?freeze=1#/markets');
+  await page.getByRole('link', { name: 'Compare NIFTY and SENSEX' }).click();
+  const comparison = page.locator('#compare-benchmark-pair');
+  const slider = comparison.getByRole('slider', { name: 'Inspect session' });
+  await expect(slider).toBeVisible();
+  await expect(comparison.locator('#pair-source')).toContainText('Synthetic demo closes · 63 shared sessions');
+  await expect(page.getByRole('heading', { name: 'Compare assets' })).toBeHidden();
+  await comparison.getByRole('button', { name: '21 sessions' }).click();
+  await expect(slider).toHaveAttribute('max', '20');
+  const latest = await slider.getAttribute('aria-valuetext');
+  await slider.press('ArrowLeft');
+  await expect(slider).not.toHaveAttribute('aria-valuetext', latest);
+  await slider.press('Home');
+  await expect(comparison.locator('#pair-gap')).toHaveText('Returns are even');
+  await comparison.getByText('View session data', { exact: true }).click();
+  await expect(comparison.locator('#pair-history-rows tr')).toHaveCount(21);
+  await expect(comparison.locator('#pair-history-rows tr').first()).toContainText('0.00%');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await comparison.getByRole('link', { name: 'Global benchmarks' }).click();
+  await expect(page).toHaveURL(/#\/markets$/);
+});
+
 test('opens symbol-specific research from the command search', async ({ page }) => {
   await page.goto('/?freeze=1#/markets');
   await expect(page.locator('#tab-all')).toBeFocused();
@@ -216,6 +286,28 @@ test('opens symbol-specific research from the command search', async ({ page }) 
   await page.getByRole('option', { name: /AAPL.*scenarios/i }).click();
   await expect(page).toHaveURL(/\/research\/AAPL\/lab$/);
   await expect(page.getByRole('tabpanel', { name: 'Scenarios' })).toBeVisible();
+});
+
+test('searches global company names and opens the correct exchange listing offline', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) requests.push(request.url());
+  });
+  await page.goto('/?freeze=1#/markets');
+  await expect(page.locator('#tab-all')).toBeFocused();
+  const search = page.getByRole('combobox', { name: 'Search symbols, companies or actions' });
+  await search.fill('ASML');
+  await expect(page.getByRole('option', { name: /ASML Holding.*NASDAQ.*USD/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /ASML\.AS.*Euronext Amsterdam.*EUR/ })).toBeVisible();
+  await search.fill('トヨタ');
+  await expect(page.getByRole('option', { name: /7203\.T.*Toyota Motor.*JPY/ })).toBeVisible();
+  await search.dispatchEvent('keydown', { key: 'Enter', isComposing: true });
+  await expect(page).toHaveURL(/#\/markets$/);
+  await search.press('Enter');
+  await expect(page).toHaveURL(/#\/symbol\/7203\.T\/chart$/);
+  await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/7203\.T.*Last close ¥/);
+  await expect(page.locator('#tv-data-badge')).toHaveText('SYNTHETIC');
+  expect(requests).toEqual([]);
 });
 
 test('opens populated company research and keeps News and Earnings reachable', async ({ page }) => {
