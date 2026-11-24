@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { computeIndicator, getAllIndicators } from '../../src/indicators.js';
+import { computeIndicator, getAllIndicators, searchIndicators } from '../../src/indicators.js';
 
 const day = 86400;
 const firstDay = Date.parse('2026-01-01T00:00:00Z') / 1000;
@@ -67,14 +67,57 @@ test('squeeze distinguishes inside and outside channel with a separate momentum 
     [undefined, 'Inside channel', 'Outside channel']);
 });
 
+test('additional moving averages use the correct seed, weights, and regression endpoint', () => {
+  const history = bars([10, 20, 30, 40]);
+  assert.deepEqual(series(computeIndicator('smma', history, { period: 2 }), 'value'), [null, 15, 22.5, 31.25]);
+  assert.deepEqual(series(computeIndicator('alma', history, { period: 1 }), 'value'), [10, 20, 30, 40]);
+  assert.deepEqual(series(computeIndicator('lsma', history, { period: 3 }), 'value'), [null, null, 30, 40]);
+  assert.deepEqual(series(computeIndicator('linear_regression_slope', history, { period: 3 }), 'value'), [null, null, 10, 10]);
+  assert.deepEqual(series(computeIndicator('standard_error', history, { period: 3 }), 'value'), [null, null, 0, 0]);
+});
+
+test('rank correlation averages ties and signed volume stays unavailable without volume', () => {
+  const history = bars([10, 10, 20, 15], [40, 50, 60, 25]);
+  const rank = series(computeIndicator('rank_correlation', history, { period: 3 }), 'value');
+  near(rank[2], 50 * Math.sqrt(3));
+  assert.deepEqual(series(computeIndicator('net_volume', history), 'value'), [null, 0, 60, -25]);
+  assert.equal(computeIndicator('ease_of_movement', bars([10, 11, 12])).unavailable, true);
+});
+
+test('Zig Zag and fractals wait for confirming bars', () => {
+  const history = bars([100, 120, 95, 130, 100, 125]);
+  const zig = computeIndicator('zig_zag', history, { legs: 2, deviation: 5 });
+  assert.deepEqual(series(zig, 'pivot'), [null, 121, 94, 131, 99, null]);
+  assert.deepEqual(series(zig, 'swing'), [null, 121, 94, 131, 99, null]);
+  const fractals = computeIndicator('williams_fractals', history, { period: 1 });
+  assert.deepEqual(series(fractals, 'upper'), [null, 121, null, 131, null, null]);
+  assert.deepEqual(series(fractals, 'lower'), [null, null, 94, null, 99, null]);
+});
+
+test('52-week range excludes earlier extrema and indicator aliases rank ahead of text matches', () => {
+  const history = bars([1000, ...Array(364).fill(100)]);
+  assert.match(computeIndicator('high_low_52_week', history.slice(0, 200)).reason, /52 weeks/);
+  const range = computeIndicator('high_low_52_week', history);
+  assert.equal(series(range, 'high')[363], null);
+  assert.equal(series(range, 'high').at(-1), 101);
+  assert.equal(series(range, 'low').at(-1), 99);
+  assert.equal(searchIndicators('Linear Regression Curve')[0].id, 'lsma');
+  assert.equal(searchIndicators('DMI')[0].id, 'adx');
+  assert.equal(searchIndicators('52 week high low')[0].id, 'high_low_52_week');
+});
+
 test('every registered plot resolves to a calculable series', () => {
-  const history = bars(Array.from({ length: 300 }, (_, i) => 100 + i / 10 + 3 * Math.sin(i / 6)),
-    Array.from({ length: 300 }, (_, i) => 100 + i));
+  const history = bars(Array.from({ length: 400 }, (_, i) => 100 + i / 10 + 5 * Math.sin(i / 6)),
+    Array.from({ length: 400 }, (_, i) => 100 + i));
   const missing = [];
   for (const indicator of getAllIndicators()) {
     const result = computeIndicator(indicator.id, history);
     assert.equal(result.unavailable, false, `${indicator.id}: ${result.reason}`);
     for (const { key, type } of indicator.render) {
+      const points = result.seriesData[key];
+      if (type !== 'profile') {
+        assert.ok(points?.every(({ value }) => value === null || Number.isFinite(value)), `${indicator.id}.${key} contains a non-finite value`);
+      }
       if (!result.seriesData[key]?.some(({ value }) =>
         type === 'profile' ? value?.volumeProfile?.some((volume) => volume > 0) : Number.isFinite(value))) {
         missing.push(`${indicator.id}.${key}`);

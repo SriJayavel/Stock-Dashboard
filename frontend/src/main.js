@@ -24,6 +24,7 @@ import {
   getIndicatorsByGroup,
   getIndicatorDefinition,
   hasValidVolume,
+  searchIndicators,
 } from './indicators.js';
 import { router } from './router.js';
 import { auth, getAccountStorageKey } from './auth.js';
@@ -1691,6 +1692,7 @@ function closeIndicatorPicker() {
 function renderIndicatorList() {
   const listContainer = document.getElementById('tv-indicator-list');
   if (!listContainer) return;
+  const searchStatus = document.getElementById('tv-ind-search-status');
 
   const activeInstances = chartInstance ? chartInstance.getActiveIndicatorsList() : [];
   const activeDefIds = new Set(activeInstances.map((i) => i.id));
@@ -1699,6 +1701,7 @@ function renderIndicatorList() {
 
   // If "Active" tab is selected: show active indicator instances with visibility, settings, remove
   if (currentIndicatorCategory === 'active') {
+    searchStatus.textContent = '';
     if (activeInstances.length === 0) {
       listContainer.innerHTML = `
         <div style="padding: 32px 16px; text-align: center; color: var(--text-dim); font-size: 13px;">
@@ -1766,7 +1769,7 @@ function renderIndicatorList() {
   }
 
   // Filter indicators by category
-  let indicators = getAllIndicators();
+  let indicators = searchIndicators(currentIndicatorSearch);
   if (currentIndicatorCategory === 'favorites') {
     indicators = indicators.filter((ind) => favs.has(ind.id));
   } else if (currentIndicatorCategory === 'advanced') {
@@ -1775,17 +1778,8 @@ function renderIndicatorList() {
     indicators = indicators.filter((ind) => ind.group === currentIndicatorCategory);
   }
 
-  // Filter by search query
-  if (currentIndicatorSearch.trim()) {
-    const q = currentIndicatorSearch.trim().toLowerCase();
-    indicators = indicators.filter(
-      (ind) =>
-        ind.name.toLowerCase().includes(q) ||
-        ind.short.toLowerCase().includes(q) ||
-        ind.id.toLowerCase().includes(q) ||
-        (ind.formula && ind.formula.toLowerCase().includes(q))
-    );
-  }
+  searchStatus.textContent = currentIndicatorSearch.trim()
+    ? `${indicators.length} matching ${indicators.length === 1 ? 'study' : 'studies'}` : '';
 
   if (indicators.length === 0) {
     listContainer.innerHTML = `

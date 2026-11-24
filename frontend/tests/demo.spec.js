@@ -1,6 +1,26 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('finds TradingView indicator aliases and restores new studies on reload', async ({ page }) => {
+  await page.goto('/?freeze=1#/symbol/TCS.NS/chart');
+  await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/Last close/);
+  await page.getByRole('button', { name: /^Indicators/ }).click();
+  const picker = page.locator('#tv-indicator-picker-modal');
+  const search = picker.getByRole('searchbox', { name: 'Search indicators' });
+  await search.fill('Linear Regression Curve');
+  await expect(picker.getByRole('status')).toHaveText('1 matching study');
+  await expect(picker.locator('[data-ind-id="lsma"]')).toContainText('Least Squares Moving Average');
+  await picker.locator('[data-add-id="lsma"]').click();
+  await search.fill('Fisher Transform');
+  await picker.locator('[data-add-id="fisher_transform"]').click();
+  await page.locator('#close-indicator-picker-btn').click();
+  await expect(page.locator('#tv-legend-indicators')).toContainText(/LSMA\s+\d/);
+  await expect(page.locator('.tv-subpane-header').filter({ hasText: 'Fisher Transform' })).toContainText('Trigger');
+  await page.reload();
+  await expect(page.locator('#tv-legend-indicators')).toContainText(/LSMA\s+\d/);
+  await expect(page.locator('.tv-subpane-header').filter({ hasText: 'Fisher Transform' })).toBeVisible();
+});
+
 test('keeps search focused while Markets finishes loading', async ({ page }) => {
   let release;
   const pending = new Promise(resolve => { release = resolve; });

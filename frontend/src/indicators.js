@@ -10,6 +10,8 @@
  * 5. Zero speculative/signal language: strictly descriptive mathematical outputs.
  */
 
+import { additionalTechnicalStudies } from './technical-studies.js';
+
 // --------------------------------------------------------------------------
 // Muted 8-Tone Palette for Dynamic Multi-Series Assignment
 // --------------------------------------------------------------------------
@@ -2927,7 +2929,54 @@ export const INDICATOR_REGISTRY = {
       };
     },
   },
+  ...additionalTechnicalStudies({
+    sma: calculateSMAValues,
+    ema: calculateEMAValues,
+    availableEMA: smoothAvailableEMA,
+    availableSMA: smoothAvailableSMA,
+    trueRange: calculateTrueRange,
+    timestamp: candleTimestamp,
+    toPoints,
+  }),
 };
+
+const libraryAliases = {
+  sma: ['Moving Average', 'MA'],
+  ema: ['Moving Average Exponential', 'Exponential MA'],
+  wma: ['Moving Average Weighted'],
+  dema: ['Double EMA', 'Moving Average Double'],
+  tema: ['Triple EMA', 'Moving Average Triple'],
+  kama: ['Moving Average Adaptive'],
+  adx: ['Directional Movement', 'DMI', 'DI plus', 'DI minus'],
+  donchian: ['Price Channel'],
+  bollinger_pct_b: ['Bollinger Bands %B'],
+  bollinger_bandwidth: ['Bollinger Bands Width'],
+  ad_line: ['Accumulation/Distribution', 'Accumulation Distribution'],
+  force_index: ['Elder Force Index', 'Elders Force Index'],
+  ppo: ['Price Oscillator'],
+  psar: ['Parabolic SAR'],
+  pivots: ['Pivot Points Standard', 'Pivot Points Classic', 'Classic Pivot Points'],
+  true_strength_index: ['True Strength Indicator'],
+};
+
+/** @param {string} query */
+export function searchIndicators(query) {
+  const normalize = value => value.toLowerCase().replace(/[^a-z0-9%]+/g, ' ').trim();
+  const value = normalize(query);
+  if (!value) return getAllIndicators();
+  return getAllIndicators().map(indicator => {
+    const labels = [indicator.name, indicator.short, indicator.id,
+      ...(libraryAliases[indicator.id] || []),
+      ...('aliases' in indicator && Array.isArray(indicator.aliases) ? indicator.aliases : [])].map(normalize);
+    const rank = labels.includes(value) ? 0
+      : labels.some(label => label.startsWith(value)) ? 1
+      : labels.some(label => label.includes(value)) ? 2
+      : indicator.formula && normalize(indicator.formula).includes(value) ? 3 : Infinity;
+    return { indicator, rank };
+  }).filter(result => Number.isFinite(result.rank))
+    .sort((a, b) => a.rank - b.rank)
+    .map(result => result.indicator);
+}
 
 
 // --------------------------------------------------------------------------

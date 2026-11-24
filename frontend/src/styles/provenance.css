@@ -412,3 +412,12 @@ body, button, input, select, textarea {
   margin: 0 0 0.75rem;
   font-size: 0.75rem;
 }
+.tv-ind-search-status {
+  margin: .5rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-label);
+}
+
+.tv-ind-search-status:empty {
+  margin: 0;
+}
