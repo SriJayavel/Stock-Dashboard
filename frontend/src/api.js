@@ -77,21 +77,21 @@ function demoStockFile(symbol, suffix) {
 }
 
 /** @param {string} path */
-async function readFixture(path) {
-  const response = await fetch(path);
+async function readFixture(path, signal) {
+  const response = await fetch(path, { signal });
   return response.ok ? response.json() : null;
 }
 
 /** @param {string} symbol @param {string} interval */
-async function demoChartHistory(symbol, interval) {
+async function demoChartHistory(symbol, interval, signal) {
   const unavailable = { symbol, interval, candles: [], demo_mode: true, freshness: 'unavailable' };
   const daily = ['1d', '1wk', '1mo'].includes(interval);
   if (!DEMO_STOCKS.has(symbol)) {
-    const histories = await readFixture(`${DEMO_BASE}/benchmark-candles.json`);
+    const histories = await readFixture(`${DEMO_BASE}/benchmark-candles.json`, signal);
     const candles = histories && Object.hasOwn(histories, symbol) ? histories[symbol] : null;
     if (!candles) return { ...unavailable, message: 'No synthetic price history is available for this symbol.' };
     if (!daily) return { ...unavailable, message: 'Intraday history is unavailable in demo mode. Choose 1D, 1W, or 1M.' };
-    const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview']);
+    const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview'], signal);
     return {
       ...unavailable, candles, freshness: 'synthetic', data_source: 'Synthetic demo',
       last_updated: snapshot?.timestamp, latest_quote: demoSnapshotQuote(symbol, snapshot),
@@ -100,7 +100,7 @@ async function demoChartHistory(symbol, interval) {
   if (!daily) {
     return { ...unavailable, message: 'Intraday history is unavailable in demo mode. Choose 1D, 1W, or 1M.' };
   }
-  const fixture = await readFixture(demoStockFile(symbol, 'candles'));
+  const fixture = await readFixture(demoStockFile(symbol, 'candles'), signal);
   const last = fixture?.candles?.at(-1);
   if (!last) return { ...unavailable, message: 'No synthetic price history is available for this symbol.' };
   return {
@@ -236,7 +236,7 @@ async function demoFetch(url, options) {
   }
   if (pathOnly === '/api/rss/news') return { items: [], source: 'Demo' };
   if (pathOnly === '/api/markets/candles') {
-    return demoChartHistory(params.get('symbol'), params.get('interval') || '1m');
+    return demoChartHistory(params.get('symbol'), params.get('interval') || '1m', options?.signal);
   }
   let demoUrl;
   if (DEMO_ROUTES[pathOnly]) {
@@ -245,7 +245,7 @@ async function demoFetch(url, options) {
     const parts = pathOnly.split('/');
     const symbol = decodeURIComponent(parts[3] || '');
     const suffix = parts[4] || 'overview';
-    if (suffix === 'history') return demoChartHistory(symbol, params.get('interval') || '1d');
+    if (suffix === 'history') return demoChartHistory(symbol, params.get('interval') || '1d', options?.signal);
     if (suffix === 'overview' && !DEMO_STOCKS.has(symbol)) {
       const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview']);
       return demoSnapshotQuote(symbol, snapshot);
@@ -276,6 +276,22 @@ async function demoFetch(url, options) {
       const envelope = fixture.valuation_envelope;
       return {
         ...fixture,
+        quarterly_earnings: (fixture.quarterly_trends || []).map(quarter => ({
+          period_date: quarter.quarter,
+          revenue_str: quarter.revenue?.toLocaleString() ?? '—',
+          operating_income_str: '—',
+          net_income_str: quarter.net_income?.toLocaleString() ?? '—',
+          net_margin_pct: Number.isFinite(quarter.net_income) && quarter.revenue > 0
+            ? Math.round(10000 * quarter.net_income / quarter.revenue) / 100 : null,
+        })),
+        corporate_events: {
+          events: (fixture.corporate_actions || []).map(action => ({
+            date: action.date,
+            type: action.type === 'dividend' ? 'Dividend' : action.type,
+            title: action.description,
+            impact: '—',
+          })),
+        },
         historical_valuation: envelope ? {
           current_pe: envelope.pe_current,
           pe_5y_low: envelope.pe_5y_min,
@@ -302,10 +318,12 @@ class ApiClient {
   }
 
   async fetchWithRetry(url, options = {}, retries = 2, timeoutMs = 45000) {
+    options.signal?.throwIfAborted();
     // Demo mode: serve synthetic data from static JSON files, no live API calls.
     // Fail closed — never fall through to a live network request in demo mode.
     if (isDemoMode()) {
       const data = await demoFetch(url, options);
+      options.signal?.throwIfAborted();
       if (data !== null) return data;
       throw new Error(`[DEMO] No synthetic fixture for ${url}`);
     }
@@ -326,7 +344,9 @@ class ApiClient {
           ...(options.headers || {}),
           ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken() }` } : {}),
         },
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: options.signal
+          ? AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)])
+          : AbortSignal.timeout(timeoutMs),
       });
 
       clearTimeout(coldStartTimer);
@@ -343,6 +363,10 @@ class ApiClient {
       return await response.json();
     } catch (error) {
       clearTimeout(coldStartTimer);
+      if (options.signal?.aborted) {
+        this.setStatus({ isWaking: false, message: '' });
+        throw error;
+      }
       if (error?.authExpired) throw error;
 
       // Extract status code from error message (e.g., "HTTP 422: Unprocessable Entity")
@@ -374,9 +398,9 @@ class ApiClient {
     return this.fetchWithRetry('/api/markets/refresh', { method: 'POST' }, 0, 15000);
   }
 
-  async getStockOverview(symbol) {
+  async getStockOverview(symbol, signal) {
     const sym = (symbol || '').trim().replace(/\//g, '');
-    return this.fetchWithRetry(`/api/stocks/${encodeURIComponent(sym)}/overview`);
+    return this.fetchWithRetry(`/api/stocks/${encodeURIComponent(sym)}/overview`, { signal });
   }
 
   async getBatchStockOverview(symbols) {
@@ -390,17 +414,19 @@ class ApiClient {
     });
   }
 
-  async getStockHistory(symbol, timeframe = 'max', interval = '1d') {
+  async getStockHistory(symbol, timeframe = 'max', interval = '1d', signal) {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(
-      `/api/stocks/${encodeURIComponent(sym)}/history?timeframe=${normalizeChartRange(timeframe)}&interval=${interval}`
+      `/api/stocks/${encodeURIComponent(sym)}/history?timeframe=${normalizeChartRange(timeframe)}&interval=${interval}`,
+      { signal }
     );
   }
 
-  async getMarketCandles(symbol, interval = '1m', range = '1d') {
+  async getMarketCandles(symbol, interval = '1m', range = '1d', signal) {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(
-      `/api/markets/candles?symbol=${encodeURIComponent(sym)}&interval=${interval}&range=${normalizeChartRange(range)}`
+      `/api/markets/candles?symbol=${encodeURIComponent(sym)}&interval=${interval}&range=${normalizeChartRange(range)}`,
+      { signal }
     );
   }
 
@@ -485,6 +511,9 @@ export class MarketWebSocket {
     this.reconnectDelay = 1000;
     this.heartbeatInterval = null;
     this.isConnecting = false;
+    this.reconnectTimer = null;
+    this.cancelConnection = null;
+    this.pollingRequest = null;
 
     // Polling fallback for platforms without WebSocket support (e.g., Vercel)
     this.pollingInterval = null;
@@ -521,6 +550,10 @@ export class MarketWebSocket {
       let connectionTimeout;
       try {
         this.ws = new WebSocket(wsUrl);
+        this.cancelConnection = () => {
+          clearTimeout(connectionTimeout);
+          resolve();
+        };
 
         // Connection timeout - if WebSocket doesn't connect in 5s, fall back to polling
         connectionTimeout = setTimeout(() => {
@@ -546,6 +579,7 @@ export class MarketWebSocket {
 
         this.ws.onclose = (event) => {
           clearTimeout(connectionTimeout);
+          resolve();
           console.log('[MarketWS] Disconnected:', event.code, event.reason);
           this.isConnecting = false;
           this._clearHeartbeat();
@@ -601,7 +635,8 @@ export class MarketWebSocket {
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts) + Math.random() * 1000;
     this.reconnectAttempts++;
     console.log(`[MarketWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-    setTimeout(() => this.connect(), delay);
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 
   _clearHeartbeat() {
@@ -663,6 +698,8 @@ export class MarketWebSocket {
 
     console.log('[MarketWS] Starting polling fallback');
     this.usePollingFallback = true;
+    const controller = new AbortController();
+    this.pollingRequest = controller;
     this._setStatus('polling');
 
     const poll = async () => {
@@ -673,6 +710,7 @@ export class MarketWebSocket {
         const symbols = Array.from(this.subscriptions);
         const response = await fetch(`${API_BASE}/api/stocks/batch`, {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
@@ -682,6 +720,7 @@ export class MarketWebSocket {
 
         if (response.ok) {
           const data = await response.json();
+          if (controller.signal.aborted) return;
           if (data.results) {
             data.results.forEach(item => {
               if (item.status === 'cached' && item.current_price != null) {
@@ -697,11 +736,11 @@ export class MarketWebSocket {
           }
         }
       } catch (e) {
-        console.warn('[MarketWS] Polling error:', e);
+        if (!controller.signal.aborted) console.warn('[MarketWS] Polling error:', e);
       }
 
       // Schedule next poll
-      if (this.usePollingFallback) {
+      if (!controller.signal.aborted) {
         this.pollingInterval = setTimeout(poll, this.pollingIntervalMs);
       }
     };
@@ -715,6 +754,8 @@ export class MarketWebSocket {
 
     console.log('[MarketWS] Stopping polling fallback');
     this.usePollingFallback = false;
+    this.pollingRequest?.abort();
+    this.pollingRequest = null;
 
     if (this.pollingInterval) {
       clearTimeout(this.pollingInterval);
@@ -731,9 +772,14 @@ export class MarketWebSocket {
   }
 
   disconnect() {
+    clearTimeout(this.reconnectTimer);
+    this.cancelConnection?.();
+    this.cancelConnection = null;
+    this.isConnecting = false;
     this._clearHeartbeat();
     this._stopPollingFallback();
     if (this.ws) {
+      this.ws.onopen = this.ws.onclose = this.ws.onerror = this.ws.onmessage = null;
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;
     }

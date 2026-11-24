@@ -1,8 +1,22 @@
+@font-face {
+  font-family: Inter;
+  src: url("../fonts/inter-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/jetbrains-mono-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light dark;
   --font-display: system-ui, sans-serif;
-  --font-sans: system-ui, sans-serif;
-  --font-mono: ui-monospace, monospace;
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --type-label: .75rem;
   --type-table: .8125rem;
   --type-body: .875rem;
@@ -65,17 +79,19 @@
 
 :root:not(.light-theme) {
   color-scheme: dark;
-  --bg: #101521;
-  --surface: #171e2b;
-  --surface-hover: #232c3c;
-  --border: #323f53;
-  --text: #f3f2ef;
-  --text-muted: #b1bacb;
-  --muted-rgb: 177, 186, 203;
-  --accent: #eac47a;
-  --accent-rgb: 234, 196, 122;
-  --up: #5cd9be;
-  --down: #ffa08e;
+  --bg: #07090d;
+  --surface: #0d1117;
+  --surface-elevated: #141a24;
+  --surface-hover: #1a2230;
+  --border: rgb(255 255 255 / .12);
+  --border-subtle: rgb(255 255 255 / .06);
+  --text: #f0f4f8;
+  --text-muted: #a0aab8;
+  --muted-rgb: 160, 170, 184;
+  --accent: #38bdf8;
+  --accent-rgb: 56, 189, 248;
+  --up: #32c5a1;
+  --down: #f47a7e;
 }
 
 :root.light-theme {
@@ -83,12 +99,14 @@
   --bg: #f8fafc;
   --surface: #ffffff;
   --surface-hover: #f8fafc;
+  --surface-elevated: #eef2f6;
   --border: #e2e8f0;
+  --border-subtle: #edf0f4;
   --text: #1e293b;
   --text-muted: #525e71;
   --muted-rgb: 82, 94, 113;
-  --accent: #80551b;
-  --accent-rgb: 128, 85, 27;
+  --accent: #00668d;
+  --accent-rgb: 0, 102, 141;
   --up: #00715e;
   --down: #a9362d;
 }

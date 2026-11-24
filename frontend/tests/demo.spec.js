@@ -1,6 +1,33 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('backtest trace cancels when leaving Research and completes with fixture provenance', async ({ page }) => {
+  let holdHistory = true;
+  let releaseHistory;
+  const historyGate = new Promise(resolve => { releaseHistory = resolve; });
+  await page.route('**/demo/candles-TCS-NS.json', async route => {
+    if (holdHistory) await historyGate;
+    await route.continue();
+  });
+  await page.goto('/?freeze=1#/research/TCS.NS/lab');
+  const button = page.getByRole('button', { name: 'Run Backtest' });
+  const status = page.locator('#backtest-run-state');
+  await button.click();
+  await expect(status).toContainText('Fetching daily history');
+  await page.evaluate(() => { location.hash = '/markets'; });
+  await expect(status).toHaveText('TCS.NS · Cancelled');
+  holdHistory = false;
+  releaseHistory();
+  await page.evaluate(() => { location.hash = '/research/TCS.NS/lab'; });
+  await expect(status).toHaveText('TCS.NS · Cancelled');
+  await button.click();
+  await expect(status).toHaveText('TCS.NS · Completed');
+  await expect(page.locator('.backtest-source')).toContainText('Demo · Synthetic fixture');
+  await expect(page.locator('#backtest-trace details[open]')).toHaveCount(0);
+  await page.locator('#backtest-trace summary').filter({ hasText: 'Prepared simulation parameters' }).click();
+  await expect(page.locator('#backtest-trace details[open] pre')).toContainText('TCS.NS');
+});
+
 test('adds advanced studies, saves an anchored VWAP date and restores them on reload', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -113,23 +140,9 @@ test('pauses simulated prices without replacing market rows', async ({ page }) =
   const readPrices = () => page.locator('#markets-indices-table .benchmark-row .col-price')
     .evaluateAll(nodes => nodes.map(node => node.textContent.trim()));
   const first = await cell.elementHandle();
-  const expectSameQuotes = async () => {
-    const differences = await page.locator('.market-ticker-item').evaluateAll(items => items.flatMap(item => {
-      const row = [...document.querySelectorAll('#markets-indices-table .benchmark-row')]
-        .find(tr => tr.dataset.sym === item.dataset.symbol);
-      if (!row) return [];
-      const fields = [['value', 'price'], ['change', 'change'], ['percent', 'pct']];
-      return fields.filter(([part, column]) =>
-        item.querySelector(`.market-ticker-${part}`).textContent.trim()
-        !== (row.querySelector(`.col-${column} .provenance-value`) || row.querySelector(`.col-${column}`)).textContent.trim(),
-      ).map(([part]) => `${item.dataset.symbol} ${part}`);
-    }));
-    expect(differences).toEqual([]);
-  };
-  await expectSameQuotes();
+  await expect(page.locator('.market-ticker-item, .tape-item')).toHaveCount(0);
   const prices = await readPrices();
   await expect.poll(readPrices).not.toEqual(prices);
-  await expectSameQuotes();
   expect(await first.evaluate(node => node.isConnected)).toBe(true);
   const toggle = page.getByRole('button', { name: 'Pause updates' });
   await toggle.click();
@@ -185,12 +198,52 @@ test('opens the index pair from the command search', async ({ page }) => {
   await expect(page.getByRole('table', { name: 'NIFTY 50 and SENSEX' }).getByRole('rowheader')).toHaveText(['NIFTY 50', 'SENSEX']);
 });
 
+test('opens symbol-specific research from the command search', async ({ page }) => {
+  await page.goto('/?freeze=1#/markets');
+  await expect(page.locator('#tab-all')).toBeFocused();
+  await page.keyboard.press('Control+k');
+  const search = page.locator('#global-search-input');
+  await expect(search).toBeFocused();
+  await search.fill('>AAPL scenarios');
+  await page.getByRole('option', { name: /AAPL.*scenarios/i }).click();
+  await expect(page).toHaveURL(/\/research\/AAPL\/lab$/);
+  await expect(page.getByRole('tabpanel', { name: 'Scenarios' })).toBeVisible();
+});
+
+test('opens populated company research and keeps News and Earnings reachable', async ({ page }) => {
+  await page.goto('/?freeze=1#/markets');
+  await page.getByRole('tab', { name: 'Research', exact: true }).click();
+  const sections = page.getByRole('tablist', { name: 'Research sections' });
+  const overview = sections.getByRole('tab', { name: 'Overview' });
+  await expect(overview).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'Tata Consultancy Services' })).toBeVisible();
+  await expect(page.locator('#research-facts')).toContainText('Market cap');
+  await expect(page.locator('#research-latest-quarter')).toContainText('Q3 2024');
+  await overview.press('ArrowRight');
+  await expect(sections.getByRole('tab', { name: 'News' })).toBeFocused();
+  await expect(overview).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  const news = page.getByRole('tabpanel', { name: 'News' });
+  await expect(news).toContainText('No verified news');
+  await news.getByRole('link', { name: 'Earnings' }).click();
+  await expect(page.getByRole('tabpanel', { name: 'Earnings' })).toContainText('100,000');
+  await expect(page.getByRole('tabpanel', { name: 'Earnings' })).toContainText('Final dividend');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?freeze=1#/research');
+  await expect(page.getByRole('heading', { name: 'Tata Consultancy Services' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await overview.press('End');
+  await expect(sections.getByRole('tab', { name: 'Report' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#report-rendered-preview')).toContainText('Research Dossier: TCS.NS');
+});
+
 const workspaces = {
   markets: '/markets',
   discover: '/discover',
   analyze: '/symbol/TCS.NS/chart',
   compare: '/compare/TCS.NS',
-  research: '/research/TCS.NS/report',
+  research: '/research/TCS.NS/overview',
   monitor: '/monitor',
 };
 
@@ -203,7 +256,7 @@ for (const [workspace, path] of Object.entries(workspaces)) {
       if (workspace === 'markets') await expect(page.locator('.benchmark-row').first()).toBeVisible();
       if (workspace === 'analyze') await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/Last close/);
       if (workspace === 'compare') await expect(page.locator('.correlation-table:not(.skeleton-table) tbody tr').first()).toBeVisible();
-      if (workspace === 'research') await expect(page.locator('#report-rendered-preview')).toContainText('Research Dossier: TCS.NS');
+      if (workspace === 'research') await expect(page.locator('#research-latest-quarter')).toContainText('Q3 2024');
       const { violations } = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
@@ -253,15 +306,15 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await page.goto('/?freeze=1');
     await page.waitForLoadState('domcontentloaded');
 
-    // 1. Demo banner must be visible
-    const banner = page.locator('#demo-banner');
-    await expect(banner).toBeVisible({ timeout: 10000 });
-    await expect(banner).toContainText('Synthetic market data');
-    await expect(page.locator('#exit-demo-mode-btn')).toBeHidden();
+    await expect(page.locator('#demo-environment')).toBeVisible();
+    await expect(page.locator('#demo-environment')).toHaveAttribute('title', 'Synthetic market data');
+    await expect(page.locator('#demo-banner, #ticker-tape-track')).toHaveCount(0);
 
     const sectors = page.locator('#sector-intelligence-grid');
+    await expect(sectors).toBeHidden();
+    await page.getByText('Sector performance', { exact: true }).click();
     const tech = sectors.getByRole('gridcell', { name: /Technology/ });
-    await expect(sectors.getByRole('gridcell')).toHaveCount(5);
+    await expect(sectors.getByRole('gridcell')).toHaveCount(2);
     await expect(tech).toContainText('+1.20%');
     await tech.click();
     const detail = page.locator('#sector-detail-body');
@@ -269,8 +322,11 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await tech.press('ArrowRight');
     await expect(page.locator('#sector-detail-title')).toHaveText('Financial Services Constituents');
     await expect(detail.getByText('HDFCBANK.NS', { exact: true })).toBeVisible();
-    await sectors.getByRole('gridcell', { name: /Healthcare/ }).click();
-    await expect(detail).toContainText('No constituent data available');
+    await expect(detail.getByRole('columnheader', { name: 'Weight' })).toHaveCount(0);
+    const fx = page.locator('#markets-macro-forex-list');
+    await expect(fx).toBeHidden();
+    await page.getByText('Cross-asset quotes', { exact: true }).click();
+    await expect(fx.locator('.macro-asset-freshness').first()).toContainText('IST');
 
     // 2. All static fixtures must resolve (200)
     const fixtures = [

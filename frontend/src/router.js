@@ -85,7 +85,7 @@ export class HashRouter {
         workspace: 'research',
         view: 'research',
         symbol: parts[1] ? parts[1].toUpperCase() : null,
-        subTab: parts[2] ? parts[2].toLowerCase() : 'news',
+        subTab: parts[2] ? parts[2].toLowerCase() : 'overview',
         raw,
       };
     }
@@ -153,7 +153,7 @@ export class HashRouter {
     if (workspace === 'compare') return symbol ? `/compare/${encodeURIComponent(symbol.toUpperCase())}` : '/compare';
     if (workspace === 'research') {
       const sym = symbol ? encodeURIComponent(symbol.toUpperCase()) : 'TCS.NS';
-      return `/research/${sym}/${encodeURIComponent(sub || 'news')}`;
+      return `/research/${sym}/${encodeURIComponent(sub || 'overview')}`;
     }
     if (workspace === 'monitor') return sub ? `/monitor/${encodeURIComponent(sub)}` : '/monitor';
     return '/markets';

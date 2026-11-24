@@ -123,21 +123,6 @@
         <footer class="auth-gate-footer"><span>MARA STOCK DASHBOARD</span><span>Market data for research purposes</span></footer>
       </div>
     </section>
-    <!-- Cold Start Spin-Up Banner -->
-    <div id="cold-start-banner" class="cold-start-banner" style="display: none;">
-      <span id="cold-start-msg">Waking up the server — this can take a few seconds.</span>
-    </div>
-
-    <!-- Backend Sync Status Toast Banner -->
-    <div id="backend-sync-toast" class="backend-sync-toast" style="display: none;" role="status" aria-live="polite" aria-atomic="true">
-      <div class="sync-toast-inner">
-        <span class="sync-icon">🔄</span>
-        <span id="sync-message">Connecting to backend...</span>
-        <button id="sync-dismiss-btn" class="sync-dismiss-btn" aria-label="Dismiss sync status">✕</button>
-      </div>
-    </div>
-
-    <!-- Offline / Network Error Resilience Banner -->
     <div id="apex-retry-banner" class="apex-retry-banner" style="display: none;">
       <div class="retry-banner-inner">
         <span class="retry-icon">⚡</span>
@@ -153,19 +138,13 @@
          MARA PHYSICAL INTERFACE ARCHITECTURE — PHASE 0 GLOBAL SHELL
          ===================================================================== -->
     <div id="mara-app" class="mara-app" data-density="normal">
-      <div id="demo-banner" class="demo-banner" style="display:none;">
-        <div class="demo-banner-content">
-          <span class="demo-banner-text">Demo mode · Synthetic market data for research and education</span>
-          <button id="pause-demo-updates" class="demo-exit-btn" type="button" aria-pressed="false" hidden>Pause updates</button>
-          <button id="exit-demo-mode-btn" class="demo-exit-btn" type="button">Exit demo</button>
-        </div>
-      </div>
       <!-- UNIFIED NAVIGATION HEADER -->
       <header id="mara-unified-header" class="mara-unified-header">
         <!-- Brand Group -->
         <a class="mara-brand-group" id="brand-home-btn" href="#/markets" aria-label="MARA · Equities research terminal">
           <img src="/favicon.svg" alt="" class="mara-brand-logo" width="22" height="22" />
           <span class="mara-brand-title">MARA</span>
+          <span id="demo-environment" class="demo-environment" title="Synthetic market data" hidden>Demo</span>
         </a>
 
         <!-- Global Command / Search Surface (⌘K) -->
@@ -234,6 +213,7 @@
 
         <!-- System & Utility Controls -->
         <div class="mara-header-utilities">
+          <button id="pause-demo-updates" class="demo-exit-btn" type="button" aria-pressed="false" hidden>Pause updates</button>
           <!-- Demo Mode Quick Switch -->
           <button class="mara-header-btn mara-demo-btn" id="demo-mode-toggle-btn" type="button" title="Toggle Demo Mode (synthetic test fixtures)" aria-label="Toggle Demo Mode">
             <span class="demo-tag-label" id="demo-tag-label">DEMO</span>
@@ -263,13 +243,13 @@
           </button>
 
           <!-- Watchlist Drawer Button -->
-          <button class="mara-header-btn" id="watchlist-drawer-toggle" type="button" title="Watchlist" aria-label="Watchlist 5">
+          <button class="mara-header-btn" id="watchlist-drawer-toggle" type="button" title="Watchlist" aria-label="Watchlist 5" aria-controls="watchlist-drawer" aria-expanded="false">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h12v17l-6-3.7-6 3.7z"/></svg>
             <span>Watchlist</span><span class="nav-count" id="watchlist-nav-count">5</span>
           </button>
 
           <!-- Alerts Modal Button -->
-          <button class="mara-header-btn" id="alerts-modal-toggle" type="button" title="Alerts" aria-label="Alerts 0">
+          <button class="mara-header-btn" id="alerts-modal-toggle" type="button" title="Alerts" aria-label="Alerts 0" aria-controls="watchlist-drawer" aria-expanded="false">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 20h4"/></svg>
             <span>Alerts</span><span class="nav-count" id="alerts-nav-count">0</span>
           </button>
@@ -302,16 +282,7 @@
         <section class="workspace-view" id="workspace-markets" role="tabpanel" aria-labelledby="ws-btn-markets">
           <div class="workspace-scroll-wrap">
             <header class="markets-page-heading">
-              <div>
-                <h1>Market overview</h1>
-              </div>
-            </header>
-            <section class="market-ticker-strip" aria-label="Global market snapshot">
-              <div class="market-ticker-heading">Market snapshot</div>
-              <div class="market-ticker-track" id="market-ticker-track">
-                <span class="market-ticker-empty skeleton-text" role="status">Loading market snapshot</span>
-              </div>
-            </section>
+              <h1>Market overview</h1>
 
             <!-- Market sessions and feed status -->
             <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
@@ -341,6 +312,7 @@
               </div>
             </div>
 
+            </header>
             <!-- SKELETON SCREENS - Match final layout exactly -->
             <div class="markets-skeleton" id="markets-skeleton" aria-hidden="true" role="status" aria-label="Loading market data">
               <!-- Skeleton: Benchmark Board -->
@@ -405,7 +377,7 @@
                 </div>
               </div>
 
-              <!-- Skeleton: Cross-Asset Macro Radar -->
+              <!-- Skeleton: Cross-asset quotes -->
               <div class="ws-section-block">
                 <div class="section-sub-header skeleton-header">
                   <div class="skeleton-title"></div>
@@ -448,8 +420,6 @@
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h2 class="section-sub-title" id="benchmark-title">Global benchmarks</h2>
-                  <button type="button" class="ghost-btn ghost-btn-sm" id="benchmark-density" aria-pressed="false">Comfortable rows</button>
-                  <details class="benchmark-columns"><summary class="ghost-btn ghost-btn-sm">Columns</summary><fieldset><legend>Show columns</legend></fieldset></details>
                 </div>
               </div>
               <div class="benchmark-toolbar">
@@ -470,13 +440,8 @@
                     <button class="ghost-btn ghost-btn-sm" id="benchmarks-export-btn" title="Export to CSV" aria-label="Export benchmarks to CSV">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                     </button>
-                    <span class="benchmark-filter-label">Asset class</span>
-                    <div class="macro-tabs" role="tablist" aria-label="Asset class" style="display: inline-flex; gap: 4px; align-items: center;">
-                      <button class="macro-tab-btn" data-category="Indices" role="tab" aria-selected="true">Indices</button>
-                      <button class="macro-tab-btn" data-category="Forex" role="tab" aria-selected="false">Forex</button>
-                      <button class="macro-tab-btn" data-category="Commodities" role="tab" aria-selected="false">Commodities</button>
-                      <button class="macro-tab-btn" data-category="Crypto" role="tab" aria-selected="false">Crypto</button>
-                    </div>
+                    <button type="button" class="ghost-btn ghost-btn-sm" id="benchmark-density" aria-pressed="false">Comfortable rows</button>
+                    <details class="benchmark-columns"><summary class="ghost-btn ghost-btn-sm">Columns</summary><fieldset><legend>Show columns</legend></fieldset></details>
                   </div>
               </div>
 
@@ -500,7 +465,7 @@
                     </thead>
                     <tbody id="markets-indices-table-body">
                       <tr class="loading-row">
-                        <td colspan="10" class="table-loading-cell">Loading global benchmark feed...</td>
+                        <td colspan="10" class="table-loading-cell">Loading benchmarks</td>
                       </tr>
                     </tbody>
                   </table>
@@ -518,8 +483,7 @@
             <div class="ws-section-block market-hours-timeline" id="market-hours-timeline" aria-label="Global market trading hours">
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
-                  <h2 class="section-sub-title">Trading sessions</h2>
-                  <span class="section-sub-caption">Regular equity hours on a shared IST clock. Holiday calendars cover 2026.</span>
+                  <h2 class="section-sub-title">Trading sessions (IST)</h2>
                 </div>
                 <div class="timeline-toolbar">
                   <div class="timeline-time-indicator" id="timeline-current-time" aria-live="polite">
@@ -536,90 +500,86 @@
               </div>
               <div class="ist-session-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
             </div>
-
-            <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP (SECTOR MATRIX) -->
-            <div class="ws-section-block">
-              <div class="section-sub-header">
-                <div class="section-sub-title-group">
-                  <h2 class="section-sub-title">Sector Rotation &amp; Performance Heatmap</h2>
-                  <span class="section-sub-caption">Proportional sector return matrix. Color intensity maps to 24H return. Click any cell to inspect constituent breadth.</span>
-                </div>
-                <div class="sector-matrix-legend" id="sector-matrix-legend" role="img" aria-label="Sector return legend">
-                  <span class="legend-label">Return:</span>
-                  <span class="sector-swatch sector-swatch-deep-loss" aria-label="Strong loss">&le; -1.5%</span>
-                  <span class="sector-swatch sector-swatch-mod-loss" aria-label="Moderate loss">-0.5%</span>
-                  <span class="sector-swatch sector-swatch-neutral" aria-label="Flat">Flat</span>
-                  <span class="sector-swatch sector-swatch-mod-gain" aria-label="Moderate gain">+0.5%</span>
-                  <span class="sector-swatch sector-swatch-deep-gain" aria-label="Strong gain">&ge; +1.5%</span>
-                </div>
-              </div>
-
-              <!-- Authentic Financial Sector Matrix Grid -->
-              <div class="sector-matrix-grid" id="sector-intelligence-grid" role="grid" aria-label="Sector performance matrix" aria-rowcount="0">
-                <!-- Populated dynamically via loadAndRenderSectorsAndMarketMap -->
-                <!-- Structure: grid > row > gridcell (each sector tile is a gridcell within a row) -->
-              </div>
-            </div>
-
-            <!-- SECTION 3: SECTOR CONSTITUENTS DEEP-DIVE -->
-            <div class="ws-section-block" id="sector-detail-section">
-              <div class="section-sub-header">
-                <div class="section-sub-title-group">
-                  <h2 class="section-sub-title" id="sector-detail-title">Sector Constituents</h2>
-                  <span class="section-sub-caption" id="sector-detail-meta">Loading constituent telemetry...</span>
-                </div>
-                <div class="constituent-search-wrap">
-                  <label for="sector-constituent-search" class="constituent-search-label">Filter Constituents</label>
-                  <input type="text" id="sector-constituent-search" class="constituent-search" placeholder="Filter constituents..." autocomplete="off" />
-                </div>
-              </div>
-              <div class="constituent-table-wrap" id="sector-detail-body">
-                <!-- Populated via JavaScript renderSelectedSectorDetail -->
-              </div>
-            </div>
-
-            <!-- SECTION 4: CROSS-ASSET MACRO RADAR (FOREX, COMMODITIES, DIGITAL ASSETS) -->
-            <div class="ws-section-block">
-              <div class="section-sub-header">
-                <div class="section-sub-title-group">
-                  <h2 class="section-sub-title">Cross-Asset Macro Radar</h2>
-                  <span class="section-sub-caption">Spot currencies, sovereign commodities, and digital asset markets</span>
-                </div>
-              </div>
-              <div class="macro-panels-grid">
-                <!-- Macro Panel 1: Forex Major Pairs -->
-                <div class="macro-panel">
-                  <div class="macro-panel-header">
-                    <div class="macro-panel-title">Forex Major Pairs</div>
-                    <span class="macro-panel-badge">FX Spot</span>
+            <div class="markets-analysis-grid">
+              <details class="markets-analysis-column">
+                <summary>Sector performance</summary>
+                <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP (SECTOR MATRIX) -->
+                <div class="ws-section-block">
+                  <div class="section-sub-header">
+                    <div class="section-sub-title-group">
+                      <span class="section-sub-caption">24h return and breadth</span>
+                    </div>
+                    <div class="sector-matrix-legend" id="sector-matrix-legend" role="img" aria-label="Sector return legend">
+                      <span class="legend-label">Return:</span>
+                      <span class="sector-swatch sector-swatch-deep-loss" aria-label="Strong loss">&le; -1.5%</span>
+                      <span class="sector-swatch sector-swatch-mod-loss" aria-label="Moderate loss">-0.5%</span>
+                      <span class="sector-swatch sector-swatch-neutral" aria-label="Flat">Flat</span>
+                      <span class="sector-swatch sector-swatch-mod-gain" aria-label="Moderate gain">+0.5%</span>
+                      <span class="sector-swatch sector-swatch-deep-gain" aria-label="Strong gain">&ge; +1.5%</span>
+                    </div>
                   </div>
-                  <div class="macro-panel-body" id="markets-macro-forex-list">
-                    <!-- Populated via JS -->
+
+                  <!-- Authentic Financial Sector Matrix Grid -->
+                  <div class="sector-matrix-grid" id="sector-intelligence-grid" role="grid" aria-label="Sector performance matrix" aria-rowcount="0">
+                    <!-- Populated dynamically via loadAndRenderSectorsAndMarketMap -->
+                    <!-- Structure: grid > row > gridcell (each sector tile is a gridcell within a row) -->
                   </div>
                 </div>
 
-                <!-- Macro Panel 2: Commodities -->
-                <div class="macro-panel">
-                  <div class="macro-panel-header">
-                    <div class="macro-panel-title">Commodities</div>
-                    <span class="macro-panel-badge">Futures</span>
+                <!-- SECTION 3: SECTOR CONSTITUENTS DEEP-DIVE -->
+                <div class="ws-section-block" id="sector-detail-section">
+                  <div class="section-sub-header">
+                    <div class="section-sub-title-group">
+                      <h2 class="section-sub-title" id="sector-detail-title">Sector Constituents</h2>
+                      <span class="section-sub-caption" id="sector-detail-meta">Loading constituents</span>
+                    </div>
+                    <div class="constituent-search-wrap">
+                      <label for="sector-constituent-search" class="constituent-search-label">Filter Constituents</label>
+                      <input type="text" id="sector-constituent-search" class="constituent-search" placeholder="Filter constituents..." autocomplete="off" />
+                    </div>
                   </div>
-                  <div class="macro-panel-body" id="markets-macro-commodities-list">
-                    <!-- Populated via JS -->
+                  <div class="constituent-table-wrap" id="sector-detail-body">
+                    <!-- Populated via JavaScript renderSelectedSectorDetail -->
                   </div>
                 </div>
+              </details>
+              <details class="markets-analysis-column markets-cross-asset">
+                <summary>Cross-asset quotes</summary>
+                <!-- SECTION 4: CROSS-ASSET MACRO RADAR (FOREX, COMMODITIES, DIGITAL ASSETS) -->
+                <div class="ws-section-block">
+                  <div class="macro-panels-grid">
+                    <!-- Macro Panel 1: Forex Major Pairs -->
+                    <div class="macro-panel">
+                      <div class="macro-panel-header">
+                        <div class="macro-panel-title">FX</div>
+                      </div>
+                      <div class="macro-panel-body" id="markets-macro-forex-list">
+                        <!-- Populated via JS -->
+                      </div>
+                    </div>
 
-                <!-- Macro Panel 3: Digital Assets -->
-                <div class="macro-panel">
-                  <div class="macro-panel-header">
-                    <div class="macro-panel-title">Digital Assets</div>
-                    <span class="macro-panel-badge">24H Spot</span>
-                  </div>
-                  <div class="macro-panel-body" id="markets-macro-crypto-list">
-                    <!-- Populated via JS -->
+                    <!-- Macro Panel 2: Commodities -->
+                    <div class="macro-panel">
+                      <div class="macro-panel-header">
+                        <div class="macro-panel-title">Commodities</div>
+                      </div>
+                      <div class="macro-panel-body" id="markets-macro-commodities-list">
+                        <!-- Populated via JS -->
+                      </div>
+                    </div>
+
+                    <!-- Macro Panel 3: Digital Assets -->
+                    <div class="macro-panel">
+                      <div class="macro-panel-header">
+                        <div class="macro-panel-title">Crypto</div>
+                      </div>
+                      <div class="macro-panel-body" id="markets-macro-crypto-list">
+                        <!-- Populated via JS -->
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </details>
             </div>
           </div>
         </section>
@@ -996,10 +956,8 @@
         <div class="workspace-scroll-wrap">
           <div class="workspace-header">
             <div class="workspace-title-row">
-              <h2 class="workspace-title">Peer Benchmarking &amp; Comparison</h2>
-              <span class="workspace-badge">Relative Valuation</span>
+              <h2 class="workspace-title">Compare assets</h2>
             </div>
-            <p class="workspace-desc">Side-by-side comparative analysis of industry peers, relative alpha, normalized returns, and multi-asset correlation.</p>
           </div>
 
           <div class="ws-section-block">
@@ -1056,48 +1014,68 @@
            ===================================================================== -->
       <section class="workspace-view" id="workspace-research" role="tabpanel" aria-labelledby="ws-btn-research">
         <!-- Sub-Navigation Bar for Research Workspace -->
-        <div class="workspace-subnav" id="research-subnav">
-          <button class="ws-sub-btn active" data-research-tab="news" id="tab-res-news">View News</button>
-          <button class="ws-sub-btn" data-research-tab="earnings" id="tab-res-earnings">View Earnings</button>
-          <button class="ws-sub-btn" data-research-tab="whatchanged" id="tab-res-whatchanged">View Delta</button>
-          <button class="ws-sub-btn" data-research-tab="anomalies" id="tab-res-anomalies">View Anomalies</button>
-          <button class="ws-sub-btn" data-research-tab="lab" id="tab-res-lab">Explore Scenarios</button>
-          <button class="ws-sub-btn" data-research-tab="notebook" id="tab-res-notebook">View Notebook</button>
-          <button class="ws-sub-btn" data-research-tab="quality" id="tab-res-quality">View Data Quality</button>
-          <button class="ws-sub-btn" data-research-tab="report" id="tab-res-report">View Report</button>
+        <div class="workspace-subnav" id="research-subnav" role="tablist" aria-label="Research sections">
+          <button type="button" class="ws-sub-btn" data-research-tab="overview" id="tab-res-overview" role="tab" aria-selected="true" tabindex="0">Overview</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="news" id="tab-res-news" role="tab" aria-selected="false" tabindex="-1">News</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="earnings" id="tab-res-earnings" role="tab" aria-selected="false" tabindex="-1">Earnings</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="whatchanged" id="tab-res-whatchanged" role="tab" aria-selected="false" tabindex="-1">30-day changes</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="anomalies" id="tab-res-anomalies" role="tab" aria-selected="false" tabindex="-1">Anomalies</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="lab" id="tab-res-lab" role="tab" aria-selected="false" tabindex="-1">Scenarios</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="notebook" id="tab-res-notebook" role="tab" aria-selected="false" tabindex="-1">Notebook</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="quality" id="tab-res-quality" role="tab" aria-selected="false" tabindex="-1">Data quality</button>
+          <button type="button" class="ws-sub-btn" data-research-tab="report" id="tab-res-report" role="tab" aria-selected="false" tabindex="-1">Report</button>
         </div>
 
         <div class="workspace-scroll-wrap">
+          <div class="research-panel active" id="research-panel-overview" role="tabpanel" aria-labelledby="tab-res-overview" tabindex="0">
+            <header class="research-heading">
+              <h1 id="research-company">Research</h1>
+              <p id="research-identity"></p>
+            </header>
+            <p id="research-status" role="status">Loading company data...</p>
+            <dl class="research-facts" id="research-facts" hidden></dl>
+            <p class="research-source" id="research-source"></p>
+            <section class="research-quarter" id="research-latest-quarter" aria-labelledby="research-quarter-title" hidden>
+              <h2 id="research-quarter-title">Recent quarters</h2>
+              <table class="research-quarter-table" aria-labelledby="research-quarter-title">
+                <thead><tr><th scope="col">Period</th><th scope="col" id="research-quarter-revenue">Revenue</th><th scope="col">Net margin</th></tr></thead>
+                <tbody id="research-quarter-rows"></tbody>
+              </table>
+              <a id="research-earnings-link">See all quarters</a>
+            </section>
+            <button type="button" class="ghost-btn" id="research-retry" hidden>Retry research</button>
+          </div>
+
           <!-- SUB-PANEL: NEWS -->
-          <div class="research-panel active" id="panel-news">
+          <div class="research-panel" id="panel-news" role="tabpanel" aria-labelledby="tab-res-news" hidden>
             <div class="timeline-card-header">
-              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Attributed News &amp; Corporate Announcements</h4>
+              <h2>Attributed news</h2>
             </div>
-            <div class="news-grid" id="news-container"></div>
+            <div class="news-grid" id="news-container"><p class="research-state">Loading attributed news...</p></div>
           </div>
 
           <!-- SUB-PANEL: EARNINGS & CORPORATE EVENTS -->
-          <div class="research-panel" id="panel-earnings">
+          <div class="research-panel" id="panel-earnings" role="tabpanel" aria-labelledby="tab-res-earnings" hidden>
             <div class="timeline-card-header">
-              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Quarterly Earnings &amp; Operating Margins</h4>
+              <h2>Quarterly results</h2>
             </div>
-            <div class="timeline-table-wrapper" id="quarterly-earnings-container" style="margin-bottom: 20px;"></div>
+            <div class="timeline-table-wrapper" id="quarterly-earnings-container" role="region" aria-label="Quarterly results table" tabindex="0" style="margin-bottom: 20px;"><p class="research-state">Loading quarterly results...</p></div>
 
             <div class="timeline-card-header">
-              <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Corporate Actions &amp; Dividends</h4>
+              <h2>Corporate actions and dividends</h2>
             </div>
-            <div class="timeline-table-wrapper" id="corporate-events-container"></div>
+            <div class="timeline-table-wrapper" id="corporate-events-container"><p class="research-state">Loading corporate actions...</p></div>
           </div>
 
           <!-- SUB-PANEL: 30-DAY WHAT CHANGED -->
-          <div class="research-panel" id="panel-whatchanged">
+          <div class="research-panel" id="panel-whatchanged" role="tabpanel" aria-labelledby="tab-res-whatchanged" hidden>
             <div class="timeline-card-header">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">30-Day State Delta</h4>
             </div>
             <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
               State delta comparing price regime, valuation multiples, technical momentum, and corporate actions across T vs T-30 days.
             </div>
-            <div class="dossier-grid" id="whatchanged-kpis-grid" style="margin-bottom: 20px;"></div>
+            <div class="dossier-grid" id="whatchanged-kpis-grid" style="margin-bottom: 20px;"><p class="research-state">No 30-day comparison available for this asset.</p></div>
             <div class="timeline-card-header">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Observations &amp; Events</h4>
             </div>
@@ -1105,18 +1083,18 @@
           </div>
 
           <!-- SUB-PANEL: ANOMALIES -->
-          <div class="research-panel" id="panel-anomalies">
+          <div class="research-panel" id="panel-anomalies" role="tabpanel" aria-labelledby="tab-res-anomalies" hidden>
             <div class="timeline-card-header">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Statistical &amp; Financial Anomalies</h4>
             </div>
             <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
               Detection screening for earnings quality red flags, working capital divergence, balance sheet leverage changes, and volume anomalies.
             </div>
-            <div id="anomalies-list-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            <div id="anomalies-list-container" style="display: flex; flex-direction: column; gap: 10px;"><p class="research-state">No anomaly results available for this asset.</p></div>
           </div>
 
           <!-- SUB-PANEL: SCENARIO LAB & BACKTEST -->
-          <div class="research-panel" id="panel-lab">
+          <div class="research-panel" id="panel-lab" role="tabpanel" aria-labelledby="tab-res-lab" hidden>
             <div class="timeline-card-header">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Hypothetical Valuation Scenarios</h4>
             </div>
@@ -1160,6 +1138,15 @@
                 <button id="run-backtest-btn" class="ws-tab-btn active" style="padding: 4px 12px;">Run Backtest</button>
               </div>
             </div>
+            <div class="lab-card-shell backtest-run" id="backtest-run" hidden>
+              <div class="backtest-run-header">
+                <strong id="backtest-run-state" role="status"></strong>
+                <span id="backtest-run-time"></span>
+                <button type="button" class="ghost-btn ghost-btn-sm" id="backtest-cancel" hidden>Cancel run</button>
+                <button type="button" class="ghost-btn ghost-btn-sm" id="backtest-latest" hidden>Jump to latest</button>
+              </div>
+              <div id="backtest-trace" tabindex="0" role="region" aria-label="Backtest steps"></div>
+            </div>
             <div class="lab-card-shell" id="backtest-results-container">
               <div style="text-align: center; color: var(--text-dim); font-size: 12px; padding: 16px;">
                 Click "Run Backtest" to simulate against historical price bars.
@@ -1168,7 +1155,7 @@
           </div>
 
           <!-- SUB-PANEL: RESEARCH NOTEBOOK -->
-          <div class="research-panel" id="panel-notebook">
+          <div class="research-panel" id="panel-notebook" role="tabpanel" aria-labelledby="tab-res-notebook" hidden>
             <div class="timeline-card-header">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Research Notes: <span id="notebook-asset-title">TCS.NS</span></h4>
               <button id="export-notebook-btn" class="ws-tab-btn active" style="padding: 4px 12px;">Export Markdown</button>
@@ -1196,15 +1183,15 @@
           </div>
 
           <!-- SUB-PANEL: DATA QUALITY -->
-          <div class="research-panel" id="panel-quality">
+          <div class="research-panel" id="panel-quality" role="tabpanel" aria-labelledby="tab-res-quality" hidden>
             <div class="timeline-card-header">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Data Provenance &amp; Verification</h4>
             </div>
-            <div class="dossier-grid" id="data-quality-grid"></div>
+            <div class="dossier-grid" id="data-quality-grid"><p class="research-state">No data quality report available for this asset.</p></div>
           </div>
 
           <!-- SUB-PANEL: ONE-CLICK REPORT -->
-          <div class="research-panel" id="panel-report">
+          <div class="research-panel" id="panel-report" role="tabpanel" aria-labelledby="tab-res-report" hidden>
             <div class="timeline-card-header">
               <h4 style="font-size: 13px; font-weight: 600; color: var(--text);">Institutional Research Report</h4>
               <div style="display: flex; gap: 8px;">
@@ -1357,7 +1344,7 @@
 
     <!-- Local Watchlist & Alerts Right Sidebar Drawer -->
     <div id="watchlist-backdrop" class="watchlist-backdrop"></div>
-    <aside id="watchlist-drawer" class="watchlist-drawer">
+    <aside id="watchlist-drawer" class="watchlist-drawer" aria-label="Watchlist and alerts" inert>
       <div class="watchlist-drawer-header">
         <div class="tv-drawer-tabs">
           <button class="tv-drawer-tab-btn active" id="drawer-tab-watchlist">Watchlist</button>
@@ -1409,62 +1396,7 @@
           </div>
         </div>
 
-        <!-- Market Benchmarks Section -->
-        <div class="drawer-section drawer-benchmarks-section">
-          <div class="drawer-section-header">
-            <span class="drawer-section-title">GLOBAL BENCHMARKS</span>
-          </div>
-          <div class="drawer-benchmarks-list">
-            <div class="ticker-tape-track" id="ticker-tape-track">
-              <!-- Pre-hydrated realistic index quotes -->
-              <div class="tape-item" data-symbol="^NSEI">
-                <span class="tape-sym">NIFTY 50</span>
-                <span class="tape-val" id="hero-price">₹22,421.95</span>
-                <span class="tape-chg chg-down" id="hero-change-badge"><span id="hero-change">−0.88%</span></span>
-              </div>
-              <div class="tape-item" data-symbol="^BSESN">
-                <span class="tape-sym">SENSEX</span>
-                <span class="tape-val">71,909.70</span>
-                <span class="tape-chg chg-down">−0.79%</span>
-              </div>
-              <div class="tape-item" data-symbol="^NSEBANK">
-                <span class="tape-sym">BANK NIFTY</span>
-                <span class="tape-val">54,450.75</span>
-                <span class="tape-chg chg-down">−0.33%</span>
-              </div>
-              <div class="tape-item" data-symbol="^GSPC">
-                <span class="tape-sym">S&P 500</span>
-                <span class="tape-val">5,751.20</span>
-                <span class="tape-chg chg-down">−0.25%</span>
-              </div>
-              <div class="tape-item" data-symbol="^IXIC">
-                <span class="tape-sym">NASDAQ</span>
-                <span class="tape-val">18,189.50</span>
-                <span class="tape-chg chg-up">+0.24%</span>
-              </div>
-              <div class="tape-item" data-symbol="^FTSE">
-                <span class="tape-sym">FTSE 100</span>
-                <span class="tape-val">8,250.40</span>
-                <span class="tape-chg chg-down">−0.86%</span>
-              </div>
-              <div class="tape-item" data-symbol="^N225">
-                <span class="tape-sym">NIKKEI 225</span>
-                <span class="tape-val">38,720.50</span>
-                <span class="tape-chg chg-up">+1.12%</span>
-              </div>
-            </div>
-          </div>
-          <!-- Hidden hooks to maintain background telemetry compatibility -->
-          <div style="display:none;" id="hero-hidden-hooks">
-            <span id="hero-name">NIFTY 50</span>
-            <span id="hero-high">₹22,610.60</span>
-            <span id="hero-low">₹22,217.30</span>
-            <span id="hero-source">Direct NSE</span>
-            <div id="hero-range-dot"></div>
-            <div id="hero-range-fill"></div>
-          </div>
-          <div id="macro-cards-container" aria-label="Macro asset category cards" role="region"></div>
-        </div>
+
 
         <!-- Saved Watchlist Section -->
         <div class="drawer-section drawer-watchlist-section">

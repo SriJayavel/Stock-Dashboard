@@ -5,7 +5,7 @@ const workspaces = {
   discover: ['/discover', '#screener-table-body tr[data-symbol]'],
   analyze: ['/symbol/TCS.NS/chart', '#tv-leg-provenance .provenance-trigger'],
   compare: ['/compare/TCS.NS', '.correlation-table:not(.skeleton-table) tbody tr'],
-  research: ['/research/TCS.NS/report', '#report-rendered-preview'],
+  research: ['/research/TCS.NS/overview', '#research-latest-quarter'],
   monitor: ['/monitor', '#workspace-watchlist-container tr[data-symbol]'],
 };
 
@@ -20,7 +20,6 @@ for (const [theme, colorScheme] of [['dark', 'dark'], ['light', 'light']]) {
       await page.goto(`/?freeze=1#${path}`);
       await expect(page.locator(`#workspace-${workspace}`)).toBeVisible();
       await expect(page.locator(ready).filter({ visible: true }).first()).toBeVisible();
-      if (workspace === 'research') await expect(page.locator(ready)).toContainText('Research Dossier: TCS.NS');
       await expect(page).toHaveScreenshot(`${workspace}-${theme}.png`, { maxDiffPixelRatio: 0.001 });
       if (workspace === 'markets' && theme === 'dark') {
         await page.locator('#markets-indices-table .col-price .provenance-trigger').first().hover();

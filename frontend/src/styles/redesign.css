@@ -3337,7 +3337,15 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
   }
 }
 
-/* Calm terminal finish: one accent, flat controls, and data-first hierarchy. */
+@font-face {
+  font-family: Barlow;
+  src: url("../fonts/barlow-bold-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Markets uses the same surface tokens as the rest of the terminal. */
 .mara-app :is(.glass, .terminal-card, .hero-card, .macro-panel, .screener-card, .benchmark-panel) {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -3346,15 +3354,63 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
   backdrop-filter: none;
 }
 
+#workspace-markets .markets-page-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .375rem 1.5rem;
+  min-block-size: 3.25rem;
+  padding-block: .25rem;
+}
+
 #workspace-markets .markets-page-heading h1 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1.2;
+  font: 700 clamp(1.875rem, 1.5rem + 1vw, 2.375rem)/1 Barlow, var(--font-display);
   letter-spacing: -.025em;
 }
 
-#workspace-markets .markets-page-heading p {
-  font-size: .8125rem;
+#workspace-markets .markets-page-heading .markets-status-strip {
+  flex: 1 1 46rem;
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#workspace-markets .market-ticker-strip {
+  border-radius: 0;
+  border-inline: 0;
+  background: color-mix(in srgb, var(--surface) 75%, var(--bg));
+}
+
+#workspace-markets .benchmark-panel {
+  border-color: var(--border-subtle);
+}
+
+#workspace-markets .benchmark-panel .section-sub-title {
+  font: 700 1.375rem/1.15 Barlow, var(--font-display);
+  letter-spacing: -.01em;
+  text-transform: none;
+}
+
+#workspace-markets :is(.market-ticker-item, .benchmark-filter-btn, .benchmark-sort) {
+  transition: background-color var(--motion-fast), color var(--motion-fast);
+}
+
+#workspace-markets :is(.market-ticker-item, .benchmark-filter-btn, .benchmark-sort):active {
+  background-color: var(--surface-hover);
+}
+
+@media (max-width: 767px) {
+  #workspace-markets .markets-page-heading .markets-status-strip {
+    padding-inline: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #workspace-markets :is(.market-ticker-item, .benchmark-filter-btn, .benchmark-sort) {
+    transition: none;
+  }
 }
 
 #workspace-markets .benchmark-filter-group {

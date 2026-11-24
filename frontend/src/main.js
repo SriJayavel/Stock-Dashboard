@@ -15,7 +15,7 @@ import { alertsManager } from './alerts.js';
 import { ResearchNotebook } from './notebook.js';
 import { ResearchReportGenerator } from './report_generator.js';
 import { screenerBuilder, SCREENER_METRICS } from './screener_builder.js';
-import { Backtester } from './backtester.js';
+import { cancelBacktest, executeBacktest, setupBacktestTrace } from './backtest-run.js';
 import {
   INDICATOR_REGISTRY,
   getAllIndicators,
@@ -44,42 +44,26 @@ let chartSetup;
 let currentSymbol = null;
 let currentTimeframe = '1y';
 let currentActiveWorkspace = 'analyze';
+let workspaceRun = 0;
+let routeRun = 0;
+let chartRequest;
+let stockRequest;
+let screenerRun = 0;
+let updatesPaused = false;
+let chartWorkerRun = 0;
+let chartWorkerRequest;
+let marketStreamRun = 0;
+let correlationRun = 0;
+let syncDemoSchedule = () => {};
 let currentAnalyzeTab = 'chart';
-let currentResearchTab = 'news';
+let currentResearchTab = 'overview';
+let researchLoadState = 'loading';
 let currentMonitorTab = 'watchlist';
 let currentActiveTab = 'chart';
 let currentMacroCategory = 'Indices';
 let marketDataCache = null;
 let currentResearchData = null;
 let currentDeepResearchData = null;
-
-// ===== PHASE 1: Unified Drawer Context/Manager =====
-// Single active drawer state manager
-const DrawerContext = {
-  activeDrawer: null,
-  drawers: ['watchlist-drawer', 'mara-context-panel'],
-
-  setActive(drawerId) {
-    if (this.activeDrawer && this.activeDrawer !== drawerId) {
-      this.closeActive();
-    }
-    this.activeDrawer = drawerId;
-  },
-
-  closeActive() {
-    if (this.activeDrawer) {
-      const drawer = document.getElementById(this.activeDrawer);
-      if (drawer) {
-        drawer.classList.remove('open');
-      }
-      this.activeDrawer = null;
-    }
-  },
-
-  isActive(drawerId) {
-    return this.activeDrawer === drawerId;
-  }
-};
 
 // Market snapshot deduplication hook
 function useMarketSnapshot() {
@@ -118,6 +102,7 @@ function useMarketSnapshot() {
 }
 let currentV4Data = null;
 let currentCandles = [];
+let dailyPriceContext;
 let showChartEvents = true;
 let activeCorrelationPeriod = '1y';
 let currentScreenerAssets = [];
@@ -204,44 +189,17 @@ export function formatWithState(val, state, options = {}) {
   return `${prefix}${val}${suffix}`;
 }
 
-// Cold-Start Alert Controller
-const coldStartBanner = document.getElementById('cold-start-banner');
-const coldStartMsg = document.getElementById('cold-start-msg');
-
-api.onStatusChange = (status) => {
-  if (!coldStartBanner) return;
-  if (status.isWaking) {
-    coldStartBanner.classList.add('active');
-    if (coldStartMsg) {
-      coldStartMsg.innerHTML = `<span>${status.message}</span> <button id="cold-start-switch-demo-btn" type="button" style="margin-left: 10px; padding: 2px 10px; font-size: 11px; font-weight: 600; background: rgba(52, 211, 153, 0.2); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px; cursor: pointer;">Explore in Demo Mode</button>`;
-      document.getElementById('cold-start-switch-demo-btn')?.addEventListener('click', () => {
-        setDemoMode(true);
-        window.location.reload();
-      });
-    }
-  } else {
-    coldStartBanner.classList.remove('active');
-  }
-};
-
 // Initialize the terminal only after Supabase confirms the account session.
 let appStarted = false;
 async function startApp() {
   if (appStarted) return;
   appStarted = true;
 
-  // Demo mode: show banner, pre-seed localStorage, auto-sign-in as guest
+  // Keep the current environment visible in the shell.
   if (isDemoMode()) {
     document.getElementById('mara-app')?.classList.add('is-demo');
-    const banner = document.getElementById('demo-banner');
-    if (banner) banner.style.display = 'block';
-    setupDemoUpdates();
-    const exitDemo = document.getElementById('exit-demo-mode-btn');
-    if (exitDemo) exitDemo.hidden = isShowcaseBuild;
-    exitDemo?.addEventListener('click', () => {
-      setDemoMode(false);
-      window.location.reload();
-    });
+    document.getElementById('demo-environment').hidden = !isShowcaseBuild;
+    if (isShowcaseBuild) document.getElementById('brand-home-btn').setAttribute('aria-label', 'MARA · Demo mode, synthetic data');
   }
 
   alertsManager.activateAccount();
@@ -254,9 +212,11 @@ async function startApp() {
   setupTradingViewChromeControls();
   setupIndicatorControls();
   setupWatchlistControls();
+  setupUpdateControls();
 
   // Router Subscription: 6 Institutional Workspaces
   router.subscribe(async (route) => {
+    const run = ++routeRun;
     if (route.type === 'markets' || route.workspace === 'markets') {
       await setWorkspace('markets');
     } else if (route.type === 'discover' || route.workspace === 'discover' || route.type === 'screener') {
@@ -265,22 +225,26 @@ async function startApp() {
       if (route.benchmarkPair) {
         await setWorkspace('compare', 'benchmarks');
       } else {
-        if (route.symbol && route.symbol !== currentSymbol) await loadStock(route.symbol, currentTimeframe);
+        const loading = route.symbol && route.symbol !== currentSymbol ? loadStock(route.symbol, currentTimeframe) : null;
         await setWorkspace('compare');
+        await loading;
       }
     } else if (route.type === 'research' || route.workspace === 'research') {
-      if (route.symbol && route.symbol !== currentSymbol) {
-        await loadStock(route.symbol, currentTimeframe);
-      }
-      await setWorkspace('research', route.subTab || 'news');
+      const symbol = route.symbol || currentSymbol || 'TCS.NS';
+      const loading = symbol !== currentSymbol ? loadStock(symbol, currentTimeframe) : null;
+      await setWorkspace('research', route.subTab);
+      await loading;
     } else if (route.type === 'monitor' || route.workspace === 'monitor') {
       await setWorkspace('monitor', route.subTab || 'watchlist');
     } else if (route.type === 'symbol' || route.type === 'analyze' || route.workspace === 'analyze') {
       const targetSym = route.symbol || currentSymbol || 'TCS.NS';
       const targetTab = route.tab || 'chart';
       await setWorkspace('analyze', targetTab);
+      if (run !== routeRun) return;
       if (!currentSymbol || targetSym !== currentSymbol) {
         await loadStock(targetSym, currentTimeframe);
+      } else if (!currentCandles.length && !chartRequest) {
+        await loadStockChart(targetSym, currentLoadToken);
       }
     } else if (route.type === 'markets' || route.type === 'sectors' || route.workspace === 'markets') {
       await setWorkspace('markets');
@@ -361,8 +325,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Primary Workspace Switcher
 export async function setWorkspace(workspaceName, subTab = null) {
+  const run = ++workspaceRun;
   const previousWorkspace = currentActiveWorkspace;
   currentActiveWorkspace = workspaceName;
+  if (previousWorkspace !== workspaceName) {
+    if (document.getElementById('mara-app')?.classList.contains('context-panel-open')) {
+      document.getElementById('close-context-panel-btn')?.click();
+    }
+    if (document.body.classList.contains('watchlist-drawer-open')) window.apexCloseWatchlistDrawer?.();
+    if (previousWorkspace === 'markets') {
+      ++marketStreamRun;
+      marketWS.disconnect();
+      marketWSConnected = false;
+      stopMarketTimelineUpdater();
+    }
+    if (previousWorkspace === 'analyze') {
+      chartRequest?.abort();
+      chartRequest = undefined;
+      currentCandles = [];
+      window.stopChartWorker?.();
+    }
+    if (previousWorkspace === 'discover') ++screenerRun;
+    if (previousWorkspace === 'compare') ++correlationRun;
+    if (previousWorkspace === 'research') cancelBacktest();
+  }
+  syncDemoSchedule();
 
   // 1. Top workspace navigation buttons
   document.querySelectorAll('#top-nav-workspaces .top-ws-btn').forEach((btn) => {
@@ -396,7 +383,7 @@ export async function setWorkspace(workspaceName, subTab = null) {
     const targetSub = subTab || currentAnalyzeTab || 'chart';
     setAnalyzeSubTab(targetSub);
   } else if (workspaceName === 'research') {
-    const targetSub = subTab || currentResearchTab || 'news';
+    const targetSub = subTab || currentResearchTab;
     setResearchSubTab(targetSub);
   } else if (workspaceName === 'monitor') {
     const targetSub = subTab || currentMonitorTab || 'watchlist';
@@ -410,20 +397,15 @@ export async function setWorkspace(workspaceName, subTab = null) {
     }
     // Await data loading so the feed shows immediately when user opens Markets
     await loadMarketOverview(true); // force refresh on workspace switch
+    if (run !== workspaceRun) return;
     await loadAndRenderSectorsAndMarketMap(false); // use cached data from loadMarketOverview
+    if (run !== workspaceRun) return;
 
     // Initialize WebSocket for live market updates
     initMarketWebSocket();
 
     // Start market hours timeline updater
     startMarketTimelineUpdater();
-  } else if (previousWorkspace === 'markets' && workspaceName !== 'markets') {
-    // Cleanup WebSocket when leaving markets workspace
-    marketWS.disconnect();
-    marketWSConnected = false;
-
-    // Stop market hours timeline updater
-    stopMarketTimelineUpdater();
   } else if (workspaceName === 'discover') {
     if (subTab) {
       const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
@@ -432,13 +414,14 @@ export async function setWorkspace(workspaceName, subTab = null) {
         tabBtn.classList.add('active');
       }
       loadScreener(subTab);
-    } else if (!currentScreenerAssets || currentScreenerAssets.length === 0) {
+    } else if (previousWorkspace !== 'discover' || !currentScreenerAssets?.length) {
       loadScreener('indian_leaders');
     }
   } else if (workspaceName === 'compare') {
     const benchmarkPair = document.getElementById('compare-benchmark-pair');
     benchmarkPair.hidden = subTab !== 'benchmarks';
     if (subTab === 'benchmarks') await renderBenchmarkPair();
+    if (run !== workspaceRun) return;
     if (currentSymbol) {
       loadStockResearch(currentSymbol, currentLoadToken);
       loadAndRenderMacroExplorer(currentSymbol);
@@ -446,22 +429,10 @@ export async function setWorkspace(workspaceName, subTab = null) {
     loadAndRenderCorrelation(activeCorrelationPeriod);
   }
 
-  // PHASE 1: Auto-collapse drawers on tab navigation
-  // Close side drawers when switching to a different workspace
-  if (previousWorkspace && previousWorkspace !== workspaceName) {
-    DrawerContext.closeActive();
-    // Also close any open context panel
-    const contextPanel = document.getElementById('mara-context-panel');
-    if (contextPanel && contextPanel.classList.contains('open')) {
-      contextPanel.classList.remove('open');
-      document.getElementById('mara-context-toggle')?.classList.remove('active');
-    }
-  }
-
   // 5. Focus management - move focus to first interactive element in new workspace
   // Defer to next tick to ensure DOM is updated
   requestAnimationFrame(() => {
-    focusFirstInteractiveInWorkspace(workspaceName);
+    if (run === workspaceRun) focusFirstInteractiveInWorkspace(workspaceName);
   });
 }
 
@@ -516,16 +487,27 @@ export function setAnalyzeSubTab(subTab) {
 }
 
 export function setResearchSubTab(subTab) {
+  const tabs = [...document.querySelectorAll('#research-subnav [data-research-tab]')];
+  if (!tabs.some(tab => tab.dataset.researchTab === subTab)) subTab = 'overview';
+  if (subTab !== 'lab') cancelBacktest();
   currentResearchTab = subTab;
-  document.querySelectorAll('#research-subnav .ws-sub-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.getAttribute('data-research-tab') === subTab);
-  });
+  for (const tab of tabs) {
+    const selected = tab.dataset.researchTab === subTab;
+    tab.classList.toggle('active', selected);
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  }
 
   document.querySelectorAll('#workspace-research .research-panel').forEach((panel) => {
-    panel.classList.toggle('active', panel.id === `panel-${subTab}`);
+    const selected = panel.id === (subTab === 'overview' ? 'research-panel-overview' : `panel-${subTab}`);
+    panel.classList.toggle('active', selected);
+    panel.hidden = !selected;
+    panel.tabIndex = selected ? 0 : -1;
   });
 
-  if (subTab === 'report') {
+  if (subTab === 'overview') {
+    renderResearchOverview();
+  } else if (subTab === 'report') {
     renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
   } else if (subTab === 'whatchanged' && currentV4Data) {
     renderWhatChanged(currentV4Data.what_changed_30d);
@@ -571,7 +553,7 @@ function setupWorkspaceControls() {
       } else if (ws === 'compare') {
         router.navigate(router.formatWorkspaceRoute('compare', currentSymbol || 'TCS.NS'));
       } else if (ws === 'research') {
-        router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', currentResearchTab || 'news'));
+        router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', currentResearchTab));
       } else if (ws === 'monitor') {
         router.navigate(router.formatWorkspaceRoute('monitor', null, currentMonitorTab || 'watchlist'));
       }
@@ -601,12 +583,21 @@ function setupWorkspaceControls() {
   });
 
   // Research Subnav
-  document.querySelectorAll('#research-subnav .ws-sub-btn[data-research-tab]').forEach((btn) => {
+  const researchTabs = [...document.querySelectorAll('#research-subnav [data-research-tab]')];
+  researchTabs.forEach((btn, index) => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-research-tab');
       router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', tab));
     });
+    btn.addEventListener('keydown', event => {
+      const last = researchTabs.length - 1;
+      const next = { ArrowLeft: index === 0 ? last : index - 1, ArrowRight: index === last ? 0 : index + 1, Home: 0, End: last }[event.key];
+      if (next === undefined) return;
+      event.preventDefault();
+      researchTabs[next].focus();
+    });
   });
+  document.getElementById('research-retry')?.addEventListener('click', () => loadStock(currentSymbol || 'TCS.NS', currentTimeframe));
 
   // Monitor Subnav
   document.querySelectorAll('#monitor-subnav .ws-sub-btn[data-monitor-tab]').forEach((btn) => {
@@ -876,19 +867,24 @@ const benchmarkCollator = new Intl.Collator(undefined, { numeric: true, sensitiv
 const benchmarkTime = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
 });
+const quoteTimestamp = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  timeZone: 'Asia/Kolkata', hour12: false,
+});
 
-function setupDemoUpdates() {
+function setupUpdateControls() {
   const button = document.getElementById('pause-demo-updates');
-  if (!button || new URLSearchParams(location.search).get('freeze') === '1') return;
+  if (!button) return;
   const random = seededRandom('MARA demo ticks');
-  let paused = false;
+  const frozen = new URLSearchParams(location.search).get('freeze') === '1';
   let timer;
-  button.hidden = false;
+  button.hidden = isDemoMode() && frozen;
+  button.className = 'mara-header-btn market-update-control';
 
   const schedule = () => {
     timer = setTimeout(() => {
-      if (!document.hidden && currentActiveWorkspace === 'markets') updatePrices();
-      schedule();
+      updatePrices();
+      syncDemoSchedule();
     }, 1000 + random() * 1000);
   };
   const updatePrices = () => {
@@ -928,8 +924,6 @@ function setupDemoUpdates() {
           label.textContent = quotePrice(value, row.dataset.currency);
         }
       }
-      const ticker = document.querySelector(`.market-ticker-item[data-symbol="${CSS.escape(row.dataset.sym)}"]`);
-      if (ticker) updateTickerQuote(ticker, next, row.dataset.currency);
       if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const flash = nextPrice > price ? '--gain-bg' : '--loss-bg';
         cell.animate([{ backgroundColor: `var(${flash})` }, { backgroundColor: 'transparent' }], 180);
@@ -937,13 +931,28 @@ function setupDemoUpdates() {
     }
   };
 
-  button.addEventListener('click', () => {
-    paused = !paused;
-    button.setAttribute('aria-pressed', String(paused));
+  syncDemoSchedule = () => {
     clearTimeout(timer);
-    if (!paused) schedule();
+    if (isDemoMode() && !frozen && !updatesPaused && !document.hidden && currentActiveWorkspace === 'markets') schedule();
+  };
+  document.addEventListener('visibilitychange', syncDemoSchedule);
+  button.addEventListener('click', () => {
+    updatesPaused = !updatesPaused;
+    button.setAttribute('aria-pressed', String(updatesPaused));
+    syncDemoSchedule();
+    if (isDemoMode()) return;
+    if (updatesPaused) {
+      ++marketStreamRun;
+      window.stopChartWorker?.();
+      if (currentActiveWorkspace === 'markets') marketWS.disconnect();
+      marketWSConnected = false;
+    } else if (currentActiveWorkspace === 'markets') {
+      initMarketWebSocket();
+    } else if (currentActiveWorkspace === 'analyze' && currentSymbol) {
+      startIntradayChartWorker(currentSymbol, currentChartInterval);
+    }
   });
-  schedule();
+  syncDemoSchedule();
 }
 
 function sortBenchmarkRows(table) {
@@ -1163,11 +1172,17 @@ function setupEventListeners() {
   let searchDebounceTimer = null;
   let searchKeyHandler = null;
 
+  const researchCommands = { delta: 'whatchanged', anomalies: 'anomalies', scenarios: 'lab' };
   const searchCommands = [
     { name: 'Toggle theme', action: () => document.getElementById('theme-toggle-btn').click() },
     { name: 'Create alert', action: () => router.navigate('/monitor/alerts') },
     { name: 'Open Compare', action: () => router.navigate(router.formatWorkspaceRoute('compare', currentSymbol)) },
     { name: 'Open Compare with NIFTY and SENSEX', action: () => router.navigate('/compare/benchmarks/nifty-sensex') },
+    { name: 'Watchlist', action: () => router.navigate('/monitor/watchlist') },
+    ...Object.entries(researchCommands).map(([name, tab]) => ({
+      name: name[0].toUpperCase() + name.slice(1),
+      action: () => router.navigate(router.formatWorkspaceRoute('research', currentSymbol || 'TCS.NS', tab)),
+    })),
   ];
 
   function openSearchResult(result) {
@@ -1281,9 +1296,19 @@ function setupEventListeners() {
       searchInput.removeAttribute('aria-activedescendant');
       if (query.startsWith('>')) {
         const command = query.slice(1).trim().toLowerCase();
+        const symbolCommand = command.match(/^([a-z0-9^][a-z0-9.^=_&-]{0,29})\s+(delta|anomalies|scenarios)$/);
         searchDropdown.classList.add('open');
         searchInput.setAttribute('aria-expanded', 'true');
-        renderSearchDropdown(searchCommands.filter(item => item.name.toLowerCase().includes(command)));
+        if (symbolCommand) {
+          const [, rawSymbol, view] = symbolCommand;
+          const symbol = rawSymbol.toUpperCase();
+          renderSearchDropdown([{
+            name: `${symbol} · ${view}`,
+            action: () => router.navigate(router.formatWorkspaceRoute('research', symbol, researchCommands[view])),
+          }]);
+        } else {
+          renderSearchDropdown(searchCommands.filter(item => item.name.toLowerCase().includes(command)));
+        }
         return;
       }
 
@@ -1509,9 +1534,10 @@ function setupEventListeners() {
     const isDemo = isDemoMode();
     if (isDemo) {
       demoToggleBtn.classList.add('active');
-      demoToggleBtn.title = 'Demo Mode is Active — click to return to Live Mode';
+      demoToggleBtn.title = 'Synthetic data · switch to live mode';
     } else {
-      demoToggleBtn.title = 'Click to switch to Synthetic Demo Mode';
+      demoToggleBtn.title = 'Try the synthetic demo';
+      document.getElementById('demo-tag-label').textContent = 'Try demo';
     }
     demoToggleBtn.addEventListener('click', () => {
       const active = isDemoMode();
@@ -2524,18 +2550,24 @@ export function syncHeaderPriceFromQuote(quote, currSym = '₹') {
 }
 
 export function startIntradayChartWorker(symbol, interval) {
+  const worker = ++chartWorkerRun;
+  chartWorkerRequest?.abort();
   if (chartUpdateInterval) {
     clearInterval(chartUpdateInterval);
     chartUpdateInterval = null;
   }
   window.stopChartWorker = () => {
+    ++chartWorkerRun;
+    chartWorkerRequest?.abort();
     if (chartUpdateInterval) {
       clearInterval(chartUpdateInterval);
       chartUpdateInterval = null;
     }
   };
   window.startIntradayChartWorker = startIntradayChartWorker;
-  if (isDemoMode()) return;
+  if (isDemoMode() || updatesPaused || currentActiveWorkspace !== 'analyze') return;
+  const controller = new AbortController();
+  chartWorkerRequest = controller;
 
   const activeInt = interval || currentChartInterval || '1m';
   const isIntraday = ['1m', '2m', '5m', '15m', '30m', '60m', '1h', '90m'].includes(activeInt);
@@ -2549,8 +2581,8 @@ export function startIntradayChartWorker(symbol, interval) {
     isChartUpdateBusy = true;
     try {
       if (isIntraday) {
-        const data = await api.getMarketCandles(symbol, activeInt, currentChartRange || '1d');
-        if (currentSymbol !== symbol) return; // Drop stale ticker ticks
+        const data = await api.getMarketCandles(symbol, activeInt, currentChartRange || '1d', controller.signal);
+        if (currentSymbol !== symbol || worker !== chartWorkerRun) return;
         if (data) {
           const prevSession = currentMarketSession;
           currentMarketSession = (data.session || data.market_status || 'CLOSED').toUpperCase();
@@ -2570,8 +2602,8 @@ export function startIntradayChartWorker(symbol, interval) {
           }
         }
       } else {
-        const overview = await api.getStockOverview(symbol);
-        if (currentSymbol !== symbol) return;
+        const overview = await api.getStockOverview(symbol, controller.signal);
+        if (currentSymbol !== symbol || worker !== chartWorkerRun) return;
         if (overview && (overview.symbol === symbol || !overview.symbol)) {
           currentOverviewData = overview;
           chartInstance.patchLatestBar(overview);
@@ -2591,7 +2623,7 @@ export function startIntradayChartWorker(symbol, interval) {
         }
       }
     } catch (e) {
-      console.warn('Chart update poll skipped:', e);
+      if (!controller.signal.aborted) console.warn('Chart update poll skipped:', e);
     } finally {
       isChartUpdateBusy = false;
     }
@@ -2682,10 +2714,12 @@ function setupWatchlistControls() {
 
   const openDrawer = () => {
     if (drawer) drawer.classList.add('open');
+    drawer?.removeAttribute('inert');
     if (backdrop && window.innerWidth < 1024) backdrop.classList.add('open');
     if (tvSidebarToggle) tvSidebarToggle.classList.add('active');
     document.body.classList.add('watchlist-drawer-open');
-    localStorage.setItem(getAccountStorageKey('apex_watchlist_drawer_open'), 'true');
+    toggleBtn?.setAttribute('aria-expanded', 'true');
+    document.getElementById('alerts-modal-toggle')?.setAttribute('aria-expanded', 'true');
     refreshWatchlistUI();
     if (chartInstance) {
       setTimeout(() => chartInstance.resize(), 50);
@@ -2693,13 +2727,20 @@ function setupWatchlistControls() {
   };
 
   const closeDrawer = () => {
+    if (drawer?.contains(document.activeElement)) {
+      const trigger = drawer.querySelector('#drawer-tab-alerts.active')
+        ? document.getElementById('alerts-modal-toggle') : toggleBtn;
+      trigger?.focus({ preventScroll: true });
+    }
+    drawer?.setAttribute('inert', '');
     if (drawer) drawer.classList.remove('open');
     if (backdrop) backdrop.classList.remove('open');
     if (tvSidebarToggle) tvSidebarToggle.classList.remove('active');
     toggleBtn?.classList.remove('active');
     document.getElementById('alerts-modal-toggle')?.classList.remove('active');
     document.body.classList.remove('watchlist-drawer-open');
-    localStorage.setItem(getAccountStorageKey('apex_watchlist_drawer_open'), 'false');
+    toggleBtn?.setAttribute('aria-expanded', 'false');
+    document.getElementById('alerts-modal-toggle')?.setAttribute('aria-expanded', 'false');
     if (chartInstance) {
       setTimeout(() => chartInstance.resize(), 50);
     }
@@ -2807,12 +2848,6 @@ function setupWatchlistControls() {
       openDrawer();
       switchTab('alerts');
     });
-  }
-
-  // Keep legacy drawer closed by default; context panel is the primary right inspector
-  const savedState = localStorage.getItem(getAccountStorageKey('apex_watchlist_drawer_open'));
-  if (savedState === 'true') {
-    openDrawer();
   }
 
   // Star Toggle Button
@@ -3228,18 +3263,8 @@ async function renderBenchmarkPair() {
   }).join('');
 }
 
-function updateTickerQuote(button, quote, currency) {
-  const change = quote.change_pct;
-  button.classList.toggle('is-positive', change > 0);
-  button.classList.toggle('is-negative', change < 0);
-  button.querySelector('.market-ticker-value').textContent = quotePrice(quote.price, currency);
-  button.querySelector('.market-ticker-change').textContent = quoteMovement(quote.change);
-  button.querySelector('.market-ticker-percent').textContent = quoteMovement(change, '%');
-}
-
 let renderedBenchmarkSnapshot;
 let renderedBenchmarkStale;
-
 function renderBenchmarkTable(snapshot) {
   const tableBody = document.getElementById('markets-indices-table-body');
   const stale = Boolean(snapshot?.is_stale);
@@ -3451,143 +3476,13 @@ function renderBenchmarkTable(snapshot) {
   applyBenchmarkPreferences();
 }
 
-function renderMarketTicker(data) {
-  const track = document.getElementById('market-ticker-track');
-  if (!track) return;
-  renderBenchmarkTable(data);
-
-  const symbols = [...benchmarkMeta.map(benchmark => benchmark.symbol), 'GC=F', 'SI=F', 'BTC-USD'];
-  const bySymbol = marketQuotes(data);
-  const available = symbols.map((symbol) => bySymbol.get(symbol))
-    .filter((item) => Number.isFinite(item?.price) && item.price > 0);
-
-  if (!available.length) {
-    const empty = document.createElement('span');
-    empty.className = 'market-ticker-empty';
-    empty.textContent = 'Market snapshot unavailable';
-    const retry = document.createElement('button');
-    retry.type = 'button';
-    retry.className = 'ghost-btn';
-    retry.textContent = 'Retry';
-    retry.addEventListener('click', async () => {
-      empty.textContent = 'Loading market snapshot';
-      empty.classList.add('skeleton-text');
-      retry.disabled = true;
-      await loadMarketOverview(true);
-      await loadAndRenderSectorsAndMarketMap();
-      if (retry.isConnected) renderMarketTicker(marketDataCache);
-    });
-    track.replaceChildren(empty, retry);
-    return;
-  }
-
-  const focusedSymbol = track.contains(document.activeElement) ? document.activeElement.dataset.symbol : null;
-  const scrollPosition = track.scrollLeft;
-  const items = document.createDocumentFragment();
-  let focusedButton;
-
-  for (const item of available) {
-    const button = document.createElement('button');
-    const currency = benchmarkMeta.find(benchmark => benchmark.symbol === item.symbol)?.curr || '$';
-    button.type = 'button';
-    button.dataset.symbol = item.symbol;
-    if (item.symbol === focusedSymbol) focusedButton = button;
-    button.className = 'market-ticker-item';
-    button.title = `${item.name || item.symbol} · Open in Analyze`;
-
-    const identity = document.createElement('span');
-    identity.className = 'market-ticker-identity';
-    identity.textContent = item.name || item.symbol;
-    const value = document.createElement('span');
-    value.className = 'market-ticker-value';
-    const movement = document.createElement('span');
-    movement.className = 'market-ticker-movement';
-    const absoluteChange = document.createElement('span');
-    absoluteChange.className = 'market-ticker-change';
-    const percentChange = document.createElement('span');
-    percentChange.className = 'market-ticker-percent';
-    movement.append(absoluteChange, percentChange);
-    button.append(identity, value, movement);
-    updateTickerQuote(button, item, currency);
-    button.addEventListener('click', () => {
-      if (item.symbol) router.navigate(router.formatSymbolRoute(item.symbol, 'chart'));
-    });
-    items.append(button);
-  }
-  track.replaceChildren(items);
-  track.scrollLeft = scrollPosition;
-  focusedButton?.focus({ preventScroll: true });
-}
-
-// Backend Sync Status Toast Banner Management
-let syncToastTimeout = null;
-
-function showSyncStatus(message, isError = false) {
-  const toast = document.getElementById('backend-sync-toast');
-  if (!toast) return;
-
-  toast.style.display = 'flex';
-  toast.classList.add('visible');
-  toast.setAttribute('aria-hidden', 'false');
-
-  const messageEl = document.getElementById('sync-message');
-  if (messageEl) {
-    messageEl.textContent = message;
-  }
-
-  const icon = toast.querySelector('.sync-icon');
-  if (icon) {
-    icon.textContent = isError ? '!' : '↻';
-    icon.setAttribute('aria-hidden', 'true');
-    if (isError) {
-      icon.style.animation = 'none';
-    } else {
-      icon.style.animation = 'spin 1s linear infinite';
-    }
-  }
-
-  // Auto-dismiss after 10 seconds
-  if (syncToastTimeout) clearTimeout(syncToastTimeout);
-  syncToastTimeout = setTimeout(() => {
-    toast.classList.remove('visible');
-    toast.setAttribute('aria-hidden', 'true');
-  }, 10000);
-}
-
-function hideSyncStatus() {
-  const toast = document.getElementById('backend-sync-toast');
-  if (toast) {
-    toast.classList.remove('visible');
-    toast.setAttribute('aria-hidden', 'true');
-  }
-  if (syncToastTimeout) clearTimeout(syncToastTimeout);
-}
-
-// Sync Status Toast Dismiss Handler
-const dismissBtn = document.getElementById('sync-dismiss-btn');
-if (dismissBtn) {
-  dismissBtn.addEventListener('click', () => {
-    hideSyncStatus();
-  });
-}
-
 // Load and Render Market Overview
 async function loadMarketOverview(force = false) {
   const now = Date.now();
   if (!force && marketDataCache?.macro && (now - lastMarketOverviewFetchTime < 60000)) {
     renderMarketStateBar(marketDataCache);
-    renderMarketTicker(marketDataCache);
+    renderBenchmarkTable(marketDataCache);
     return;
-  }
-
-  // Show sync status toast during initial load or cold start
-  const isColdStart = !isDemoMode() && !marketDataCache?.macro?.Indices;
-  if (isColdStart) {
-    showSyncStatus('Connecting to backend...', false);
-    const coldBanner = document.getElementById('cold-start-banner');
-    if (coldBanner) {
-      coldBanner.style.display = 'block';
-    }
   }
 
   try {
@@ -3605,7 +3500,7 @@ async function loadMarketOverview(force = false) {
     }
     lastMarketOverviewFetchTime = now;
     renderMarketStateBar(marketDataCache);
-    renderMarketTicker(marketDataCache);
+    renderBenchmarkTable(marketDataCache);
 
     // Render Hero Card
     if (data.hero || prevHero) {
@@ -3730,7 +3625,6 @@ async function loadMarketOverview(force = false) {
     }
 
     // Render Ticker Tape
-    renderTickerTape(data);
 
     // Render Macro Cards
     renderMacroCards();
@@ -3741,32 +3635,11 @@ async function loadMarketOverview(force = false) {
       skeleton.classList.add('loaded');
     }
 
-    // Hide sync status toast and cold-start banner
-    if (isColdStart) {
-      hideSyncStatus();
-      const coldBanner = document.getElementById('cold-start-banner');
-      if (coldBanner) {
-        coldBanner.style.display = 'none';
-      }
-    }
   } catch (err) {
     console.error('Failed to load market overview:', err);
-    renderMarketTicker(marketDataCache);
-    hideSyncStatus();
-
-    const coldBanner = document.getElementById('cold-start-banner');
-    if (coldBanner) coldBanner.style.display = 'none';
-
-    // Show user-friendly error toast
-    toastError('Market data unavailable', 'Unable to load market overview. Check your connection.', {
-      duration: 6000,
-      action: {
-        label: 'Retry',
-        onClick: () => loadMarketOverview(true)
-      }
-    });
-    // Show sync status as delayed
-    showSyncStatus('Backend connection delayed. Using cached data...', true);
+    if (marketDataCache) marketDataCache.is_stale = true;
+    renderMarketStateBar(marketDataCache);
+    renderBenchmarkTable(marketDataCache);
 
     // Also show skeleton as error state
     const skeleton = document.getElementById('markets-skeleton');
@@ -3777,103 +3650,6 @@ async function loadMarketOverview(force = false) {
   }
 }
 
-// Render Top Ticker Tape
-function renderTickerTape(data) {
-  const tapeTrack = document.getElementById('ticker-tape-track');
-  if (!tapeTrack) return;
-
-  const items = [];
-  const seenSymbols = new Set();
-
-  if (data.hero) {
-    items.push(data.hero);
-    seenSymbols.add(data.hero.symbol);
-  }
-
-  if (data.macro) {
-    Object.values(data.macro).forEach((categoryList) => {
-      if (Array.isArray(categoryList)) {
-        categoryList.forEach((it) => {
-          // Skip duplicates - same symbol appearing in multiple categories
-          if (seenSymbols.has(it.symbol)) return;
-          seenSymbols.add(it.symbol);
-          items.push(it);
-        });
-      }
-    });
-  }
-
-  // Duplicate list to create seamless infinite scroll
-  const fullTape = [...items, ...items];
-
-  tapeTrack.innerHTML = fullTape
-    .map((item, idx) => {
-      const isUp = (item.change || 0) >= 0;
-      const chgClass = isUp ? 'chg-up' : 'chg-down';
-      const sign = isUp ? '+' : '−';
-      const isHeroItem = idx === 0 && (item.symbol === '^NSEI' || item === data.hero);
-      const valId = isHeroItem ? 'id="hero-price"' : '';
-      const badgeId = isHeroItem ? 'id="hero-change-badge"' : '';
-      const chgId = isHeroItem ? 'id="hero-change"' : '';
-
-      // Check if current item data is unavailable
-      const isItemUnavailable = item.price == null;
-
-      // If current data is unavailable, try to use cached data as fallback
-      let itemData = item;
-      let isUsingFallback = false;
-      if (isItemUnavailable && marketDataCache && marketDataCache.macro) {
-        // Search for this symbol in the cached macro data
-        let cachedItem = null;
-        Object.values(marketDataCache.macro).forEach((categoryList) => {
-          if (Array.isArray(categoryList)) {
-            const found = categoryList.find((it) => it.symbol === item.symbol);
-            if (found) cachedItem = found;
-          }
-        });
-        if (cachedItem && cachedItem.price != null) {
-          itemData = cachedItem;
-          isUsingFallback = true;
-        }
-      }
-
-      const formattedPrice = itemData.price != null
-        ? Number(itemData.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : '—';
-
-      return `
-        <div class="tape-item" data-symbol="${item.symbol}" tabindex="0" role="button" aria-label="${itemData.name || itemData.symbol}, ${formattedPrice}, ${isItemUnavailable && !isUsingFallback ? 'unavailable' : `${sign}${Math.abs(itemData.change_pct || 0).toFixed(2)}% change`}${isUsingFallback ? ' (fallback)' : ''}">
-          <span class="tape-sym">${itemData.name || itemData.symbol}</span>
-          <span class="tape-val" ${valId}>${formattedPrice}</span>
-          <span class="tape-chg ${chgClass}" ${badgeId}>
-            <span ${chgId}>
-              ${isItemUnavailable && !isUsingFallback ? '—' :
-               `${sign}${Math.abs(itemData.change_pct || 0).toFixed(2)}%`}
-            </span>
-          </span>
-          ${isUsingFallback ? '<span class="tape-flag" aria-hidden="true" title="Last available price (markets closed)">*</span>' : ''}
-        </div>
-      `;
-    })
-    .join('');
-
-  // Click/Keyboard on tape item to view stock
-  tapeTrack.querySelectorAll('.tape-item').forEach((elem) => {
-    const activateItem = () => {
-      const sym = elem.getAttribute('data-symbol');
-      if (sym) router.navigate(router.formatSymbolRoute(sym, currentActiveTab || 'chart'));
-    };
-    elem.addEventListener('click', activateItem);
-    elem.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        activateItem();
-      }
-    });
-  });
-}
-
-// Render Macro Category Cards
 function renderMacroCards() {
   const container = document.getElementById('macro-cards-container');
   if (!container || !marketDataCache?.macro) return;
@@ -4013,10 +3789,25 @@ function prepareChart() {
 }
 
 async function loadStock(symbol, timeframe = '1y') {
+  cancelBacktest(true);
+  stockRequest?.abort();
+  chartRequest?.abort();
+  window.stopChartWorker?.();
+  currentCandles = [];
+  dailyPriceContext = undefined;
+  const controller = new AbortController();
+  stockRequest = controller;
   const token = ++currentLoadToken;
+  currentSymbol = symbol;
+  currentOverviewData = null;
+  currentResearchData = null;
+  currentDeepResearchData = null;
+  currentV4Data = null;
+  researchLoadState = 'loading';
+  resetResearchPanels();
+  refreshResearchSummary();
   await prepareChart();
   if (token !== currentLoadToken) return;
-  currentSymbol = symbol;
   currentTimeframe = timeframe;
   updateStarBtn();
 
@@ -4060,16 +3851,20 @@ async function loadStock(symbol, timeframe = '1y') {
 
   try {
     // 1 & 2. Fetch Overview Fundamentals and Chart History in parallel
-    const overviewPromise = api.getStockOverview(symbol);
+    const overviewPromise = api.getStockOverview(symbol, controller.signal);
     const chartPromise = loadStockChart(symbol, token, activeInt, currentChartRange);
 
     const overview = await overviewPromise;
     if (token !== currentLoadToken) return; // Discard stale click response
     currentOverviewData = overview;
+    refreshResearchSummary();
     renderStockOverview(overview);
 
-    await chartPromise;
-    if (overview.demo_snapshot_only) return;
+    if (overview?.demo_snapshot_only) {
+      finishResearchWithoutDetails();
+      await chartPromise;
+      return;
+    }
 
     // 3. Fetch Research Core Dossier & Multi-Year Statements
     loadStockResearch(symbol, token);
@@ -4082,8 +3877,10 @@ async function loadStock(symbol, timeframe = '1y') {
 
     // 6. Fetch Macro Explorer correlations
     loadAndRenderMacroExplorer(symbol);
+    await chartPromise;
   } catch (err) {
     if (token !== currentLoadToken) return;
+    finishResearchWithoutDetails();
     console.error(`Failed to load asset ${symbol}:`, err);
     toastError(`Could not load ${symbol} fundamentals: ${err.message?.replace(/^Error:\s*/, '') || 'Server unreachable'}`);
   }
@@ -4091,7 +3888,11 @@ async function loadStock(symbol, timeframe = '1y') {
 
 // Load Only Chart Data with Race Condition Token and Skeleton Shimmer
 async function loadStockChart(symbol, parentToken = null, interval = currentChartInterval, range = currentChartRange) {
-  const token = parentToken || ++currentLoadToken;
+  const token = parentToken ?? currentLoadToken;
+  chartRequest?.abort();
+  const controller = new AbortController();
+  chartRequest = controller;
+  window.stopChartWorker?.();
   const shimmer = document.getElementById('chart-skeleton-shimmer');
   if (shimmer) shimmer.classList.add('active');
 
@@ -4126,13 +3927,26 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
   try {
     let historyData;
     if (isIntraday) {
-      historyData = await api.getMarketCandles(symbol, activeInt, range || '1d');
+      historyData = await api.getMarketCandles(symbol, activeInt, range || '1d', controller.signal);
     } else {
       const yfInterval = (activeInt === '1wk' || activeInt === 'W') ? '1wk' : ((activeInt === '1mo' || activeInt === 'M') ? '1mo' : '1d');
-      historyData = await api.getStockHistory(symbol, range || 'max', yfInterval);
+      historyData = await api.getStockHistory(symbol, range || 'max', yfInterval, controller.signal);
     }
-    if (token !== currentLoadToken) return; // Discard stale chart response
+    if (controller.signal.aborted || token !== currentLoadToken) return;
     currentCandles = historyData?.candles || [];
+    if (activeInt === '1d' || activeInt === 'D') {
+      const closes = currentCandles.slice(-200).map(bar => bar.close);
+      if (closes.length === 200 && closes.every(Number.isFinite)) {
+        const mean = values => values.reduce((sum, close) => sum + close, 0) / values.length;
+        const close = closes.at(-1);
+        const sma50 = mean(closes.slice(-50));
+        const sma200 = mean(closes);
+        const trend = close > Math.max(sma50, sma200) ? 'Above both averages'
+          : close < Math.min(sma50, sma200) ? 'Below both averages' : 'Mixed';
+        dailyPriceContext = { trend, sma50, sma200, close };
+        refreshResearchSummary();
+      }
+    }
     currentMarketStatus = historyData?.market_status || 'CLOSED';
     const firstBar = currentCandles[0];
     const lastBar = currentCandles.at(-1);
@@ -4175,7 +3989,7 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
     startIntradayChartWorker(symbol, activeInt);
 
   } catch (err) {
-    if (token !== currentLoadToken) return;
+    if (controller.signal.aborted || token !== currentLoadToken) return;
     console.error(`Failed to load history for ${symbol}:`, err);
     if (chartInstance) {
       const errMsg = err.message?.includes('404')
@@ -4190,7 +4004,8 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
       document.getElementById('tv-chart-container')?.setAttribute('aria-label', `${symbol} price chart. ${errMsg}.`);
     }
   } finally {
-    if (token === currentLoadToken && shimmer) {
+    if (chartRequest === controller) chartRequest = undefined;
+    if (!chartRequest && shimmer) {
       shimmer.classList.remove('active');
     }
   }
@@ -4280,7 +4095,10 @@ function renderStockOverview(data) {
   if (stockName) stockName.textContent = data.name || data.symbol;
   if (stockSymbol) stockSymbol.textContent = data.symbol;
   if (stockSector) stockSector.textContent = `${data.sector || 'General'} / ${data.industry || 'Market'}`;
-  if (stockMcap) stockMcap.textContent = `MCap: ${data.market_cap_str || '—'}`;
+  if (stockMcap) {
+    stockMcap.hidden = !data.market_cap_str || data.market_cap_str === '—';
+    stockMcap.textContent = stockMcap.hidden ? '' : `MCap: ${data.market_cap_str}`;
+  }
 
   const decimals = data.symbol.includes('=X') ? 4 : 2;
   const isUp = (data.change || 0) >= 0;
@@ -4571,16 +4389,120 @@ function renderObservations(obs) {
 }
 
 
+function resetResearchPanels() {
+  for (const [id, message] of [
+    ['news-container', 'Loading attributed news…'],
+    ['quarterly-earnings-container', 'Loading quarterly results…'],
+    ['corporate-events-container', 'Loading corporate actions…'],
+    ['whatchanged-kpis-grid', 'No 30-day comparison available for this asset.'],
+    ['whatchanged-observations-container', ''],
+    ['anomalies-list-container', 'No anomaly results available for this asset.'],
+    ['data-quality-grid', 'No data quality report available for this asset.'],
+  ]) {
+    document.getElementById(id).textContent = message;
+  }
+}
+
+function finishResearchWithoutDetails() {
+  researchLoadState = 'unavailable';
+  renderNewsEvents({});
+  renderQuarterlyEarnings(null);
+  renderCorporateEvents(null);
+  refreshResearchSummary();
+}
+
+function refreshResearchSummary() {
+  if (currentActiveWorkspace !== 'research') return;
+  if (currentResearchTab === 'overview') renderResearchOverview();
+  if (currentResearchTab === 'report') renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
+}
+
+function renderResearchOverview() {
+  const quote = currentOverviewData;
+  const research = currentResearchData;
+  const quarters = (currentDeepResearchData?.quarterly_earnings || []).filter(item => item.period_date).slice(0, 4);
+  document.getElementById('research-company').textContent = research?.name || quote?.name || currentSymbol || 'Research';
+  const sector = research?.market_position?.sector || research?.overview?.sector || quote?.sector;
+  const industry = research?.market_position?.industry || research?.overview?.industry || quote?.industry;
+  document.getElementById('research-identity').textContent = [...new Set([currentSymbol, sector, industry].filter(Boolean))].join(' · ');
+
+  const currency = quote?.currency_symbol || research?.currency_symbol
+    || benchmarkMeta.find(benchmark => benchmark.symbol === currentSymbol)?.curr
+    || getCurrencySymbol(currentSymbol || '', quote?.currency || research?.currency);
+  const cap = quote?.market_cap ?? research?.market_position?.market_cap;
+  const price = quote?.current_price ?? research?.price_structure?.current_price;
+  const pe = quote?.pe_trailing ?? research?.research_dossier?.valuation_peer_context?.current_pe;
+  const source = overviewQuoteDetails(quote || research || {}, 'Company research snapshot');
+  const displayPrice = currentSymbol?.includes('=X') && Number.isFinite(price)
+    ? formatCurrencyValue(price, currentSymbol, quote?.currency || research?.currency)
+    : quotePrice(price, currency);
+  const risk = currentDeepResearchData?.volatility_and_drawdown;
+  const trend = dailyPriceContext;
+  const volatilityShift = Number.isFinite(risk?.annualized_volatility_30d) && Number.isFinite(risk?.annualized_volatility_1y)
+    ? risk.annualized_volatility_30d - risk.annualized_volatility_1y : null;
+  const distanceFromHigh = Number.isFinite(price) && quote?.high_52w > 0
+    ? 100 * (price / quote.high_52w - 1) : null;
+  const formatPercent = value => Number.isFinite(value) ? quoteMovement(value, '%') : null;
+  const rows = [
+    ['Last price', Number.isFinite(price) ? displayPrice : null, 'source', source],
+    ['Since previous close', formatPercent(quote?.change_pct), 'source', source],
+    ['50 / 200 DMA', trend?.trend, 'calculation', trend
+      ? `Daily close ${quotePrice(trend.close, currency)}. 50 DMA ${quotePrice(trend.sma50, currency)}. 200 DMA ${quotePrice(trend.sma200, currency)}.` : ''],
+    ['Distance from 52-week high', formatPercent(distanceFromHigh), 'calculation', 'Last price divided by the 52-week high, minus one.'],
+    ['Max drawdown', formatPercent(risk?.max_drawdown_pct), 'calculation', 'Largest decline from a running peak in the available history.'],
+    ['30d annualized volatility', formatPercent(risk?.annualized_volatility_30d), 'calculation', 'Annualized standard deviation of daily returns over 30 days.'],
+    ['30d vs 1y volatility', volatilityShift == null ? null : quoteMovement(volatilityShift, ' pp'), 'calculation',
+      '30-day annualized volatility minus one-year annualized volatility, in percentage points.'],
+    ['Market cap', Number.isFinite(cap) ? formattedUnits(cap, currency) : null, 'source', source],
+    ['Trailing P/E', Number.isFinite(pe) ? `${pe.toFixed(2)}×` : null, 'calculation',
+      isDemoMode() ? 'MARA synthetic company data.' : 'Share price divided by trailing twelve-month earnings per share.'],
+    ['52-week range', Number.isFinite(quote?.low_52w) && Number.isFinite(quote?.high_52w)
+      ? `${quotePrice(quote.low_52w, currency)}–${quotePrice(quote.high_52w, currency)}` : null, 'source', source],
+  ].filter(([, value]) => value != null);
+  const facts = document.getElementById('research-facts');
+  facts.innerHTML = rows.map(([label, value, kind, details]) =>
+    `<div><dt>${label}</dt><dd>${provenance(value, { label, kind, details })}</dd></div>`).join('');
+  facts.hidden = rows.length === 0;
+  const status = document.getElementById('research-status');
+  status.textContent = rows.length ? '' : researchLoadState === 'loading'
+    ? 'Loading company data…' : 'No company figures are available for this asset.';
+  document.getElementById('research-source').textContent = isDemoMode()
+    ? '' : research?.provenance?.primary_source || quote?.data_source || '';
+  document.getElementById('research-latest-quarter').hidden = quarters.length === 0;
+  const quarterRows = document.getElementById('research-quarter-rows');
+  quarterRows.replaceChildren();
+  if (quarters.length) {
+    document.getElementById('research-quarter-revenue').textContent = isDemoMode() ? 'Revenue (demo units)' : 'Revenue';
+    for (const quarter of quarters) {
+      const row = quarterRows.insertRow();
+      const label = document.createElement('th');
+      label.scope = 'row';
+      label.textContent = quarter.period_date;
+      row.append(label);
+      row.insertCell().textContent = quarter.revenue_str ?? '—';
+      row.insertCell().textContent = Number.isFinite(quarter.net_margin_pct) ? `${quarter.net_margin_pct}%` : '—';
+    }
+    document.getElementById('research-earnings-link').href = `#${router.formatWorkspaceRoute('research', currentSymbol, 'earnings')}`;
+  }
+  document.getElementById('research-retry').hidden = researchLoadState !== 'unavailable' || Boolean(quote?.demo_snapshot_only);
+}
+
 // Fetch and Render Research Core Workspaces
 async function loadStockResearch(symbol, token) {
   try {
     const data = await api.getStockResearch(symbol);
     if (token !== currentLoadToken) return;
     currentResearchData = data;
-    renderResearchWorkspaces(data);
+    researchLoadState = data ? 'ready' : 'unavailable';
+    if (data) renderResearchWorkspaces(data);
+    else renderNewsEvents({});
   } catch (err) {
     if (token !== currentLoadToken) return;
+    researchLoadState = 'unavailable';
+    renderNewsEvents({});
     console.warn(`Research fetch non-fatal notice for ${symbol}:`, err);
+  } finally {
+    if (token === currentLoadToken) refreshResearchSummary();
   }
 }
 
@@ -4818,7 +4740,7 @@ function renderFinancialTimeline(data) {
   const yearsHeader = items.map((it) => `<th>FY ${it.fiscal_year}</th>`).join('');
 
   container.innerHTML = `
-    <table class="timeline-table">
+      <table class="timeline-table">
       <thead>
         <tr>
           <th>Financial Statement Metric</th>
@@ -4997,8 +4919,9 @@ function renderNewsEvents(data) {
   const items = data.news_events || [];
   if (items.length === 0) {
     container.innerHTML = `
-      <div style="grid-column: 1 / -1; padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px;">
-        No verified press items cataloged for this symbol.
+      <div class="research-state">
+        <p>No verified news for this symbol.</p>
+        <div class="research-jump-links">${researchJumpLinks(['earnings', 'whatchanged', 'anomalies', 'lab'])}</div>
       </div>
     `;
     return;
@@ -5095,6 +5018,7 @@ function renderResearchDossier(data) {
 
 // Load and Render Multi-Market Screener Matrix
 async function loadScreener(universe = 'indian_leaders') {
+  const run = ++screenerRun;
   const tbody = document.getElementById('screener-table-body');
   if (!tbody) return;
 
@@ -5103,15 +5027,17 @@ async function loadScreener(universe = 'indian_leaders') {
 
   try {
     const data = await api.getScreener(universe);
+    if (run !== screenerRun || currentActiveWorkspace !== 'discover') return;
     const items = data.items || [];
+    currentScreenerAssets = items;
     if (items.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No screened assets returned.</td></tr>';
       return;
     }
 
-    currentScreenerAssets = items;
     renderScreenerTable(items);
   } catch (err) {
+    if (run !== screenerRun || currentActiveWorkspace !== 'discover') return;
     console.error('Failed to load screener:', err);
     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--loss); padding: 20px;">Unable to load screener data.</td></tr>';
     toastError('Screener unavailable', 'Unable to load screener data. Check your connection.', {
@@ -5281,6 +5207,12 @@ async function loadStockDeepResearch(symbol, token, overview) {
     const data = await api.getDeepResearch(symbol);
     if (token !== currentLoadToken) return;
     currentDeepResearchData = data;
+    refreshResearchSummary();
+    if (!data) {
+      renderQuarterlyEarnings(null);
+      renderCorporateEvents(null);
+      return;
+    }
 
     // 0. Render Asset Identity Card ("What exactly am I looking at?")
     renderAssetProfileCard(data.profile, data);
@@ -5327,6 +5259,8 @@ async function loadStockDeepResearch(symbol, token, overview) {
   } catch (err) {
     if (token !== currentLoadToken) return;
     console.warn(`Deep research notice for ${symbol}:`, err);
+    renderQuarterlyEarnings(null);
+    renderCorporateEvents(null);
   }
 }
 
@@ -5340,6 +5274,8 @@ async function loadStockV4Intelligence(symbol, token) {
     const data = await api.getV4Intelligence(symbol);
     if (token !== currentLoadToken) return;
     currentV4Data = data;
+    if (!data) return;
+    refreshResearchSummary();
 
     // 1. Render What Changed (30-Day State Engine)
     renderWhatChanged(data.what_changed_30d);
@@ -5741,11 +5677,13 @@ function renderFilingDiff(data) {
 
 // 6. Render Macro -> Asset Relationship Explorer
 async function loadAndRenderMacroExplorer(symbol) {
+  const token = currentLoadToken;
   const container = document.getElementById('macro-explorer-grid');
   if (!container) return;
 
   try {
     const res = await api.getMacroExplorer(symbol);
+    if (token !== currentLoadToken || symbol !== currentSymbol) return;
     const factors = res.macro_factors || [];
     if (factors.length === 0) {
       container.innerHTML = `<div style="padding: 16px; color: var(--text-muted); font-size: 13px; text-align: center;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">Macro relationship model unavailable</div><div style="font-size: 11px;">No correlation factors found for this asset basket.</div><div style="font-size: 10px; margin-top: 4px; color: var(--text-muted);">Last checked: ${new Date().toLocaleTimeString()}</div></div>`;
@@ -5819,25 +5757,32 @@ function renderAdvancedRatios(ratios, currency = 'INR') {
 }
 
 // Render 5-Quarter Earnings Progression (Tab 4)
+function researchJumpLinks(tabs) {
+  const labels = { earnings: 'Earnings', whatchanged: 'Delta', anomalies: 'Anomalies', lab: 'Scenarios' };
+  return tabs.map(tab => `<a href="#${router.formatWorkspaceRoute('research', currentSymbol, tab)}">${labels[tab]}</a>`).join('');
+}
+
 function renderQuarterlyEarnings(quarterly, currency = 'INR') {
   const container = document.getElementById('quarterly-earnings-container');
   if (!container) return;
 
   if (!quarterly || quarterly.length === 0) {
-    container.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">Quarterly filing breakdowns apply exclusively to corporate equities.</div>';
+    container.innerHTML = `<div class="research-state"><p>No quarterly results for this symbol.</p>
+      <div class="research-jump-links">${researchJumpLinks(['whatchanged', 'anomalies', 'lab'])}</div></div>`;
     return;
   }
 
   container.innerHTML = `
+    ${isDemoMode() ? '<p class="research-state">Synthetic quarterly figures. Amounts are shown in fixture units.</p>' : ''}
     <table class="timeline-table">
       <thead>
         <tr>
-          <th>Reporting Quarter Period</th>
-          <th>Total Revenue</th>
-          <th>Operating Income (EBIT)</th>
-          <th>Operating Margin</th>
-          <th>Net Income</th>
-          <th>Net Profit Margin</th>
+          <th scope="col">Period</th>
+          <th scope="col">Revenue</th>
+          <th scope="col">Operating income</th>
+          <th scope="col">Operating margin</th>
+          <th scope="col">Net income</th>
+          <th scope="col">Net margin</th>
         </tr>
       </thead>
       <tbody>
@@ -5849,8 +5794,8 @@ function renderQuarterlyEarnings(quarterly, currency = 'INR') {
             <td>${q.revenue_str}</td>
             <td>${q.operating_income_str}</td>
             <td>${q.op_margin_pct != null ? `${q.op_margin_pct}%` : '—'}</td>
-            <td style="color: #ffffff; font-weight: 600;">${q.net_income_str}</td>
-            <td style="color: var(--accent-green); font-weight: 600;">${q.net_margin_pct != null ? `${q.net_margin_pct}%` : '—'}</td>
+            <td>${q.net_income_str}</td>
+            <td>${q.net_margin_pct != null ? `${q.net_margin_pct}%` : '—'}</td>
           </tr>
         `
           )
@@ -5894,9 +5839,9 @@ function renderCorporateEvents(corpEvents) {
           .map(
             (e) => `
           <tr>
-            <td style="font-family: var(--font-mono); color: #cbd5e1;">${e.date}</td>
-            <td><span class="meta-badge" style="color: ${e.color}; border-color: ${e.color};">${e.type}</span></td>
-            <td style="color: #ffffff; font-weight: 500;">${e.title}</td>
+            <td style="font-family: var(--font-mono);">${e.date}</td>
+            <td>${e.type}</td>
+            <td>${e.title}</td>
             <td style="color: var(--text-secondary); font-size: 12px;">${e.impact}</td>
           </tr>
         `
@@ -6319,6 +6264,10 @@ function updateBenchmarkFooter(benchmarks, marketDataCache) {
   if (!liveCountEl || !lastRefreshEl || !feedStatusEl) return;
 
   const liveCount = benchmarks.filter(b => b.price != null && b.price > 0).length;
+  feedStatusEl.hidden = Boolean(marketDataCache?.demo_mode);
+  lastRefreshEl.hidden = Boolean(marketDataCache?.demo_mode);
+  liveCountEl.hidden = liveCount === benchmarks.length;
+  document.getElementById('benchmark-footer').hidden = feedStatusEl.hidden && liveCountEl.hidden;
   liveCountEl.textContent = `${liveCount} of ${benchmarks.length} with prices`;
 
   const asOf = Date.parse(marketDataCache?.retrieved_at);
@@ -6480,6 +6429,7 @@ function renderMarketStateBar(data) {
   if (tyoStatus) tyoStatus.textContent = sessionLabel(telemetry.tyo);
 
   if (feedDot && feedSource) {
+    feedSource.closest('.status-feed').hidden = Boolean(data?.demo_mode);
     const rawSrc = data?.hero?.source || (isFeedActive ? 'yfinance' : null);
     const srcLabel = rawSrc || 'Data feed';
     feedSource.textContent = data?.demo_mode ? 'Demo data' : `${srcLabel} · ${feedStatus.toLowerCase()}`;
@@ -6549,7 +6499,7 @@ function renderMarketStateBar(data) {
           if (latest?.last_attempted_at && latest.last_attempted_at !== previousAttempt) {
             marketDataCache = latest;
             renderMarketStateBar(latest);
-            renderMarketTicker(latest);
+            renderBenchmarkTable(latest);
             renderMacroRadarPanels();
             refreshed = true;
             const hasDelayed = Object.values(latest.feed_health || {}).some((state) => state === 'DELAYED');
@@ -7088,7 +7038,8 @@ let marketWSConnected = false;
 let lastWSStatus = 'disconnected';
 
 async function initMarketWebSocket() {
-  if (marketWSConnected) return;
+  if (marketWSConnected || updatesPaused || isDemoMode()) return;
+  const run = ++marketStreamRun;
 
   try {
 
@@ -7122,6 +7073,7 @@ async function initMarketWebSocket() {
     };
 
     await marketWS.connect();
+    if (run !== marketStreamRun || updatesPaused) return;
 
     // Subscribe to all visible symbols
     const symbols = collectVisibleSymbols();
@@ -7305,44 +7257,19 @@ function updateMacroRowLive(row, data, timestamp) {
   }
 
   if (changeEl && data.change_pct != null) {
-    const sign = data.change_pct >= 0 ? '+' : '−';
-    changeEl.textContent = `${sign}${Math.abs(data.change_pct).toFixed(2)}%`;
-    changeEl.className = `tape-chg ${data.change_pct >= 0 ? 'chg-up' : 'chg-down'}`;
+    changeEl.textContent = quoteMovement(data.change_pct, '%');
+    changeEl.classList.toggle('chg-up', data.change_pct > 0);
+    changeEl.classList.toggle('chg-down', data.change_pct < 0);
   }
 
-  // Update freshness timestamp
-  if (freshnessEl && timestamp) {
-    const ageMs = Date.now() - new Date(timestamp).getTime();
-    const ageSec = Math.floor(ageMs / 1000);
-    const ageMin = Math.floor(ageSec / 60);
-
-    let freshnessText = 'Just now';
-    let freshnessClass = 'live';
-
-    // Check if data has explicit freshness state (e.g., WEEKEND)
-    if (data.freshness === 'WEEKEND') {
-      freshnessText = 'WEEKEND';
-      freshnessClass = 'weekend';
-    } else if (ageSec < 30) {
-      freshnessText = 'Just now';
-      freshnessClass = 'live';
-    } else if (ageMin < 1) {
-      freshnessText = `${ageSec}s ago`;
-      freshnessClass = 'live';
-    } else if (ageMin < 60) {
-      freshnessText = `${ageMin}m ago`;
-      freshnessClass = ageMin < 5 ? 'live' : 'delayed';
-    } else {
-      const ageHour = Math.floor(ageMin / 60);
-      freshnessText = `${ageHour}h ago`;
-      freshnessClass = 'delayed';
-    }
-
-    freshnessEl.textContent = freshnessText;
-    freshnessEl.className = `macro-asset-freshness ${freshnessClass}`;
+  const asOf = Date.parse(data.source_timestamp || timestamp);
+  if (freshnessEl && Number.isFinite(asOf)) {
+    freshnessEl.textContent = `${quoteTimestamp.format(asOf)} IST`;
+    freshnessEl.title = new Date(asOf).toISOString();
   }
-
-  updateRowStalenessBadge(row, data.freshness || 'LIVE', timestamp);
+  const name = row.querySelector('.macro-asset-name')?.textContent;
+  row.setAttribute('aria-label', [name, priceEl?.textContent, changeEl?.textContent, freshnessEl?.textContent]
+    .filter(Boolean).join(', '));
 }
 
 function updateRowStalenessBadge(row, freshness, timestamp) {
@@ -7507,7 +7434,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
 
 
 
-  renderMarketTicker(marketDataCache);
+  renderBenchmarkTable(marketDataCache);
 
   // 2. Render Sector Constituents Detail Function
   function renderSelectedSectorDetail(sector) {
@@ -7518,10 +7445,12 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
     if (!titleEl || !bodyEl || !sector) return;
 
     titleEl.textContent = `${sector.display_name} Constituents`;
+    const symbols = [...(sector.constituents || []), ...(sector.us_constituents || [])];
+    const hasWeights = symbols.some(symbol => Number.isFinite(sector.weights?.[symbol]));
+    const weightCell = symbol => hasWeights ? `<td class="constituent-weight text-right">${Number.isFinite(sector.weights?.[symbol]) ? sector.weights[symbol].toFixed(2) + '%' : ''}</td>` : '';
     const proxyStr = [sector.indian_proxy, sector.benchmark_etf].filter(Boolean).join(' · ');
     metaEl.innerHTML = `
       ${proxyStr ? `Benchmark: <span style="font-family: var(--font-mono); color: var(--accent-primary);">${proxyStr}</span> · ` : ''}
-      Sector Anchor: <span style="font-family: var(--font-mono); color: var(--gain); font-weight: 600;">${sector.leading_asset || '—'}</span> ·
       ${sector.constituents?.length || 0} Tracked Equities
     `;
 
@@ -7532,8 +7461,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
             <th style="width: 140px;">Symbol</th>
             <th>Constituent Role</th>
             <th style="width: 160px;">Benchmark Proxy</th>
-            <th style="width: 90px;">Weight</th>
-            <th class="text-right" style="width: 130px;">Status</th>
+            ${hasWeights ? '<th class="text-right">Weight</th>' : ''}
             <th class="text-right" style="width: 100px;">Action</th>
           </tr>
         </thead>
@@ -7546,7 +7474,6 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               const isLeader = sym === sector.leading_asset;
               const isCurrent = sym === currentSymbol;
               const roleName = idx === 0 ? 'Primary Sector Anchor' : idx < 3 ? 'Core Component Leader' : 'Constituent Peer';
-              const weight = sector.weights?.[sym] ? `${sector.weights[sym].toFixed(2)}%` : '—';
 
               return `
                 <tr class="constituent-row" data-sym="${sym}">
@@ -7563,12 +7490,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
                   <td class="constituent-proxy">
                     ${proxyStr || 'Sector Cohort'}
                   </td>
-                  <td class="constituent-weight text-right">
-                    ${weight}
-                  </td>
-                  <td class="text-right">
-                    <span class="constituent-status">Tracked</span>
-                  </td>
+                  ${weightCell(sym)}
                   <td class="text-right">
                     <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
                   </td>
@@ -7590,12 +7512,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
               <td class="constituent-proxy">
                 ${sector.us_benchmark || sector.benchmark_etf || 'US Cohort'}
               </td>
-              <td class="constituent-weight text-right">
-                —
-              </td>
-              <td class="text-right">
-                <span class="constituent-status">Tracked</span>
-              </td>
+              ${weightCell(sym)}
               <td class="text-right">
                 <button class="ghost-btn constituent-action-btn sector-analyze-btn" data-sym="${sym}" title="Analyze ${sym}">Analyze ↗</button>
               </td>
@@ -7695,7 +7612,8 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         cachedSectorData = data.sectors || [];
         lastSectorIntelligenceFetchTime = now;
       }
-      let sectorData = cachedSectorData || [];
+      const sectorData = (cachedSectorData || []).filter(sector =>
+        sector.constituents?.length || sector.us_constituents?.length);
 
       // Handle fallback/error response from backend
       if (sectorData.length === 0 && (cachedSectorData?.fallback || cachedSectorData?.error)) {
@@ -7708,9 +7626,7 @@ async function loadAndRenderSectorsAndMarketMap(force = false) {
         return;
       }
 
-      if (!currentSelectedSector && sectorData.length > 0) {
-        currentSelectedSector = sectorData[0];
-      }
+      currentSelectedSector = sectorData.find(sector => sector.sector === currentSelectedSector?.sector) || sectorData[0];
 
       if (sectorData.length === 0) {
         // Empty state
@@ -7815,6 +7731,7 @@ function renderSectorMatrix(sectorData, onSelect) {
     const hasConstituentPerf = s.constituent_performance && s.constituent_performance.length > 0;
     const sparklineId = `sparkline-${s.sector.replace(/\s+/g, '-')}`;
     const perfClass = performanceClass(perf);
+    const tint = Math.min(Math.abs(perf) / 1.5, 1) * 16;
     const sign = perf >= 0 ? '+' : '';
     const perfDirection = perf > 0 ? ' up' : perf < 0 ? ' down' : ' unchanged';
     // Redundant directional glyph: performance must not be communicated by color alone (WCAG 1.4.1).
@@ -7829,6 +7746,7 @@ function renderSectorMatrix(sectorData, onSelect) {
     return `
       ${rowStart}
       <div class="sector-tile hm-tile ${perfClass}"
+           style="--sector-color: var(--${perf >= 0 ? 'up' : 'down'}); --sector-tint: ${tint}%"
            data-sector="${s.sector}"
            tabindex="0"
            role="gridcell"
@@ -8114,46 +8032,16 @@ function renderMacroRadarPanels() {
     }
     container.innerHTML = items
       .map((it) => {
-        const isUp = (it.change || 0) >= 0;
-        const sign = isUp ? '+' : '−';
-        const chgClass = isUp ? 'chg-up' : 'chg-down';
-        const chgPct = it.change_pct != null ? `${sign}${Math.abs(it.change_pct).toFixed(2)}%` : '—';
+        const chgClass = it.change_pct > 0 ? 'chg-up' : it.change_pct < 0 ? 'chg-down' : '';
+        const chgPct = quoteMovement(it.change_pct, '%');
         const priceFmt = formatMacroPrice(it.price, it.symbol);
 
-        // Calculate relative time
-        let freshnessClass = 'offline';
-        let freshnessText = 'Offline';
-        const timestamp = it.retrieved_at || it.timestamp || it.source_timestamp;
-        if (timestamp) {
-          const ageMs = Date.now() - new Date(timestamp).getTime();
-          const ageSec = Math.floor(ageMs / 1000);
-          const ageMin = Math.floor(ageSec / 60);
-          const ageHour = Math.floor(ageMin / 60);
-
-          if (ageSec < 30) {
-            freshnessText = 'Just now';
-            freshnessClass = 'live';
-          } else if (ageMin < 1) {
-            freshnessText = `${ageSec}s ago`;
-            freshnessClass = 'live';
-          } else if (ageMin < 60) {
-            freshnessText = `${ageMin}m ago`;
-            freshnessClass = ageMin < 5 ? 'live' : 'delayed';
-          } else if (ageHour < 24) {
-            freshnessText = `${ageHour}h ago`;
-            freshnessClass = 'delayed';
-          } else {
-            const ageDays = Math.floor(ageHour / 24);
-            freshnessText = `${ageDays}d ago`;
-            freshnessClass = 'stale';
-          }
-        } else if (it.freshness) {
-          freshnessText = it.freshness;
-          freshnessClass = it.freshness === 'LIVE' ? 'live' :
-                           it.freshness === 'DELAYED' ? 'delayed' :
-                           it.freshness === 'STALE' ? 'stale' :
-                           it.freshness === 'WEEKEND' ? 'weekend' : 'offline';
-        }
+        const timestamp = it.source_timestamp || it.timestamp || it.retrieved_at
+          || (marketDataCache.demo_mode ? marketDataCache.retrieved_at : null);
+        const asOf = Date.parse(timestamp);
+        const freshnessText = Number.isFinite(asOf)
+          ? `${quoteTimestamp.format(asOf)} IST`
+          : 'Time unavailable';
 
         return `
           <div class="macro-asset-row" data-sym="${it.symbol}" data-category="${category}" tabindex="-1" role="button" aria-label="${it.name || it.symbol}, ${priceFmt}, change ${chgPct}, ${freshnessText}">
@@ -8164,7 +8052,7 @@ function renderMacroRadarPanels() {
             <div class="macro-asset-values">
               <span class="macro-asset-price">${priceFmt}</span>
               <span class="tape-chg ${chgClass}" style="font-size: 10.5px; padding: 1px 6px;">${chgPct}</span>
-              <span class="macro-asset-freshness ${freshnessClass}" title="${timestamp || 'Timestamp unavailable'}">${freshnessText}</span>
+              <span class="macro-asset-freshness" title="${timestamp || 'Timestamp unavailable'}">${freshnessText}</span>
             </div>
           </div>
         `;
@@ -8236,6 +8124,7 @@ window.apexLoad = (sym) => {
 
 // Multi-Asset Pearson Correlation Heatmap (Tab 9)
 async function loadAndRenderCorrelation(period = '1y') {
+  const run = ++correlationRun;
   const container = document.getElementById('correlation-matrix-container');
   if (!container) return;
 
@@ -8244,6 +8133,7 @@ async function loadAndRenderCorrelation(period = '1y') {
 
   try {
     const data = await api.getCorrelationMatrix(['TCS.NS', 'INFY.NS', '^NSEI', 'GC=F', 'BTC-USD'], period);
+    if (run !== correlationRun || currentActiveWorkspace !== 'compare') return;
     const symbols = data.symbols || [];
     const matrix = data.matrix || [];
 
@@ -8299,6 +8189,7 @@ async function loadAndRenderCorrelation(period = '1y') {
       </table>
     `;
   } catch (err) {
+    if (run !== correlationRun || currentActiveWorkspace !== 'compare') return;
     console.error('Correlation error:', err);
     container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-dim);">Unable to calculate correlation matrix.</div>';
     toastError('Correlation unavailable', 'Unable to calculate correlation matrix.', {
@@ -8396,6 +8287,7 @@ function updateScenarioCalculation() {
 
 // Algorithmic Backtesting Simulator (Tab 10)
 function setupBacktesterControls() {
+  setupBacktestTrace();
   const btn = document.getElementById('run-backtest-btn');
   if (btn) {
     btn.addEventListener('click', runBacktestSimulation);
@@ -8407,16 +8299,12 @@ function runBacktestSimulation() {
   const stratSelect = document.getElementById('backtest-strategy-select');
   if (!container || !stratSelect) return;
 
-  const strategy = stratSelect.value;
-  const res = Backtester.run({ candles: currentCandles, strategy });
+  const symbol = currentSymbol || 'TCS.NS';
+  return executeBacktest(symbol, stratSelect.value, res => renderBacktestResults(container, symbol, res));
+}
 
-  if (res.error) {
-    container.innerHTML = `<div style="color: var(--accent-red); padding: 14px; text-align: center;">${res.error}</div>`;
-    return;
-  }
-
-  // Plot BUY/SELL markers on chart
-  if (chartInstance && res.markers) {
+function renderBacktestResults(container, symbol, res) {
+  if (chartInstance && currentSymbol === symbol && currentChartInterval === '1d' && currentCandles.length) {
     chartInstance.setEventMarkers(res.markers);
   }
 
@@ -8427,7 +8315,7 @@ function runBacktestSimulation() {
         <div class="metric-card-val" style="color: ${res.totalReturnPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'};">
           ${res.totalReturnPct >= 0 ? '+' : ''}${res.totalReturnPct}%
         </div>
-        <div class="metric-card-sub">Benchmark Buy & Hold: ${res.benchmarkReturnPct}%</div>
+        <div class="metric-card-sub">Benchmark Buy & Hold: ${res.benchmarkReturnPct > 0 ? '+' : ''}${res.benchmarkReturnPct}%</div>
       </div>
       <div class="metric-card">
         <div class="metric-card-label">Strategy Win Rate</div>
@@ -8441,7 +8329,7 @@ function runBacktestSimulation() {
       </div>
     </div>
     <div style="font-size: 11px; color: var(--accent-green); font-weight: 600;">
-      ✓ Simulated ${res.totalTrades} algorithmic signals. Signal markers plotted onto interactive candlestick chart.
+      Simulated ${res.totalTrades} trades using daily price bars.
     </div>
   `;
 }
@@ -8581,6 +8469,10 @@ function renderOneClickReport(stockData, researchData, deepData, v4Data) {
         label: `${sData.symbol} last price`, details: overviewQuoteDetails(sData, 'MARA research snapshot'),
       })
       : '';
+  }
+  if (!sData && !rData && !dData && !vData) {
+    preview.textContent = researchLoadState === 'loading' ? 'Loading research report…' : 'No report data is available for this asset.';
+    return;
   }
 
   const md = ResearchReportGenerator.generateMarkdownReport({
