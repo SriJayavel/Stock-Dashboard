@@ -493,8 +493,8 @@
                   <h2 class="section-sub-title">Trading sessions (IST)</h2>
                 </div>
                 <div class="timeline-toolbar">
-                  <div class="timeline-time-indicator" id="timeline-current-time" aria-live="polite">
-                    <span class="timeline-time-label">Now &#183; IST</span>
+                  <div class="timeline-time-indicator" id="timeline-current-time" aria-label="Current time in IST">
+                    <span class="timeline-time-label">Now</span>
                     <span class="timeline-time-value">--:--:--</span>
                   </div>
                   <button class="ghost-btn ghost-btn-sm" id="timeline-refresh-btn" title="Refresh timeline" aria-label="Refresh market hours">
@@ -505,7 +505,7 @@
               <div class="market-timeline-professional" id="market-timeline-professional" role="list" aria-label="Market hours timeline">
                 <!-- Populated by renderMarketHoursTimelinePro() -->
               </div>
-              <div class="ist-session-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+              <div class="ist-session-axis" aria-hidden="true"><div><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div></div>
             </div>
             <!-- SECTION 2: SECTOR ROTATION & PERFORMANCE HEATMAP (SECTOR MATRIX) -->
             <div class="ws-section-block">
@@ -727,63 +727,63 @@
                   <button class="range-btn" data-range="all" title="All Time">All</button>
                 </div>
 
-              <div class="tv-tb-divider"></div>
-
-              <div class="tv-overlay-controls" role="group" aria-label="Chart overlays">
-                <button class="tv-tb-btn" id="tv-indicators-menu-btn" title="Technical indicators">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                  </svg>
-                  <span>Indicators</span>
-                  <span class="tv-ind-badge" id="tv-ind-count">0</span>
-                </button>
-
-                <button class="tv-tb-btn active" id="tv-toggle-events-btn" aria-label="Events">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12 6 12 12 16 14"/>
-                  </svg>
-                  <span>Events</span>
-                </button>
               </div>
+              <div class="tv-tb-actions">
+                <div class="tv-overlay-controls" role="group" aria-label="Chart overlays">
+                  <button class="tv-tb-btn" id="tv-indicators-menu-btn" title="Technical indicators">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    <span>Indicators</span>
+                    <span class="tv-ind-badge" id="tv-ind-count">0</span>
+                  </button>
 
-              <div class="tv-tb-divider"></div>
+                  <button class="tv-tb-btn active" id="tv-toggle-events-btn" aria-label="Events">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span>Events</span>
+                  </button>
+                </div>
 
-              <!-- Alert Button -->
-              <button class="tv-tb-btn" id="tv-tb-alert-btn" aria-label="Create Alert">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                </svg>
-                <span>Alert</span>
-              </button>
+                <div class="tv-tb-divider"></div>
 
-              <!-- Analyze Action Button -->
-              <button class="tv-tb-btn" id="tv-tb-analyze-btn" aria-label="Analyze chart">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 4h6M4 9v6M16 16l2 2M12 16l2-2"/>
-                </svg>
-                <span>Analyze</span>
-              </button>
+                <!-- Alert Button -->
+                <button class="tv-tb-btn" id="tv-tb-alert-btn" aria-label="Create Alert">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                  <span>Alert</span>
+                </button>
+
+                <!-- Analyze Action Button -->
+                <button class="tv-tb-btn" id="tv-tb-analyze-btn" aria-label="Analyze chart">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 4h6M4 9v6M16 16l2 2M12 16l2-2"/>
+                  </svg>
+                  <span>Analyze</span>
+                </button>
+
+                <div class="tv-tb-right">
+                  <!-- Fullscreen Button -->
+                  <button class="tv-tb-icon-btn" id="tv-fullscreen-btn" aria-label="Toggle Fullscreen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                    </svg>
+                  </button>
+
+                  <!-- Sidebar Toggle Button -->
+                  <button class="tv-tb-icon-btn" id="tv-sidebar-toggle-btn" aria-label="Toggle Watchlist Sidebar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="15" y1="3" x2="15" y2="21"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-
-            <div class="tv-tb-right">
-              <!-- Fullscreen Button -->
-              <button class="tv-tb-icon-btn" id="tv-fullscreen-btn" aria-label="Toggle Fullscreen">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                </svg>
-              </button>
-
-              <!-- Sidebar Toggle Button -->
-              <button class="tv-tb-icon-btn" id="tv-sidebar-toggle-btn" aria-label="Toggle Watchlist Sidebar">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                  <line x1="15" y1="3" x2="15" y2="21"/>
-                </svg>
-              </button>
-            </div>
-          </div>
 
           <!-- Main Chart Workstation: Left Rail + Canvas + Corner Legend + Bottom Bar -->
           <div class="tv-workspace-body" id="tv-workspace-body">
@@ -1272,9 +1272,9 @@
            ===================================================================== -->
       <section class="workspace-view" id="workspace-monitor" role="tabpanel" aria-labelledby="ws-btn-monitor">
         <!-- Sub-Navigation Bar for Monitor Workspace -->
-        <div class="workspace-subnav" id="monitor-subnav">
-          <button class="ws-sub-btn active" data-monitor-tab="watchlist" id="tab-mon-watchlist">Watchlists</button>
-          <button class="ws-sub-btn" data-monitor-tab="alerts" id="tab-mon-alerts">Alerts Center</button>
+        <div class="workspace-subnav" id="monitor-subnav" role="group" aria-label="Monitor views">
+          <button class="ws-sub-btn active" data-monitor-tab="watchlist" id="tab-mon-watchlist">Watchlist</button>
+          <button class="ws-sub-btn" data-monitor-tab="alerts" id="tab-mon-alerts">Alerts</button>
         </div>
 
         <div class="workspace-scroll-wrap">
@@ -1282,18 +1282,18 @@
           <div class="monitor-panel active" id="monitor-panel-watchlist">
             <div class="workspace-header">
               <div class="workspace-title-row">
-                <h2 class="workspace-title">Active Watchlist Workstation</h2>
+                <h2 class="workspace-title" id="monitor-watchlist-title">Watchlist</h2>
                 <div class="watchlist-actions-bar">
                   <button id="ws-export-watchlist-btn" class="wl-btn">Export Backup</button>
-                  <label for="ws-import-watchlist-input" class="wl-btn" style="cursor: pointer;">Import</label>
+                  <button type="button" id="ws-import-watchlist-btn" class="wl-btn">Import</button>
                   <input type="file" id="ws-import-watchlist-input" accept=".json,.csv" style="display:none;" />
                   <button id="ws-clear-watchlist-btn" class="wl-btn wl-btn-danger">Clear All</button>
                 </div>
               </div>
-              <p class="workspace-desc">Persistent local portfolio watchlists with real-time price updates and cross-asset telemetry.</p>
+              <p class="workspace-desc">Assets saved in this browser.</p>
             </div>
 
-            <div id="workspace-watchlist-container" class="workspace-watchlist-container">
+            <div id="workspace-watchlist-container" class="workspace-watchlist-container" role="region" aria-labelledby="monitor-watchlist-title" tabindex="0">
               <!-- Rendered via JavaScript -->
             </div>
           </div>
@@ -1515,27 +1515,26 @@
 
     <!-- Technical Indicator Picker Modal -->
     <div class="tv-modal-backdrop" id="tv-indicator-picker-backdrop"></div>
-    <div class="tv-modal" id="tv-indicator-picker-modal">
+    <div class="tv-modal" id="tv-indicator-picker-modal" aria-labelledby="tv-indicator-picker-title">
       <div class="tv-modal-header">
         <div class="tv-modal-title-row">
           <div class="tv-modal-title">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
-            <span>Technical Indicators</span>
+            <span id="tv-indicator-picker-title">Technical indicators</span>
           </div>
-          <button class="tv-modal-close-btn" id="close-indicator-picker-btn" title="Close">✕</button>
+          <button class="tv-modal-close-btn" id="close-indicator-picker-btn" type="button" aria-label="Close indicators">✕</button>
         </div>
         <div class="tv-ind-search-box">
-          <label for="tv-ind-search-input" class="auth-field-label" style="margin: 0 0 4px;">Search Indicators</label>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="search" id="tv-ind-search-input" aria-label="Search indicators" placeholder="Search indicators" autocomplete="off" />
+          <input type="search" id="tv-ind-search-input" aria-label="Search indicators" placeholder="Search by name or abbreviation" autocomplete="off" />
           <button type="button" class="tv-ind-clear-search-btn" id="tv-ind-clear-search" aria-label="Clear indicator search" style="display: none;">✕</button>
         </div>
-        <div class="tv-ind-tabs" id="tv-ind-category-tabs">
+        <div class="tv-ind-tabs" id="tv-ind-category-tabs" role="group" aria-label="Indicator categories">
           <button class="tv-ind-tab active" data-category="all" aria-pressed="true">All (<span id="tv-ind-library-count"></span>)</button>
           <button class="tv-ind-tab" data-category="advanced" aria-pressed="false">Advanced</button>
           <button class="tv-ind-tab" data-category="favorites">

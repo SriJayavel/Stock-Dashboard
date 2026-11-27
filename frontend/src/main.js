@@ -3,7 +3,7 @@ import { sparklineSvg } from './sparkline.js';
 import { mountBenchmarkComparison } from './benchmark-comparison.js';
 import { internationalMarket } from './equity-directory.js';
 import { marketQuotes, quoteMovement, quotePrice } from './market-quotes.js';
-import { provenance, setupProvenance } from './provenance.js';
+import { escapeHtml, provenance, setupProvenance } from './provenance.js';
 import { roundPrice, seededRandom, walkStep } from './demo/simulator.js';
 /**
  * Mara - Frontend Controller
@@ -531,7 +531,9 @@ export function setResearchSubTab(subTab) {
 export function setMonitorSubTab(subTab) {
   currentMonitorTab = subTab;
   document.querySelectorAll('#monitor-subnav .ws-sub-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.getAttribute('data-monitor-tab') === subTab);
+    const selected = btn.dataset.monitorTab === subTab;
+    btn.classList.toggle('active', selected);
+    btn.setAttribute('aria-pressed', String(selected));
   });
 
   document.querySelectorAll('#workspace-monitor .monitor-panel').forEach((panel) => {
@@ -653,6 +655,7 @@ function setupWorkspaceControls() {
   }
   const wsImportInput = document.getElementById('ws-import-watchlist-input');
   if (wsImportInput) {
+    document.getElementById('ws-import-watchlist-btn')?.addEventListener('click', () => wsImportInput.click());
     wsImportInput.addEventListener('change', (e) => {
       const mainInput = document.getElementById('import-watchlist-input');
       if (mainInput && e.target.files?.length) {
@@ -1652,7 +1655,10 @@ function isIndicatorPickerOpen() {
   return modal && modal.classList.contains('open');
 }
 
-function openIndicatorPicker() {
+let indicatorPickerOpener;
+
+function openIndicatorPicker(event) {
+  indicatorPickerOpener = event?.currentTarget || document.activeElement;
   const modal = document.getElementById('tv-indicator-picker-modal');
   const backdrop = document.getElementById('tv-indicator-picker-backdrop');
   const appRoot = document.getElementById('mara-app');
@@ -1671,7 +1677,7 @@ function openIndicatorPicker() {
   const input = document.getElementById('tv-ind-search-input');
   if (input) {
     input.value = currentIndicatorSearch;
-    setTimeout(() => input.focus(), 50);
+    input.focus();
   }
 }
 
@@ -1687,6 +1693,8 @@ function closeIndicatorPicker() {
   if (backdrop) backdrop.classList.remove('open');
   // Restore the background app to the tab order.
   if (appRoot) appRoot.removeAttribute('inert');
+  indicatorPickerOpener?.focus();
+  indicatorPickerOpener = null;
 }
 
 function renderIndicatorList() {
@@ -1831,6 +1839,9 @@ function renderIndicatorList() {
       e.stopPropagation();
       const id = btn.getAttribute('data-fav-id');
       toggleFavorite(id);
+      const focus = listContainer.querySelector(`[data-fav-id="${CSS.escape(id)}"]`)
+        || document.querySelector('#tv-ind-category-tabs .active');
+      focus?.focus({ preventScroll: true });
     });
   });
 
@@ -1853,6 +1864,9 @@ function renderIndicatorList() {
         }
       }
       renderIndicatorList();
+      const focus = listContainer.querySelector(`[data-add-id="${CSS.escape(indId)}"]`)
+        || document.querySelector('#tv-ind-category-tabs .active');
+      focus?.focus({ preventScroll: true });
     });
   });
 }
@@ -3004,6 +3018,8 @@ async function refreshWatchlistUI() {
   if (!listContainer) return;
 
   if (symbols.length === 0) {
+    const monitor = document.getElementById('workspace-watchlist-container');
+    if (monitor) monitor.innerHTML = '<p class="monitor-watchlist-empty">Your watchlist is empty. Search for an asset and add it to start tracking.</p>';
     listContainer.innerHTML = `
       <div class="watchlist-empty-state" style="padding: 24px 12px; text-align: center;">
         <svg class="star-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:22px;height:22px;color:var(--text-dim);margin-bottom:6px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
@@ -3190,42 +3206,50 @@ function renderWatchlistRows(quotes) {
 
   // Populate Monitor Workspace Watchlist
   if (wsContainer) {
+    const rows = quotes.map(item => ({ item, trend: sparklineSvg(item.sparkline_data) }));
+    const showTrend = rows.some(({ trend }) => trend);
     wsContainer.innerHTML = `
-      <table class="screener-table">
+      <table class="monitor-watchlist-table" aria-labelledby="monitor-watchlist-title">
         <thead>
           <tr>
-            <th data-sort="symbol" class="sortable">Symbol <span class="sort-indicator" data-col="symbol"></span></th>
-            <th data-sort="name" class="sortable">Name <span class="sort-indicator" data-col="name"></span></th>
-            <th data-sort="price" class="sortable">Price <span class="sort-indicator" data-col="price"></span></th>
-            <th data-sort="change" class="sortable">Change % <span class="sort-indicator" data-col="change"></span></th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th scope="col">Asset</th>
+            <th scope="col" class="text-right">Last price</th>
+            <th scope="col" class="text-right">Change %</th>
+            <th scope="col">Exchange</th>
+            ${showTrend ? '<th scope="col">Trend</th>' : ''}
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         <tbody>
-          ${quotes.map((item) => {
+          ${rows.map(({ item, trend }) => {
             const sym = item.symbol;
-            const isUp = (item.change || 0) >= 0;
-            const chgClass = isUp ? 'chg-up' : 'chg-down';
-            const chgGlyph = isUp ? '+ ' : '− ';
             const curr = item.currency_symbol || getCurrencySymbol(sym, item.currency);
             const decimals = sym.includes('=X') ? 4 : 2;
             const isPending = item.status === 'pending';
+            const change = item.change_pct;
+            const changeClass = change > 0 ? 'gain' : change < 0 ? 'loss' : '';
             const monitorPrice = item.current_price != null
-              ? provenance(`${curr}${Number(item.current_price).toFixed(decimals)}`, {
+              ? provenance(decimals === 4 ? `${curr}${Number(item.current_price).toFixed(4)}` : quotePrice(Number(item.current_price), curr), {
                 label: `${sym} last price`, details: overviewQuoteDetails(item, 'MARA watchlist snapshot'),
               }) : formatWithState(item.current_price, 'unavailable');
+            const chartHref = router.formatSymbolRoute(sym, 'chart');
             return `
-              <tr data-symbol="${sym}" data-price="${item.current_price}" data-change="${item.change_pct || 0}">
-                <td class="screener-sym-col">${sym}</td>
-                <td style="font-weight: 500;">${item.name || sym}</td>
-                <td class="screener-price-col">${isPending ? '<span class="meta-badge" style="color:#fbbf24;">Awaiting data</span>' : monitorPrice}</td>
-                <td><span class="tape-chg ${chgClass}">${item.change_pct == null ? formatWithState(null, 'unavailable') : `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%`}</span></td>
-                <td><span style="font-size: 11px; color: var(--text-dim);">${item.exchange || 'Active'}</span></td>
+              <tr data-symbol="${sym}">
+                <th scope="row">
+                  <a class="monitor-asset" href="#${chartHref}">
+                    <strong>${escapeHtml(item.name || sym)}</strong>
+                    ${item.name && item.name !== sym ? `<small>${escapeHtml(sym)}</small>` : ''}
+                  </a>
+                </th>
+                <td class="text-right" data-label="Last price">${isPending ? 'Awaiting data' : monitorPrice}</td>
+                <td class="text-right ${changeClass}" data-label="Change %">${quoteMovement(change, '%')}</td>
+                <td data-label="Exchange">${escapeHtml(item.exchange || '—')}</td>
+                ${showTrend ? `<td data-label="Trend">${trend || '—'}</td>` : ''}
                 <td>
-                  <span class="sparkline-mini" data-symbol="${sym}" role="img" aria-label="Price trend"></span>
-                  <button class="wl-btn wl-btn-alert" data-symbol="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
-                  <button class="wl-btn wl-btn-danger ws-remove-btn" data-del="${sym}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px;">Remove</button>
+                  <div class="monitor-row-actions">
+                    <button type="button" class="wl-btn wl-btn-alert" data-symbol="${sym}" aria-label="Set alert for ${sym}">Alert</button>
+                    <button type="button" class="wl-btn wl-btn-danger ws-remove-btn" data-del="${sym}" aria-label="Remove ${sym} from watchlist">Remove</button>
+                  </div>
                 </td>
               </tr>
             `;
@@ -3233,12 +3257,6 @@ function renderWatchlistRows(quotes) {
         </tbody>
       </table>
     `;
-    wsContainer.querySelectorAll('.ws-inspect-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const sym = btn.getAttribute('data-symbol');
-        if (sym) router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
-      });
-    });
     wsContainer.querySelectorAll('.ws-remove-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const sym = btn.getAttribute('data-del');
@@ -6710,12 +6728,13 @@ function renderMarketHoursTimelinePro() {
   container.innerHTML = markets.map(({ name, state, sessions }) => {
     const ranges = sessions.map(({ open, close }) =>
       `${benchmarkTime.format(open)}–${benchmarkTime.format(close)} IST`).join(', ');
-    return `<div class="ist-session-row" role="listitem">
+    const isOpen = state === 'Scheduled open' || state === 'Regular hours';
+    return `<div class="ist-session-row${isOpen ? ' is-open' : ''}" role="listitem">
       <strong>${name}</strong>
-      <div class="ist-session-track" role="img" aria-label="${ranges || 'No regular session on this IST date'}">
+      <div class="ist-session-track" role="img" aria-label="${ranges || 'No regular session on this IST date'}" title="${ranges || 'No regular session on this IST date'}">
         ${sessions.map(({ from, to }) => `<span style="left:${from}%;width:${to - from}%"></span>`).join('')}
       </div>
-      <span>${state}</span>
+      <span class="ist-session-state">${state}</span>
     </div>`;
   }).join('');
 
