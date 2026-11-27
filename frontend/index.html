@@ -60,10 +60,11 @@
     }
     </script>
   </head>
-  <body class="auth-required" style="overflow-x: hidden;">
+  <body class="auth-required">
     <style>
-      /* Global overflow-x-hidden on root container */
-      html, .mara-app { overflow-x: hidden; }
+      /* Lock outer document viewport to eliminate duplicate scrollbars */
+      html, body { overflow: hidden; height: 100%; margin: 0; padding: 0; }
+      .mara-app { overflow: hidden; height: 100%; height: 100dvh; }
       .workspace-scroll-wrap { overflow-x: hidden; }
       .markets-table-wrapper, .screener-table-wrapper, .benchmark-board-wrapper { overflow-x: auto; }
     </style>

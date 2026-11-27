@@ -151,36 +151,29 @@ button:active,
   transform: none;
 }
 
-/* Authentication State Transitions - Enable scrolling when authenticated */
-/* When body has .auth-required class, content is hidden and scroll is constrained
-   When .authenticated class is added, scroll is restored for all workspaces */
+/* Authentication State Transitions - App Shell Viewport Lock */
+/* Prevent double scrollbars by keeping root, app, and canvas strictly non-scrollable;
+   only the active workspace view or scroll-wrap container scrolls vertically. */
 body:not(.auth-required) .mara-app,
 body:not(.auth-required) .main-layout {
   height: 100%;
-  min-height: 100vh;
-  overflow: visible;
+  min-height: 0;
+  overflow: hidden;
 }
+body.authenticated,
 body.authenticated .mara-app,
 body.authenticated .main-layout {
-  overflow: auto;
+  overflow: hidden;
+  height: 100%;
 }
 
-/* Ensure scroll containers have proper height for content */
+/* Ensure canvas takes exact available flex space without creating a secondary scrollbar */
 .mara-main-canvas {
+  flex: 1 1 0;
   height: 100%;
-  min-height: 100vh;
-  overflow: auto;
-}
-
-/* When authenticated, restore body scroll */
-body.authenticated {
-  overflow: auto;
-  height: 100%;
-}
-
-/* Override workspace view overflow when authenticated to allow scrolling */
-body.authenticated .workspace-view {
-  overflow-y: auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Mara email account entry: uses the existing terminal color tokens. */
@@ -780,8 +773,7 @@ html.light-theme .cmd-hint-text {
   display: flex;
   flex-direction: column;
   background: var(--bg-canvas);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
 }
 
