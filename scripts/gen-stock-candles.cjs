@@ -235,16 +235,6 @@ fs.writeFileSync(path.join(DEMO_DIR, 'screener.json'), JSON.stringify({
     'Semiconductors & AI': ['NVDA', 'TSM', 'ASML'],
     'Crypto': ['BTC-USD', 'ETH-USD']
   },
-  results: {
-    'Indian Leaders': SYMBOLS.filter(s => s.symbol.endsWith('.NS')).map(s => ({
-      symbol: s.symbol,
-      name: s.name,
-      price: s.basePrice,
-      change_pct: Math.round((Math.random() - 0.5) * 3 * 100) / 100,
-      pe: Math.round((15 + Math.random() * 20) * 100) / 100,
-      market_cap: Math.round(s.basePrice * 1e9 / 1e7) * 1e7
-    }))
-  },
   demo_mode: true
 }, null, 2));
 console.log('Generated screener.json');

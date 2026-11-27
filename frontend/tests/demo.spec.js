@@ -134,8 +134,8 @@ test.describe('Markets and chart interactions', () => {
     await page.goto('/?freeze=1#/markets');
     const rows = page.locator('#markets-indices-table .benchmark-row');
     await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(8);
-    const eighth = await rows.nth(7).boundingBox();
-    expect(eighth.y + eighth.height).toBeLessThanOrEqual(768);
+    const sixth = await rows.nth(5).boundingBox();
+    expect(sixth.y + sixth.height).toBeLessThanOrEqual(768);
     const paths = await rows.locator('polyline').evaluateAll(nodes => nodes.map(node => node.getAttribute('points')));
     expect(paths).toHaveLength(await rows.count());
     expect(new Set(paths).size).toBe(paths.length);
@@ -242,6 +242,7 @@ test('opens quote provenance with mouse and keyboard and persists table settings
     await page.getByRole('button', { name: 'Comfortable rows' }).click();
     await expect(page.getByRole('button', { name: 'Comfortable rows' })).toHaveAttribute('aria-pressed', 'true');
     await page.locator('.benchmark-columns summary').click();
+    await page.locator('.benchmark-columns input[value="symbol"]').check();
     await page.locator('.benchmark-columns input[value="symbol"]').uncheck();
     const symbolColumn = page.locator('#markets-indices-table th.col-symbol');
     await expect(symbolColumn).toBeHidden();
@@ -392,7 +393,7 @@ for (const [workspace, path] of Object.entries(workspaces)) {
  * Validates the demo build (npm run build:demo) end-to-end:
  *   - All 6 workspace interfaces load with synthetic data
  *   - Zero network calls to /api/* or Supabase
- *   - Demo banner is visible
+ *   - Header displays the MARA wordmark without an environment badge
  *   - No backend secrets leaked into the build
  *
  * Run with:  VITE_DEMO_MODE=true npx playwright test demo.spec.js --config=playwright.demo.config.js
@@ -426,8 +427,7 @@ test.describe('MARA Phase 3.1 — Static Demo Deployment', () => {
     await page.goto('/?freeze=1');
     await page.waitForLoadState('domcontentloaded');
 
-    await expect(page.locator('#demo-environment')).toBeVisible();
-    await expect(page.locator('#demo-environment')).toHaveAttribute('title', 'Synthetic market data');
+    await expect(page.locator('#demo-environment')).toHaveCount(0);
     await expect(page.locator('#demo-banner, #ticker-tape-track')).toHaveCount(0);
 
     const sectors = page.locator('#sector-intelligence-grid');

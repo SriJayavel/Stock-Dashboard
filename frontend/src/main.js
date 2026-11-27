@@ -193,11 +193,8 @@ async function startApp() {
   if (appStarted) return;
   appStarted = true;
 
-  // Keep the current environment visible in the shell.
   if (isDemoMode()) {
     document.getElementById('mara-app')?.classList.add('is-demo');
-    document.getElementById('demo-environment').hidden = !isShowcaseBuild;
-    if (isShowcaseBuild) document.getElementById('brand-home-btn').setAttribute('aria-label', 'MARA · Demo mode, synthetic data');
   }
 
   alertsManager.activateAccount();
@@ -936,6 +933,7 @@ function setupUpdateControls() {
         }
       }
       const ticker = document.querySelector(`.market-ticker-item[data-symbol="${CSS.escape(row.dataset.sym)}"]`);
+      row.querySelector('.col-range').innerHTML = benchmarkDayRange(next.price, next.low, next.high, row.dataset.currency);
       if (ticker) updateTickerQuote(ticker, next, row.dataset.currency);
       if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const flash = nextPrice > price ? '--gain-bg' : '--loss-bg';
@@ -977,7 +975,7 @@ function sortBenchmarkRows(table) {
   const rows = Array.from(table.tBodies[0].rows).filter((row) => !row.classList.contains('skeleton-row'));
   const value = (row) => {
     const cell = row.cells[index];
-    return number ? cell?.dataset.sortValue : cell?.textContent.trim();
+    return number ? cell?.dataset.sortValue : cell?.dataset.sortValue ?? cell?.textContent.trim();
   };
   rows.sort((left, right) => {
     const a = value(left);
@@ -995,7 +993,7 @@ function sortBenchmarkRows(table) {
 const benchmarkColumns = {
   region: 'Region', name: 'Index', symbol: 'Symbol', price: 'Last price',
   change: 'Change', pct: 'Change %', high: 'High', low: 'Low',
-  sparkline: 'Intraday', updated: 'As of',
+  range: 'Day range', sparkline: 'Intraday', updated: 'As of',
 };
 
 function applyBenchmarkPreferences() {
@@ -1067,7 +1065,9 @@ function setupBenchmarkPreferences() {
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.value = column;
-    input.checked = Array.isArray(preferences.columns) ? preferences.columns.includes(column) : column !== 'updated';
+    input.checked = Array.isArray(preferences.columns)
+      ? preferences.columns.includes(column)
+      : ['change', 'pct', 'range', 'sparkline'].includes(column);
     option.append(input, label);
     fieldset.append(option);
   }
@@ -3330,8 +3330,19 @@ function updateTickerQuote(button, quote, currency) {
   button.classList.toggle('is-positive', change > 0);
   button.classList.toggle('is-negative', change < 0);
   button.querySelector('.market-ticker-value').textContent = quotePrice(quote.price, currency);
-  button.querySelector('.market-ticker-change').textContent = quoteMovement(quote.change);
   button.querySelector('.market-ticker-percent').textContent = quoteMovement(change, '%');
+}
+
+function benchmarkDayRange(price, low, high, currency) {
+  if (!Number.isFinite(low) || !Number.isFinite(high) || low <= 0 || high < low) return 'Unavailable';
+  const position = high === low ? 50 : 100 * (price - low) / (high - low);
+  const marker = Number.isFinite(price) && price >= low && price <= high
+    ? `<span class="benchmark-range-marker" style="--range-position: ${position}%"></span>`
+    : '';
+  return `<div class="benchmark-range">
+    <div class="benchmark-range-labels"><span>${quotePrice(low, currency)}</span><span>${quotePrice(high, currency)}</span></div>
+    <div class="benchmark-range-track" aria-hidden="true">${marker}</div>
+  </div>`;
 }
 
 let renderedBenchmarkSnapshot;
@@ -3455,7 +3466,12 @@ function renderBenchmarkTable(snapshot) {
           <td class="col-region">
             <span class="region-badge ${regionTagClass}">${m.tag}</span>
           </td>
-          <td class="col-name"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.name}</td>
+          <td class="col-name" data-sort-value="${m.name}">
+            <span class="benchmark-identity">
+              <span class="region-badge ${regionTagClass}">${m.tag}</span>
+              <span><strong>${m.name}</strong><small>${m.symbol}</small></span>
+            </span>
+          </td>
           <td class="col-symbol"${isMarketClosed ? ' style="color: var(--text-muted);"' : ''}>${m.symbol}</td>
           <td class="col-price text-right" data-prev-price="${m.prev_price || ''}" data-sort-value="${m.price ?? ''}">
             ${sourceValue(priceDisplay, m.price, 'last price')}
@@ -3464,6 +3480,7 @@ function renderBenchmarkTable(snapshot) {
           <td data-sort-value="${m.change_pct ?? ''}" class="col-pct text-right ${pctClass}">${sourceValue(pctDisplay, m.change_pct, 'percent change')}</td>
           <td data-sort-value="${m.high ?? ''}" class="col-high text-right">${sourceValue(highDisplay, m.high, 'session high')}</td>
           <td data-sort-value="${m.low ?? ''}" class="col-low text-right">${sourceValue(lowDisplay, m.low, 'session low')}</td>
+          <td class="col-range">${benchmarkDayRange(isFeedOffline ? null : m.price, isFeedOffline ? null : m.low, isFeedOffline ? null : m.high, m.curr)}</td>
           <td class="col-sparkline">
             <div class="sparkline-mini" data-symbol="${m.symbol}">${sparkline || '<span class="benchmark-no-series">No series</span>'}</div>
           </td>
@@ -3552,7 +3569,7 @@ function renderMarketTicker(data) {
   if (!track) return;
   renderBenchmarkTable(data);
 
-  const symbols = [...benchmarkMeta.map(benchmark => benchmark.symbol), 'GC=F', 'SI=F', 'BTC-USD'];
+  const symbols = ['^NSEI', '^BSESN', '^GSPC', '^IXIC'];
   const bySymbol = marketQuotes(data);
   const available = symbols.map((symbol) => bySymbol.get(symbol))
     .filter((item) => Number.isFinite(item?.price) && item.price > 0);
@@ -3598,12 +3615,12 @@ function renderMarketTicker(data) {
     value.className = 'market-ticker-value';
     const movement = document.createElement('span');
     movement.className = 'market-ticker-movement';
-    const absoluteChange = document.createElement('span');
-    absoluteChange.className = 'market-ticker-change';
-    const percentChange = document.createElement('span');
-    percentChange.className = 'market-ticker-percent';
-    movement.append(absoluteChange, percentChange);
+    movement.classList.add('market-ticker-percent');
     button.append(identity, value, movement);
+    const chart = document.createElement('span');
+    chart.className = 'market-ticker-chart';
+    chart.innerHTML = sparklineSvg(item.sparkline_data, true);
+    button.append(chart);
     updateTickerQuote(button, item, currency);
     button.addEventListener('click', () => {
       if (item.symbol) router.navigate(router.formatSymbolRoute(item.symbol, 'chart'));
@@ -6457,9 +6474,9 @@ function wireBenchmarkToolbar() {
 
       const csvData = [headers.join(',')];
       rows.forEach(row => {
-        const cells = Array.from(row.querySelectorAll('td'));
+        const cells = Array.from(row.querySelectorAll('td:not(.col-range)'));
         const rowData = cells.map(cell => {
-          // Skip sparkline column (index 8) or get text content
+          // Day range is represented by the existing High and Low values.
           if (cell.classList.contains('col-sparkline')) return '';
           return `"${(cell.dataset.sortValue || cell.textContent.trim()).replace(/"/g, '""')}"`;
         });
@@ -7347,6 +7364,12 @@ function updateBenchmarkRowLive(row, data, timestamp) {
 
   const ticker = document.querySelector(`.market-ticker-item[data-symbol="${CSS.escape(row.dataset.sym)}"]`);
   if (ticker) updateTickerQuote(ticker, quote, currency);
+  const range = row.querySelector('.col-range');
+  if (range) {
+    const low = Number(row.querySelector('.col-low')?.dataset.sortValue);
+    const high = Number(row.querySelector('.col-high')?.dataset.sortValue);
+    range.innerHTML = benchmarkDayRange(quote.price, low, high, currency);
+  }
   updateRowStalenessBadge(row, data.freshness || 'LIVE', timestamp);
 }
 
@@ -8085,8 +8108,17 @@ function drawSparkline(canvas, candles) {
   const firstClose = closes[0];
   const lastClose = closes[closes.length - 1];
   const isUp = lastClose >= firstClose;
-  const lineColor = isUp ? '#22ab94' : '#f23645';
-  const fillColor = isUp ? 'rgba(34, 171, 148, 0.12)' : 'rgba(242, 54, 69, 0.12)';
+  const lineColor = isUp ? '#10b981' : '#ef4444';
+
+  // Smooth linear gradient fill
+  const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+  if (isUp) {
+    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.28)');
+    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+  } else {
+    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.28)');
+    gradient.addColorStop(1, 'rgba(239, 68, 68, 0.0)');
+  }
 
   // Clear canvas
   ctx.clearRect(0, 0, width, height);
@@ -8098,19 +8130,15 @@ function drawSparkline(canvas, candles) {
   closes.forEach((close, i) => {
     const x = padding + (i / (closes.length - 1)) * plotWidth;
     const y = height - padding - ((close - minPrice) / priceRange) * plotHeight;
-    if (i === 0) {
-      ctx.lineTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
+    ctx.lineTo(x, y);
   });
 
   ctx.lineTo(padding + plotWidth, height - padding);
   ctx.closePath();
-  ctx.fillStyle = fillColor;
+  ctx.fillStyle = gradient;
   ctx.fill();
 
-  // Draw line
+  // Draw crisp line
   ctx.beginPath();
   closes.forEach((close, i) => {
     const x = padding + (i / (closes.length - 1)) * plotWidth;
@@ -8122,7 +8150,7 @@ function drawSparkline(canvas, candles) {
     }
   });
   ctx.strokeStyle = lineColor;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.75;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.stroke();

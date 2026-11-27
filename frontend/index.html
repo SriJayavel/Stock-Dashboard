@@ -144,7 +144,6 @@
         <a class="mara-brand-group" id="brand-home-btn" href="#/markets" aria-label="MARA · Equities research terminal">
           <img src="/favicon.svg" alt="" class="mara-brand-logo" width="22" height="22" />
           <span class="mara-brand-title">MARA</span>
-          <span id="demo-environment" class="demo-environment" title="Synthetic market data" hidden>Demo</span>
         </a>
 
         <!-- Global Command / Search Surface (⌘K) -->
@@ -285,41 +284,16 @@
               <div>
                 <h1>Market overview</h1>
               </div>
+              <div class="status-session" role="status">
+                <span class="status-session-dot" id="mkt-session-dot" aria-hidden="true"></span>
+                <span class="status-session-name" id="mkt-session-name">Checking market sessions</span>
+              </div>
             </header>
             <section class="market-ticker-strip" aria-label="Global market snapshot">
-              <div class="market-ticker-heading">Market snapshot</div>
               <div class="market-ticker-track" id="market-ticker-track">
                 <span class="market-ticker-empty skeleton-text" role="status">Loading market snapshot</span>
               </div>
             </section>
-
-            <!-- Market sessions and feed status -->
-            <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
-              <div class="status-strip-left">
-                <div class="status-session">
-                  <span class="status-session-dot" id="mkt-session-dot" aria-hidden="true"></span>
-                  <span class="status-session-name" id="mkt-session-name">Checking market sessions</span>
-                </div>
-                <div class="status-desks" id="status-desks">
-                  <span class="status-desk"><span class="status-desk-label">NSE</span><span class="status-desk-val" id="mkt-nse-status">—</span></span>
-                  <span class="status-desk"><span class="status-desk-label">NYSE</span><span class="status-desk-val" id="mkt-nyse-status">—</span></span>
-                  <span class="status-desk"><span class="status-desk-label">LSE</span><span class="status-desk-val" id="mkt-lse-status">—</span></span>
-                  <span class="status-desk"><span class="status-desk-label">TYO</span><span class="status-desk-val" id="mkt-tyo-status">—</span></span>
-                </div>
-              </div>
-              <div class="status-strip-right">
-                <div class="status-feed">
-                  <span class="status-feed-dot" id="mkt-feed-dot" aria-hidden="true"></span>
-                  <span class="status-feed-text" id="mkt-feed-source">Connecting</span>
-                </div>
-                <span class="status-breadth" id="mkt-breadth-val">—</span>
-                <span class="status-updated" id="mkt-last-updated">—</span>
-                <div class="ws-status-indicator" id="ws-status-indicator" data-status="disconnected" aria-live="polite" aria-atomic="true">○ OFFLINE</div>
-                <button class="status-reload-btn" id="mkt-refresh-btn" type="button" title="Refresh market feeds" aria-label="Refresh market feeds">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                </button>
-              </div>
-            </div>
 
             <!-- SKELETON SCREENS - Match final layout exactly -->
             <div class="markets-skeleton" id="markets-skeleton" aria-hidden="true" role="status" aria-label="Loading market data">
@@ -435,7 +409,6 @@
               </div>
               <div class="benchmark-toolbar">
                 <div class="benchmark-region-controls">
-                  <span class="benchmark-filter-label">Region</span>
                   <div class="benchmark-filter-group" id="markets-indices-filter" role="group" aria-label="Region filter">
                     <button class="benchmark-filter-btn active" data-region="all" aria-pressed="true" id="tab-all">All</button>
                     <button class="benchmark-filter-btn" data-region="india" aria-pressed="false" id="tab-india">India</button>
@@ -461,20 +434,21 @@
                     <thead>
                       <tr>
                         <th scope="col" class="col-region" style="width: 100px;" data-sort="text"><button type="button" class="benchmark-sort">Region<span aria-hidden="true"></span></button></th>
-                        <th scope="col" class="col-name" data-sort="text"><button type="button" class="benchmark-sort">Index Name<span aria-hidden="true"></span></button></th>
+                        <th scope="col" class="col-name" data-sort="text"><button type="button" class="benchmark-sort">Index<span aria-hidden="true"></span></button></th>
                         <th scope="col" class="col-symbol" style="width: 110px;" data-sort="text"><button type="button" class="benchmark-sort">Symbol<span aria-hidden="true"></span></button></th>
-                        <th scope="col" class="col-price text-right" style="width: 140px;" data-sort="number"><button type="button" class="benchmark-sort">Last Price<span aria-hidden="true"></span></button></th>
+                        <th scope="col" class="col-price text-right" style="width: 140px;" data-sort="number"><button type="button" class="benchmark-sort">Last price<span aria-hidden="true"></span></button></th>
                         <th scope="col" class="col-change text-right" style="width: 130px;" data-sort="number"><button type="button" class="benchmark-sort">Change<span aria-hidden="true"></span></button></th>
-                        <th scope="col" class="col-pct text-right" style="width: 110px;" data-sort="number"><button type="button" class="benchmark-sort">% Chg<span aria-hidden="true"></span></button></th>
+                        <th scope="col" class="col-pct text-right" style="width: 110px;" data-sort="number"><button type="button" class="benchmark-sort">% change<span aria-hidden="true"></span></button></th>
                         <th scope="col" class="col-high text-right" style="width: 100px;" data-sort="number"><button type="button" class="benchmark-sort">High<span aria-hidden="true"></span></button></th>
                         <th scope="col" class="col-low text-right" style="width: 100px;" data-sort="number"><button type="button" class="benchmark-sort">Low<span aria-hidden="true"></span></button></th>
+                        <th scope="col" class="col-range">Day range</th>
                         <th scope="col" class="col-sparkline" style="width: 160px;">Intraday</th>
                         <th scope="col" class="col-updated text-right" style="width: 120px;" data-sort="number"><button type="button" class="benchmark-sort">Updated<span aria-hidden="true"></span></button></th>
                       </tr>
                     </thead>
                     <tbody id="markets-indices-table-body">
                       <tr class="loading-row">
-                        <td colspan="10" class="table-loading-cell">Loading benchmarks</td>
+                        <td colspan="11" class="table-loading-cell">Loading benchmarks</td>
                       </tr>
                     </tbody>
                   </table>
@@ -485,6 +459,30 @@
                   <span class="footer-count" id="benchmarks-count">— indices</span>
                   <span class="footer-source" id="benchmarks-source">Source: —</span>
                 </div>
+              </div>
+            </div>
+
+            <!-- Market sessions and feed status -->
+            <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
+              <div class="status-strip-left">
+                <div class="status-desks" id="status-desks">
+                  <span class="status-desk"><span class="status-desk-label">NSE</span><span class="status-desk-val" id="mkt-nse-status">—</span></span>
+                  <span class="status-desk"><span class="status-desk-label">NYSE</span><span class="status-desk-val" id="mkt-nyse-status">—</span></span>
+                  <span class="status-desk"><span class="status-desk-label">LSE</span><span class="status-desk-val" id="mkt-lse-status">—</span></span>
+                  <span class="status-desk"><span class="status-desk-label">TYO</span><span class="status-desk-val" id="mkt-tyo-status">—</span></span>
+                </div>
+              </div>
+              <div class="status-strip-right">
+                <div class="status-feed">
+                  <span class="status-feed-dot" id="mkt-feed-dot" aria-hidden="true"></span>
+                  <span class="status-feed-text" id="mkt-feed-source">Connecting</span>
+                </div>
+                <span class="status-breadth" id="mkt-breadth-val">—</span>
+                <span class="status-updated" id="mkt-last-updated">—</span>
+                <div class="ws-status-indicator" id="ws-status-indicator" data-status="disconnected" aria-live="polite" aria-atomic="true">○ OFFLINE</div>
+                <button class="status-reload-btn" id="mkt-refresh-btn" type="button" title="Refresh market feeds" aria-label="Refresh market feeds">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6M3 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                </button>
               </div>
             </div>
 

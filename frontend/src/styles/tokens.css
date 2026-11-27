@@ -1,8 +1,8 @@
 :root {
   color-scheme: light dark;
-  --font-display: system-ui, sans-serif;
-  --font-sans: system-ui, sans-serif;
-  --font-mono: ui-monospace, monospace;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --type-label: .75rem;
   --type-table: .8125rem;
   --type-body: .875rem;
@@ -19,8 +19,9 @@
   --space-8: 2rem;
   --space-9: 2.25rem;
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
   --shell-header-h: 56px;
   --shell-status-bar-h: 28px;
   --shell-rail-w: 64px;
@@ -41,8 +42,8 @@
   --accent-cyan: var(--accent);
   --gain: var(--up);
   --loss: var(--down);
-  --gain-bg: color-mix(in srgb, var(--gain) 12%, transparent);
-  --loss-bg: color-mix(in srgb, var(--loss) 12%, transparent);
+  --gain-bg: color-mix(in srgb, var(--gain) 14%, transparent);
+  --loss-bg: color-mix(in srgb, var(--loss) 14%, transparent);
   --warning: var(--text-muted);
   --region-india: var(--text-muted);
   --region-americas: var(--text-muted);
@@ -53,7 +54,8 @@
   --region-europe-rgb: var(--muted-rgb);
   --region-asia-rgb: var(--muted-rgb);
   --warning-rgb: var(--muted-rgb);
-  --shadow-dropdown: 0 18px 48px rgb(0 0 0 / .18);
+  --shadow-dropdown: 0 18px 48px rgb(0 0 0 / .35);
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
   --motion-fast: 180ms;
   --layer-sticky: 2;
   --layer-popover: 70;
@@ -65,30 +67,42 @@
 
 :root:not(.light-theme) {
   color-scheme: dark;
-  --bg: #101521;
-  --surface: #171e2b;
-  --surface-hover: #232c3c;
-  --border: #323f53;
-  --text: #f3f2ef;
-  --text-muted: #b1bacb;
-  --muted-rgb: 177, 186, 203;
+  --bg: #090a0f;
+  --surface: #11141c;
+  --surface-hover: #181d28;
+  --surface-card: #121622;
+  --border: #1e2638;
+  --border-soft: #171d2b;
+  --border-hairline: #1c2333;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --muted-rgb: 148, 163, 184;
   --accent: #eac47a;
   --accent-rgb: 234, 196, 122;
-  --up: #5cd9be;
-  --down: #ffa08e;
+  --up: #10b981;
+  --down: #ef4444;
+  --fg: #f8fafc;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
 }
 
 :root.light-theme {
   color-scheme: light;
   --bg: #f8fafc;
   --surface: #ffffff;
-  --surface-hover: #f8fafc;
+  --surface-hover: #f1f5f9;
+  --surface-card: #ffffff;
   --border: #e2e8f0;
-  --text: #1e293b;
-  --text-muted: #525e71;
-  --muted-rgb: 82, 94, 113;
+  --border-soft: #cbd5e1;
+  --border-hairline: #f1f5f9;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --muted-rgb: 100, 116, 139;
   --accent: #80551b;
   --accent-rgb: 128, 85, 27;
-  --up: #00715e;
-  --down: #a9362d;
+  --up: #059669;
+  --down: #dc2626;
+  --fg: #0f172a;
+  --fg-muted: #64748b;
+  --fg-subtle: #94a3b8;
 }
