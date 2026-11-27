@@ -8939,7 +8939,13 @@ html.light-theme .top-nav-btn.active {
 }
 
 html.light-theme .mara-ws-tab-btn {
-  color: #64748b;
+  color: #475569;
+}
+
+html.light-theme .wl-btn-alert {
+  background: rgba(146, 64, 14, 0.1) !important;
+  color: #78350f !important;
+  border-color: #92400e !important;
 }
 
 html.light-theme .mara-ws-tab-btn:hover {
@@ -9020,7 +9026,7 @@ html.light-theme .mara-left-rail {
   border-right: 1px solid #e2e8f0 !important;
 }
 html.light-theme .rail-btn {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 html.light-theme .rail-btn:hover {
   background: #f1f5f9 !important;
@@ -9037,7 +9043,7 @@ html.light-theme .mara-status-bar,
 html.light-theme .terminal-status-bar {
   background: #ffffff !important;
   border-top: 1px solid #e2e8f0 !important;
-  color: #64748b !important;
+  color: #475569 !important;
 }
 
 /* Premium Enhancements - Tooltip Styles */
