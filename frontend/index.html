@@ -709,7 +709,7 @@
                 <div class="tv-tb-divider"></div>
 
                 <button class="tv-tb-btn" id="tv-tb-chart-type" data-type="candles" title="Chart Type: Candles">
-                  <span class="tv-tb-symbol" style="font-family: var(--font-mono); font-weight: 700; color: var(--text);">C</span>
+                  <span class="tv-tb-symbol" style="font-family: var(--font-mono); font-weight: 700; color: var(--text);">Candles</span>
                 </button>
 
               </div>
@@ -815,6 +815,7 @@
                     <span class="tv-leg-sym" id="tv-leg-sym">TCS.NS</span>
                     <span class="tv-leg-interval" id="tv-leg-interval">1D</span>
                     <span class="tv-leg-range" id="tv-leg-range">1D</span>
+                    <span class="chart-legend-date" id="tv-leg-date"></span>
                     <span class="tv-leg-item"><span class="lbl">O</span> <span class="val" id="tv-leg-open">—</span></span>
                     <span class="tv-leg-item"><span class="lbl">H</span> <span class="val" id="tv-leg-high">—</span></span>
                     <span class="tv-leg-item"><span class="lbl">L</span> <span class="val" id="tv-leg-low">—</span></span>
@@ -846,6 +847,10 @@
                   <button class="range-btn" data-range="1y" title="1 Year Range">1Y</button>
                   <button class="range-btn" data-range="5y" title="5 Years Range">5Y</button>
                   <button class="range-btn" data-range="all" title="All Time">All</button>
+                </div>
+                <div class="chart-zoom-controls" role="group" aria-label="Chart zoom">
+                  <button type="button" class="tv-scale-btn" id="chart-zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+                  <button type="button" class="tv-scale-btn" id="chart-zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
                 </div>
                 <output class="chart-measure-readout" id="chart-measure-readout" aria-live="polite" hidden></output>
               </div>

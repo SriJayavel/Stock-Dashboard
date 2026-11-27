@@ -15,6 +15,7 @@ const axisDateFormat = new Intl.DateTimeFormat('en-GB', {
 const axisTimeFormat = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 });
+const compactVolume = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 const signedNumber = new Intl.NumberFormat('en-US', { maximumFractionDigits: 4, signDisplay: 'exceptZero' });
 const signedPercent = new Intl.NumberFormat('en-US', {
   style: 'percent', maximumFractionDigits: 2, signDisplay: 'exceptZero',
@@ -467,6 +468,7 @@ export class TerminalChart {
     this.canvas.height=Math.round(this.height*dpr);
     this.canvas.style.width=`${this.width}px`;
     this.canvas.style.height=`${this.height}px`;
+    this.pixelRatio = dpr;
     this.ctx.setTransform(dpr,0,0,dpr,0,0);
     this.renderPaneSplitters();
     this.render();
@@ -771,26 +773,26 @@ export class TerminalChart {
     });
     this.canvas.addEventListener('pointerleave', () => {
       this.pointer = null;
-      // Premium enhancement: hide tooltip on leave with smooth fade
       if (this.tooltipTimeout) clearTimeout(this.tooltipTimeout);
-      this.tooltipTimeout = setTimeout(() => {
-        if (this.tooltip) this.tooltip.replaceChildren();
-      }, 300);
+      if (this.tooltip) this.tooltip.replaceChildren();
+      this.renderCornerLegend(this.currentCandles[this.renderedBarIndices?.at(-1)]);
       this.render();
     });
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const length = this.currentCandles.length;
-      const limit = Math.min(length, this.rangeLimit || length);
-      if (!limit || !e.deltaY) return;
-      const count = this.visibleCount;
-      const step = Math.max(1, Math.round(count * 0.12));
-      this.visibleCount = Math.max(1, Math.min(limit, count + Math.sign(e.deltaY) * step));
-      this.endIndex = Math.max(length - limit + this.visibleCount, this.endIndex);
-
-      if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
-      this.animationFrame = requestAnimationFrame(() => this.render());
+      this.zoom(Math.sign(e.deltaY));
     }, { passive: false });
+  }
+
+  zoom(direction) {
+    const length = this.currentCandles.length;
+    const limit = Math.min(length, this.rangeLimit || length);
+    if (!limit || !direction) return;
+    const count = this.visibleCount;
+    const step = Math.max(1, Math.round(count * 0.12));
+    this.visibleCount = Math.max(1, Math.min(limit, count + direction * step));
+    this.endIndex = Math.max(length - limit + this.visibleCount, this.endIndex);
+    this.render();
   }
 
   indexAt(x) {
@@ -829,7 +831,9 @@ export class TerminalChart {
       c.fillText(this.unavailableMessage || 'Load a symbol to view price history', 20, 32);
       return;
     }
-    const panes = [...this.subPanes.keys()].length, mainH = panes ? Math.max(180, h * this.mainRatio) : h - 28, plot = { left: 12, right: w - 76, top: 26, bottom: mainH - 26 };
+    const panes = this.subPanes.size;
+    const mainH = panes ? Math.min(h - 26, Math.max(180, h * this.mainRatio)) : h - 26;
+    const plot = { left: 12, right: w - 76, top: 24, bottom: mainH - (panes ? 22 : 0) };
     // Ensure visibleCount is at least 1 to show at least one candle
     const effectiveVisibleCount = Math.max(1, this.visibleCount);
     const start = Math.max(0, this.endIndex - effectiveVisibleCount), end = Math.min(bars.length, this.endIndex || bars.length), visible = bars.slice(start, end);
@@ -867,6 +871,11 @@ export class TerminalChart {
       return;
     }
 
+    const maxVolume = validBars.reduce((max, bar) => Number.isFinite(bar.volume) ? Math.max(max, bar.volume) : max, 0);
+    const volumeBottom = plot.bottom;
+    const volumeHeight = this.showVolume && maxVolume > 0 && volumeBottom - plot.top >= 160
+      ? Math.min(64, (volumeBottom - plot.top) * .20) : 0;
+    plot.bottom -= volumeHeight;
     // Use validBars for calculations and rendering
     const barsToRenderSafe = validBars;
     const base = barsToRenderSafe[0]?.close || 1;
@@ -909,7 +918,7 @@ export class TerminalChart {
       c.strokeStyle = grid;
       c.beginPath();
       c.moveTo(plot.left, yy);
-      c.lineTo(w - 4, yy);
+      c.lineTo(plot.right, yy);
       c.stroke();
       c.fillStyle = muted;
       c.textAlign = 'right';
@@ -929,65 +938,41 @@ export class TerminalChart {
       c.strokeStyle = grid;
       c.beginPath();
       c.moveTo(xx, plot.top);
-      c.lineTo(xx, plot.bottom);
+      c.lineTo(xx, volumeBottom);
       c.stroke();
       const half = c.measureText(label).width / 2;
       c.fillStyle = muted;
       c.textAlign = 'center';
       c.fillText(label, Math.max(plot.left + half, Math.min(plot.right - half, xx)), h - 11);
     }
-    if (this.chartType === 'candles') {
-      // Premium enhancement: anti-aliased candlesticks with subtle shadows
-      barsToRenderSafe.forEach((b, j) => {
-        const x = plot.left + (j + 0.5) * this.barWidth, up = b.close >= b.open, color = up ? bullColor : bearColor;
-        c.strokeStyle = color;
+    if (['candles', 'heikin_ashi', 'hollow_candles'].includes(this.chartType)) {
+      const heikin = this.chartType === 'heikin_ashi';
+      const hollow = this.chartType === 'hollow_candles';
+      const dpr = this.pixelRatio || 1;
+      const snap = value => Math.round(value * dpr) / dpr;
+      const bodyWidth = Math.max(1 / dpr, snap(Math.min(14, this.barWidth * .7)));
+      const wickWidth = Math.max(1 / dpr, snap(1));
+      validBars.forEach((bar, index) => {
+        const open = heikin ? (bar.open + bar.close) / 2 : bar.open;
+        const close = heikin ? (bar.open + bar.high + bar.low + bar.close) / 4 : bar.close;
+        const rising = close >= open;
+        const x = plot.left + (index + .5) * this.barWidth;
+        const left = snap(x - bodyWidth / 2);
+        const wickLeft = snap(x - wickWidth / 2);
+        const top = snap(y(Math.max(open, close)));
+        const bottom = Math.max(top + 1 / dpr, snap(y(Math.min(open, close))));
+        const high = snap(y(Math.max(bar.high, open, close)));
+        const low = snap(y(Math.min(bar.low, open, close)));
+        const color = rising ? bullColor : bearColor;
         c.fillStyle = color;
-        c.lineWidth = 1;
-        c.beginPath();
-        c.moveTo(x, y(b.high));
-        c.lineTo(x, y(b.low));
-        c.stroke();
-        const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
-        c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
-      });
-    } else if (this.chartType === 'heikin_ashi') {
-      // Heikin Ashi candles
-      barsToRenderSafe.forEach((b, j) => {
-        const x = plot.left + (j + 0.5) * this.barWidth;
-        const haClose = (b.open + b.high + b.low + b.close) / 4;
-        const haOpen = (b.open + b.close) / 2;
-        const haHigh = Math.max(b.high, haOpen, haClose);
-        const haLow = Math.min(b.low, haOpen, haClose);
-        const up = haClose >= haOpen;
-        const color = up ? bullColor : bearColor;
-        c.strokeStyle = color;
-        c.fillStyle = color;
-        c.lineWidth = 1;
-        c.beginPath();
-        c.moveTo(x, y(haHigh));
-        c.lineTo(x, y(haLow));
-        c.stroke();
-        const top = y(Math.max(haOpen, haClose)), bottom = y(Math.min(haOpen, haClose)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
-        c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
-      });
-    } else if (this.chartType === 'hollow_candles') {
-      // Rising bodies are outlined. Very small bodies stay visible as solid marks.
-      barsToRenderSafe.forEach((b, j) => {
-        const x = plot.left + (j + 0.5) * this.barWidth;
-        const up = b.close >= b.open;
-        const color = up ? bullColor : bearColor;
-        c.strokeStyle = color;
-        c.fillStyle = color;
-        c.lineWidth = 1;
-        c.beginPath();
-        c.moveTo(x, y(b.high));
-        c.lineTo(x, y(b.low));
-        c.stroke();
-        const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
-        if (up && cw > 2 && bottom - top > 2) {
-          c.strokeRect(x - cw / 2 + .5, top + .5, cw - 1, bottom - top - 1);
+        c.fillRect(wickLeft, high, wickWidth, Math.max(0, top - high));
+        c.fillRect(wickLeft, bottom, wickWidth, Math.max(0, low - bottom));
+        if (hollow && rising && bodyWidth > 2 * wickWidth && bottom - top > 2 * wickWidth) {
+          c.strokeStyle = color;
+          c.lineWidth = wickWidth;
+          c.strokeRect(left + wickWidth / 2, top + wickWidth / 2, bodyWidth - wickWidth, bottom - top - wickWidth);
         } else {
-          c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
+          c.fillRect(left, top, bodyWidth, bottom - top);
         }
       });
     } else {
@@ -1011,13 +996,31 @@ export class TerminalChart {
         c.globalAlpha = 1;
       }
     }
-    if (this.showVolume) {
-      const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...barsToRenderSafe.map((b) => b.volume || 0));
-      barsToRenderSafe.forEach((b, j) => {
-        const x = plot.left + (j + 0.5) * this.barWidth, hh = ((b.volume || 0) / vmax) * (plot.bottom - vTop), up = b.close >= b.open;
-        c.fillStyle = up ? `${bullColor}33` : `${bearColor}33`;
-        c.fillRect(x - Math.max(1, this.barWidth * 0.32), plot.bottom - hh, Math.max(1, this.barWidth * 0.64), hh);
+    if (volumeHeight) {
+      c.save();
+      c.strokeStyle = grid;
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(plot.left, plot.bottom);
+      c.lineTo(plot.right, plot.bottom);
+      c.moveTo(plot.right, plot.top);
+      c.lineTo(plot.right, volumeBottom);
+      c.stroke();
+      const width = Math.max(1, this.barWidth * .56);
+      validBars.forEach((bar, index) => {
+        if (!Number.isFinite(bar.volume) || bar.volume <= 0) return;
+        const x = plot.left + (index + .5) * this.barWidth;
+        const height = bar.volume / maxVolume * (volumeHeight - 8);
+        c.fillStyle = bar.close >= bar.open ? `${bullColor}66` : `${bearColor}66`;
+        c.fillRect(x - width / 2, volumeBottom - height, width, height);
       });
+      const hoverSlot = this.pointer ? indices.indexOf(this.indexAt(this.pointer.x)) : -1;
+      const volume = validBars[hoverSlot >= 0 ? hoverSlot : validBars.length - 1].volume;
+      c.fillStyle = muted;
+      c.font = '10px ui-monospace, monospace';
+      c.textAlign = 'center';
+      c.fillText(Number.isFinite(volume) ? `Vol ${compactVolume.format(volume)}` : 'Vol —', plot.right + 38, volumeBottom - 10, 64);
+      c.restore();
     }
     this.activeIndicators.forEach((inst) => {
       if (!inst.visible || inst.unavailable) return;
@@ -1144,7 +1147,7 @@ export class TerminalChart {
       c.save();
       c.lineWidth = 1;
       c.setLineDash([4, 4]);
-      line(xx, plot.top, xx, panes ? h - 22 : plot.bottom, muted);
+      line(xx, plot.top, xx, panes ? h - 22 : volumeBottom, muted);
       line(plot.left, yy, plot.right, yy, muted);
       c.restore();
       if (Number.isFinite(axisValue)) drawAxisTag(c, formatAxisValue(axisValue), plot.right + 2, yy - 9, tagWidth, chartInk, tagSurface);
@@ -1178,7 +1181,9 @@ export class TerminalChart {
   }
 
   renderCornerLegend(bar){
-    if(!bar)return;
+    if (!bar) return;
+    const dateLabel = document.getElementById('tv-leg-date');
+    if (dateLabel) dateLabel.textContent = formatAxisDate(bar.time, this.isIntraday());
     const o=bar.open??0,h=bar.high??o,l=bar.low??o,c=bar.close??0,d=c-o,p=o?d/o*100:0,col=d>=0?'var(--gain)':'var(--loss)';
     [['tv-leg-open',o],['tv-leg-high',h],['tv-leg-low',l],['tv-leg-close',c]].forEach(([id,v])=>{
       const el=document.getElementById(id);
@@ -1244,6 +1249,8 @@ export class TerminalChart {
   }
 
   resetCornerLegend(symbol='',interval=null){
+    const dateLabel = document.getElementById('tv-leg-date');
+    if (dateLabel) dateLabel.textContent = '';
     const origin = document.getElementById('tv-leg-provenance');
     if (origin) {
       origin.replaceChildren();

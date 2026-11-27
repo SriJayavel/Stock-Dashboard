@@ -824,7 +824,7 @@ export function syncChartControlsToPreferences() {
     button.title = `Chart type: ${name}`;
     button.setAttribute('aria-label', button.title);
     const label = button.querySelector('.tv-tb-symbol');
-    if (label) label.textContent = abbreviation;
+    if (label) label.textContent = button.id === 'tv-tb-chart-type' ? name : abbreviation;
   }
 
   // 4. Sync Scale buttons (log / pct)
@@ -2163,6 +2163,9 @@ function setupTradingViewChromeControls() {
       syncChartControlsToPreferences();
     });
   }
+
+  document.getElementById('chart-zoom-out')?.addEventListener('click', () => chartInstance?.zoom(1));
+  document.getElementById('chart-zoom-in')?.addEventListener('click', () => chartInstance?.zoom(-1));
 
   document.getElementById('tv-volume-btn')?.addEventListener('click', event => {
     if (!chartInstance) return;
