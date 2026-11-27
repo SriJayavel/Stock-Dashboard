@@ -8209,7 +8209,7 @@ function renderMacroRadarPanels() {
       return;
     }
     container.innerHTML = items
-      .map((it) => {
+      .map((it, index) => {
         const chgClass = it.change_pct > 0 ? 'chg-up' : it.change_pct < 0 ? 'chg-down' : '';
         const chgPct = quoteMovement(it.change_pct, '%');
         const priceFmt = formatMacroPrice(it.price, it.symbol);
@@ -8221,18 +8221,28 @@ function renderMacroRadarPanels() {
           ? `${quoteTimestamp.format(asOf)} IST`
           : 'Time unavailable';
 
+        const name = escapeHtml(it.name || it.symbol);
+        const symbol = escapeHtml(it.symbol);
+        const sourceTime = escapeHtml(timestamp || 'Timestamp unavailable');
+        const chart = index === 0 ? sparklineSvg(it.sparkline_data, true) : '';
+        const range = Number.isFinite(it.low) && Number.isFinite(it.high)
+          ? `<span>Low <strong>${formatMacroPrice(it.low, it.symbol)}</strong></span>
+             <span>High <strong>${formatMacroPrice(it.high, it.symbol)}</strong></span>`
+          : '<span>Price series unavailable</span>';
+
         return `
-          <div class="macro-asset-row" data-sym="${it.symbol}" data-category="${category}" tabindex="-1" role="button" aria-label="${it.name || it.symbol}, ${priceFmt}, change ${chgPct}, ${freshnessText}">
-            <div class="macro-asset-ident">
-              <span class="macro-asset-name">${it.name || it.symbol}</span>
-              <span class="macro-asset-sym" title="${timestamp || 'Timestamp unavailable'}">${it.symbol}</span>
-            </div>
-            <div class="macro-asset-values">
+          <button type="button" class="macro-asset-row${index === 0 ? ' macro-asset-lead' : ''}" data-sym="${symbol}" data-category="${category}" tabindex="-1" aria-label="${name}, ${priceFmt}, change ${chgPct}, ${freshnessText}">
+            <span class="macro-asset-ident">
+              <span class="macro-asset-name">${name}</span>
+              <span class="macro-asset-sym" title="${sourceTime}">${symbol}</span>
+            </span>
+            <span class="macro-asset-values">
               <span class="macro-asset-price">${priceFmt}</span>
-              <span class="tape-chg ${chgClass}" style="font-size: 10.5px; padding: 1px 6px;">${chgPct}</span>
-              <span class="macro-asset-freshness" title="${timestamp || 'Timestamp unavailable'}">${freshnessText}</span>
-            </div>
-          </div>
+              <span class="tape-chg ${chgClass}">${chgPct}</span>
+              <span class="macro-asset-freshness" title="${sourceTime}">${freshnessText}</span>
+            </span>
+            ${index === 0 ? `<span class="macro-asset-chart${chart ? '' : ' macro-asset-chart-empty'}">${chart || range}</span>` : ''}
+          </button>
         `;
       })
       .join('');
@@ -8264,10 +8274,7 @@ function renderMacroRadarPanels() {
 
       row.addEventListener('keydown', (e) => {
         const currentIdx = macroRows.indexOf(row);
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          activateMacroRow(row);
-        } else if (e.key === 'ArrowDown') {
+        if (e.key === 'ArrowDown') {
           e.preventDefault();
           const nextIdx = Math.min(currentIdx + 1, macroRows.length - 1);
           macroRows[nextIdx].focus({ preventScroll: true });

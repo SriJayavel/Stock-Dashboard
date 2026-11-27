@@ -801,3 +801,145 @@ html.light-theme .monitor-watchlist-table .gain { color: #047857; }
   .monitor-watchlist-table tbody th { grid-column: 1 / -1; }
   .monitor-watchlist-table td[data-label]::before { content: attr(data-label) / ""; display: block; margin-block-end: .2rem; color: var(--text-muted); font-size: var(--type-label); }
 }
+
+/* Command search */
+#search-dropdown {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  border-image: none;
+  backdrop-filter: none;
+  background-blend-mode: normal;
+  padding: .25rem;
+}
+#search-dropdown .search-item {
+  display: block;
+  inline-size: 100%;
+  padding: .6rem .75rem;
+  text-align: start;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+#search-dropdown .search-item + .search-item { border-block-start-color: var(--border); }
+#search-dropdown .search-item::before { content: none; }
+#search-dropdown .search-item:hover { background: var(--surface-hover); }
+#search-dropdown .search-item[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: transparent;
+  box-shadow: inset 3px 0 var(--accent);
+}
+#search-dropdown .search-item:focus-visible { outline-offset: -2px; }
+#search-dropdown .search-item-symbol { color: var(--text); }
+#search-dropdown .search-item-name { color: var(--text); margin: 0; }
+#search-dropdown .search-item-exchange { color: var(--text-muted); letter-spacing: .02em; }
+
+.mara-unified-header .mara-ws-tab-btn[aria-selected="true"]:hover { color: var(--accent-hover); }
+
+#workspace-markets :is(.benchmark-board-table, .constituent-table) tbody tr:hover > :is(th, td) {
+  background: color-mix(in srgb, var(--text) 4%, var(--surface));
+}
+
+/* Markets cross-asset quotes */
+#workspace-markets .cross-asset-quotes .macro-panels-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(.75rem, 1.3vw, 1.2rem);
+}
+#workspace-markets .cross-asset-quotes .macro-panel {
+  min-inline-size: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: none;
+  transform: none;
+  transition: none;
+  will-change: auto;
+}
+.cross-asset-quotes .macro-panel::before,
+.cross-asset-quotes .macro-panel-header::after { content: none; }
+.cross-asset-quotes .macro-panel-header {
+  margin: 0;
+  padding: .85rem 1rem;
+  background: transparent;
+}
+.cross-asset-quotes .macro-panel-title {
+  margin: 0;
+  font: 650 var(--type-body) var(--font-sans);
+  letter-spacing: normal;
+  text-transform: none;
+}
+#workspace-markets .cross-asset-quotes .macro-asset-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: .25rem .8rem;
+  inline-size: 100%;
+  padding: .8rem 1rem;
+  border: 0;
+  border-block-end: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  text-align: start;
+  font: var(--type-body) var(--font-sans);
+  box-shadow: none;
+}
+#workspace-markets .cross-asset-quotes .macro-asset-row:last-child { border-block-end: 0; }
+#workspace-markets .cross-asset-quotes .macro-asset-row:hover { background: var(--surface-hover); }
+#workspace-markets .cross-asset-quotes .macro-asset-row.active-row {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+#workspace-markets .cross-asset-quotes .macro-asset-row:focus-visible { outline-offset: -2px; }
+.cross-asset-quotes .macro-asset-ident { gap: .2rem; }
+.cross-asset-quotes .macro-asset-name { font-size: var(--type-body); }
+.cross-asset-quotes .macro-asset-sym {
+  max-inline-size: 100%;
+  inline-size: fit-content;
+  padding: .12rem .35rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: .68rem;
+}
+#workspace-markets .cross-asset-quotes .macro-asset-values {
+  display: grid;
+  justify-items: end;
+  gap: .15rem;
+  font-variant-numeric: tabular-nums;
+}
+.cross-asset-quotes .macro-asset-price { font-size: var(--type-table); }
+.cross-asset-quotes .tape-chg { padding: 0; font: 600 var(--type-label) var(--font-mono); }
+.cross-asset-quotes .macro-asset-freshness { padding: 0; font: .68rem var(--font-sans); }
+#workspace-markets .cross-asset-quotes .macro-asset-lead { align-items: start; padding-block: 1rem .65rem; }
+.cross-asset-quotes .macro-asset-lead .macro-asset-price { font: 650 clamp(1rem, 1.55vw, 1.4rem) var(--font-mono); }
+.cross-asset-quotes .macro-asset-chart {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: stretch;
+  min-inline-size: 0;
+  block-size: 5.3rem;
+  margin-block-start: .55rem;
+}
+.cross-asset-quotes .macro-asset-chart svg {
+  inline-size: 100%;
+  block-size: 100%;
+  color: var(--text-muted);
+}
+.cross-asset-quotes .macro-asset-chart polyline { vector-effect: non-scaling-stroke; }
+.cross-asset-quotes .macro-asset-chart-empty {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-inline: .65rem;
+  border-block-start: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--type-label);
+}
+.cross-asset-quotes .macro-asset-chart-empty strong { color: var(--text); font-weight: 600; }
+
+@media (max-width: 800px) {
+  #workspace-markets .cross-asset-quotes .macro-panels-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15.5rem), 1fr));
+  }
+}
