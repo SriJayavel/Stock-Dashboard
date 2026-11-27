@@ -345,12 +345,30 @@ test('opens populated company research and keeps News and Earnings reachable', a
   await expect(overview).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Enter');
   const news = page.getByRole('tabpanel', { name: 'News' });
-  await expect(news).toContainText('No verified news');
+  await expect(news).toContainText('Archived research');
+  await expect(news.getByRole('heading', { name: 'Archived company disclosures' })).toBeVisible();
+  await expect(news.getByRole('heading', { name: 'Sector / Market context' })).toBeVisible();
+  await expect(news.getByRole('link', { name: /acquisition of BBY/ })).toHaveAttribute('href', /tcs\.com/);
+  await news.getByRole('button', { name: 'Deals', exact: true }).click();
+  await expect(news.getByRole('link', { name: /acquisition of BBY/ })).toBeVisible();
+  await expect(news.getByRole('heading', { name: 'Sector / Market context' })).toBeHidden();
+  await news.getByRole('button', { name: 'Earnings', exact: true }).click();
+  await expect(news.getByRole('link', { name: /files September-quarter results/ })).toBeVisible();
+  await expect(news.getByRole('heading', { name: 'Sector / Market context' })).toBeVisible();
   await news.getByRole('link', { name: 'Earnings' }).click();
   await expect(page.getByRole('tabpanel', { name: 'Earnings' })).toContainText('100,000');
   await expect(page.getByRole('tabpanel', { name: 'Earnings' })).toContainText('Final dividend');
+  for (const [symbol, company] of [['AAPL', 'Apple'], ['HSBA.L', 'HSBC']]) {
+    await page.goto(`/?freeze=1#/research/${symbol}/news`);
+    const sources = page.getByRole('region', { name: 'Research sources' });
+    const headlines = sources.getByRole('link', { name: 'Company headlines' });
+    await expect.poll(async () => new URL(await headlines.getAttribute('href')).searchParams.get('q')).toContain(company);
+    await expect(sources.getByRole('link', { name: 'Filings and investor relations' })).toBeVisible();
+    await expect(sources.getByRole('link', { name: 'Sector / Market headlines' })).toBeVisible();
+    await expect(page.locator('#panel-news')).not.toContainText('BBY Services');
+  }
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/?freeze=1#/research');
+  await page.goto('/?freeze=1#/research/TCS.NS/overview');
   await expect(page.getByRole('heading', { name: 'Tata Consultancy Services' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await overview.press('End');

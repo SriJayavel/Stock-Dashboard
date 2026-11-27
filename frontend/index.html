@@ -18,7 +18,7 @@
     <meta name="twitter:title" content="MARA · Equities research terminal" />
     <meta name="twitter:description" content="Explore benchmarks and interactive price charts in the synthetic market demo." />
     <meta name="twitter:image" content="https://mara-stock-terminal.vercel.app/og-image.png" />
-    <meta name="theme-color" content="#101114" />
+    <meta name="theme-color" content="#0e0f11" />
     <link rel="canonical" href="https://mara-stock-terminal.vercel.app/" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
@@ -712,21 +712,6 @@
                   <span class="tv-tb-symbol" style="font-family: var(--font-mono); font-weight: 700; color: var(--text);">C</span>
                 </button>
 
-                <div class="tv-tb-divider"></div>
-
-                <!-- Range Segmented Control (1D / 5D / 1M / 3M / 6M / YTD / 1Y / 5Y / All) -->
-                <div class="range-segmented-control" id="range-group" role="group" aria-label="Chart range">
-                  <button class="range-btn" data-range="1D" title="1 Day Range">1D</button>
-                  <button class="range-btn" data-range="5D" title="5 Days Range">5D</button>
-                  <button class="range-btn" data-range="1M" title="1 Month Range">1M</button>
-                  <button class="range-btn" data-range="3M" title="3 Months Range">3M</button>
-                  <button class="range-btn" data-range="6M" title="6 Months Range">6M</button>
-                  <button class="range-btn" data-range="ytd" title="Year to Date">YTD</button>
-                  <button class="range-btn" data-range="1y" title="1 Year Range">1Y</button>
-                  <button class="range-btn" data-range="5y" title="5 Years Range">5Y</button>
-                  <button class="range-btn" data-range="all" title="All Time">All</button>
-                </div>
-
               </div>
               <div class="tv-tb-actions">
                 <div class="tv-overlay-controls" role="group" aria-label="Chart overlays">
@@ -749,7 +734,10 @@
 
                 <div class="tv-tb-divider"></div>
 
-                <!-- Alert Button -->
+                <button type="button" class="tv-tb-btn" id="tv-volume-btn" aria-pressed="true">Volume</button>
+                <button type="button" class="tv-tb-btn" id="tv-measure-btn" aria-pressed="false"
+                  aria-controls="chart-measure-readout">Measure</button>
+
                 <button class="tv-tb-btn" id="tv-tb-alert-btn" aria-label="Create Alert">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -844,7 +832,22 @@
                 <div class="chart-skeleton-shimmer" id="chart-skeleton-shimmer">
                   <div class="shimmer-pulse-text">Loading chart...</div>
                 </div>
-                <div id="tv-chart-container" role="img" aria-label="Price chart"></div>
+                <div id="tv-chart-container" role="group" aria-label="Price chart"></div>
+              </div>
+
+              <div class="chart-range-dock">
+                <div class="range-segmented-control" id="range-group" role="group" aria-label="Chart range">
+                  <button class="range-btn" data-range="1D" title="1 Day Range">1D</button>
+                  <button class="range-btn" data-range="5D" title="5 Days Range">5D</button>
+                  <button class="range-btn" data-range="1M" title="1 Month Range">1M</button>
+                  <button class="range-btn" data-range="3M" title="3 Months Range">3M</button>
+                  <button class="range-btn" data-range="6M" title="6 Months Range">6M</button>
+                  <button class="range-btn" data-range="ytd" title="Year to Date">YTD</button>
+                  <button class="range-btn" data-range="1y" title="1 Year Range">1Y</button>
+                  <button class="range-btn" data-range="5y" title="5 Years Range">5Y</button>
+                  <button class="range-btn" data-range="all" title="All Time">All</button>
+                </div>
+                <output class="chart-measure-readout" id="chart-measure-readout" aria-live="polite" hidden></output>
               </div>
 
               <!-- 5. Bottom Status Bar (28px) -->

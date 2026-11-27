@@ -2445,11 +2445,11 @@ textarea {
 }
 
 .benchmark-board-table tbody tr:hover {
-  background: rgba(var(--accent-rgb), 0.04);
+  background: var(--surface-hover);
 }
 
 .benchmark-board-table tbody tr.active-row {
-  background: rgba(var(--accent-rgb), 0.08);
+  background: var(--surface-hover);
 }
 
 .benchmark-board-table td {
@@ -3416,7 +3416,7 @@ body[data-workspace="markets"] .mara-unified-header .mara-active-asset-strip { d
 }
 
 #workspace-markets .benchmark-board-table tbody tr.active-row {
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 2px 0 var(--text-muted);
 }
 
 /* Mobile adjustments */

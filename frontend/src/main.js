@@ -1,7 +1,8 @@
+import { renderAttributedNews } from './research-news.js';
 import { marketSessions } from './market-sessions.js';
 import { sparklineSvg } from './sparkline.js';
 import { mountBenchmarkComparison } from './benchmark-comparison.js';
-import { internationalMarket } from './equity-directory.js';
+import { internationalEquities, internationalMarket } from './equity-directory.js';
 import { marketQuotes, quoteMovement, quotePrice } from './market-quotes.js';
 import { escapeHtml, provenance, setupProvenance } from './provenance.js';
 import { roundPrice, seededRandom, walkStep } from './demo/simulator.js';
@@ -62,6 +63,8 @@ let syncDemoSchedule = () => {};
 let currentAnalyzeTab = 'chart';
 let currentResearchTab = 'overview';
 let researchLoadState = 'loading';
+let researchNewsState;
+let researchNewsRequest;
 let currentMonitorTab = 'watchlist';
 let currentActiveTab = 'chart';
 let currentMacroCategory = 'Indices';
@@ -513,7 +516,10 @@ export function setResearchSubTab(subTab) {
     panel.tabIndex = selected ? 0 : -1;
   });
 
-  if (subTab === 'overview') {
+  if (subTab === 'news') {
+    renderNewsEvents(currentResearchData || {});
+    loadAttributedNews();
+  } else if (subTab === 'overview') {
     renderResearchOverview();
   } else if (subTab === 'report') {
     renderOneClickReport(currentOverviewData, currentResearchData, currentDeepResearchData, currentV4Data);
@@ -783,6 +789,14 @@ export async function activateWorkspaceTab(targetTab) {
   }
 }
 
+const chartTypeLabels = {
+  candles: ['Candles', 'C'],
+  heikin_ashi: ['Heikin Ashi', 'HA'],
+  hollow_candles: ['Hollow candles', 'HC'],
+  area: ['Area', 'A'],
+  line: ['Line', 'L'],
+};
+
 export function syncChartControlsToPreferences() {
   if (!chartInstance) return;
 
@@ -803,25 +817,14 @@ export function syncChartControlsToPreferences() {
     btn.classList.toggle('active', btn.getAttribute('data-range') === range);
   });
 
-  // 3. Sync Chart Type Rail Button
-  const chartType = chartInstance.chartType || 'candles';
-  const railChartType = document.getElementById('tv-rail-chart-type');
-  if (railChartType) {
-    railChartType.setAttribute('data-type', chartType);
-    // Format chart type for display (replace underscores with spaces and capitalize words)
-    const formattedType = chartType
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-    railChartType.title = `Chart Type: ${formattedType}`;
-    // Update button content to show first letter of chart type
-    const buttonContent = chartType
-      .split('_')
-      .map(part => part.charAt(0))
-      .join('')
-      .toUpperCase();
-    const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
-    if (railChartTypeSymbol) railChartTypeSymbol.textContent = buttonContent;
+  const type = chartInstance.chartType;
+  const [name, abbreviation] = chartTypeLabels[type] || chartTypeLabels.candles;
+  for (const button of document.querySelectorAll('#tv-rail-chart-type, #tv-tb-chart-type')) {
+    button.dataset.type = type;
+    button.title = `Chart type: ${name}`;
+    button.setAttribute('aria-label', button.title);
+    const label = button.querySelector('.tv-tb-symbol');
+    if (label) label.textContent = abbreviation;
   }
 
   // 4. Sync Scale buttons (log / pct)
@@ -2151,68 +2154,28 @@ function setupTradingViewChromeControls() {
     });
   }
 
-  // 5. Left Rail: Chart Type Toggle (Candles -> Heikin Ashi -> Hollow Candles -> Area -> Line -> Candles)
-  const railChartType = document.getElementById('tv-rail-chart-type');
-  const chartTypes = ['candles', 'heikin_ashi', 'hollow_candles', 'area', 'line'];
-  if (railChartType) {
-    // Initialize button state from localStorage
-    const savedChartType = localStorage.getItem(getAccountStorageKey('apex_chart_type')) || 'candles';
-    railChartType.setAttribute('data-type', savedChartType);
-    railChartType.title = `Chart Type: ${savedChartType.charAt(0).toUpperCase() + savedChartType.slice(1)}`;
-    // Update button content to show first letter of chart type
-    const initialButtonContent = savedChartType
-      .split('_')
-      .map(part => part.charAt(0))
-      .join('')
-      .toUpperCase();
-    const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
-    if (railChartTypeSymbol) railChartTypeSymbol.textContent = initialButtonContent;
-
-    let lastClick = 0;
-    railChartType.addEventListener('click', (e) => {
-        const now = Date.now();
-        const doubleClick = (now - lastClick) < 300;
-        lastClick = now;
-
-        if (doubleClick) {
-          // Double-click: reset to default chart type (candles)
-          const nextType = 'candles';
-          railChartType.setAttribute('data-type', nextType);
-          railChartType.title = `Chart Type: Candles`;
-          // Update button content to show first letter of chart type
-          const buttonContent = nextType
-            .split('_')
-            .map(part => part.charAt(0))
-            .join('')
-            .toUpperCase();
-          const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
-          if (railChartTypeSymbol) railChartTypeSymbol.textContent = buttonContent;
-          if (chartInstance) {
-            chartInstance.setChartType(nextType);
-          }
-          showToast(`Chart View: Candles (Reset)`, 'info');
-        } else {
-          // Single-click: cycle to next chart type
-          const currentType = railChartType.getAttribute('data-type') || 'candles';
-          const nextIdx = (chartTypes.indexOf(currentType) + 1) % chartTypes.length;
-          const nextType = chartTypes[nextIdx];
-          railChartType.setAttribute('data-type', nextType);
-          railChartType.title = `Chart Type: ${nextType.charAt(0).toUpperCase() + nextType.slice(1)}`;
-          // Update button content to show first letter of chart type
-          const buttonContent = nextType
-            .split('_')
-            .map(part => part.charAt(0))
-            .join('')
-            .toUpperCase();
-          const railChartTypeSymbol = railChartType.querySelector('.tv-tb-symbol');
-          if (railChartTypeSymbol) railChartTypeSymbol.textContent = buttonContent;
-          if (chartInstance) {
-            chartInstance.setChartType(nextType);
-          }
-          showToast(`Chart View: ${nextType.toUpperCase().replace('_', ' ')}`, 'info');
-        }
-      });
+  const chartTypes = Object.keys(chartTypeLabels);
+  for (const button of document.querySelectorAll('#tv-rail-chart-type, #tv-tb-chart-type')) {
+    button.addEventListener('click', event => {
+      if (!chartInstance) return;
+      const index = chartTypes.indexOf(chartInstance.chartType);
+      chartInstance.setChartType(event.detail > 1 ? 'candles' : chartTypes[(index + 1) % chartTypes.length]);
+      syncChartControlsToPreferences();
+    });
   }
+
+  document.getElementById('tv-volume-btn')?.addEventListener('click', event => {
+    if (!chartInstance) return;
+    chartInstance.showVolume = !chartInstance.showVolume;
+    event.currentTarget.setAttribute('aria-pressed', String(chartInstance.showVolume));
+    chartInstance.render();
+  });
+
+  document.getElementById('tv-measure-btn')?.addEventListener('click', () => {
+    if (!chartInstance) return;
+    chartInstance.setMeasureMode(!chartInstance.measuring);
+    if (chartInstance.measuring) chartInstance.canvas.focus();
+  });
 
   // 6. Left Rail: Fit / Reset Content View
   const railFit = document.getElementById('tv-rail-fit');
@@ -3979,6 +3942,8 @@ async function loadStock(symbol, timeframe = '1y') {
   currentDeepResearchData = null;
   currentV4Data = null;
   researchLoadState = 'loading';
+  researchNewsRequest?.abort();
+  researchNewsState = undefined;
   resetResearchPanels();
   refreshResearchSummary();
   await prepareChart();
@@ -4033,6 +3998,7 @@ async function loadStock(symbol, timeframe = '1y') {
     if (token !== currentLoadToken) return; // Discard stale click response
     currentOverviewData = overview;
     refreshResearchSummary();
+    if (currentResearchTab === 'news') renderNewsEvents(currentResearchData || {});
     renderStockOverview(overview);
 
     if (overview?.demo_snapshot_only) {
@@ -4132,7 +4098,7 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
         : `${symbol} price chart. ${historyData?.message || 'Price history unavailable.'}`);
 
     if (chartInstance) {
-      chartInstance.setData(historyData);
+      chartInstance.setData(historyData, false, activeRange);
       updateChartEventMarkers();
     }
     updateChartTelemetry(historyData);
@@ -5070,43 +5036,43 @@ function renderPeerIntelligence(data) {
   });
 }
 
+async function loadAttributedNews(retry = false) {
+  if (!currentSymbol || isDemoMode() || researchNewsState?.news_status === 'loading') return;
+  if (!retry && researchNewsState && Date.now() - researchNewsState.checkedAt < 15 * 60 * 1000) return;
+  researchNewsRequest?.abort();
+  const controller = new AbortController();
+  researchNewsRequest = controller;
+  const symbol = currentSymbol;
+  researchNewsState = { news_status: 'loading' };
+  renderNewsEvents(currentResearchData || {});
+
+  let result;
+  try {
+    result = await api.getAttributedNews(symbol, controller.signal);
+  } catch {
+    result = { news_status: 'unavailable' };
+  }
+  if (controller.signal.aborted || symbol !== currentSymbol) return;
+  researchNewsState = { ...(result || { news_status: 'unavailable' }), checkedAt: Date.now() };
+  renderNewsEvents(currentResearchData || {});
+}
+
 // Render Contextual News & Events (Tab 5)
 function renderNewsEvents(data) {
   const container = document.getElementById('news-container');
-  if (!container) return;
+  if (!container || !currentSymbol) return;
 
-  const items = data.news_events || [];
-  if (items.length === 0) {
-    container.innerHTML = `
-      <div class="research-state">
-        <p>No verified news for this symbol.</p>
-        <div class="research-jump-links">${researchJumpLinks(['earnings', 'whatchanged', 'anomalies', 'lab'])}</div>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = items
-    .map((item) => {
-      const impactClass = item.impact_area ? `impact-${item.impact_area.toLowerCase().replace(/[^a-z]/g, '-')}` : 'impact-corporate';
-      return `
-      <div class="news-event-card">
-        <div>
-          <div class="news-card-top">
-            <span class="news-impact-tag ${impactClass}">${item.impact_area}</span>
-            <span class="news-card-date">${item.published_date}</span>
-          </div>
-          <div class="news-card-title">${item.title}</div>
-          <div class="news-card-summary attributed-context">${item.summary || 'Market press and regulatory disclosure coverage.'}</div>
-        </div>
-        <div class="news-card-footer">
-          <span>${item.publisher}</span>
-          <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="news-source-link">Read Source ↗</a>
-        </div>
-      </div>
-    `;
-    })
-    .join('');
+  renderAttributedNews(container, {
+    symbol: currentSymbol,
+    data: { ...data, ...researchNewsState, news_events: [...(data.news_events || []), ...(researchNewsState?.news_events || [])] },
+    listing: internationalEquities.get(currentSymbol),
+    quote: currentOverviewData,
+    onRetry: () => loadAttributedNews(true),
+    state: researchLoadState,
+    demo: isDemoMode(),
+    actionLinks: researchJumpLinks(['earnings', 'whatchanged', 'anomalies', 'lab']),
+    priceLinks: researchJumpLinks(['whatchanged', 'anomalies']),
+  });
 }
 
 // Render Research Dossier Placeholder (Tab 6)

@@ -10,6 +10,7 @@ from backend.api.dependencies import (
     get_screener_service_dep,
     get_relationship_intelligence_service_dep,
 )
+from backend.features.research.news import get_attributed_news
 from backend.features.screener.service import ScreenerService
 from backend.features.relationship_intelligence.service import RelationshipIntelligenceService
 
@@ -43,6 +44,14 @@ async def get_screener(
         return await screener_service.get_snapshot(universe)
     except Exception as e:
         raise HTTPException(500, f"Failed to fetch screener: {e}")
+
+
+@router.get("/research/news")
+async def get_research_news(
+    symbol: str = Query(..., min_length=1, max_length=32, pattern=r"^[A-Za-z0-9^=.&_-]+$"),
+):
+    """Fetch attributed headlines for the requested listing."""
+    return await get_attributed_news(symbol.upper())
 
 
 @router.get("/rss/news")

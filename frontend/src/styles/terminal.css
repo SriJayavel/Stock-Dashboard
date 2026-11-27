@@ -2759,8 +2759,8 @@ body.watchlist-drawer-open .main-layout[data-workspace="analyze"] {
 }
 
 .benchmark-board-table tbody tr.active-row {
-  background: rgba(var(--accent-rgb), 0.04) !important;
-  box-shadow: inset 4px 0 0 var(--accent-primary);
+  background: color-mix(in srgb, var(--text) 2%, var(--surface)) !important;
+  box-shadow: inset 2px 0 var(--text-muted);
 }
 
 .benchmark-board-table tbody tr.active-row td {

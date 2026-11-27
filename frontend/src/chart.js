@@ -9,6 +9,33 @@ import { provenance } from './provenance.js';
 
 const bullColor = '#10b981';
 const bearColor = '#f43f5e';
+const axisDateFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric',
+});
+const axisTimeFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+const signedNumber = new Intl.NumberFormat('en-US', { maximumFractionDigits: 4, signDisplay: 'exceptZero' });
+const signedPercent = new Intl.NumberFormat('en-US', {
+  style: 'percent', maximumFractionDigits: 2, signDisplay: 'exceptZero',
+});
+
+function formatAxisDate(time, intraday) {
+  const instant = new Date(typeof time === 'number' ? (time < 1e11 ? time * 1000 : time) : time);
+  if (!Number.isFinite(instant.getTime())) return dateString(time);
+  return axisDateFormat.format(instant) + (intraday ? ` · ${axisTimeFormat.format(instant)} UTC` : '');
+}
+
+function drawAxisTag(ctx, label, left, top, width, ink, surface) {
+  ctx.save();
+  ctx.fillStyle = surface;
+  ctx.fillRect(left, top, width, 18);
+  ctx.fillStyle = ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, left + width / 2, top + 9, width - 8);
+  ctx.restore();
+}
 
 function getThemeColor(token, fallback) {
   return getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
@@ -201,7 +228,9 @@ export class TerminalChart {
     this.rawDailyCandles = []; this.currentCandles = []; this.markers = []; this.visibleCount = 0; this.endIndex = 0;
     this.activeInterval = localStorage.getItem(getAccountStorageKey('apex_chart_interval')) || 'D'; this.activeRange = localStorage.getItem(getAccountStorageKey('apex_chart_range')) || '1Y';
     this.chartType = localStorage.getItem(getAccountStorageKey('apex_chart_type')) || 'candles'; this.scaleMode = localStorage.getItem(getAccountStorageKey('apex_chart_scale')) || 'normal';
+    this.showVolume = true;
     this.crosshairEnabled = true; this.mainRatio = 0.72; this.canvas = document.createElement('canvas');
+    this.canvas.tabIndex = 0;
     this.canvas.className = 'apex-native-chart'; this.canvas.setAttribute('role','img'); this.canvas.setAttribute('aria-label','Interactive stock price chart');
     this.container.replaceChildren(this.canvas); this.ctx = this.canvas.getContext('2d');
     const parent = container.parentElement || container;
@@ -432,7 +461,7 @@ export class TerminalChart {
     const finalWidth = Math.max(320, width || r.width || this.container.clientWidth || 800);
     // Align canvas width to container to prevent overflow
     this.width = Math.min(finalWidth, this.container.clientWidth || finalWidth);
-    this.height = Math.max(320, height || r.height || this.container.clientHeight || 460);
+    this.height = height || r.height || this.container.clientHeight || 460;
     const dpr=window.devicePixelRatio||1;
     this.canvas.width=Math.round(this.width*dpr);
     this.canvas.height=Math.round(this.height*dpr);
@@ -447,7 +476,9 @@ export class TerminalChart {
     return ['1m', '2m', '5m', '15m', '30m', '60m', '1h'].includes(this.activeInterval);
   }
 
-  setData(data, preserveRange = false) {
+  setData(data, preserveRange = false, range = this.activeRange) {
+    this.activeRange = range;
+    if (!preserveRange && this.measuring) this.setMeasureMode(false);
     this.currentData = data;
     if (data?.interval) this.activeInterval = data.interval;
     if (!data?.candles?.length) {
@@ -489,11 +520,16 @@ export class TerminalChart {
     try { localStorage.setItem(getAccountStorageKey('apex_chart_range'), name); } catch {}
     const bars = this.currentCandles;
     if (!bars?.length) return;
+    this.applyNamedRange(name, bars);
+    this.rangeLimit = this.visibleCount;
+    this.render();
+  }
+
+  applyNamedRange(name, bars) {
     if (this.isIntraday()) {
       this.endIndex = bars.length;
       const upperName = name.toUpperCase();
       this.visibleCount = upperName === '1D' ? Math.min(bars.length, 390) : bars.length;
-      this.render();
       return;
     }
     // Normalize name to uppercase for comparison
@@ -504,39 +540,39 @@ export class TerminalChart {
       // Invalid date - show all bars
       this.endIndex = bars.length;
       this.visibleCount = bars.length;
-      this.render();
       return;
     }
     if (upperName === '1D' || upperName === '5D') {
       this.endIndex = bars.length;
       const daily = ['D', '1d'].includes(this.activeInterval);
       this.visibleCount = Math.min(bars.length, upperName === '5D' && daily ? 5 : 1);
-      this.render();
       return;
     }
-    if (upperName === '1M' || upperName === '1MO') date.setUTCMonth(date.getUTCMonth() - 1);
-    else if (upperName === '3M' || upperName === '3MO') date.setUTCMonth(date.getUTCMonth() - 3);
-    else if (upperName === '6M' || upperName === '6MO') date.setUTCMonth(date.getUTCMonth() - 6);
+    const months = { '1M': 1, '1MO': 1, '3M': 3, '3MO': 3, '6M': 6, '6MO': 6 }[upperName];
+    if (months) {
+      const day = date.getUTCDate();
+      date.setUTCDate(1);
+      date.setUTCMonth(date.getUTCMonth() - months);
+      const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+      date.setUTCDate(Math.min(day, lastDay));
+    }
     else if (upperName === 'YTD') date.setUTCFullYear(date.getUTCFullYear(), 0, 1);
     else if (upperName === '1Y' || upperName === '2Y') date.setUTCFullYear(date.getUTCFullYear() - (upperName === '1Y' ? 1 : 2));
     else if (upperName === '5Y') date.setUTCFullYear(date.getUTCFullYear() - 5);
     else if (upperName === 'ALL') {
       this.endIndex = bars.length;
       this.visibleCount = bars.length;
-      this.render();
       return;
     }
     else {
       // Unknown range - show all bars
       this.endIndex = bars.length;
       this.visibleCount = bars.length;
-      this.render();
       return;
     }
     const from = bars.findIndex((b) => new Date(`${dateString(b.time)}T00:00:00Z`) >= date);
     this.endIndex = bars.length;
     this.visibleCount = bars.length - Math.max(0, from);
-    this.render();
   }
 
   scrollToLatest() {
@@ -580,7 +616,7 @@ export class TerminalChart {
       bars.push({ ...candle });
       if (this.rawDailyCandles && this.rawDailyCandles !== bars) this.rawDailyCandles.push({ ...candle });
       this.endIndex = bars.length;
-      this.visibleCount = Math.min(bars.length, this.visibleCount + 1);
+      this.visibleCount = Math.min(this.rangeLimit || bars.length, this.visibleCount + 1);
     } else {
       return;
     }
@@ -641,13 +677,51 @@ export class TerminalChart {
     this.render();
   }
 
+  setMeasureMode(enabled) {
+    this.measuring = enabled;
+    this.measureStart = undefined;
+    this.measureEnd = undefined;
+    this.measureCursor = undefined;
+    this.canvas.classList.toggle('is-measuring', enabled);
+    if (enabled) this.canvas.setAttribute('aria-describedby', 'chart-measure-readout');
+    else this.canvas.removeAttribute('aria-describedby');
+    document.getElementById('tv-measure-btn')?.setAttribute('aria-pressed', String(enabled));
+    const readout = document.getElementById('chart-measure-readout');
+    if (readout) {
+      readout.hidden = !enabled;
+      readout.textContent = enabled ? 'Choose two candles. Use arrow keys and Enter on the chart.' : '';
+    }
+    this.render();
+  }
+
+  measureBar(index) {
+    const candle = this.currentCandles[index];
+    if (!Number.isFinite(candle?.close)) return;
+    const readout = document.getElementById('chart-measure-readout');
+    if (this.measureStart === undefined || this.measureEnd !== undefined) {
+      this.measureStart = index;
+      this.measureEnd = undefined;
+      if (readout) readout.textContent = 'Choose an ending candle.';
+    } else {
+      const start = this.currentCandles[this.measureStart];
+      const difference = candle.close - start.close;
+      const percentage = start.close ? ` (${signedPercent.format(difference / start.close)})` : '';
+      const bars = Math.abs(index - this.measureStart);
+      this.measureEnd = index;
+      if (readout) readout.textContent = `Close to close · ${signedNumber.format(difference)}${percentage} · ${bars} ${bars === 1 ? 'bar' : 'bars'} apart`;
+    }
+    this.render();
+  }
+
   bindInteraction() {
     this.pointer = null;
     this.canvas.addEventListener('pointermove', (e) => {
       const r = this.canvas.getBoundingClientRect(), x = e.clientX - r.left;
       if (this.drag) {
         const delta = Math.round((this.drag.x - e.clientX) / (this.barWidth || 8));
-        this.endIndex = Math.max(this.visibleCount, Math.min(this.currentCandles.length, this.drag.end + delta));
+        const length = this.currentCandles.length;
+        const earliest = length - (this.rangeLimit || length) + this.visibleCount;
+        this.endIndex = Math.max(earliest, Math.min(length, this.drag.end + delta));
         this.render();
         return;
       }
@@ -664,10 +738,37 @@ export class TerminalChart {
       this.render();
     });
     this.canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (this.measuring) {
+        const bounds = this.canvas.getBoundingClientRect();
+        const x = e.clientX - bounds.left;
+        if (x >= 12 && x <= this.width - 76) this.measureBar(this.indexAt(x));
+        return;
+      }
       this.drag = { x: e.clientX, end: this.endIndex };
       this.canvas.setPointerCapture(e.pointerId);
     });
     this.canvas.addEventListener('pointerup', () => { this.drag = null; });
+    this.canvas.addEventListener('lostpointercapture', () => { this.drag = null; });
+    this.canvas.addEventListener('keydown', event => {
+      if (!this.measuring) return;
+      const visible = this.renderedBarIndices || [];
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.setMeasureMode(false);
+        document.getElementById('tv-measure-btn')?.focus();
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        this.pointer = null;
+        const offset = event.key === 'ArrowLeft' ? -1 : 1;
+        this.measureCursor = Math.max(0, Math.min(visible.length - 1, (this.measureCursor ?? visible.length - 1) + offset));
+        this.render();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        this.measureBar(visible[this.measureCursor ?? visible.length - 1]);
+      }
+    });
     this.canvas.addEventListener('pointerleave', () => {
       this.pointer = null;
       // Premium enhancement: hide tooltip on leave with smooth fade
@@ -679,13 +780,14 @@ export class TerminalChart {
     });
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      // Premium enhancement: smooth scrolling with easing
-      const step = Math.max(1, Math.round(this.visibleCount * 0.12));
-      const direction = e.deltaY > 0 ? 1 : -1;
-      this.visibleCount = Math.max(20, Math.min(this.currentCandles.length, this.visibleCount + (step * direction)));
-      this.endIndex = this.currentCandles.length;
+      const length = this.currentCandles.length;
+      const limit = Math.min(length, this.rangeLimit || length);
+      if (!limit || !e.deltaY) return;
+      const count = this.visibleCount;
+      const step = Math.max(1, Math.round(count * 0.12));
+      this.visibleCount = Math.max(1, Math.min(limit, count + Math.sign(e.deltaY) * step));
+      this.endIndex = Math.max(length - limit + this.visibleCount, this.endIndex);
 
-      // Add momentum scrolling feel
       if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
       this.animationFrame = requestAnimationFrame(() => this.render());
     }, { passive: false });
@@ -708,11 +810,11 @@ export class TerminalChart {
     }
     this.lastRenderTime = now;
 
-    if (!this.ctx || !this.width) return;
+    if (!this.ctx || this.width < 120 || this.height < 96) return;
     const c = this.ctx, w = this.width, h = this.height;
     const isLight = document.documentElement.classList.contains('light-theme');
     const bg = getThemeColor('--bg', isLight ? '#ffffff' : '#101114');
-    const grid = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.035)';
+    const grid = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.07)';
     const muted = getThemeColor('--text-muted', isLight ? '#64748b' : '#a49d96');
     const accent = getThemeColor('--accent', isLight ? '#80551b' : '#eac47a');
     c.clearRect(0, 0, w, h);
@@ -814,17 +916,25 @@ export class TerminalChart {
       const numericLabel = tickFormatter.format(Math.abs(value) < step * 1e-8 ? 0 : value);
       c.fillText(this.scaleMode === 'pct' ? `${numericLabel}%` : numericLabel, w - 8, yy);
     }
-    for (let n = 0; n <= 6; n++) {
-      const xx = plot.left + (plot.right - plot.left) * n / 6;
+    const labelCount = Math.min(validBars.length, Math.max(1, Math.floor((plot.right - plot.left) / 100)));
+    const shortRange = Date.parse(dateString(validBars.at(-1).time)) - Date.parse(dateString(validBars[0].time)) < 120 * 86400000;
+    let previousLabel;
+    for (let n = 0; n < labelCount; n++) {
+      const index = labelCount === 1 ? validBars.length - 1 : Math.round(n * (validBars.length - 1) / (labelCount - 1));
+      const xx = plot.left + (index + 0.5) * this.barWidth;
+      const time = validBars[index].time;
+      const label = shortRange && !this.isIntraday() ? dateString(time).slice(5) : formatTickTime(time, this.isIntraday());
+      if (label === previousLabel) continue;
+      previousLabel = label;
       c.strokeStyle = grid;
       c.beginPath();
       c.moveTo(xx, plot.top);
       c.lineTo(xx, plot.bottom);
       c.stroke();
-      const idx = Math.min(barsToRenderSafe.length - 1, Math.floor(n / 6 * (barsToRenderSafe.length - 1)));
+      const half = c.measureText(label).width / 2;
       c.fillStyle = muted;
       c.textAlign = 'center';
-      if (barsToRenderSafe[idx]) c.fillText(formatTickTime(barsToRenderSafe[idx].time, this.isIntraday()), xx, h - 11);
+      c.fillText(label, Math.max(plot.left + half, Math.min(plot.right - half, xx)), h - 11);
     }
     if (this.chartType === 'candles') {
       // Premium enhancement: anti-aliased candlesticks with subtle shadows
@@ -861,21 +971,24 @@ export class TerminalChart {
         c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
       });
     } else if (this.chartType === 'hollow_candles') {
-      // Hollow Candles (outline depends on whether close > prior close)
+      // Rising bodies are outlined. Very small bodies stay visible as solid marks.
       barsToRenderSafe.forEach((b, j) => {
         const x = plot.left + (j + 0.5) * this.barWidth;
         const up = b.close >= b.open;
-        const priorUp = j > 0 && barsToRenderSafe[j-1].close >= barsToRenderSafe[j-1].open;
         const color = up ? bullColor : bearColor;
         c.strokeStyle = color;
-        c.fillStyle = up && priorUp ? color : 'rgba(0,0,0,0)'; // Hollow if same direction as prior
+        c.fillStyle = color;
         c.lineWidth = 1;
         c.beginPath();
         c.moveTo(x, y(b.high));
         c.lineTo(x, y(b.low));
         c.stroke();
         const top = y(Math.max(b.open, b.close)), bottom = y(Math.min(b.open, b.close)), cw = Math.max(1, Math.min(12, this.barWidth * 0.66));
-        c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
+        if (up && cw > 2 && bottom - top > 2) {
+          c.strokeRect(x - cw / 2 + .5, top + .5, cw - 1, bottom - top - 1);
+        } else {
+          c.fillRect(x - cw / 2, top, cw, Math.max(1, bottom - top));
+        }
       });
     } else {
       // Draw a clear price line using the active theme accent.
@@ -898,12 +1011,14 @@ export class TerminalChart {
         c.globalAlpha = 1;
       }
     }
-    const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...barsToRenderSafe.map((b) => b.volume || 0));
-    barsToRenderSafe.forEach((b, j) => {
-      const x = plot.left + (j + 0.5) * this.barWidth, hh = ((b.volume || 0) / vmax) * (plot.bottom - vTop), up = b.close >= b.open;
-      c.fillStyle = up ? `${bullColor}33` : `${bearColor}33`;
-      c.fillRect(x - Math.max(1, this.barWidth * 0.32), plot.bottom - hh, Math.max(1, this.barWidth * 0.64), hh);
-    });
+    if (this.showVolume) {
+      const vTop = plot.bottom - (plot.bottom - plot.top) * 0.19, vmax = Math.max(1, ...barsToRenderSafe.map((b) => b.volume || 0));
+      barsToRenderSafe.forEach((b, j) => {
+        const x = plot.left + (j + 0.5) * this.barWidth, hh = ((b.volume || 0) / vmax) * (plot.bottom - vTop), up = b.close >= b.open;
+        c.fillStyle = up ? `${bullColor}33` : `${bearColor}33`;
+        c.fillRect(x - Math.max(1, this.barWidth * 0.32), plot.bottom - hh, Math.max(1, this.barWidth * 0.64), hh);
+      });
+    }
     this.activeIndicators.forEach((inst) => {
       if (!inst.visible || inst.unavailable) return;
       const pane = inst.paneIndex, area = pane ? { left: plot.left, right: plot.right, top: mainH + (pane - 1) * (h - mainH) / panes + 26, bottom: mainH + pane * (h - mainH) / panes - 20 } : plot;
@@ -977,21 +1092,66 @@ export class TerminalChart {
       c.arc(xx, yy, 4, 0, Math.PI * 2);
       c.fill();
     });
-    if (this.pointer && this.crosshairEnabled) {
-      const xx = this.pointer.x, idx = this.indexAt(xx), b = bars[idx];
-      if (b) {
-        c.strokeStyle = accent;
-        c.setLineDash([4, 4]);
-        c.beginPath();
-        c.moveTo(xx, plot.top);
-        c.lineTo(xx, panes ? h : plot.bottom);
-        c.stroke();
-        c.beginPath();
-        c.moveTo(plot.left, this.pointer.y);
-        c.lineTo(w - 3, this.pointer.y);
-        c.stroke();
-        c.setLineDash([]);
-      }
+    const chartInk = getThemeColor('--text', isLight ? '#0f172a' : '#f2f4f7');
+    const tagSurface = getThemeColor('--surface-hover', isLight ? '#f1f5f9' : '#1e2024');
+    c.font = '11px ui-monospace, monospace';
+    const tagWidth = w - plot.right - 4;
+    const formatAxisValue = value => {
+      const precision = Math.max(2, tickDecimals);
+      const number = value.toLocaleString('en-US', { maximumFractionDigits: precision });
+      return this.scaleMode === 'pct' ? `${number}%` : number;
+    };
+    const line = (x1, y1, x2, y2, color) => {
+      c.strokeStyle = color;
+      c.beginPath();
+      c.moveTo(x1, y1);
+      c.lineTo(x2, y2);
+      c.stroke();
+    };
+    const xAt = slot => plot.left + (slot + .5) * this.barWidth;
+    const latest = bars.at(-1);
+    const latestY = y(latest.close);
+    if (indices.at(-1) === bars.length - 1 && latestY >= plot.top && latestY <= plot.bottom) {
+      c.save();
+      c.lineWidth = 1;
+      c.setLineDash([2, 4]);
+      line(plot.left, latestY, plot.right, latestY, muted);
+      c.restore();
+      drawAxisTag(c, formatAxisValue(scaled(latest.close)), plot.right + 2, latestY - 9, tagWidth, chartInk, tagSurface);
+    }
+
+    const pointerInPlot = this.pointer && this.pointer.x >= plot.left && this.pointer.x <= plot.right
+      && this.pointer.y >= plot.top && this.pointer.y <= plot.bottom;
+    const pointerSlot = pointerInPlot ? indices.indexOf(this.indexAt(this.pointer.x)) : -1;
+    const cursorSlot = this.measuring ? (pointerSlot >= 0 ? pointerSlot : this.measureCursor ?? indices.length - 1) : pointerSlot;
+    const markerA = indices.indexOf(this.measureStart);
+    const markerB = this.measureEnd === undefined ? cursorSlot : indices.indexOf(this.measureEnd);
+    if (markerA >= 0 && markerB >= 0 && validBars[markerB]) {
+      const x1 = xAt(markerA), x2 = xAt(markerB);
+      const y1 = y(validBars[markerA].close), y2 = y(validBars[markerB].close);
+      c.save();
+      c.globalAlpha = .11;
+      c.fillStyle = accent;
+      c.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.max(1, Math.abs(x2 - x1)), Math.max(1, Math.abs(y2 - y1)));
+      c.restore();
+      line(x1, y1, x2, y2, accent);
+    }
+    if (cursorSlot >= 0 && validBars[cursorSlot] && (this.crosshairEnabled || this.measuring)) {
+      const xx = xAt(cursorSlot);
+      const yy = pointerInPlot ? this.pointer.y : y(validBars[cursorSlot].close);
+      const fraction = (plot.bottom - yy) / (plot.bottom - plot.top);
+      const axisValue = logScale ? min * (max / min) ** fraction : min + fraction * (max - min);
+      c.save();
+      c.lineWidth = 1;
+      c.setLineDash([4, 4]);
+      line(xx, plot.top, xx, panes ? h - 22 : plot.bottom, muted);
+      line(plot.left, yy, plot.right, yy, muted);
+      c.restore();
+      if (Number.isFinite(axisValue)) drawAxisTag(c, formatAxisValue(axisValue), plot.right + 2, yy - 9, tagWidth, chartInk, tagSurface);
+      const label = formatAxisDate(validBars[cursorSlot].time, this.isIntraday());
+      const width = Math.min(plot.right - plot.left, c.measureText(label).width + 14);
+      const left = Math.max(plot.left, Math.min(plot.right - width, xx - width / 2));
+      drawAxisTag(c, label, left, h - 20, width, chartInk, tagSurface);
     }
     this.renderStudyReadouts();
   }

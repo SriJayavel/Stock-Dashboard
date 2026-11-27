@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import field_validator, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode
 
 logger = logging.getLogger("config")
@@ -58,6 +58,8 @@ class Settings(BaseSettings):
 
     # Redis Cache (Upstash Redis free tier URL e.g. rediss://default:xxx@xxx.upstash.io:6379)
     REDIS_URL: str = os.getenv("REDIS_URL", "")
+
+    MARKETAUX_API_TOKEN: SecretStr = SecretStr("")
 
     # In-memory L1 cache TTLs (seconds)
     L1_MARKET_OVERVIEW_TTL: int = 300  # 5 minutes

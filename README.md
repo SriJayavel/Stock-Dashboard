@@ -75,6 +75,8 @@ npm run dev
 
 Vite proxies API and WebSocket requests to the local backend. The Dockerfile packages the provider-backed build. A separately hosted frontend can use `npm run build:live` with `VITE_API_BASE_URL` set to the FastAPI origin. The scheduled cache warmer calls the protected refresh endpoint to populate market snapshots.
 
+For live headlines in **Research → News**, set `MARKETAUX_API_TOKEN` in the FastAPI environment. MARA queries the last 30 days for the selected listing only when News opens. It caches results per listing for 15 minutes. Use a provider account appropriate for your deployment. The public demo uses the archive and stock-specific source links.
+
 ## Development
 
 | Path | Purpose |

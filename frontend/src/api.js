@@ -462,6 +462,11 @@ class ApiClient {
     );
   }
 
+  async getAttributedNews(symbol, signal) {
+    if (isDemoMode()) return { news_status: 'archive', news_events: [] };
+    return this.fetchWithRetry(`/api/research/news?symbol=${encodeURIComponent(symbol)}`, { signal }, 0, 12000);
+  }
+
   async getStockResearch(symbol) {
     const sym = (symbol || '').trim().replace(/\//g, '');
     return this.fetchWithRetry(`/api/stocks/${encodeURIComponent(sym)}/research`);

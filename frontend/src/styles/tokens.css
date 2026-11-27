@@ -67,24 +67,25 @@
 
 :root:not(.light-theme) {
   color-scheme: dark;
-  --bg: #0a0c10;
-  --surface: #11151c;
-  --surface-hover: #1a1e25;
-  --surface-card: #11151c;
-  --border: #1e2530;
-  --border-soft: #1a202a;
-  --border-hairline: #1e2530;
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  --muted-rgb: 148, 163, 184;
+  --bg: #0e0f11;
+  --surface: #16181c;
+  --surface-hover: #1e2024;
+  --surface-card: #16181c;
+  --border: #262930;
+  --border-soft: #202227;
+  --border-hairline: #262930;
+  --text: #f2f4f7;
+  --text-muted: #9ca3af;
+  --muted-rgb: 156, 163, 175;
   --accent: #f59e0b;
   --accent-rgb: 245, 158, 11;
   --accent-hover: #fbbf24;
-  --up: #10b981;
-  --down: #f43f5e;
-  --fg: #f1f5f9;
-  --fg-muted: #94a3b8;
-  --fg-subtle: #64748b;
+  --up: #22c55e;
+  --down: #ef4444;
+  --loss-text: #f15e5e;
+  --fg: #f2f4f7;
+  --fg-muted: #9ca3af;
+  --fg-subtle: #737982;
 }
 
 :root.light-theme {

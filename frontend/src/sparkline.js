@@ -17,6 +17,6 @@ export function sparklineSvg(values, fillArea = false) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   const trend = shown.at(-1) > shown[0] ? 'gain' : shown.at(-1) < shown[0] ? 'loss' : 'flat';
-  const area = fillArea ? `<polygon fill="currentColor" fill-opacity=".12" points="2,24 ${points} 94,24"/>` : '';
-  return `<svg class="benchmark-sparkline ${trend}" width="96" height="24" viewBox="0 0 96 24" aria-hidden="true" preserveAspectRatio="none">${area}<polyline fill="none" stroke="currentColor" stroke-width="1.5" points="${points}"/></svg>`;
+  const area = fillArea ? `<polygon fill="currentColor" fill-opacity=".035" points="2,24 ${points} 94,24"/>` : '';
+  return `<svg class="benchmark-sparkline ${trend}" width="96" height="24" viewBox="0 0 96 24" aria-hidden="true" preserveAspectRatio="none">${area}<polyline fill="none" stroke="currentColor" stroke-width="1.25" points="${points}"/></svg>`;
 }

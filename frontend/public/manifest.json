@@ -4,8 +4,8 @@
   "description": "Global benchmarks, custom Canvas price charts, and historical valuation metrics.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0b0e14",
-  "theme_color": "#0b0e14",
+  "background_color": "#0e0f11",
+  "theme_color": "#0e0f11",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
