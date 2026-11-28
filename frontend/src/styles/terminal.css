@@ -33,22 +33,6 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Touch-device hover suppression (WCAG 2.5.8 / 2.5.2)
-   On devices without a real hover capability, `:hover` styling is disabled
-   so it cannot stick after a tap and create a "ghost" active state.
-   --------------------------------------------------------------------------- */
-@media (hover: none) {
-  :hover {
-    pointer-events: none;
-  }
-  .mara-toast:hover,
-  .mara-toast-container:hover,
-  .mara-cmd-input-wrap:focus-within {
-    pointer-events: auto;
-  }
-}
-
 /* ============================================================================
    Theme Switch Transition Suppression
    Prevents smearing when toggling themes by disabling transitions temporarily

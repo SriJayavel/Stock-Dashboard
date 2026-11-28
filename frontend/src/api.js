@@ -58,6 +58,8 @@ const DEMO_UNIVERSES = {
   indian_leaders: 'Indian Leaders',
   semiconductors_ai: 'Semiconductors & AI',
   crypto: 'Crypto',
+  commodities: 'Commodities',
+  forex: 'Forex',
 };
 const DEMO_STOCKS = new Set([
   'TCS.NS', 'RELIANCE.NS', 'INFY.NS', 'HDFCBANK.NS', 'ICICIBANK.NS',
@@ -255,11 +257,23 @@ async function demoFetch(url, options) {
     return { ...fixture, matrix: symbols.map(left => symbols.map(right => matrix[left]?.[right] ?? null)) };
   }
   if (pathOnly === '/api/screener') {
-    const fixture = await readFixture(`${DEMO_BASE}/screener.json`);
-    if (!fixture) return null;
     const universe = params.get('universe') || 'us_mega_caps';
     const title = DEMO_UNIVERSES[universe];
+    if (['forex', 'commodities'].includes(universe)) {
+      const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview'], options?.signal);
+      if (!snapshot) return null;
+      const items = (snapshot[universe] || []).map(quote => ({ ...quote, demo_snapshot_only: true }));
+      return { universe_key: universe, title, items, count: items.length };
+    }
+    const fixture = await readFixture(`${DEMO_BASE}/screener.json`, options?.signal);
+    if (!fixture) return null;
     const symbols = new Set(fixture.universes[title] || []);
+    if (universe === 'crypto') {
+      const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview'], options?.signal);
+      if (!snapshot) return null;
+      const items = (snapshot.indices || []).filter(quote => symbols.has(quote.symbol));
+      return { universe_key: universe, title, items, count: items.length };
+    }
     const catalog = await getDemoCatalog();
     const items = [...catalog.values()].filter(({ symbol }) => symbols.has(symbol));
     return { universe_key: universe, title: title || 'Demo coverage unavailable', items, count: items.length };
@@ -476,8 +490,8 @@ class ApiClient {
     return this.fetchWithRetry(`/api/search?q=${encodeURIComponent(query)}`, { signal }, 0, 8000);
   }
 
-  async getScreener(universe = 'us_mega_caps') {
-    return this.fetchWithRetry(`/api/screener?universe=${encodeURIComponent(universe)}`);
+  async getScreener(universe = 'us_mega_caps', signal) {
+    return this.fetchWithRetry(`/api/screener?universe=${encodeURIComponent(universe)}`, { signal });
   }
 
   async getDeepResearch(symbol) {

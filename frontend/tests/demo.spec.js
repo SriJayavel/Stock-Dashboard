@@ -1,5 +1,80 @@
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import AxeBuilder from '@axe-core/playwright';
+
+test('Discover sorts raw prices and exports the same assets shown by its applied rules', async ({ page }) => {
+  await page.goto('/?freeze=1#/discover/indian_leaders');
+  const rows = page.locator('#screener-table-body tr');
+  const status = page.locator('#discover-results');
+  await expect(status).toHaveText('5 of 5 assets');
+  await expect(page.locator('#discover-source')).toHaveText('Synthetic demo');
+  const priceSort = page.getByRole('columnheader', { name: 'Price', exact: true }).getByRole('button');
+  await priceSort.press('Enter');
+  await expect(priceSort).toBeFocused();
+  await expect(priceSort.locator('..')).toHaveAttribute('aria-sort', 'ascending');
+  await expect(rows.first()).toHaveAttribute('data-symbol', 'ICICIBANK.NS');
+  await priceSort.press('Enter');
+  await expect(rows.first()).toHaveAttribute('data-symbol', 'TCS.NS');
+  await page.getByRole('button', { name: 'Rules', exact: true }).click();
+  const rules = page.getByRole('form', { name: 'Screening rules' });
+  await rules.getByLabel('Metric for condition 1').selectOption('current_price');
+  await rules.getByLabel('Operator for condition 1').selectOption('>');
+  await rules.getByLabel('Threshold for condition 1').fill('3000');
+  await rules.getByRole('button', { name: 'Apply rules' }).click();
+  await expect(rows).toHaveCount(1);
+  await expect(status).toHaveText('1 of 5 assets');
+  await rules.getByRole('button', { name: 'Add condition' }).click();
+  await rules.getByLabel('Match logic').selectOption('OR');
+  await rules.getByRole('button', { name: 'Apply rules' }).click();
+  await expect(status).toHaveText('3 of 5 assets');
+  await rules.getByLabel('Threshold for condition 1').fill('5000');
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON' }).click();
+  const data = JSON.parse(await readFile(await (await pending).path(), 'utf8'));
+  expect(data.map(item => item.symbol)).toEqual(['TCS.NS', 'INFY.NS', 'ICICIBANK.NS']);
+  expect(data.every(item => item.data_source === 'Synthetic demo')).toBe(true);
+  const csvDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  const csv = await readFile(await (await csvDownload).path(), 'utf8');
+  expect(csv.split('\n').slice(1).map(line => line.split(',')[0])).toEqual(['"TCS.NS"', '"INFY.NS"', '"ICICIBANK.NS"']);
+  await page.getByRole('searchbox', { name: 'Find in universe' }).fill('missing symbol');
+  await expect(page.getByText('No assets match your filters')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Export CSV' })).toBeDisabled();
+  await page.locator('#discover-state').getByRole('button', { name: 'Clear filters' }).click();
+  await expect(status).toHaveText('5 of 5 assets');
+  await page.getByRole('button', { name: 'Create alert for INFY.NS' }).click();
+  await expect(page).toHaveURL(/#\/monitor\/alerts$/);
+  await expect(page.locator('#ws-alert-sym-input')).toHaveValue('INFY.NS');
+});
+
+test('Discover recovers from a failed snapshot and stays usable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/demo/screener.json', route => route.fulfill({ status: 503 }), { times: 1 });
+  await page.goto('/?freeze=1#/discover/indian_leaders');
+  await expect(page.getByText('Unable to load this universe')).toBeVisible();
+  await page.getByRole('button', { name: 'Retry snapshot' }).click();
+  await expect(page.locator('#discover-results')).toHaveText('5 of 5 assets');
+  const universes = page.getByRole('navigation', { name: 'Asset universes' });
+  await expect(universes.getByRole('link', { name: 'Forex' })).toBeInViewport();
+  await universes.getByRole('link', { name: 'US Mega-Caps' }).click();
+  await expect(page.locator('#screener-table-body tr[data-symbol="AAPL"]')).toBeVisible();
+  await page.goBack();
+  await expect(page.locator('#discover-results')).toHaveText('5 of 5 assets');
+  await universes.getByRole('link', { name: 'Forex' }).click();
+  const fxRow = page.locator('#screener-table-body tr[data-symbol="USDINR=X"]');
+  await expect(fxRow).toContainText('₹83.2909');
+  await expect(fxRow).toContainText('Snapshot only');
+  await page.goBack();
+  await expect(page.locator('#discover-results')).toHaveText('5 of 5 assets');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.getByLabel('Price move').selectOption('up');
+  await page.getByLabel('Sort by').selectOption('price:descending');
+  const rows = page.locator('#screener-table-body tr');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toHaveAttribute('data-symbol', 'INFY.NS');
+  await page.getByRole('link', { name: 'Open INFY.NS chart' }).click();
+  await expect(page).toHaveURL(/#\/symbol\/INFY\.NS\/chart$/);
+});
 
 test('finds TradingView indicator aliases and restores new studies on reload', async ({ page }) => {
   await page.goto('/?freeze=1#/symbol/TCS.NS/chart');
@@ -19,6 +94,80 @@ test('finds TradingView indicator aliases and restores new studies on reload', a
   await page.reload();
   await expect(page.locator('#tv-legend-indicators')).toContainText(/LSMA\s+\d/);
   await expect(page.locator('.tv-subpane-header').filter({ hasText: 'Fisher Transform' })).toBeVisible();
+});
+
+test('draws, manages, compares and exports from the fullscreen chart', async ({ page }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/?freeze=1#/symbol/TCS.NS/chart');
+  const chartContainer = page.locator('#tv-chart-container');
+  await expect(chartContainer).toHaveAccessibleName(/Last close/);
+  const canvas = chartContainer.locator('canvas');
+  const fullscreen = page.getByRole('button', { name: 'Toggle Fullscreen' });
+  const toolbar = page.getByRole('toolbar', { name: 'Fullscreen chart tools' });
+  await expect(toolbar).toBeHidden();
+  await fullscreen.click();
+  await expect(toolbar).toBeVisible();
+  await expect(fullscreen).toHaveAttribute('aria-pressed', 'true');
+  const panelBounds = await page.locator('#panel-chart').boundingBox();
+  expect(panelBounds).toMatchObject({ x: 0, y: 0, width: 1440, height: 900 });
+  const plotBounds = await page.evaluate(() => {
+    const chart = window.apexChartInstance;
+    return { top: chart.plot.top, legendEnd: chart.cornerLegend.offsetTop + chart.cornerLegend.offsetHeight };
+  });
+  expect(plotBounds.top).toBeGreaterThan(plotBounds.legendEnd);
+  await page.getByRole('button', { name: 'Draw price level' }).click();
+  await expect(canvas).toBeFocused();
+  await canvas.press('Enter');
+  const fib = toolbar.getByRole('button', { name: 'Fibonacci' });
+  await fib.focus();
+  await fib.press('ArrowRight');
+  await expect(toolbar.getByRole('button', { name: 'Ray' })).toBeFocused();
+  await fib.click();
+  for (let i = 0; i < 35; i++) await canvas.press('ArrowLeft');
+  await canvas.press('Enter');
+  for (let i = 0; i < 20; i++) await canvas.press('ArrowRight');
+  await canvas.press('Enter');
+  await expect(page.locator('#chart-drawing-hint')).toHaveText('Fibonacci retracement added.');
+  await toolbar.getByRole('button', { name: 'Undo drawing' }).click();
+  await expect(page.locator('#chart-drawing-hint')).toHaveText('Drawing undone.');
+  await toolbar.getByRole('button', { name: 'Redo drawing' }).click();
+  await expect(page.locator('#chart-drawing-hint')).toHaveText('Drawing restored.');
+  await page.getByRole('button', { name: 'Tools', exact: true }).click();
+  const tools = page.locator('#chart-tools-panel');
+  await expect(tools).toContainText('Price level 1');
+  await expect(tools).toContainText('Fibonacci retracement 2');
+  await tools.getByRole('button', { name: 'Context' }).click();
+  await expect(tools).toContainText('Synthetic demo');
+  await page.getByRole('button', { name: 'Compare', exact: true }).first().click();
+  await tools.getByLabel('Comparison symbol').fill('INFY.NS');
+  await tools.getByRole('button', { name: 'Apply comparison' }).click();
+  await expect(tools.getByRole('status')).toContainText('first shared visible close');
+  await expect(page.locator('#tv-scale-log-btn')).toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('group', { name: 'Chart range' }).getByRole('button', { name: '6M', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.apexChartInstance.tools.context)).toMatch(/:6m$/i);
+  await expect(tools.getByRole('status')).toContainText('first shared visible close');
+  await expect(tools.getByLabel('Comparison symbol')).toHaveValue('INFY.NS');
+  await tools.getByRole('button', { name: 'Remove comparison' }).click();
+  await expect(page.locator('#tv-scale-log-btn')).toHaveAttribute('aria-disabled', 'false');
+  await page.keyboard.press('Escape');
+  await expect(tools).toBeHidden();
+  await expect(toolbar).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await toolbar.getByRole('button', { name: 'Export PNG' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^MARA-TCS\.NS-.+\.png$/);
+  expect(await download.failure()).toBeNull();
+  await page.screenshot({ path: testInfo.outputPath('fullscreen.png') });
+  await page.keyboard.press('Escape');
+  await expect(toolbar).toBeHidden();
+  await page.reload();
+  await expect(chartContainer).toHaveAccessibleName(/Last close/);
+  await page.getByRole('button', { name: 'Tools', exact: true }).click();
+  await expect(tools).toContainText('Fibonacci retracement 2');
+  await tools.getByRole('button', { name: /Remove Fibonacci/ }).click();
+  await expect(tools).not.toContainText('Fibonacci retracement');
+  expect(errors).toEqual([]);
 });
 
 test('keeps search focused while Markets finishes loading', async ({ page }) => {
@@ -163,7 +312,7 @@ test.describe('Markets and chart interactions', () => {
     await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(/Last close/);
   });
 
-  test('keeps the chart canvas sharp on touch and resize', async ({ browser, baseURL }) => {
+  test('keeps the chart canvas sharp on touch and resize', async ({ browser, baseURL }, testInfo) => {
     const page = await browser.newPage({ baseURL, deviceScaleFactor: 2, hasTouch: true });
     try {
       await page.goto('/?freeze=1#/symbol/TCS.NS/chart');
@@ -178,6 +327,21 @@ test.describe('Markets and chart interactions', () => {
       const box = await canvas.boundingBox();
       await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
       await expect(canvas).toBeVisible();
+      await page.getByRole('button', { name: 'Toggle Fullscreen' }).tap();
+      await expect.poll(() => canvas.evaluate(node => node.width / node.clientWidth)).toBeCloseTo(2);
+      const toolbar = page.getByRole('toolbar', { name: 'Fullscreen chart tools' });
+      await toolbar.getByRole('button', { name: 'Time marker' }).tap();
+      const plotCenter = await canvas.evaluate(node => {
+        const { plot } = window.apexChartInstance;
+        const bounds = node.getBoundingClientRect();
+        return { x: bounds.left + (plot.left + plot.right) / 2, y: bounds.top + (plot.top + plot.bottom) / 2 };
+      });
+      await page.touchscreen.tap(plotCenter.x, plotCenter.y);
+      await expect(page.locator('#chart-drawing-hint')).toHaveText('Time marker added.');
+      await expect(page.locator('#panel-chart')).toBeInViewport({ ratio: .99 });
+      await expect(page.locator('#tv-bb-age')).toBeInViewport({ ratio: .99 });
+      await expect(page.locator('#tv-reset-view-btn')).toBeInViewport({ ratio: .99 });
+      await page.screenshot({ path: testInfo.outputPath('fullscreen-mobile.png') });
     } finally {
       await page.close();
     }

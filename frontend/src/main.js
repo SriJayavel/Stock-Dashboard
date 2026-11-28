@@ -17,7 +17,7 @@ import { watchlist } from './watchlist.js';
 import { alertsManager } from './alerts.js';
 import { ResearchNotebook } from './notebook.js';
 import { ResearchReportGenerator } from './report_generator.js';
-import { screenerBuilder, SCREENER_METRICS } from './screener_builder.js';
+import { mountDiscover } from './discover.js';
 import { cancelBacktest, executeBacktest, setupBacktestTrace } from './backtest-run.js';
 import {
   INDICATOR_REGISTRY,
@@ -53,7 +53,7 @@ let unmountBenchmarkComparison;
 let routeRun = 0;
 let chartRequest;
 let stockRequest;
-let screenerRun = 0;
+let discover;
 let updatesPaused = false;
 let chartWorkerRun = 0;
 let chartWorkerRequest;
@@ -112,7 +112,6 @@ let currentCandles = [];
 let dailyPriceContext;
 let showChartEvents = true;
 let activeCorrelationPeriod = '1y';
-let currentScreenerAssets = [];
 let currentOverviewData = null;
 let searchRequestSeq = 0;
 let lastMarketOverviewFetchTime = 0;
@@ -343,12 +342,13 @@ export async function setWorkspace(workspaceName, subTab = null) {
       stopMarketTimelineUpdater();
     }
     if (previousWorkspace === 'analyze') {
+      closeChartWorkspace();
       chartRequest?.abort();
       chartRequest = undefined;
       currentCandles = [];
       window.stopChartWorker?.();
     }
-    if (previousWorkspace === 'discover') ++screenerRun;
+    if (previousWorkspace === 'discover') discover?.stop();
     if (previousWorkspace === 'compare') ++correlationRun;
     if (previousWorkspace === 'research') cancelBacktest();
   }
@@ -410,16 +410,7 @@ export async function setWorkspace(workspaceName, subTab = null) {
     // Start market hours timeline updater
     startMarketTimelineUpdater();
   } else if (workspaceName === 'discover') {
-    if (subTab) {
-      const tabBtn = document.querySelector(`.screener-tab-btn[data-universe="${subTab}"]`);
-      if (tabBtn) {
-        document.querySelectorAll('.screener-tab-btn').forEach((t) => t.classList.remove('active'));
-        tabBtn.classList.add('active');
-      }
-      loadScreener(subTab);
-    } else if (previousWorkspace !== 'discover' || !currentScreenerAssets?.length) {
-      loadScreener('indian_leaders');
-    }
+    discover?.load(subTab);
   } else if (workspaceName === 'compare') {
     const benchmarkPair = document.getElementById('compare-benchmark-pair');
     benchmarkPair.hidden = subTab !== 'benchmarks';
@@ -457,7 +448,7 @@ function focusFirstInteractiveInWorkspace(workspaceName) {
   // Define focusable selectors per workspace
   const focusSelectors = {
     markets: '.benchmark-filter-btn.active, .benchmark-row[data-sym], .sector-tile, .macro-asset-row',
-    discover: '.screener-tab-btn.active, .screener-table tbody tr[tabindex="0"], #toggle-screener-builder-btn',
+    discover: '.screener-tab-btn.active',
     analyze: '.interval-btn.active, .range-btn.active, #tv-rail-crosshair, #tv-tb-symbol-btn',
     compare: '#compare-benchmark-pair:not([hidden]) h1, #compare-asset-workspace:not([hidden]) .corr-tf-btn.active',
     research: '.ws-sub-btn.active, .news-grid [tabindex="0"], #scenario-rev-slider',
@@ -475,6 +466,7 @@ function focusFirstInteractiveInWorkspace(workspaceName) {
 window.setWorkspace = setWorkspace;
 
 export function setAnalyzeSubTab(subTab) {
+  if (subTab !== 'chart') closeChartWorkspace();
   currentAnalyzeTab = subTab;
   currentActiveTab = subTab;
 
@@ -495,6 +487,12 @@ export function setAnalyzeSubTab(subTab) {
       if (chartInstance.resize) chartInstance.resize();
     });
   }
+}
+
+function closeChartWorkspace() {
+  const panel = document.getElementById('panel-chart');
+  chartInstance?.tools.close(false);
+  if (panel?.classList.contains('chart-fullscreen-mode')) document.getElementById('tv-fullscreen-btn')?.click();
 }
 
 export function setResearchSubTab(subTab) {
@@ -831,8 +829,10 @@ export function syncChartControlsToPreferences() {
   const scale = chartInstance.scaleMode || 'normal';
   const logBtn = document.getElementById('tv-scale-log-btn');
   const pctBtn = document.getElementById('tv-scale-pct-btn');
-  if (logBtn) logBtn.classList.toggle('active', scale === 'log');
-  if (pctBtn) pctBtn.classList.toggle('active', scale === 'pct');
+  for (const [button, mode] of [[logBtn, 'log'], [pctBtn, 'pct']]) {
+    button?.classList.toggle('active', scale === mode);
+    button?.setAttribute('aria-pressed', String(scale === mode));
+  }
 }
 
 export async function switchChartInterval(interval) {
@@ -1131,18 +1131,6 @@ function setupEventListeners() {
     });
   });
 
-  // Screener Universe Tabs
-  const screenerTabs = document.querySelectorAll('.screener-tab-btn');
-  screenerTabs.forEach((tab) => {
-    tab.addEventListener('click', (e) => {
-      screenerTabs.forEach((t) => t.classList.remove('active'));
-      (e.target.closest('.macro-tab-btn') || e.target).classList.add('active');
-      const universe = e.target.getAttribute('data-universe');
-      router.navigate(router.formatScreenerRoute(universe));
-      loadScreener(universe);
-    });
-  });
-
   // Interval Buttons (Intraday & Historical)
   const intervalButtons = document.querySelectorAll('#interval-group .interval-btn');
   intervalButtons.forEach((btn) => {
@@ -1424,7 +1412,18 @@ function setupEventListeners() {
 
   // Setup Specialized Subsystem Handlers
   setupAlertsControls();
-  setupScreenerBuilderControls();
+  discover = mountDiscover({
+    fetchSnapshot: (universe, signal) => api.getScreener(universe, signal),
+    isDemoMode,
+    currencyFor: getCurrencySymbol,
+    formatUnits: formattedUnits,
+    quoteDetails: overviewQuoteDetails,
+    chartHref: symbol => `#${router.formatSymbolRoute(symbol, 'chart')}`,
+    openAlert: symbol => {
+      document.getElementById('ws-alert-sym-input').value = symbol;
+      router.navigate(router.formatWorkspaceRoute('monitor', null, 'alerts'));
+    },
+  });
   setupNotebookControls();
   setupScenarioControls();
   setupBacktesterControls();
@@ -1511,6 +1510,7 @@ function setupEventListeners() {
 
       // 3e. Fullscreen mode
       const chartPanel = document.getElementById('panel-chart');
+      if (chartPanel?.classList.contains('active') && currentActiveWorkspace === 'analyze' && chartInstance?.tools.close()) return;
       if (chartPanel?.classList.contains('chart-fullscreen-mode')) {
         const fsBtn = document.getElementById('tv-fullscreen-btn');
         fsBtn?.click();
@@ -2070,22 +2070,6 @@ function setupTradingViewChromeControls() {
   // Track previous sidebar drawer state before entering fullscreen
   let wasSidebarOpenBeforeFullscreen = null;
 
-  const triggerChartResize = () => {
-    if (chartInstance) {
-      chartInstance.resize();
-    }
-    requestAnimationFrame(() => {
-      if (chartInstance) chartInstance.resize();
-    });
-    setTimeout(() => {
-      if (chartInstance) chartInstance.resize();
-    }, 60);
-    setTimeout(() => {
-      if (chartInstance) chartInstance.resize();
-    }, 180);
-    window.dispatchEvent(new Event('resize'));
-  };
-
   const enterFullscreen = () => {
     if (!chartPanel) return;
     // Record current sidebar state
@@ -2103,7 +2087,8 @@ function setupTradingViewChromeControls() {
     chartPanel.classList.add('chart-fullscreen-mode');
     document.body.classList.add('chart-fullscreen-active');
     if (fsBtn) fsBtn.classList.add('active');
-    triggerChartResize();
+    fsBtn?.setAttribute('aria-pressed', 'true');
+    chartInstance?.resize();
   };
 
   const exitFullscreen = () => {
@@ -2111,6 +2096,8 @@ function setupTradingViewChromeControls() {
     chartPanel.classList.remove('chart-fullscreen-mode');
     document.body.classList.remove('chart-fullscreen-active');
     if (fsBtn) fsBtn.classList.remove('active');
+    fsBtn?.setAttribute('aria-pressed', 'false');
+    if (['fib', 'ray', 'time'].includes(chartInstance?.tools.mode)) chartInstance.tools.setMode(null);
 
     // Restore previous sidebar state exactly as the user had it
     if (wasSidebarOpenBeforeFullscreen === true && drawer) {
@@ -2124,7 +2111,7 @@ function setupTradingViewChromeControls() {
     }
     wasSidebarOpenBeforeFullscreen = null;
 
-    triggerChartResize();
+    chartInstance?.resize();
   };
 
   if (fsBtn && chartPanel) {
@@ -2133,12 +2120,6 @@ function setupTradingViewChromeControls() {
         exitFullscreen();
       } else {
         enterFullscreen();
-      }
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && chartPanel.classList.contains('chart-fullscreen-mode')) {
-        exitFullscreen();
       }
     });
   }
@@ -2150,6 +2131,7 @@ function setupTradingViewChromeControls() {
       if (chartInstance) {
         const isEnabled = chartInstance.toggleCrosshair();
         railCrosshair.classList.toggle('active', isEnabled);
+        railCrosshair.setAttribute('aria-pressed', String(isEnabled));
       }
     });
   }
@@ -2186,6 +2168,7 @@ function setupTradingViewChromeControls() {
     railFit.addEventListener('click', () => {
       if (chartInstance) {
         chartInstance.resetView();
+        syncChartControlsToPreferences();
         showToast('Chart View Reset', 'info');
       }
     });
@@ -2206,6 +2189,7 @@ function setupTradingViewChromeControls() {
     resetBtn.addEventListener('click', () => {
       if (chartInstance) {
         chartInstance.resetView();
+        syncChartControlsToPreferences();
         showToast('Chart View Reset', 'info');
       }
     });
@@ -2247,21 +2231,17 @@ function setupTradingViewChromeControls() {
 
   if (logBtn) {
     logBtn.addEventListener('click', () => {
-      const isLog = logBtn.classList.toggle('active');
-      if (pctBtn) pctBtn.classList.remove('active');
-      if (chartInstance) {
-        chartInstance.setScaleMode(isLog ? 'log' : 'normal');
-      }
+      if (!chartInstance || chartInstance.tools.comparison) return;
+      chartInstance.setScaleMode(chartInstance.scaleMode === 'log' ? 'normal' : 'log');
+      syncChartControlsToPreferences();
     });
   }
 
   if (pctBtn) {
     pctBtn.addEventListener('click', () => {
-      const isPct = pctBtn.classList.toggle('active');
-      if (logBtn) logBtn.classList.remove('active');
-      if (chartInstance) {
-        chartInstance.setScaleMode(isPct ? 'pct' : 'normal');
-      }
+      if (!chartInstance || chartInstance.tools.comparison) return;
+      chartInstance.setScaleMode(chartInstance.scaleMode === 'pct' ? 'normal' : 'pct');
+      syncChartControlsToPreferences();
     });
   }
 
@@ -5144,187 +5124,6 @@ function renderResearchDossier(data) {
   `;
 }
 
-// Load and Render Multi-Market Screener Matrix
-async function loadScreener(universe = 'indian_leaders') {
-  const run = ++screenerRun;
-  const tbody = document.getElementById('screener-table-body');
-  if (!tbody) return;
-
-  // Show skeleton rows while loading
-  tbody.innerHTML = renderScreenerSkeleton(7);
-
-  try {
-    const data = await api.getScreener(universe);
-    if (run !== screenerRun || currentActiveWorkspace !== 'discover') return;
-    const items = data.items || [];
-    currentScreenerAssets = items;
-    if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No screened assets returned.</td></tr>';
-      return;
-    }
-
-    renderScreenerTable(items);
-  } catch (err) {
-    if (run !== screenerRun || currentActiveWorkspace !== 'discover') return;
-    console.error('Failed to load screener:', err);
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--loss); padding: 20px;">Unable to load screener data.</td></tr>';
-    toastError('Screener unavailable', 'Unable to load screener data. Check your connection.', {
-      duration: 6000,
-      action: { label: 'Retry', onClick: () => loadScreener(universe) }
-    });
-  }
-}
-
-/**
- * Render skeleton rows for screener table
- */
-function renderScreenerSkeleton(rowCount = 7) {
-  const skeletonRow = () => `
-    <tr class="screener-skeleton-row">
-      <td><div class="skeleton-cell" style="width: 80px; height: 16px;"></div></td>
-      <td><div class="skeleton-cell" style="width: 180px; height: 16px;"></div></td>
-      <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
-      <td><div class="skeleton-cell" style="width: 80px; height: 16px;"></div></td>
-      <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
-      <td><div class="skeleton-cell" style="width: 80px; height: 28px;"></div></td>
-    </tr>
-  `;
-  return Array.from({ length: rowCount }, skeletonRow).join('');
-}
-
-// Render Screener Table Rows
-function renderScreenerTable(items) {
-  const tbody = document.getElementById('screener-table-body');
-  if (!tbody) return;
-  if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;"><div style="font-weight: 500; color: var(--text-dim); margin-bottom: 4px;">No assets match current screen criteria</div><div style="font-size: 11px;">Adjust filters or <button class="ghost-btn ghost-btn-sm" id="reset-screener-btn" style="margin-left: 6px;">Reset Filters</button></div><div style="font-size: 10px; margin-top: 4px; color: var(--text-muted);">Last screen: ${new Date().toLocaleTimeString()}</div></td></tr>`;
-    const resetBtn = tbody.querySelector('#reset-screener-btn');
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        // Reset all filter inputs
-        document.querySelectorAll('.screener-filter-input').forEach(input => {
-          input.value = '';
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-        document.querySelectorAll('.screener-filter-select').forEach(select => {
-          select.value = '';
-          select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-      });
-    }
-    return;
-  }
-
-  // Sort by price descending by default
-  const sortedItems = items.toSorted((a, b) => (b.current_price || 0) - (a.current_price || 0));
-
-  tbody.innerHTML = sortedItems
-    .map((item) => {
-      const isUp = (item.change_pct || 0) >= 0;
-      const chgClass = isUp ? 'chg-up' : 'chg-down';
-      const chgGlyph = isUp ? '+ ' : '− ';
-      const currSym = item.currency_symbol || getCurrencySymbol(item.symbol, item.currency);
-      const priceStr = item.price != null ? `${currSym}${item.price.toFixed(item.symbol.includes('=X') ? 4 : 2)}` : '—';
-      const chgStr = item.change_pct != null ? `${chgGlyph}${Math.abs(item.change_pct).toFixed(2)}%` : '—';
-      const rawUnits = item.market_cap ?? item.volume;
-      const unitCurrency = item.market_cap != null ? currSym : '';
-      const metric = Number.isFinite(rawUnits)
-        ? `<span data-units-value="${rawUnits}" data-units-currency="${unitCurrency}">${formattedUnits(rawUnits, unitCurrency)}</span>`
-        : item.market_cap_str || item.volume_str || (item.pe_trailing ? `P/E ${item.pe_trailing}x` : '—');
-
-      // Generate inline SVG sparkline for action column
-      const sparklineSvg = generateInlineSparkline(item);
-
-      return `
-        <tr data-symbol="${item.symbol}" tabindex="0" role="row" aria-label="${item.name || item.symbol} (${item.symbol}): ${priceStr}, change ${chgStr}">
-          <td class="screener-sym-col">${item.symbol}</td>
-          <td style="font-weight: 500;">${item.name || item.symbol}</td>
-          <td class="screener-price-col">${item.price != null ? provenance(priceStr, {
-            label: `${item.symbol} last price`, details: overviewQuoteDetails(item, 'MARA screener snapshot'),
-          }) : priceStr}</td>
-          <td><span class="tape-chg ${chgClass}">${chgStr}</span></td>
-          <td style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;">${metric}</td>
-          <td>
-            ${sparklineSvg}
-            <button class="wl-btn wl-btn-alert" data-symbol="${item.symbol}" style="padding: 3px 10px; font-size: 11px; margin-left: 6px; background: rgba(232, 179, 78, 0.2); border-color: var(--accent); color: var(--accent);">Alert</button>
-          </td>
-        </tr>
-      `;
-    })
-    .join('');
-
-  // Add sort handler to table headers
-  const sortableHeaders = document.querySelectorAll('.screener-table th.sortable');
-  let currentSortCol = 'price';
-  let currentSortDir = 'desc';
-
-  sortableHeaders.forEach((th) => {
-    th.addEventListener('click', () => {
-      const col = th.dataset.sort;
-      if (currentSortCol === col) {
-        currentSortDir = currentSortDir === 'desc' ? 'asc' : 'desc';
-      } else {
-        currentSortCol = col;
-        currentSortDir = 'desc';
-      }
-      sortScreenerItems(col, currentSortDir);
-      updateSortIndicators(col, currentSortDir);
-    });
-  });
-
-  // Initialize sort indicators
-  updateSortIndicators(currentSortCol, currentSortDir);
-
-  // Row click handlers
-  tbody.querySelectorAll('tr').forEach((row) => {
-    const activate = () => {
-      const sym = row.getAttribute('data-symbol');
-      if (sym) {
-        router.navigate(router.formatSymbolRoute(sym, currentAnalyzeTab || 'chart'));
-      }
-    };
-    row.addEventListener('click', event => {
-      if (!event.target.closest('.provenance-trigger')) activate();
-    });
-    row.addEventListener('keydown', (e) => {
-      if (e.target !== row) return;
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        activate();
-      }
-    });
-  });
-}
-
-// Helper function to update sort indicators
-function updateSortIndicators(col, dir) {
-  document.querySelectorAll('.screener-table th .sort-indicator').forEach(ind => ind.classList.remove('ascending', 'descending'));
-  const activeIndicator = document.querySelector(`.screener-table th[data-sort="${col}"] .sort-indicator`);
-  if (activeIndicator) {
-    activeIndicator.classList.add(dir === 'asc' ? 'ascending' : 'descending');
-  }
-}
-
-// Helper function to sort screener items
-function sortScreenerItems(col, dir) {
-  const tbody = document.getElementById('screener-table-body');
-  if (!tbody) return;
-  const rows = Array.from(tbody.querySelectorAll('tr'));
-  rows.sort((a, b) => {
-    const aVal = a.querySelector(`td:nth-child(${getColumnOffset(col)})`)?.textContent || '';
-    const bVal = b.querySelector(`td:nth-child(${getColumnOffset(col)})`)?.textContent || '';
-    if (dir === 'asc') return aVal.localeCompare(bVal);
-    return bVal.localeCompare(aVal);
-  });
-  tbody.innerHTML = rows.join('');
-}
-
-// Helper to get column index for sorting (1-indexed)
-function getColumnOffset(col) {
-  const map = { symbol: 1, name: 2, price: 3, change: 4 };
-  return map[col] || 3;
-}
-
 /* ========================================================
    DEEP RESEARCH LOADERS & SPECIALIZED RENDERERS
    ======================================================== */
@@ -6279,46 +6078,6 @@ function renderBenchmarkSkeleton(tableBody) {
     .join('');
 }
 
-// Generate inline SVG sparkline for screener action column
-function generateInlineSparkline(item) {
-  if (!item || !item.sparkline_data || item.sparkline_data.length < 2) {
-    // Fallback: show a simple status dot instead of empty sparkline
-    const isUp = (item.change_pct || 0) >= 0;
-    const dotColor = isUp ? '#34d399' : '#f87171';
-    return `<svg width="24" height="6" viewBox="0 0 24 6" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 4px;">
-      <circle cx="12" cy="3" r="2" fill="${dotColor}"/>
-    </svg>`;
-  }
-
-  const data = item.sparkline_data;
-  const isPositive = item.change_pct >= 0;
-  const color = isPositive ? '#34d399' : '#f87171';
-
-  // Normalize data to 0-1 range
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min;
-  const normalized = range === 0 ? data.map(() => 0.5) : data.map(v => (v - min) / range);
-
-  // SVG dimensions
-  const width = 24;
-  const height = 6;
-  const margin = 0;
-
-  // Create path data
-  const pointCount = normalized.length;
-  const points = normalized.map((v, i) => {
-    const x = margin + (i / (pointCount - 1)) * (width - 2 * margin);
-    const y = margin + (1 - v) * (height - 2 * margin);
-    return `${x},${y}`;
-  }).join(' L ');
-
-  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 4px;">
-    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-}
-
-// Render Mini Sparkline for Benchmark Indices Table
 function renderMiniSparkline(container, data, isPositive) {
   if (!container || !data || data.length < 2) return;
 
@@ -8721,96 +8480,4 @@ function refreshAlertsUI() {
 window.apexDeleteAlert = (id) => {
   alertsManager.removeAlert(id);
   refreshAlertsUI();
-};
-
-// Screener 2.0 Query Builder Setup
-function setupScreenerBuilderControls() {
-  const toggleBtn = document.getElementById('toggle-screener-builder-btn');
-  const wrap = document.getElementById('screener-builder-wrap');
-  const addBtn = document.getElementById('screener-add-rule-btn');
-  const runBtn = document.getElementById('screener-run-builder-btn');
-  const csvBtn = document.getElementById('screener-export-csv-btn');
-  const jsonBtn = document.getElementById('screener-export-json-btn');
-  const combSelect = document.getElementById('screener-combinator');
-
-  if (toggleBtn && wrap) {
-    toggleBtn.addEventListener('click', () => {
-      const isHidden = wrap.style.display === 'none';
-      wrap.style.display = isHidden ? 'block' : 'none';
-      toggleBtn.classList.toggle('active', isHidden);
-      // Update filter count badge
-      const badge = document.getElementById('filter-count-badge');
-      if (badge) {
-        const ruleCount = wrap.querySelectorAll('.screener-rule-item').length;
-        badge.textContent = ruleCount;
-        badge.style.display = ruleCount > 0 ? 'inline-block' : 'none';
-      }
-      if (isHidden) renderScreenerRulesUI();
-    });
-  }
-
-  if (addBtn) {
-    addBtn.addEventListener('click', () => {
-      screenerBuilder.addCondition();
-      renderScreenerRulesUI();
-    });
-  }
-
-  if (combSelect) {
-    combSelect.addEventListener('change', (e) => {
-      screenerBuilder.combinator = e.target.value;
-    });
-  }
-
-  if (runBtn) {
-    runBtn.addEventListener('click', () => {
-      const filtered = screenerBuilder.execute(currentScreenerAssets);
-      renderScreenerTable(filtered);
-    });
-  }
-
-  if (csvBtn) {
-    csvBtn.addEventListener('click', () => {
-      const filtered = screenerBuilder.execute(currentScreenerAssets);
-      screenerBuilder.exportCSV(filtered);
-    });
-  }
-
-  if (jsonBtn) {
-    jsonBtn.addEventListener('click', () => {
-      const filtered = screenerBuilder.execute(currentScreenerAssets);
-      screenerBuilder.exportJSON(filtered);
-    });
-  }
-}
-
-function renderScreenerRulesUI() {
-  const container = document.getElementById('screener-rules-container');
-  if (!container) return;
-
-  container.innerHTML = screenerBuilder.conditions
-    .map(
-      (c) => `
-      <div class="screener-rule-row">
-        <select onchange="window.apexUpdateRule(${c.id}, 'metric', this.value)" class="screener-select">
-          ${SCREENER_METRICS.map((m) => `<option value="${m.id}" ${c.metric === m.id ? 'selected' : ''}>${m.label}</option>`).join('')}
-        </select>
-        <select onchange="window.apexUpdateRule(${c.id}, 'operator', this.value)" class="screener-select" style="width: 60px;">
-          <option value=">" ${c.operator === '>' ? 'selected' : ''}>&gt;</option>
-          <option value=">=" ${c.operator === '>=' ? 'selected' : ''}>&gt;=</option>
-          <option value="<" ${c.operator === '<' ? 'selected' : ''}>&lt;</option>
-          <option value="<=" ${c.operator === '<=' ? 'selected' : ''}>&lt;=</option>
-        </select>
-        <input type="number" value="${c.value}" onchange="window.apexUpdateRule(${c.id}, 'value', this.value)" class="screener-input" style="width: 100px;" />
-        <button onclick="window.apexRemoveRule(${c.id})" class="wl-btn wl-btn-danger" style="padding: 2px 8px; font-size: 11px;">✕</button>
-      </div>
-    `
-    )
-    .join('');
-}
-
-window.apexUpdateRule = (id, key, val) => screenerBuilder.updateCondition(id, key, val);
-window.apexRemoveRule = (id) => {
-  screenerBuilder.removeCondition(id);
-  renderScreenerRulesUI();
 };

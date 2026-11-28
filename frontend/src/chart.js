@@ -6,6 +6,7 @@
 import { INDICATOR_PALETTE, computeIndicator, getIndicatorDefinition, normalizeIndicatorParams } from './indicators.js';
 import { getAccountStorageKey } from './auth.js';
 import { provenance } from './provenance.js';
+import { ChartTools } from './chart-tools.js';
 
 const bullColor = '#10b981';
 const bearColor = '#f43f5e';
@@ -185,8 +186,8 @@ export const formatTickTime = (time, isIntraday = false) => {
   if (typeof time === 'number') {
     const d = new Date(time < 1e11 ? time * 1000 : time);
     if (isIntraday) {
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const mm = String(d.getUTCMinutes()).padStart(2, '0');
       return `${hh}:${mm}`;
     }
     return d.toISOString().slice(0, 7);
@@ -208,12 +209,12 @@ export const formatTickTime = (time, isIntraday = false) => {
 export const formatFullTime = (time) => {
   if (typeof time === 'number') {
     const d = new Date(time < 1e11 ? time * 1000 : time);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    const ss = String(d.getSeconds()).padStart(2, '0');
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
     return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
   }
   if (typeof time === 'string') {
@@ -237,15 +238,15 @@ export class TerminalChart {
     const parent = container.parentElement || container;
     this.headersContainer = parent.querySelector('#tv-subpane-headers') || this.makeLayer(parent,'tv-subpane-headers','tv-subpane-headers');
     this.splittersContainer = parent.querySelector('#tv-splitters-container') || this.makeLayer(parent,'tv-splitters-container','tv-splitters-container');
+    this.cornerLegend = parent.querySelector('#tv-corner-legend');
+    this.tools = new ChartTools(this);
     this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(container);
+    window.addEventListener('resize', () => this.resize());
     this.bindInteraction(); this.loadSavedIndicators(); this.resize();
 
     // Premium enhancements
-    this.animationFrame = null;
     this.hoverEffects = new Map();
     this.tooltipTimeout = null;
-    this.lastRenderTime = 0;
-    this.renderThrottle = 16; // ~60fps
   }
 
   makeLayer(parent,id,cls) {
@@ -412,7 +413,14 @@ export class TerminalChart {
       this.mainRatio = 360 / containerHeight;
     }
     this.container.style.height = count ? `${Math.max(500, 360 + count * 120)}px` : '100%';
+    this.renderPaneSplitters();
     this.render();
+  }
+
+  mainPaneHeight() {
+    return this.subPanes.size
+      ? Math.min(this.height - 26, Math.max(100, this.height * this.mainRatio))
+      : this.height - 26;
   }
 
   renderPaneSplitters(){
@@ -420,13 +428,8 @@ export class TerminalChart {
     if(!this.subPanes.size)return;
     const s=document.createElement('div');
     s.className='tv-pane-splitter';
-    s.style.top=`${this.height*this.mainRatio-4}px`;
+    s.style.top=`${this.mainPaneHeight() - 4}px`;
     s.title='Drag to resize price pane';
-    s.style.background = 'rgba(255,255,255,0.1)';
-    s.style.borderRadius = '2px';
-    s.style.width = '100%';
-    s.style.height = '2px';
-    s.style.cursor = 'row-resize';
 
     s.onpointerdown=e=>{
       e.preventDefault();
@@ -439,16 +442,18 @@ export class TerminalChart {
       const up=()=>{
         window.removeEventListener('pointermove',move);
         window.removeEventListener('pointerup',up);
+        window.removeEventListener('pointercancel',up);
       };
       window.addEventListener('pointermove',move);
       window.addEventListener('pointerup',up);
+      window.addEventListener('pointercancel',up);
     };
     this.splittersContainer.appendChild(s);
 
     this.subPanes.forEach((id,p)=>{
       const i=this.activeIndicators.get(id);
       if(i?.headerElement){
-        const mainHeight = Math.max(180, this.height * this.mainRatio);
+        const mainHeight = this.mainPaneHeight();
         const paneHeight = (this.height - mainHeight) / this.subPanes.size;
         i.headerElement.style.top=`${mainHeight + (p - 1) * paneHeight + 6}px`;
         i.headerElement.style.left='14px';
@@ -457,21 +462,18 @@ export class TerminalChart {
   }
 
   resize(width,height) {
-    const r=this.container.getBoundingClientRect();
-    // Use container width if available, fallback to provided width or 800
-    const finalWidth = Math.max(320, width || r.width || this.container.clientWidth || 800);
-    // Align canvas width to container to prevent overflow
-    this.width = Math.min(finalWidth, this.container.clientWidth || finalWidth);
-    this.height = height || r.height || this.container.clientHeight || 460;
-    const dpr=window.devicePixelRatio||1;
-    this.canvas.width=Math.round(this.width*dpr);
-    this.canvas.height=Math.round(this.height*dpr);
-    this.canvas.style.width=`${this.width}px`;
-    this.canvas.style.height=`${this.height}px`;
+    width ||= this.container.clientWidth;
+    height ||= this.container.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    if (!width || !height || (width === this.width && height === this.height && dpr === this.pixelRatio)) return;
+    this.width = width;
+    this.height = height;
     this.pixelRatio = dpr;
-    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    this.canvas.width = Math.round(width * dpr);
+    this.canvas.height = Math.round(height * dpr);
+    this.ctx.setTransform(this.canvas.width / width, 0, 0, this.canvas.height / height, 0, 0);
     this.renderPaneSplitters();
-    this.render();
+    this.render(true);
   }
 
   isIntraday() {
@@ -482,12 +484,17 @@ export class TerminalChart {
     this.activeRange = range;
     if (!preserveRange && this.measuring) this.setMeasureMode(false);
     this.currentData = data;
+    if (!preserveRange) {
+      clearTimeout(this.tooltipTimeout);
+      this.pointer = null;
+    }
     if (data?.interval) this.activeInterval = data.interval;
     if (!data?.candles?.length) {
       this.currentCandles = [];
       this.rawDailyCandles = [];
       this.lastBar = null;
       this.pointer = null;
+      this.tools.setContext(data?.symbol, this.activeInterval, range);
       if (this.tooltip) this.tooltip.replaceChildren();
       this.resetCornerLegend(data?.symbol, this.activeInterval);
       this.unavailableMessage = data?.message || (data?.range_note ? `${data.range_note}` : `${this.activeInterval || '1m'} data unavailable for selected range`);
@@ -498,10 +505,12 @@ export class TerminalChart {
     this.rangeNote = data?.range_note || null;
     this.rawDailyCandles = [...(data.candles || [])];
     this.applyInterval(this.activeInterval, preserveRange);
+    this.tools.setContext(data.symbol, this.activeInterval, range);
   }
 
   applyInterval(interval, preserveRange = false) {
     this.activeInterval = interval;
+    this.heikinBars = null;
     try { localStorage.setItem(getAccountStorageKey('apex_chart_interval'), interval); } catch {}
     this.currentCandles = [...resampleCandles(this.rawDailyCandles, interval)];
     this.activeIndicators.forEach((i) => this.computeAndApplyIndicator(i, this.currentCandles));
@@ -589,6 +598,7 @@ export class TerminalChart {
 
   updateCandle(candle) {
     if (!candle || candle.close == null) return;
+    this.heikinBars = null;
     const bars = this.currentCandles;
     if (!bars.length) {
       this.currentCandles = [candle];
@@ -680,6 +690,7 @@ export class TerminalChart {
   }
 
   setMeasureMode(enabled) {
+    if (enabled && this.tools.mode) this.tools.setMode(null);
     this.measuring = enabled;
     this.measureStart = undefined;
     this.measureEnd = undefined;
@@ -728,7 +739,9 @@ export class TerminalChart {
         return;
       }
       this.pointer = { x, y: e.clientY - r.top };
-      const idx = this.indexAt(x);
+      this.tools.cursor = null;
+      this.tools.preview = this.drawingPointAt(this.pointer);
+      const idx = this.isInPlot(this.pointer) ? this.indexAt(x) : -1;
       if (idx >= 0 && this.currentCandles[idx]) {
         // Premium enhancement: throttled tooltip update for better performance
         if (this.tooltipTimeout) clearTimeout(this.tooltipTimeout);
@@ -736,25 +749,64 @@ export class TerminalChart {
           this.renderTooltip(this.currentCandles[idx]);
           this.renderCornerLegend(this.currentCandles[idx]);
         }, 16);
-      }
-      this.render();
+      } else if (this.tooltipTimeout) clearTimeout(this.tooltipTimeout);
+      this.render(false);
     });
     this.canvas.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      if (this.measuring) {
-        const bounds = this.canvas.getBoundingClientRect();
-        const x = e.clientX - bounds.left;
-        if (x >= 12 && x <= this.width - 76) this.measureBar(this.indexAt(x));
+      if (e.button !== 0 || !e.isPrimary) return;
+      const bounds = this.canvas.getBoundingClientRect();
+      const point = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
+      if (this.tools.mode || this.measuring) {
+        if (this.tools.mode) this.tools.place(this.drawingPointAt(point));
+        else if (this.isInPlot(point)) this.measureBar(this.indexAt(point.x));
         return;
       }
+      if (!this.isInPlot(point)) return;
       this.drag = { x: e.clientX, end: this.endIndex };
       this.canvas.setPointerCapture(e.pointerId);
     });
     this.canvas.addEventListener('pointerup', () => { this.drag = null; });
+    this.canvas.addEventListener('pointercancel', () => { this.drag = null; });
     this.canvas.addEventListener('lostpointercapture', () => { this.drag = null; });
     this.canvas.addEventListener('keydown', event => {
-      if (!this.measuring) return;
       const visible = this.renderedBarIndices || [];
+      if (this.tools.mode) {
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          const button = this.tools.buttons.find(item => item.dataset.chartDrawing === this.tools.mode);
+          this.tools.setMode(null);
+          button?.focus();
+        } else if (['ArrowLeft', 'ArrowRight', 'Enter'].includes(event.key)) {
+          event.preventDefault();
+          this.pointer = null;
+          const slot = this.tools.cursor ?? visible.length - 1;
+          const delta = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
+          const next = Math.max(0, Math.min(visible.length - 1, slot + delta));
+          const bar = this.currentCandles[visible[next]];
+          if (!bar) return;
+          this.tools.cursor = next;
+          this.tools.preview = { time: bar.time, price: bar.close };
+          if (event.key === 'Enter') this.tools.place(this.tools.preview);
+          this.render();
+        }
+        return;
+      }
+      if (!this.measuring) {
+        if (['ArrowLeft', 'ArrowRight'].includes(event.key) && this.rangeLimit) {
+          event.preventDefault();
+          const earliest = this.currentCandles.length - this.rangeLimit + this.visibleCount;
+          const next = this.endIndex + (event.key === 'ArrowLeft' ? -1 : 1);
+          this.endIndex = Math.max(earliest, Math.min(this.currentCandles.length, next));
+          this.render();
+        } else if (['+', '=', '-'].includes(event.key)) {
+          event.preventDefault();
+          this.zoom(event.key === '-' ? 1 : -1);
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          this.scrollToLatest();
+        }
+        return;
+      }
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
@@ -773,6 +825,7 @@ export class TerminalChart {
     });
     this.canvas.addEventListener('pointerleave', () => {
       this.pointer = null;
+      if (this.tools.cursor === null) this.tools.preview = null;
       if (this.tooltipTimeout) clearTimeout(this.tooltipTimeout);
       if (this.tooltip) this.tooltip.replaceChildren();
       this.renderCornerLegend(this.currentCandles[this.renderedBarIndices?.at(-1)]);
@@ -780,37 +833,56 @@ export class TerminalChart {
     });
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      this.zoom(Math.sign(e.deltaY));
+      const bounds = this.canvas.getBoundingClientRect();
+      const anchor = this.indexAt(e.clientX - bounds.left);
+      this.zoom(Math.sign(e.deltaY), anchor);
     }, { passive: false });
   }
 
-  zoom(direction) {
+  isInPlot({ x, y }) {
+    const plot = this.plot;
+    return plot && x >= plot.left && x <= plot.right && y >= plot.top && y <= plot.bottom;
+  }
+
+  drawingPointAt(point) {
+    if (!this.tools.mode || !this.isInPlot(point)) return null;
+    const bar = this.currentCandles[this.indexAt(point.x)];
+    if (!bar) return null;
+    let price = this.priceAtY(point.y);
+    if (this.tools.snap) {
+      const distance = value => Math.abs(this.priceY(value) - point.y);
+      price = [bar.open, bar.high, bar.low, bar.close].reduce((a, b) => distance(a) <= distance(b) ? a : b);
+    }
+    return Number.isFinite(price) ? { time: bar.time, price } : null;
+  }
+
+  zoom(direction, anchor = -1) {
     const length = this.currentCandles.length;
     const limit = Math.min(length, this.rangeLimit || length);
     if (!limit || !direction) return;
     const count = this.visibleCount;
     const step = Math.max(1, Math.round(count * 0.12));
     this.visibleCount = Math.max(1, Math.min(limit, count + direction * step));
-    this.endIndex = Math.max(length - limit + this.visibleCount, this.endIndex);
+    const relative = anchor < 0 || !count ? 0 : (this.endIndex - anchor - .5) / count;
+    const end = this.endIndex + Math.round(relative * (this.visibleCount - count));
+    this.endIndex = Math.min(length, Math.max(length - limit + this.visibleCount, end));
     this.render();
   }
 
   indexAt(x) {
     const indices = this.renderedBarIndices || [];
     if (!indices.length) return -1;
-    return indices[Math.max(0, Math.min(indices.length - 1, Math.floor((x - 12) / this.barWidth)))];
+    return indices[Math.max(0, Math.min(indices.length - 1, Math.floor((x - this.plot.left) / this.barWidth)))];
   }
 
   // Premium enhancement: smooth rendering with animation frame
-  render() {
-    // Throttle rendering for better performance
-    const now = Date.now();
-    if (now - this.lastRenderTime < this.renderThrottle) {
-      if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
-      this.animationFrame = requestAnimationFrame(() => this.render());
+  render(immediate = true) {
+    if (!immediate) {
+      this.animationFrame ??= requestAnimationFrame(() => this.render(true));
       return;
     }
-    this.lastRenderTime = now;
+    if (this.animationFrame != null) cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = null;
 
     if (!this.ctx || this.width < 120 || this.height < 96) return;
     const c = this.ctx, w = this.width, h = this.height;
@@ -824,6 +896,7 @@ export class TerminalChart {
     c.fillRect(0, 0, w, h);
     const bars = this.currentCandles || [];
     if (!bars.length) {
+      this.plot = null;
       this.renderedBarIndices = [];
       this.renderStudyReadouts();
       c.fillStyle = muted;
@@ -832,8 +905,13 @@ export class TerminalChart {
       return;
     }
     const panes = this.subPanes.size;
-    const mainH = panes ? Math.min(h - 26, Math.max(180, h * this.mainRatio)) : h - 26;
-    const plot = { left: 12, right: w - 76, top: 24, bottom: mainH - (panes ? 22 : 0) };
+    const mainH = this.mainPaneHeight();
+    const plot = {
+      left: 12, right: w - 76,
+      top: Math.min(mainH - 46, (this.cornerLegend?.offsetHeight || 18) + 18),
+      bottom: mainH - (panes ? 8 : 0),
+    };
+    this.plot = plot;
     // Ensure visibleCount is at least 1 to show at least one candle
     const effectiveVisibleCount = Math.max(1, this.visibleCount);
     const start = Math.max(0, this.endIndex - effectiveVisibleCount), end = Math.min(bars.length, this.endIndex || bars.length), visible = bars.slice(start, end);
@@ -865,6 +943,7 @@ export class TerminalChart {
 
     // If no valid bars remain, show unavailable message
     if (validBars.length === 0) {
+      this.plot = null;
       c.fillStyle = muted;
       c.font = '13px sans-serif';
       c.fillText('Insufficient data for chart', 20, 32);
@@ -878,52 +957,91 @@ export class TerminalChart {
     plot.bottom -= volumeHeight;
     // Use validBars for calculations and rendering
     const barsToRenderSafe = validBars;
-    const base = barsToRenderSafe[0]?.close || 1;
+    const comparison = this.tools.comparison;
+    const sharedSlot = comparison ? validBars.findIndex(bar => bar.close > 0 && comparison.closes.get(String(bar.time)) > 0) : -1;
+    const relativeScale = this.scaleMode === 'pct' || sharedSlot >= 0;
+    const base = (validBars[Math.max(0, sharedSlot)]?.close) || 1;
+    const comparisonBase = sharedSlot >= 0 ? comparison.closes.get(String(validBars[sharedSlot].time)) : null;
+    const relativeCloses = comparisonBase ? validBars.map(bar => {
+      const close = comparison.closes.get(String(bar.time));
+      return close > 0 ? (close / comparisonBase - 1) * 100 : null;
+    }) : [];
     const scaled = (v) => {
       if (!Number.isFinite(v)) return 0;
-      return this.scaleMode === 'pct' ? ((v / base) - 1) * 100 : v;
+      return relativeScale ? ((v / base) - 1) * 100 : v;
     };
-    // Calculate min/max from valid bars only
-    const validLows = barsToRenderSafe.map((b) => scaled(b.low)).filter(Number.isFinite);
-    const validHighs = barsToRenderSafe.map((b) => scaled(b.high)).filter(Number.isFinite);
-    let min = validLows.length > 0 ? Math.min(...validLows) : 0;
-    let max = validHighs.length > 0 ? Math.max(...validHighs) : 1;
+    const heikin = this.chartType === 'heikin_ashi';
+    let transformed = null;
+    if (heikin) {
+      if (!this.heikinBars) {
+        let previous;
+        this.heikinBars = bars.map(bar => {
+          if (![bar.open, bar.high, bar.low, bar.close].every(Number.isFinite)) {
+            previous = undefined;
+            return bar;
+          }
+          const close = (bar.open + bar.high + bar.low + bar.close) / 4;
+          const open = previous ? (previous.open + previous.close) / 2 : (bar.open + bar.close) / 2;
+          previous = { ...bar, open, close, high: Math.max(bar.high, open, close), low: Math.min(bar.low, open, close) };
+          return previous;
+        });
+      }
+      transformed = indices.map(index => this.heikinBars[index]);
+    }
+    let min = Infinity;
+    let max = -Infinity;
+    for (const [index, bar] of validBars.entries()) {
+      const candle = transformed?.[index] || bar;
+      min = Math.min(min, scaled(candle.low), scaled(bar.close));
+      max = Math.max(max, scaled(candle.high), scaled(bar.close));
+      if (Number.isFinite(relativeCloses[index])) {
+        min = Math.min(min, relativeCloses[index]);
+        max = Math.max(max, relativeCloses[index]);
+      }
+    }
+    const observedMin = min;
     const pad = (max - min) * 0.08 || Math.abs(max || 1) * 0.02;
     min -= pad; max += pad;
-    const logScale = this.scaleMode === 'log';
+    const logScale = this.scaleMode === 'log' && !relativeScale && observedMin > 0;
     const step = priceTickStep(max - min);
     if (logScale) {
-      min = Math.max(Math.min(...validLows) * 0.9, min);
-    } else {
-      min = Math.floor(min / step) * step;
-      max = Math.ceil(max / step) * step;
+      min = Math.max(observedMin * 0.9, min);
     }
     const axisY = (value) => {
       const t = logScale ? Math.log(value / min) / Math.log(max / min) : (value - min) / (max - min);
       return plot.bottom - t * (plot.bottom - plot.top);
     };
     const y = (value) => axisY(scaled(value));
+    const valueAtY = yy => {
+      const fraction = (plot.bottom - yy) / (plot.bottom - plot.top);
+      return logScale ? min * (max / min) ** fraction : min + fraction * (max - min);
+    };
+    this.priceY = y;
+    this.priceAtY = yy => relativeScale ? base * (1 + valueAtY(yy) / 100) : valueAtY(yy);
+    const pixelCenter = position => (Math.round(position * this.pixelRatio - .5) + .5) / this.pixelRatio;
     const [mantissa, exponent = '0'] = step.toExponential(1).split('e');
     const tickDecimals = Math.min(12, Math.max(0, (mantissa.endsWith('0') ? 0 : 1) - Number(exponent)));
-    const tickCount = logScale ? 5 : Math.round((max - min) / step);
+    const firstTick = Math.ceil(min / step);
+    const tickCount = logScale ? 5 : Math.floor(max / step) - firstTick;
     const tickFormatter = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: tickDecimals,
       maximumFractionDigits: tickDecimals,
     });
     c.font = '11px ui-monospace,monospace';
     c.textBaseline = 'middle';
+    c.lineWidth = 1 / this.pixelRatio;
     for (let n = 0; n <= tickCount; n++) {
-      const value = logScale ? min * (max / min) ** (n / tickCount) : min + step * n;
+      const value = logScale ? min * (max / min) ** (n / tickCount) : (firstTick + n) * step;
       const yy = axisY(value);
       c.strokeStyle = grid;
       c.beginPath();
-      c.moveTo(plot.left, yy);
-      c.lineTo(plot.right, yy);
+      c.moveTo(plot.left, pixelCenter(yy));
+      c.lineTo(plot.right, pixelCenter(yy));
       c.stroke();
       c.fillStyle = muted;
       c.textAlign = 'right';
       const numericLabel = tickFormatter.format(Math.abs(value) < step * 1e-8 ? 0 : value);
-      c.fillText(this.scaleMode === 'pct' ? `${numericLabel}%` : numericLabel, w - 8, yy);
+      c.fillText(relativeScale ? `${numericLabel}%` : numericLabel, w - 8, yy, w - plot.right - 12);
     }
     const labelCount = Math.min(validBars.length, Math.max(1, Math.floor((plot.right - plot.left) / 100)));
     const shortRange = Date.parse(dateString(validBars.at(-1).time)) - Date.parse(dateString(validBars[0].time)) < 120 * 86400000;
@@ -937,8 +1055,8 @@ export class TerminalChart {
       previousLabel = label;
       c.strokeStyle = grid;
       c.beginPath();
-      c.moveTo(xx, plot.top);
-      c.lineTo(xx, volumeBottom);
+      c.moveTo(pixelCenter(xx), plot.top);
+      c.lineTo(pixelCenter(xx), volumeBottom);
       c.stroke();
       const half = c.measureText(label).width / 2;
       c.fillStyle = muted;
@@ -946,15 +1064,13 @@ export class TerminalChart {
       c.fillText(label, Math.max(plot.left + half, Math.min(plot.right - half, xx)), h - 11);
     }
     if (['candles', 'heikin_ashi', 'hollow_candles'].includes(this.chartType)) {
-      const heikin = this.chartType === 'heikin_ashi';
       const hollow = this.chartType === 'hollow_candles';
       const dpr = this.pixelRatio || 1;
       const snap = value => Math.round(value * dpr) / dpr;
       const bodyWidth = Math.max(1 / dpr, snap(Math.min(14, this.barWidth * .7)));
       const wickWidth = Math.max(1 / dpr, snap(1));
-      validBars.forEach((bar, index) => {
-        const open = heikin ? (bar.open + bar.close) / 2 : bar.open;
-        const close = heikin ? (bar.open + bar.high + bar.low + bar.close) / 4 : bar.close;
+      (transformed || validBars).forEach((bar, index) => {
+        const { open, close } = bar;
         const rising = close >= open;
         const x = plot.left + (index + .5) * this.barWidth;
         const left = snap(x - bodyWidth / 2);
@@ -1112,6 +1228,44 @@ export class TerminalChart {
       c.stroke();
     };
     const xAt = slot => plot.left + (slot + .5) * this.barWidth;
+    if (comparisonBase) {
+      c.save();
+      c.strokeStyle = isLight ? '#1d4ed8' : '#8ebcff';
+      c.fillStyle = c.strokeStyle;
+      c.lineWidth = 1.6;
+      c.setLineDash([5, 3]);
+      c.beginPath();
+      let penDown = false;
+      relativeCloses.forEach((value, slot) => {
+        if (!Number.isFinite(value)) {
+          penDown = false;
+          return;
+        }
+        const xx = xAt(slot), yy = axisY(value);
+        if (penDown) c.lineTo(xx, yy);
+        else c.moveTo(xx, yy);
+        penDown = true;
+        c.fillRect(xx - 1, yy - 1, 2, 2);
+      });
+      c.stroke();
+      c.textAlign = 'right';
+      c.textBaseline = 'top';
+      c.fillText(`${comparison.symbol} · % from shared close`, plot.right - 6, plot.top + 5, plot.right - plot.left - 12);
+      c.restore();
+    } else if (comparison) {
+      c.save();
+      c.fillStyle = muted;
+      c.textAlign = 'right';
+      c.textBaseline = 'top';
+      c.fillText(`${comparison.symbol} · No shared candles in view`, plot.right - 6, plot.top + 5, plot.right - plot.left - 12);
+      c.restore();
+    }
+    const xAtTime = time => {
+      const index = bars.findIndex(bar => bar.time === time);
+      const slot = indices.indexOf(index);
+      return index < 0 ? NaN : xAt(slot >= 0 ? slot : index - indices[0]);
+    };
+    this.tools.draw(c, plot, xAtTime, y, isLight ? '#6b38b9' : '#c6aeff', bg);
     const latest = bars.at(-1);
     const latestY = y(latest.close);
     if (indices.at(-1) === bars.length - 1 && latestY >= plot.top && latestY <= plot.bottom) {
@@ -1123,10 +1277,11 @@ export class TerminalChart {
       drawAxisTag(c, formatAxisValue(scaled(latest.close)), plot.right + 2, latestY - 9, tagWidth, chartInk, tagSurface);
     }
 
-    const pointerInPlot = this.pointer && this.pointer.x >= plot.left && this.pointer.x <= plot.right
-      && this.pointer.y >= plot.top && this.pointer.y <= plot.bottom;
+    const pointerInPlot = this.pointer && this.isInPlot(this.pointer);
     const pointerSlot = pointerInPlot ? indices.indexOf(this.indexAt(this.pointer.x)) : -1;
-    const cursorSlot = this.measuring ? (pointerSlot >= 0 ? pointerSlot : this.measureCursor ?? indices.length - 1) : pointerSlot;
+    const cursorSlot = this.measuring
+      ? (pointerSlot >= 0 ? pointerSlot : this.measureCursor ?? indices.length - 1)
+      : this.tools.cursor ?? pointerSlot;
     const markerA = indices.indexOf(this.measureStart);
     const markerB = this.measureEnd === undefined ? cursorSlot : indices.indexOf(this.measureEnd);
     if (markerA >= 0 && markerB >= 0 && validBars[markerB]) {
@@ -1139,11 +1294,10 @@ export class TerminalChart {
       c.restore();
       line(x1, y1, x2, y2, accent);
     }
-    if (cursorSlot >= 0 && validBars[cursorSlot] && (this.crosshairEnabled || this.measuring)) {
+    if (cursorSlot >= 0 && validBars[cursorSlot] && (this.crosshairEnabled || this.measuring || this.tools.mode)) {
       const xx = xAt(cursorSlot);
       const yy = pointerInPlot ? this.pointer.y : y(validBars[cursorSlot].close);
-      const fraction = (plot.bottom - yy) / (plot.bottom - plot.top);
-      const axisValue = logScale ? min * (max / min) ** fraction : min + fraction * (max - min);
+      const axisValue = valueAtY(yy);
       c.save();
       c.lineWidth = 1;
       c.setLineDash([4, 4]);

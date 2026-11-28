@@ -593,68 +593,108 @@
          WORKSPACE 2: DISCOVER (SCREENER & ASSET FINDER)
          ===================================================================== -->
         <section class="workspace-view" id="workspace-discover" role="tabpanel" aria-labelledby="ws-btn-discover">
-          <div class="workspace-scroll-wrap">
-            <div class="workspace-header">
-              <div class="workspace-title-row">
-                <h2 class="workspace-title">Asset Discovery &amp; Screener</h2>
-                <span class="workspace-badge">Multi-Asset Scanner</span>
-              </div>
-              <p class="workspace-desc">Cross-market quantitative scanner across Indian Bluechips, US Mega-Caps, AI Leaders, Crypto, Commodities, and Forex.</p>
-            </div>
+          <div class="workspace-scroll-wrap discover-workspace">
+            <header class="discover-heading">
+              <h1>Asset screener</h1>
+              <span id="discover-source" class="discover-source"></span>
+            </header>
 
-            <div class="screener-control-bar">
-              <div class="screener-tabs" id="screener-tabs">
-                <button class="screener-tab-btn active" data-universe="indian_leaders">Indian Leaders</button>
-                <button class="screener-tab-btn" data-universe="us_mega_caps">US Mega-Caps</button>
-                <button class="screener-tab-btn" data-universe="semiconductors_ai">AI &amp; Semiconductors</button>
-                <button class="screener-tab-btn" data-universe="crypto">Crypto</button>
-                <button class="screener-tab-btn" data-universe="commodities">Commodities</button>
-                <button class="screener-tab-btn" data-universe="forex">Forex</button>
-              </div>
-              <button id="toggle-screener-builder-btn" class="ws-action-btn" title="Toggle quantitative rule filter">
-                Filters &amp; Rules <span id="filter-count-badge" class="badge-count" style="display: none;">0</span>
-              </button>
-            </div>
+            <nav class="discover-universes" aria-label="Asset universes">
+              <a href="#/discover/indian_leaders" class="screener-tab-btn active" data-universe="indian_leaders" aria-current="page">Indian Leaders</a>
+              <a href="#/discover/us_mega_caps" class="screener-tab-btn" data-universe="us_mega_caps">US Mega-Caps</a>
+              <a href="#/discover/semiconductors_ai" class="screener-tab-btn" data-universe="semiconductors_ai">AI &amp; Semiconductors</a>
+              <a href="#/discover/crypto" class="screener-tab-btn" data-universe="crypto">Crypto</a>
+              <a href="#/discover/commodities" class="screener-tab-btn" data-universe="commodities">Commodities</a>
+              <a href="#/discover/forex" class="screener-tab-btn" data-universe="forex">Forex</a>
+            </nav>
 
-            <!-- Screener Query Builder Container (Collapsible) -->
-            <div id="screener-builder-wrap" class="screener-builder-panel" style="display: none;">
-              <div class="screener-builder-top">
-                <span class="builder-label">Quantitative Filters</span>
-                <div class="builder-actions">
-                  <select id="screener-combinator" class="screener-select" aria-label="Rule matching logic">
-                    <option value="AND">Match all (AND)</option>
-                    <option value="OR">Match any (OR)</option>
+            <section class="discover-panel" aria-labelledby="discover-universe-title">
+              <header class="discover-summary">
+                <div>
+                  <h2 id="discover-universe-title">Indian Leaders</h2>
+                  <p id="discover-results" role="status">Loading snapshot…</p>
+                </div>
+                <div id="discover-breadth" class="discover-breadth" hidden>
+                  <div class="discover-breadth-meter" aria-hidden="true"></div>
+                  <div class="discover-breadth-labels"></div>
+                </div>
+              </header>
+
+              <div class="discover-filters">
+                <label class="discover-field">Find in universe
+                  <input id="discover-search" type="search" class="screener-input" placeholder="Symbol, name, or sector" autocomplete="off">
+                </label>
+                <label class="discover-field">Price move
+                  <select id="discover-move" class="screener-select">
+                    <option value="all">All moves</option>
+                    <option value="up">Gainers</option>
+                    <option value="down">Decliners</option>
+                    <option value="flat">Unchanged</option>
                   </select>
-                  <button id="screener-add-rule-btn" class="ws-tab-btn active">+ Condition</button>
-                  <button id="screener-run-builder-btn" class="ws-tab-btn active">Run Filter</button>
-                  <button id="screener-export-csv-btn" class="ws-tab-btn">Export CSV</button>
-                  <button id="screener-export-json-btn" class="ws-tab-btn">Export JSON</button>
+                </label>
+                <label class="discover-field discover-mobile-sort">Sort by
+                  <select id="discover-mobile-sort" class="screener-select">
+                    <option value="change_pct:descending">Change ↓</option>
+                    <option value="change_pct:ascending">Change ↑</option>
+                    <option value="symbol:ascending">Symbol A–Z</option>
+                    <option value="symbol:descending">Symbol Z–A</option>
+                    <option value="price:descending">Price ↓</option>
+                    <option value="price:ascending">Price ↑</option>
+                    <option value="market_cap:descending">Market cap ↓</option>
+                    <option value="market_cap:ascending">Market cap ↑</option>
+                    <option value="pe_trailing:descending">P/E ↓</option>
+                    <option value="pe_trailing:ascending">P/E ↑</option>
+                  </select>
+                </label>
+                <div class="discover-filter-actions">
+                  <button type="button" id="toggle-screener-builder-btn" class="discover-button" aria-controls="screener-builder-wrap" aria-expanded="false">Rules <span id="filter-count-badge" hidden></span></button>
+                  <button type="button" id="discover-clear" class="discover-button" disabled>Clear filters</button>
                 </div>
               </div>
-              <div id="screener-rules-container">
-                <!-- Populated via JavaScript -->
-              </div>
-            </div>
 
-            <div class="screener-table-wrapper">
-              <table class="screener-table">
-                <thead>
-                  <tr>
-                    <th scope="col" data-sort="symbol" class="sortable">Symbol <span class="sort-indicator" data-col="symbol"></span></th>
-                    <th scope="col" data-sort="name" class="sortable">Company / Asset <span class="sort-indicator" data-col="name"></span></th>
-                    <th scope="col" data-sort="price" class="sortable">Price <span class="sort-indicator" data-col="price"></span></th>
-                    <th scope="col" data-sort="change" class="sortable">Change % <span class="sort-indicator" data-col="change"></span></th>
-                    <th scope="col" data-sort="marketCap" class="sortable">Market Cap / Metric <span class="sort-indicator" data-col="marketCap"></span></th>
-                    <th scope="col">Action</th>
-                  </tr>
-                </thead>
-                <tbody id="screener-table-body">
-                  <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 30px;">Loading market snapshot...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+              <form id="screener-builder-wrap" class="discover-builder" hidden aria-labelledby="discover-rules-title">
+                <div class="discover-rule-header">
+                  <h3 id="discover-rules-title">Screening rules</h3>
+                  <label class="discover-field">Match logic
+                    <select id="screener-combinator" class="screener-select">
+                      <option value="AND">Match all (AND)</option>
+                      <option value="OR">Match any (OR)</option>
+                    </select>
+                  </label>
+                </div>
+                <p id="discover-rule-note">Unavailable values fail the rule. Enter percentages as percentage points and prices in the asset’s quote currency.</p>
+                <div id="screener-rules-container"></div>
+                <div class="discover-rule-actions">
+                  <button type="button" id="screener-add-rule-btn" class="discover-button">Add condition</button>
+                  <button type="submit" id="screener-run-builder-btn" class="discover-button discover-primary">Apply rules</button>
+                </div>
+              </form>
+
+              <div class="discover-table-state" id="discover-state" hidden></div>
+              <div id="discover-table-region" class="discover-table-region" role="region" aria-labelledby="discover-caption" tabindex="0">
+                <table id="discover-table" class="discover-table" role="table">
+                  <caption id="discover-caption">Screener results</caption>
+                  <thead role="rowgroup">
+                    <tr role="row">
+                      <th scope="col" data-sort="symbol"><button type="button" commandfor="discover-table" command="--sort">Asset</button></th>
+                      <th scope="col" data-sort="price"><button type="button" commandfor="discover-table" command="--sort">Price</button></th>
+                      <th scope="col" data-sort="change_pct" aria-sort="descending"><button type="button" commandfor="discover-table" command="--sort">Change %</button></th>
+                      <th scope="col" data-sort="market_cap"><button type="button" commandfor="discover-table" command="--sort">Market cap</button></th>
+                      <th scope="col" data-sort="pe_trailing"><button type="button" commandfor="discover-table" command="--sort">Trailing P/E</button></th>
+                      <th scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="screener-table-body" role="rowgroup"></tbody>
+                </table>
+              </div>
+              <footer class="discover-footer">
+                <p>Prices and market caps use each asset’s quote currency.</p>
+                <div role="group" aria-label="Export visible results">
+                  <button type="button" id="screener-export-csv-btn" class="discover-button" disabled>Export CSV</button>
+                  <button type="button" id="screener-export-json-btn" class="discover-button" disabled>Export JSON</button>
+                </div>
+              </footer>
+            </section>
           </div>
         </section>
 
@@ -756,12 +796,12 @@
                   <span>Analyze</span>
                 </button>
 
-                <button class="tv-tb-btn" type="button" id="chart-compare-btn">Compare</button>
+                <button class="tv-tb-btn" type="button" id="chart-compare-btn" aria-controls="chart-tools-panel" aria-expanded="false">Compare</button>
                 <button class="tv-tb-btn" type="button" id="chart-tools-btn" aria-controls="chart-tools-panel" aria-expanded="false">Tools</button>
 
                 <div class="tv-tb-right">
                   <!-- Fullscreen Button -->
-                  <button class="tv-tb-icon-btn" id="tv-fullscreen-btn" aria-label="Toggle Fullscreen">
+                  <button type="button" class="tv-tb-icon-btn" id="tv-fullscreen-btn" aria-label="Toggle Fullscreen" aria-pressed="false">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                     </svg>
@@ -778,11 +818,26 @@
               </div>
             </div>
 
+          <div class="chart-fullscreen-tools" id="chart-fullscreen-tools" role="toolbar"
+            focusgroup="toolbar wrap" aria-label="Fullscreen chart tools" aria-controls="tv-chart-container">
+            <div role="group" aria-label="Drawing tools">
+              <button type="button" class="tv-tb-btn" data-chart-drawing="fib" aria-pressed="false">Fibonacci</button>
+              <button type="button" class="tv-tb-btn" data-chart-drawing="ray" aria-pressed="false">Ray</button>
+              <button type="button" class="tv-tb-btn" data-chart-drawing="time" aria-pressed="false">Time marker</button>
+            </div>
+            <span role="separator" aria-orientation="vertical"></span>
+            <div role="group" aria-label="Drawing history and export">
+              <button type="button" class="tv-tb-btn" id="chart-undo" aria-disabled="true">Undo drawing</button>
+              <button type="button" class="tv-tb-btn" id="chart-redo" aria-disabled="true">Redo drawing</button>
+              <button type="button" class="tv-tb-btn" id="chart-download" aria-disabled="true">Export PNG</button>
+            </div>
+          </div>
+
           <!-- Main Chart Workstation: Left Rail + Canvas + Corner Legend + Bottom Bar -->
           <div class="tv-workspace-body" id="tv-workspace-body">
             <!-- 1. Left Icon Rail (44px wide) -->
             <aside class="tv-left-rail" id="tv-left-rail">
-              <button class="tv-rail-btn active" id="tv-rail-crosshair" aria-label="Crosshair Mode">
+              <button class="tv-rail-btn active" id="tv-rail-crosshair" aria-label="Crosshair Mode" aria-pressed="true">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <circle cx="12" cy="12" r="8"/>
                   <line x1="12" y1="2" x2="12" y2="22"/>
@@ -847,7 +902,6 @@
                   </div>
                 </div>
 
-                <p class="chart-drawing-hint" id="chart-drawing-hint" role="status" hidden></p>
                 <div class="chart-skeleton-shimmer" id="chart-skeleton-shimmer">
                   <div class="shimmer-pulse-text">Loading chart...</div>
                 </div>
@@ -871,6 +925,7 @@
                   <button type="button" class="tv-scale-btn" id="chart-zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
                 </div>
                 <output class="chart-measure-readout" id="chart-measure-readout" aria-live="polite" hidden></output>
+                <p class="chart-drawing-hint" id="chart-drawing-hint" role="status"></p>
               </div>
 
               <!-- 5. Bottom Status Bar (28px) -->
@@ -882,10 +937,12 @@
                 <div class="tv-bb-right">
                   <span class="tv-bb-tz" id="tv-bb-tz">UTC</span>
                   <span class="tv-bb-age" id="tv-bb-age" style="color: var(--text-dim); font-size: 11px; margin-right: 8px;">Updated —</span>
-                  <button class="tv-scale-btn" id="tv-latest-btn" title="Scroll to Latest Bar">Latest</button>
-                  <button class="tv-scale-btn" id="tv-reset-view-btn" title="Reset View & Scale">Reset</button>
-                  <button class="tv-scale-btn" id="tv-scale-log-btn" title="Toggle Logarithmic Scale">LOG</button>
-                  <button class="tv-scale-btn" id="tv-scale-pct-btn" title="Toggle Percentage Scale">%</button>
+                  <div class="tv-bb-controls" role="group" aria-label="Chart view and scale">
+                    <button type="button" class="tv-scale-btn" id="tv-latest-btn" title="Scroll to Latest Bar">Latest</button>
+                    <button type="button" class="tv-scale-btn" id="tv-reset-view-btn" title="Reset View & Scale">Reset</button>
+                    <button type="button" class="tv-scale-btn" id="tv-scale-log-btn" title="Toggle Logarithmic Scale">LOG</button>
+                    <button type="button" class="tv-scale-btn" id="tv-scale-pct-btn" title="Toggle Percentage Scale">%</button>
+                  </div>
                 </div>
               </div>
             </div>

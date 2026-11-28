@@ -1,10 +1,8 @@
 /**
  * Mara Screener 2.0 - Dynamic Multi-Condition Query Builder
  * Evaluates assets against arbitrary rule combinations (AND / OR).
- * Allows saving query presets to localStorage and exporting results to CSV / JSON.
+ * Evaluates rules and exports the displayed results to CSV or JSON.
  */
-
-const PRESETS_STORAGE_KEY = 'apex_screener_presets';
 
 export const SCREENER_METRICS = [
   { id: 'pe_trailing', label: 'Trailing P/E', unit: 'x', defaultVal: 30, defaultOp: '<' },
@@ -12,27 +10,22 @@ export const SCREENER_METRICS = [
   { id: 'roe', label: 'Return on Equity (ROE)', unit: '%', defaultVal: 15, defaultOp: '>' },
   { id: 'debt_to_equity', label: 'Debt / Equity', unit: 'x', defaultVal: 0.5, defaultOp: '<' },
   { id: 'dividend_yield', label: 'Dividend Yield', unit: '%', defaultVal: 1.5, defaultOp: '>' },
-  { id: 'change_pct', label: '24H Change %', unit: '%', defaultVal: 0, defaultOp: '>' },
-  { id: 'current_price', label: 'Current Price', unit: '$ / ₹', defaultVal: 500, defaultOp: '<' },
+  { id: 'change_pct', label: 'Change %', unit: '%', defaultVal: 0, defaultOp: '>' },
+  { id: 'current_price', label: 'Price', unit: 'quote currency', defaultVal: 500, defaultOp: '<' },
 ];
 
 export class ScreenerBuilder {
   constructor() {
-    this.conditions = [
-      { id: 1, metric: 'roe', operator: '>', value: 15 },
-      { id: 2, metric: 'debt_to_equity', operator: '<', value: 0.8 },
-      { id: 3, metric: 'pe_trailing', operator: '<', value: 35 },
-    ];
-    this.combinator = 'AND'; // 'AND' or 'OR'
-    this.nextId = 4;
+    this.reset();
+    this.nextId = 1;
   }
 
   addCondition() {
     this.conditions.push({
       id: this.nextId++,
-      metric: 'pe_trailing',
-      operator: '<',
-      value: 30,
+      metric: 'change_pct',
+      operator: '>',
+      value: 0,
     });
   }
 
@@ -48,24 +41,19 @@ export class ScreenerBuilder {
   }
 
   reset() {
-    this.conditions = [
-      { id: 1, metric: 'roe', operator: '>', value: 15 },
-      { id: 2, metric: 'debt_to_equity', operator: '<', value: 0.8 },
-    ];
+    this.conditions = [];
     this.combinator = 'AND';
   }
 
-  execute(assets) {
+  execute(assets, conditions = this.conditions, combinator = this.combinator) {
     if (!assets || assets.length === 0) return [];
-    if (this.conditions.length === 0) return assets;
+    if (conditions.length === 0) return assets;
 
     return assets.filter((asset) => {
-      const matchResults = this.conditions.map((cond) => {
-        let val = asset[cond.metric];
-        if (val == null) return false;
-
-        const target = parseFloat(cond.value);
-        if (isNaN(target)) return true;
+      const matches = (cond) => {
+        const val = asset[cond.metric];
+        const target = cond.value;
+        if (!Number.isFinite(val) || !Number.isFinite(target)) return false;
 
         switch (cond.operator) {
           case '>':
@@ -79,30 +67,31 @@ export class ScreenerBuilder {
           case '=':
             return Math.abs(val - target) < 0.01;
           default:
-            return true;
+            return false;
         }
-      });
-
-      if (this.combinator === 'AND') {
-        return matchResults.every(Boolean);
-      } else {
-        return matchResults.some(Boolean);
-      }
+      };
+      return combinator === 'AND' ? conditions.every(matches) : conditions.some(matches);
     });
   }
 
   exportCSV(results) {
     if (!results || results.length === 0) return;
-    const headers = ['Symbol', 'Name', 'Price', '24H Chg %', 'P/E', 'ROE %', 'Debt/Equity', 'Market Cap'];
+    const csvText = value => {
+      const safe = String(value ?? '').replace(/^([\s]*[=+\-@]|[\t\r\n])/, "'$&");
+      return `"${safe.replaceAll('"', '""')}"`;
+    };
+    const headers = ['Symbol', 'Name', 'Price', 'Currency', 'Change %', 'Trailing P/E', 'ROE %', 'Debt/Equity', 'Market Cap', 'Source'];
     const rows = results.map((r) => [
-      `"${r.symbol}"`,
-      `"${(r.name || r.symbol).replace(/"/g, '""')}"`,
-      r.current_price || '',
-      r.change_pct || '',
-      r.pe_trailing || '',
-      r.roe || '',
-      r.debt_to_equity || '',
-      `"${r.market_cap_str || ''}"`,
+      csvText(r.symbol),
+      csvText(r.name || r.symbol),
+      r.current_price ?? '',
+      csvText(r.currency || r.currency_symbol),
+      r.change_pct ?? '',
+      r.pe_trailing ?? '',
+      r.roe ?? '',
+      r.debt_to_equity ?? '',
+      r.market_cap ?? '',
+      csvText(r.data_source || r.source),
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
