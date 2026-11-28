@@ -74,23 +74,21 @@ export class ScreenerBuilder {
     });
   }
 
-  exportCSV(results) {
+  exportCSV(results, includeFundamentals = true) {
     if (!results || results.length === 0) return;
     const csvText = value => {
       const safe = String(value ?? '').replace(/^([\s]*[=+\-@]|[\t\r\n])/, "'$&");
       return `"${safe.replaceAll('"', '""')}"`;
     };
-    const headers = ['Symbol', 'Name', 'Price', 'Currency', 'Change %', 'Trailing P/E', 'ROE %', 'Debt/Equity', 'Market Cap', 'Source'];
+    const fundamentals = ['Trailing P/E', 'ROE %', 'Debt/Equity', 'Market Cap'];
+    const headers = ['Symbol', 'Name', 'Price', 'Currency', 'Change %', ...(includeFundamentals ? fundamentals : []), 'Source'];
     const rows = results.map((r) => [
       csvText(r.symbol),
       csvText(r.name || r.symbol),
       r.current_price ?? '',
       csvText(r.currency || r.currency_symbol),
       r.change_pct ?? '',
-      r.pe_trailing ?? '',
-      r.roe ?? '',
-      r.debt_to_equity ?? '',
-      r.market_cap ?? '',
+      ...(includeFundamentals ? [r.pe_trailing ?? '', r.roe ?? '', r.debt_to_equity ?? '', r.market_cap ?? ''] : []),
       csvText(r.data_source || r.source),
     ]);
 

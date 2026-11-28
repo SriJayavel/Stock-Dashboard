@@ -693,7 +693,7 @@
                 </table>
               </div>
               <footer class="discover-footer">
-                <p>Prices and market caps use each asset’s quote currency.</p>
+                <p id="discover-currency-note">Prices and market caps use each asset's quote currency.</p>
                 <div role="group" aria-label="Export visible results">
                   <button type="button" id="screener-export-csv-btn" class="discover-button" disabled>Export CSV</button>
                   <button type="button" id="screener-export-json-btn" class="discover-button" disabled>Export JSON</button>
@@ -1636,6 +1636,12 @@
           <select class="screener-select" data-listing-sort>
             <option value="name">Company A–Z</option>
             <option value="symbol">Ticker A–Z</option>
+          </select>
+        </label>
+        <label class="discover-field" data-listing-coverage-filter hidden>Coverage
+          <select class="screener-select" data-listing-coverage>
+            <option value="all">All listings</option>
+            <option value="chart">With synthetic quote and chart</option>
           </select>
         </label>
       </div>

@@ -33,11 +33,11 @@ test('shares a paginated international stock directory between Markets and Disco
   const discover = page.locator('#discover-stock-directory');
   await expect(discover).toBeVisible();
   await expect(discover.locator('[data-listing-status]')).toHaveText(/1–25 of/);
+  await expect(discover.locator('tr[data-stock-symbol]').first()).toContainText('Synthetic quote');
+  await discover.getByRole('combobox', { name: 'Coverage', exact: true }).selectOption('chart');
   await discover.getByRole('combobox', { name: 'Listing market' }).selectOption('IN');
   await discover.getByRole('searchbox', { name: 'Search listed stocks' }).fill('TCS.NS');
   const result = discover.locator('tr[data-stock-symbol="TCS.NS"]');
-  await expect(result).toContainText('Quote not loaded');
-  await discover.getByRole('button', { name: 'Load demo quotes' }).click();
   await expect(result).toContainText('Synthetic quote');
   await expect(result.locator('.provenance-trigger')).toHaveAttribute('aria-description', /TCS\.NS last price.*synthetic/i);
   await expect(result).toHaveCSS('display', 'grid');
@@ -59,22 +59,25 @@ test('finds newly listed stocks in global search beyond the original stock prese
   const row = directory.locator('tr[data-stock-symbol="2303.TW"]');
   await expect(row).toContainText('TWSE');
   await expect(row).toContainText('Listing only');
-  await expect(directory.getByRole('button', { name: 'Load demo quotes' })).toBeDisabled();
+  await expect(directory.locator('[data-listing-quote-status]')).toContainText('No synthetic quotes on this page');
+  await directory.getByRole('combobox', { name: 'Coverage', exact: true }).selectOption('chart');
+  await expect(directory.getByText('No stocks match your search.')).toBeVisible();
 });
 
 test('Discover sorts raw prices and exports the same assets shown by its applied rules', async ({ page }) => {
   await page.goto('/?freeze=1#/discover/indian_leaders');
   const rows = page.locator('#screener-table-body tr');
   const status = page.locator('#discover-results');
-  await expect(status).toHaveText('5 of 5 assets');
+  await expect(status).toHaveText('10 of 10 assets');
   await expect(page.locator('#discover-source')).toHaveText('Synthetic demo');
   const priceSort = page.getByRole('columnheader', { name: 'Price', exact: true }).getByRole('button');
   await priceSort.press('Enter');
   await expect(priceSort).toBeFocused();
   await expect(priceSort.locator('..')).toHaveAttribute('aria-sort', 'ascending');
-  await expect(rows.first()).toHaveAttribute('data-symbol', 'ICICIBANK.NS');
+  const lowestSymbol = await rows.first().getAttribute('data-symbol');
   await priceSort.press('Enter');
   await expect(rows.first()).toHaveAttribute('data-symbol', 'TCS.NS');
+  await expect(rows.last()).toHaveAttribute('data-symbol', lowestSymbol);
   await page.getByRole('button', { name: 'Rules', exact: true }).click();
   const rules = page.getByRole('form', { name: 'Screening rules' });
   await rules.getByLabel('Metric for condition 1').selectOption('current_price');
@@ -82,26 +85,27 @@ test('Discover sorts raw prices and exports the same assets shown by its applied
   await rules.getByLabel('Threshold for condition 1').fill('3000');
   await rules.getByRole('button', { name: 'Apply rules' }).click();
   await expect(rows).toHaveCount(1);
-  await expect(status).toHaveText('1 of 5 assets');
+  await expect(status).toHaveText('1 of 10 assets');
   await rules.getByRole('button', { name: 'Add condition' }).click();
   await rules.getByLabel('Match logic').selectOption('OR');
   await rules.getByRole('button', { name: 'Apply rules' }).click();
-  await expect(status).toHaveText('3 of 5 assets');
+  await expect(rows.filter({ hasText: 'INFY.NS' })).toHaveCount(1);
+  const shownSymbols = await rows.evaluateAll(items => items.map(row => row.dataset.symbol));
   await rules.getByLabel('Threshold for condition 1').fill('5000');
   const pending = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export JSON' }).click();
   const data = JSON.parse(await readFile(await (await pending).path(), 'utf8'));
-  expect(data.map(item => item.symbol)).toEqual(['TCS.NS', 'INFY.NS', 'ICICIBANK.NS']);
+  expect(data.map(item => item.symbol)).toEqual(shownSymbols);
   expect(data.every(item => item.data_source === 'Synthetic demo')).toBe(true);
   const csvDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export CSV' }).click();
   const csv = await readFile(await (await csvDownload).path(), 'utf8');
-  expect(csv.split('\n').slice(1).map(line => line.split(',')[0])).toEqual(['"TCS.NS"', '"INFY.NS"', '"ICICIBANK.NS"']);
+  expect(csv.split('\n').slice(1).map(line => line.split(',')[0])).toEqual(shownSymbols.map(symbol => `"${symbol}"`));
   await page.getByRole('searchbox', { name: 'Find in universe' }).fill('missing symbol');
   await expect(page.getByText('No assets match your filters')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export CSV' })).toBeDisabled();
   await page.locator('#discover-state').getByRole('button', { name: 'Clear filters' }).click();
-  await expect(status).toHaveText('5 of 5 assets');
+  await expect(status).toHaveText('10 of 10 assets');
   await page.getByRole('button', { name: 'Create alert for INFY.NS' }).click();
   await expect(page).toHaveURL(/#\/monitor\/alerts$/);
   await expect(page.locator('#ws-alert-sym-input')).toHaveValue('INFY.NS');
@@ -113,27 +117,46 @@ test('Discover recovers from a failed snapshot and stays usable on mobile', asyn
   await page.goto('/?freeze=1#/discover/indian_leaders');
   await expect(page.getByText('Unable to load this universe')).toBeVisible();
   await page.getByRole('button', { name: 'Retry snapshot' }).click();
-  await expect(page.locator('#discover-results')).toHaveText('5 of 5 assets');
+  await expect(page.locator('#discover-results')).toHaveText('10 of 10 assets');
   const universes = page.getByRole('navigation', { name: 'Asset universes' });
   await expect(universes.getByRole('link', { name: 'Forex' })).toBeInViewport();
   await universes.getByRole('link', { name: 'US Mega-Caps' }).click();
   await expect(page.locator('#screener-table-body tr[data-symbol="AAPL"]')).toBeVisible();
   await page.goBack();
-  await expect(page.locator('#discover-results')).toHaveText('5 of 5 assets');
+  await expect(page.locator('#discover-results')).toHaveText('10 of 10 assets');
   await universes.getByRole('link', { name: 'Forex' }).click();
   const fxRow = page.locator('#screener-table-body tr[data-symbol="USDINR=X"]');
   await expect(fxRow).toContainText('₹83.2909');
-  await expect(fxRow).toContainText('Snapshot only');
+  await expect(fxRow.getByRole('link', { name: 'Open USDINR=X chart' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Trailing P/E' })).toHaveCount(0);
   await page.goBack();
-  await expect(page.locator('#discover-results')).toHaveText('5 of 5 assets');
+  await expect(page.locator('#discover-results')).toHaveText('10 of 10 assets');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByLabel('Price move').selectOption('up');
   await page.locator('#discover-snapshot-panel').getByLabel('Sort by').selectOption('price:descending');
   const rows = page.locator('#screener-table-body tr');
-  await expect(rows).toHaveCount(2);
-  await expect(rows.first()).toHaveAttribute('data-symbol', 'INFY.NS');
+  await expect(rows.filter({ hasText: 'INFY.NS' })).toBeVisible();
   await page.getByRole('link', { name: 'Open INFY.NS chart' }).click();
   await expect(page).toHaveURL(/#\/symbol\/INFY\.NS\/chart$/);
+});
+
+test('Discover provides chartable coverage across asset classes', async ({ page }) => {
+  await page.goto('/?freeze=1#/discover/semiconductors_ai');
+  const universes = page.getByRole('navigation', { name: 'Asset universes' });
+  const results = page.locator('#discover-results');
+  await expect(results).toHaveText('11 of 11 assets');
+  await expect(page.getByRole('link', { name: 'Open TSM chart' })).toBeVisible();
+  for (const [category, count, symbol] of [
+    ['Crypto', 6, 'ETH-USD'], ['Commodities', 7, 'NG=F'], ['Forex', 10, 'USDINR=X'],
+  ]) {
+    await universes.getByRole('link', { name: category }).click();
+    await expect(results).toHaveText(`${count} of ${count} assets`);
+    await expect(page.getByRole('columnheader', { name: 'Market cap' })).toHaveCount(0);
+    await page.getByRole('link', { name: `Open ${symbol} chart` }).click();
+    await expect(page.locator('#tv-chart-container')).toHaveAccessibleName(new RegExp(`${symbol}.*Last close`));
+    if (category === 'Forex') await expect(page.locator('#tv-leg-close')).toHaveText('83.2909');
+    await page.goBack();
+  }
 });
 
 test('finds TradingView indicator aliases and restores new studies on reload', async ({ page }) => {

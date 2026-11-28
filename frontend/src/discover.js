@@ -5,9 +5,9 @@ const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'bas
 const changeFormat = new Intl.NumberFormat('en', {
   minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'exceptZero',
 });
-const priceFormats = [2, 4].map(digits => new Intl.NumberFormat('en', {
+const priceFormats = Object.fromEntries([2, 4].map(digits => [digits, new Intl.NumberFormat('en', {
   minimumFractionDigits: digits, maximumFractionDigits: digits,
-}));
+})]));
 const moves = {
   up: { label: 'gainers', accepts: value => value > 0 },
   down: { label: 'decliners', accepts: value => value < 0 },
@@ -62,7 +62,29 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
   let phase = 'loading';
   let sortKey = 'change_pct';
   let sortDirection = 'descending';
+  let equity = true;
   const rowItems = new WeakMap();
+  const equityColumns = new Set(['market_cap', 'pe_trailing']);
+  const priceMetrics = new Set(['change_pct', 'current_price']);
+
+  function updateAssetClass() {
+    equity = !['crypto', 'commodities', 'forex'].includes(universe);
+    for (const header of headers) header.hidden = !equity && equityColumns.has(header.dataset.sort);
+    for (const option of mobileSort.options) option.hidden = !equity && equityColumns.has(option.value.split(':')[0]);
+    byId('discover-currency-note').textContent = equity
+      ? "Prices and market caps use each asset's quote currency."
+      : "Prices use each asset's quote currency.";
+    search.placeholder = equity ? 'Symbol, name, or sector' : 'Symbol or name';
+    if (!equity) {
+      if (equityColumns.has(sortKey)) sortBy('change_pct', 'descending');
+      appliedRules = appliedRules.filter(rule => priceMetrics.has(rule.metric));
+      for (const rule of screenerBuilder.conditions) {
+        if (!priceMetrics.has(rule.metric)) screenerBuilder.removeCondition(rule.id);
+      }
+    }
+    if (!rulesForm.hidden && !screenerBuilder.conditions.length) screenerBuilder.addCondition();
+    renderRuleEditor();
+  }
 
   function ordered(items) {
     const factor = sortDirection === 'ascending' ? 1 : -1;
@@ -125,8 +147,8 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
     const currency = item.currency_symbol || currencyFor(item.symbol, item.currency);
     const hasPrice = Number.isFinite(item.price);
     const hasChange = Number.isFinite(item.change_pct);
-    const isForex = item.symbol.endsWith('=X');
-    const price = hasPrice ? `${currency}${priceFormats[isForex ? 1 : 0].format(item.price)}` : '—';
+    const precision = item.price_precision === 4 || item.symbol.endsWith('=X') || (!equity && item.price < 10) ? 4 : 2;
+    const price = hasPrice ? `${currency}${priceFormats[precision].format(item.price)}` : '-';
     const priceContent = hasPrice ? provenance(price, {
       label: `${item.symbol} last price`, details: quoteDetails(item, 'MARA market snapshot'),
     }) : price;
@@ -134,7 +156,8 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
     const tone = !hasChange ? 'missing' : item.change_pct > 0 ? 'up' : item.change_pct < 0 ? 'down' : 'flat';
     const cap = item.market_cap === null ? '—' : `<span data-units-value="${item.market_cap}" data-units-currency="${escapeHtml(currency)}">${escapeHtml(formatUnits(item.market_cap, currency))}</span>`;
     const pe = Number.isFinite(item.pe_trailing) ? `${item.pe_trailing.toFixed(1)}×` : '—';
-    const chart = item.demo_snapshot_only ? null : escapeHtml(chartHref(item.symbol));
+    const canChart = item.chart_available ?? !item.demo_snapshot_only;
+    const chart = canChart ? escapeHtml(chartHref(item.symbol)) : null;
     const row = document.createElement('tr');
     row.setAttribute('role', 'row');
     row.dataset.symbol = item.symbol;
@@ -146,8 +169,8 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
       </th>
       <td role="cell" class="discover-numeric" data-label="Price">${priceContent}</td>
       <td role="cell" class="discover-numeric discover-${tone}" data-label="Change %">${change}</td>
-      <td role="cell" class="discover-numeric" data-label="Market cap">${cap}</td>
-      <td role="cell" class="discover-numeric" data-label="Trailing P/E">${pe}</td>
+      ${equity ? `<td role="cell" class="discover-numeric" data-label="Market cap">${cap}</td>
+      <td role="cell" class="discover-numeric" data-label="Trailing P/E">${pe}</td>` : ''}
       <td role="cell" class="discover-row-actions">
         ${chart ? `<a class="discover-button" href="${chart}" aria-label="Open ${symbol} chart">Chart</a>` : '<span class="discover-sector">Snapshot only</span>'}
         <button type="button" class="discover-button" data-asset-alert aria-label="Create alert for ${symbol}">Alert</button>
@@ -188,11 +211,12 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
   }
 
   function renderRuleEditor() {
+    const metrics = equity ? SCREENER_METRICS : SCREENER_METRICS.filter(metric => priceMetrics.has(metric.id));
     ruleRows.innerHTML = screenerBuilder.conditions.map((rule, index) => {
       const selected = SCREENER_METRICS.find(metric => metric.id === rule.metric);
       return `<div class="discover-rule-row" data-rule="${rule.id}">
         <select class="screener-select" data-rule-field="metric" aria-label="Metric for condition ${index + 1}">
-          ${SCREENER_METRICS.map(metric => `<option value="${metric.id}" ${metric.id === rule.metric ? 'selected' : ''}>${metric.label}</option>`).join('')}
+          ${metrics.map(metric => `<option value="${metric.id}" ${metric.id === rule.metric ? 'selected' : ''}>${metric.label}</option>`).join('')}
         </select>
         <select class="screener-select" data-rule-field="operator" aria-label="Operator for condition ${index + 1}">
           ${Object.entries(operators).map(([key, label]) => `<option value="${escapeHtml(key)}" ${key === rule.operator ? 'selected' : ''}>${label}</option>`).join('')}
@@ -239,6 +263,7 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
       return;
     }
     directory.stop();
+    updateAssetClass();
     const synthetic = isDemoMode();
     byId('discover-source').textContent = synthetic ? 'Synthetic demo' : 'Market snapshot';
     request?.abort();
@@ -328,7 +353,7 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
     appliedCombinator = screenerBuilder.combinator;
     renderResults();
   });
-  csv.addEventListener('click', () => screenerBuilder.exportCSV(visible));
+  csv.addEventListener('click', () => screenerBuilder.exportCSV(visible, equity));
   json.addEventListener('click', () => screenerBuilder.exportJSON(visible));
 
   return {

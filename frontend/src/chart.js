@@ -1224,7 +1224,7 @@ export class TerminalChart {
     c.font = '11px ui-monospace, monospace';
     const tagWidth = w - plot.right - 4;
     const formatAxisValue = value => {
-      const precision = Math.max(2, tickDecimals);
+      const precision = Math.max(relativeScale ? 2 : this.pricePrecision(), tickDecimals);
       const number = value.toLocaleString('en-US', { maximumFractionDigits: precision });
       return this.scaleMode === 'pct' ? `${number}%` : number;
     };
@@ -1325,18 +1325,23 @@ export class TerminalChart {
     this.renderTooltip(param);
   }
 
+  pricePrecision() {
+    return this.currentData?.price_precision === 4 || this.currentData?.symbol?.endsWith('=X') ? 4 : 2;
+  }
+
   renderTooltip(bar) {
     if (!this.tooltip || !bar) return;
     const o = bar.open ?? bar.value ?? 0, c = bar.close ?? bar.value ?? 0, up = c >= o, color = up ? bullColor : bearColor;
+    const digits = this.pricePrecision();
     const timeDisplay = this.isIntraday() ? formatFullTime(bar.time) : dateString(bar.time);
     // Premium enhancement: better formatted tooltip with subtle shadows and animations
     this.tooltip.innerHTML = `
       <div class="chart-legend-row" style="font-family: var(--font-mono); font-size: 12px; background: rgba(10,10,10,0.8); padding: 8px 12px; border-radius: 6px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);">
         <span class="legend-time" style="color: #b0b0b0; font-size: 11px;">${timeDisplay}</span>
-        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">O:</span> <span class="val">${o.toFixed(2)}</span></span>
-        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">H:</span> <span class="val">${(bar.high ?? o).toFixed(2)}</span></span>
-        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">L:</span> <span class="val">${(bar.low ?? o).toFixed(2)}</span></span>
-        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">C:</span> <span class="val" style="color:${color};font-weight:600;">${c.toFixed(2)}</span></span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">O:</span> <span class="val">${o.toFixed(digits)}</span></span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">H:</span> <span class="val">${(bar.high ?? o).toFixed(digits)}</span></span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">L:</span> <span class="val">${(bar.low ?? o).toFixed(digits)}</span></span>
+        <span class="legend-item" style="margin: 0 8px;"><span class="lbl" style="color: #b0b0b0;">C:</span> <span class="val" style="color:${color};font-weight:600;">${c.toFixed(digits)}</span></span>
         <span class="legend-item" style="margin: 0 8px; color:${color};font-weight:600;">${up ? '+ ' : '− '}${(o ? Math.abs((c - o) / o * 100) : 0).toFixed(2)}% open to close</span>
       </div>
     `;
@@ -1344,13 +1349,14 @@ export class TerminalChart {
 
   renderCornerLegend(bar){
     if (!bar) return;
+    const digits = this.pricePrecision();
     const dateLabel = document.getElementById('tv-leg-date');
     if (dateLabel) dateLabel.textContent = formatAxisDate(bar.time, this.isIntraday());
     const o=bar.open??0,h=bar.high??o,l=bar.low??o,c=bar.close??0,d=c-o,p=o?d/o*100:0,col=d>=0?'var(--gain)':'var(--loss)';
     [['tv-leg-open',o],['tv-leg-high',h],['tv-leg-low',l],['tv-leg-close',c]].forEach(([id,v])=>{
       const el=document.getElementById(id);
       if(el){
-        el.textContent=Number(v).toFixed(2);
+        el.textContent=Number(v).toFixed(digits);
         if(id==='tv-leg-close')el.style.color=col;
       }
     });

@@ -13,6 +13,8 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
   const search = get('search');
   const market = get('market');
   const sort = get('sort');
+  const coverageFilter = get('coverage');
+  const coverageOrder = new Option('Quote coverage first', 'coverage');
   const table = get('table');
   const body = table.querySelector('tbody');
   const status = get('status');
@@ -28,9 +30,10 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
   let total = 0;
   let visible = [];
   let quoteRequest;
+  let active = false;
+  let demo;
 
   function renderRows() {
-    const demo = isDemoMode();
     body.innerHTML = visible.map(asset => {
       const quote = cachedQuotes.get(asset.symbol);
       const price = [quote?.current_price, quote?.price].find(Number.isFinite);
@@ -46,7 +49,7 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
       let coverage = 'Quote not loaded';
       if (demo && !chartAvailable) coverage = 'Listing only';
       else if (Number.isFinite(price)) coverage = demo ? 'Synthetic quote' : 'Cached quote';
-      else if (quote) coverage = 'No cached quote';
+      else if (quote) coverage = demo ? 'Synthetic quote unavailable' : 'No cached quote';
       return `<tr role="row" data-stock-symbol="${symbol}">
         <th scope="row" role="rowheader">
           ${href ? `<a href="${href}" class="discover-symbol">${symbol}</a>` : `<span class="discover-symbol">${symbol}</span>`}
@@ -68,12 +71,28 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
     if (!data) return;
     quoteRequest?.abort();
     quoteRequest = undefined;
+    const synthetic = isDemoMode();
+    if (demo !== synthetic) {
+      demo = synthetic;
+      cachedQuotes.clear();
+      get('coverage-filter').hidden = !demo;
+      if (demo) {
+        sort.prepend(coverageOrder);
+        sort.value = 'coverage';
+      } else {
+        if (sort.value === 'coverage') sort.value = 'name';
+        coverageOrder.remove();
+        coverageFilter.value = 'all';
+      }
+      page = 0;
+    }
     quoteButton.removeAttribute('aria-disabled');
     quoteStatus.textContent = '';
     const terms = equitySearchKey(search.value).split(/\s+/).filter(Boolean);
     const country = market.value;
     const key = sort.value;
-    const matches = sorted[key].filter(row => (!country || row.country === country) && listingMatches(row, terms));
+    const matches = sorted[key].filter(row => (!country || row.country === country) &&
+      (coverageFilter.value !== 'chart' || hasDemoHistory(row.symbol)) && listingMatches(row, terms));
     total = matches.length;
     const pages = Math.ceil(total / PAGE_SIZE);
     const start = page * PAGE_SIZE;
@@ -87,15 +106,22 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
     previous.closest('nav').hidden = pages <= 1;
     previous.disabled = page === 0;
     next.disabled = page + 1 >= pages;
-    const demo = isDemoMode();
     quoteButton.disabled = !visible.some(asset => !demo || hasDemoHistory(asset.symbol));
-    quoteButton.textContent = demo ? 'Load demo quotes' : 'Check cached quotes';
-    if (demo && total && quoteButton.disabled) quoteStatus.textContent = 'No synthetic quotes on this page';
+    quoteButton.hidden = demo;
+    quoteButton.textContent = demo ? 'Retry demo quotes' : 'Check cached quotes';
+    if (demo && total && quoteButton.disabled) quoteStatus.textContent = 'No synthetic quotes on this page.';
     renderRows();
+    if (active && demo && !quoteButton.disabled) void loadQuotes(true);
   }
 
   async function load() {
-    if (data || loading) return;
+    const wasActive = active;
+    active = true;
+    if (data) {
+      if (!wasActive || demo !== isDemoMode()) render();
+      return;
+    }
+    if (loading) return;
     loading = true;
     get('error').hidden = true;
     status.textContent = 'Loading listing directory…';
@@ -103,6 +129,7 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
       data = await loadListedEquities();
       sorted = Object.fromEntries(['name', 'symbol'].map(key => [key, [...data.rows]
         .sort((a, b) => collator.compare(a[key], b[key]) || collator.compare(a.symbol, b.symbol))]));
+      sorted.coverage = [...sorted.name].sort((a, b) => Number(hasDemoHistory(b.symbol)) - Number(hasDemoHistory(a.symbol)));
       const countries = new Map(data.rows.map(row => [row.country, row.market]));
       for (const [country, name] of [...countries].sort((a, b) => collator.compare(a[1], b[1]))) {
         market.append(new Option(name, country));
@@ -137,9 +164,21 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
     table.scrollTop = 0;
   }
 
-  async function loadQuotes() {
-    const symbols = visible.filter(asset => !isDemoMode() || hasDemoHistory(asset.symbol)).map(asset => asset.symbol);
-    if (!symbols.length || quoteRequest) return;
+  async function loadQuotes(useCache = false) {
+    const eligible = visible.filter(asset => !demo || hasDemoHistory(asset.symbol)).map(asset => asset.symbol);
+    const symbols = useCache ? eligible.filter(symbol => !cachedQuotes.has(symbol)) : eligible;
+    const updateQuoteStatus = () => {
+      const count = eligible.filter(symbol => {
+        const quote = cachedQuotes.get(symbol);
+        return Number.isFinite(quote?.current_price) || Number.isFinite(quote?.price);
+      }).length;
+      quoteStatus.textContent = `${count} of ${visible.length} ${demo ? 'synthetic' : 'cached'} quotes available`;
+    };
+    if (quoteRequest) return;
+    if (!symbols.length) {
+      if (eligible.length) updateQuoteStatus();
+      return;
+    }
     const controller = new AbortController();
     quoteRequest = controller;
     quoteButton.setAttribute('aria-disabled', 'true');
@@ -149,14 +188,14 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
       if (controller.signal.aborted) return;
       const lookup = new Map(quotes.map(quote => [quote.symbol, quote]));
       for (const symbol of symbols) cachedQuotes.set(symbol, lookup.get(symbol) || {});
-      const count = symbols.filter(symbol => {
-        const quote = cachedQuotes.get(symbol);
-        return Number.isFinite(quote.current_price) || Number.isFinite(quote.price);
-      }).length;
-      quoteStatus.textContent = `${count} of ${visible.length} ${isDemoMode() ? 'synthetic' : 'cached'} quotes available`;
+      updateQuoteStatus();
       renderRows();
+      quoteButton.hidden = demo;
     } catch {
-      if (!controller.signal.aborted) quoteStatus.textContent = 'Could not load page quotes. Try again.';
+      if (!controller.signal.aborted) {
+        quoteStatus.textContent = 'Could not load page quotes. Try again.';
+        quoteButton.hidden = false;
+      }
     } finally {
       if (quoteRequest === controller) {
         quoteRequest = undefined;
@@ -169,9 +208,10 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
   search.addEventListener('input', resetPage);
   market.addEventListener('change', resetPage);
   sort.addEventListener('change', resetPage);
+  coverageFilter.addEventListener('change', resetPage);
   previous.addEventListener('click', () => changePage(-1));
   next.addEventListener('click', () => changePage(1));
-  quoteButton.addEventListener('click', loadQuotes);
+  quoteButton.addEventListener('click', () => void loadQuotes());
   get('retry').addEventListener('click', () => { void load(); search.focus(); });
   return {
     load,
@@ -180,6 +220,7 @@ export function mountStockDirectory(root, { chartHref, isDemoMode, hasDemoHistor
       root.querySelector('h2').focus({ preventScroll: true });
     },
     stop() {
+      active = false;
       quoteRequest?.abort();
       quoteRequest = undefined;
       quoteButton.removeAttribute('aria-disabled');

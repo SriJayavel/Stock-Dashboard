@@ -156,7 +156,7 @@ export function getCurrencySymbol(symbol = '', currency = '') {
   return Object.hasOwn(unitsSymbol, units) ? unitsSymbol[units] : units + ' ';
 }
 
-export function formatCurrencyValue(val, symbol = '', currency = '', state = null) {
+export function formatCurrencyValue(val, symbol = '', currency = '', state = null, precision) {
   if (val == null || isNaN(val)) {
     if (state) {
       return `<span class="data-${state}">—</span>`;
@@ -164,7 +164,7 @@ export function formatCurrencyValue(val, symbol = '', currency = '', state = nul
     return '—';
   }
   const sym = getCurrencySymbol(symbol, currency);
-  const decimals = (typeof symbol === 'string' && symbol.includes('=X')) ? 4 : 2;
+  const decimals = precision ?? ((typeof symbol === 'string' && symbol.includes('=X')) ? 4 : 2);
   return `${sym}${Number(val).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 }
 
@@ -4101,9 +4101,12 @@ async function loadStockChart(symbol, parentToken = null, interval = currentChar
     const firstBar = currentCandles[0];
     const lastBar = currentCandles.at(-1);
     const date = (bar) => new Date(bar.time * 1000).toISOString().slice(0, 10);
+    const closeLabel = historyData?.price_precision === 4
+      ? formatCurrencyValue(lastBar?.close, symbol, historyData.currency, null, 4)
+      : formatPrice(lastBar?.close, symbol, historyData?.currency);
     document.getElementById('tv-chart-container')?.setAttribute('aria-label',
       lastBar
-        ? `${symbol} price chart from ${date(firstBar)} to ${date(lastBar)}. Last close ${formatPrice(lastBar.close, symbol, historyData.currency)}.`
+        ? `${symbol} price chart from ${date(firstBar)} to ${date(lastBar)}. Last close ${closeLabel}.`
         : `${symbol} price chart. ${historyData?.message || 'Price history unavailable.'}`);
 
     if (chartInstance) {

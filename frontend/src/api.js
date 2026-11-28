@@ -5,7 +5,9 @@
  */
 import { auth, getAuthToken } from './auth.js';
 import { internationalEquities, internationalEquityAliases, equitySearchKey } from './equity-directory.js';
-import { makeGlobalDemoAsset, globalDemoInterval } from './demo/global-history.js';
+import { makeGlobalDemoAsset, makeCrossAssetDemo, globalDemoInterval } from './demo/global-history.js';
+import { loadListedEquities } from './listed-equities.js';
+import { additionalEquities, crossAssetSamples } from './demo/screener-assets.js';
 
 // Base URL configured for production (e.g. Vercel/Netlify pointing to Render/Cloud Run)
 // Falls back to empty string in development to use Vite's dev proxy.
@@ -66,16 +68,59 @@ const DEMO_STOCKS = new Set([
   'AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA',
 ]);
 const demoGlobalAssets = new Map();
+const extraDemoEquities = new Set(Object.values(additionalEquities).flat());
 
 export function hasDemoEquityHistory(symbol) {
-  return DEMO_STOCKS.has(symbol) || internationalEquities.has(symbol);
+  return DEMO_STOCKS.has(symbol) || internationalEquities.has(symbol) || extraDemoEquities.has(symbol);
 }
 
-function getGlobalDemoAsset(symbol) {
-  const listing = internationalEquities.get(symbol);
+async function getGlobalDemoAsset(symbol) {
+  if (demoGlobalAssets.has(symbol)) return demoGlobalAssets.get(symbol);
+  let listing = internationalEquities.get(symbol);
+  if (!listing && extraDemoEquities.has(symbol)) {
+    listing = (await loadListedEquities()).rows.find(row => row.symbol === symbol);
+  }
   if (!listing) return undefined;
-  if (!demoGlobalAssets.has(symbol)) demoGlobalAssets.set(symbol, makeGlobalDemoAsset(listing));
+  demoGlobalAssets.set(symbol, makeGlobalDemoAsset(listing));
   return demoGlobalAssets.get(symbol);
+}
+
+let crossAssetCatalog;
+async function loadCrossAssetCatalog() {
+  const [snapshot, histories] = await Promise.all([
+    readFixture(DEMO_ROUTES['/api/markets/overview']),
+    readFixture(`${DEMO_BASE}/benchmark-candles.json`),
+  ]);
+  if (!snapshot) throw new Error('Synthetic market snapshot unavailable');
+  const catalog = new Map();
+  for (const [key, category, existing] of [
+    ['forex', 'Forex', snapshot.forex],
+    ['commodities', 'Commodities', snapshot.commodities],
+    ['crypto', 'Crypto', snapshot.indices.filter(quote => quote.symbol.endsWith('-USD'))],
+  ]) {
+    const bySymbol = new Map(crossAssetSamples[key].map(([symbol, name, currency, price]) => [symbol, { symbol, name, currency, price }]));
+    for (const quote of existing) bySymbol.set(quote.symbol, quote);
+    for (const sample of bySymbol.values()) {
+      const { symbol, name, price } = sample;
+      const currency = sample.currency || (key === 'forex' ? symbol.slice(3, 6) : 'USD');
+      const price_precision = key === 'forex' || price < 10 ? 4 : 2;
+      catalog.set(symbol, makeCrossAssetDemo({ symbol, name, currency, category, price_precision }, sample, histories?.[symbol]));
+    }
+  }
+  return catalog;
+}
+
+function getCrossAssetCatalog() {
+  crossAssetCatalog ||= loadCrossAssetCatalog().catch(error => {
+    crossAssetCatalog = undefined;
+    throw error;
+  });
+  return crossAssetCatalog;
+}
+
+async function getCrossAsset(symbol) {
+  if (!/(=X|=F|-USD)$/.test(symbol)) return undefined;
+  return (await getCrossAssetCatalog()).get(symbol);
 }
 
 /** @param {string} range */
@@ -103,7 +148,7 @@ async function demoChartHistory(symbol, interval, signal) {
   const unavailable = { symbol, interval, candles: [], demo_mode: true, freshness: 'unavailable' };
   const daily = ['1d', '1wk', '1mo'].includes(interval);
   if (!DEMO_STOCKS.has(symbol)) {
-    const globalAsset = getGlobalDemoAsset(symbol);
+    const globalAsset = await getGlobalDemoAsset(symbol) || await getCrossAsset(symbol);
     if (globalAsset) {
       if (!daily) return { ...unavailable, message: 'Intraday history is unavailable in demo mode. Choose 1D, 1W, or 1M.' };
       return {
@@ -205,13 +250,12 @@ async function demoFetch(url, options) {
   if (pathOnly === '/api/stocks/batch') {
     const symbols = JSON.parse(options.body);
     const catalog = await getDemoCatalog();
-    const snapshot = symbols.some((symbol) => !catalog.has(symbol))
-      ? await readFixture(DEMO_ROUTES['/api/markets/overview'])
-      : null;
-    return symbols.map((symbol) => {
-      const quote = catalog.get(symbol) || getGlobalDemoAsset(symbol)?.quote || demoSnapshotQuote(symbol, snapshot);
+    let snapshot;
+    return Promise.all(symbols.map(async (symbol) => {
+      const asset = catalog.has(symbol) ? null : await getGlobalDemoAsset(symbol) || await getCrossAsset(symbol);
+      const quote = catalog.get(symbol) || asset?.quote || demoSnapshotQuote(symbol, await (snapshot ||= readFixture(DEMO_ROUTES['/api/markets/overview'])));
       return { ...quote, status: quote.current_price == null ? 'unavailable' : 'cached' };
-    });
+    }));
   }
   if (pathOnly === '/api/analytics/sectors') {
     const fixture = await readFixture(DEMO_ROUTES[pathOnly]);
@@ -263,23 +307,17 @@ async function demoFetch(url, options) {
   if (pathOnly === '/api/screener') {
     const universe = params.get('universe') || 'us_mega_caps';
     const title = DEMO_UNIVERSES[universe];
-    if (['forex', 'commodities'].includes(universe)) {
-      const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview'], options?.signal);
-      if (!snapshot) return null;
-      const items = (snapshot[universe] || []).map(quote => ({ ...quote, demo_snapshot_only: true }));
+    if (Object.hasOwn(crossAssetSamples, universe)) {
+      const catalog = await getCrossAssetCatalog();
+      const items = [...catalog.values()].map(asset => asset.quote).filter(quote => quote.category === title);
       return { universe_key: universe, title, items, count: items.length };
     }
     const fixture = await readFixture(`${DEMO_BASE}/screener.json`, options?.signal);
     if (!fixture) return null;
-    const symbols = new Set(fixture.universes[title] || []);
-    if (universe === 'crypto') {
-      const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview'], options?.signal);
-      if (!snapshot) return null;
-      const items = (snapshot.indices || []).filter(quote => symbols.has(quote.symbol));
-      return { universe_key: universe, title, items, count: items.length };
-    }
+    const symbols = new Set([...(fixture.universes[title] || []), ...(additionalEquities[universe] || [])]);
     const catalog = await getDemoCatalog();
-    const items = [...catalog.values()].filter(({ symbol }) => symbols.has(symbol));
+    const quotes = await Promise.all([...symbols].map(async symbol => catalog.get(symbol) || (await getGlobalDemoAsset(symbol))?.quote));
+    const items = quotes.filter(Boolean);
     return { universe_key: universe, title: title || 'Demo coverage unavailable', items, count: items.length };
   }
   if (pathOnly === '/api/rss/news') return { items: [], source: 'Demo' };
@@ -295,7 +333,7 @@ async function demoFetch(url, options) {
     const suffix = parts[4] || 'overview';
     if (suffix === 'history') return demoChartHistory(symbol, params.get('interval') || '1d', options?.signal);
     if (suffix === 'overview' && !DEMO_STOCKS.has(symbol)) {
-      const globalAsset = getGlobalDemoAsset(symbol);
+      const globalAsset = await getGlobalDemoAsset(symbol) || await getCrossAsset(symbol);
       if (globalAsset) return globalAsset.quote;
       const snapshot = await readFixture(DEMO_ROUTES['/api/markets/overview']);
       return demoSnapshotQuote(symbol, snapshot);
