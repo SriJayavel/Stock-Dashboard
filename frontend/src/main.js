@@ -12,12 +12,14 @@ import { roundPrice, seededRandom, walkStep } from './demo/simulator.js';
  * multi-asset macro categories, persistent watchlist, and resilient API handling.
  */
 
-import { api, isDemoMode, isShowcaseBuild, marketWS, setDemoMode } from './api.js';
+import { api, hasDemoEquityHistory, isDemoMode, isShowcaseBuild, marketWS, setDemoMode } from './api.js';
 import { watchlist } from './watchlist.js';
 import { alertsManager } from './alerts.js';
 import { ResearchNotebook } from './notebook.js';
 import { ResearchReportGenerator } from './report_generator.js';
 import { mountDiscover } from './discover.js';
+import { searchListedEquities } from './listed-equities.js';
+import { mountStockDirectory } from './stock-directory.js';
 import { cancelBacktest, executeBacktest, setupBacktestTrace } from './backtest-run.js';
 import {
   INDICATOR_REGISTRY,
@@ -54,6 +56,7 @@ let routeRun = 0;
 let chartRequest;
 let stockRequest;
 let discover;
+let marketDirectory;
 let updatesPaused = false;
 let chartWorkerRun = 0;
 let chartWorkerRequest;
@@ -336,6 +339,7 @@ export async function setWorkspace(workspaceName, subTab = null) {
     }
     if (document.body.classList.contains('watchlist-drawer-open')) window.apexCloseWatchlistDrawer?.();
     if (previousWorkspace === 'markets') {
+      marketDirectory?.stop();
       ++marketStreamRun;
       marketWS.disconnect();
       marketWSConnected = false;
@@ -392,6 +396,7 @@ export async function setWorkspace(workspaceName, subTab = null) {
     const targetSub = subTab || currentMonitorTab || 'watchlist';
     setMonitorSubTab(targetSub);
   } else if (workspaceName === 'markets') {
+    void marketDirectory?.load();
     // Use traditional markets view to properly utilize redesign.css with Signal Sigma design
     // Render skeleton immediately for benchmark table while data loads
     const tableBody = document.getElementById('markets-indices-table-body');
@@ -1356,14 +1361,24 @@ function setupEventListeners() {
         const controller = new AbortController();
         searchRequest = controller;
         try {
-          const res = await api.searchAssets(query, controller.signal);
+          const [remote, local] = await Promise.allSettled([
+            api.searchAssets(query, controller.signal),
+            searchListedEquities(query),
+          ]);
           if (requestSeq !== searchRequestSeq) return;
-          const results = Array.isArray(res) ? res : res.results || [];
+          if (remote.status === 'rejected' && local.status === 'rejected') throw remote.reason;
+          const res = remote.status === 'fulfilled' ? remote.value : null;
+          const provider = Array.isArray(res) ? res : res?.results || [];
+          const results = provider.slice();
+          if (local.status === 'fulfilled') {
+            const seen = new Set(provider.map(asset => asset.symbol));
+            results.push(...local.value.filter(asset => !seen.has(asset.symbol)));
+          }
           const ticker = query.toUpperCase();
           if (!results.length && !isDemoMode() && /^[A-Z0-9][A-Z0-9&-]{0,19}\.[A-Z]{1,3}$/.test(ticker)) {
             results.push({ symbol: ticker, name: 'Open ticker directly', exchange: internationalMarket(ticker)?.[0] });
           }
-          renderSearchDropdown(results);
+          renderSearchDropdown(results.slice(0, 20));
         } catch (error) {
           if (controller.signal.aborted || requestSeq !== searchRequestSeq) return;
           console.error('Search query failed:', error);
@@ -1412,6 +1427,16 @@ function setupEventListeners() {
 
   // Setup Specialized Subsystem Handlers
   setupAlertsControls();
+  const directoryOptions = {
+    isDemoMode,
+    hasDemoHistory: hasDemoEquityHistory,
+    batchQuotes: (symbols, signal) => api.getBatchStockOverview(symbols, signal),
+    formatPrice: formatCurrencyValue,
+    quoteDetails: overviewQuoteDetails,
+    chartHref: symbol => `#${router.formatSymbolRoute(symbol, 'chart')}`,
+  };
+  marketDirectory = mountStockDirectory(document.getElementById('market-stock-directory'), directoryOptions);
+  document.getElementById('market-stocks-jump').addEventListener('click', () => marketDirectory.focus());
   discover = mountDiscover({
     fetchSnapshot: (universe, signal) => api.getScreener(universe, signal),
     isDemoMode,
@@ -1419,6 +1444,7 @@ function setupEventListeners() {
     formatUnits: formattedUnits,
     quoteDetails: overviewQuoteDetails,
     chartHref: symbol => `#${router.formatSymbolRoute(symbol, 'chart')}`,
+    directory: mountStockDirectory(document.getElementById('discover-stock-directory'), directoryOptions),
     openAlert: symbol => {
       document.getElementById('ws-alert-sym-input').value = symbol;
       router.navigate(router.formatWorkspaceRoute('monitor', null, 'alerts'));

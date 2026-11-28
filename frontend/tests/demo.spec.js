@@ -2,6 +2,66 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import AxeBuilder from '@axe-core/playwright';
 
+test('shares a paginated international stock directory between Markets and Discover', async ({ page }, testInfo) => {
+  const apiCalls = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiCalls.push(request.url());
+  });
+  await page.goto('/?freeze=1#/markets');
+  await page.getByRole('button', { name: 'Browse stocks' }).click();
+  const markets = page.locator('#market-stock-directory');
+  await expect(markets.getByRole('heading', { name: 'Listed stocks' })).toBeFocused();
+  const rows = markets.locator('tr[data-stock-symbol]');
+  const status = markets.locator('[data-listing-status]');
+  await expect(status).toHaveText(/1–25 of [\d,]+ listings/);
+  const count = Number((await status.textContent()).split(' of ')[1].replace(/[^0-9]/g, ''));
+  expect(count).toBeGreaterThan(10000);
+  await expect(rows).toHaveCount(25);
+  const firstSymbol = await rows.first().getAttribute('data-stock-symbol');
+  await markets.getByRole('button', { name: 'Next' }).click();
+  await expect(status).toHaveText(/26–50 of/);
+  await expect(rows.first()).not.toHaveAttribute('data-stock-symbol', firstSymbol);
+  await markets.getByRole('combobox', { name: 'Listing market' }).selectOption('JP');
+  await page.screenshot({ path: testInfo.outputPath('markets-stock-directory.png') });
+  await markets.getByRole('searchbox', { name: 'Search listed stocks' }).fill('Nintendo');
+  await expect(rows.first()).toHaveAttribute('data-stock-symbol', '7974.T');
+  await expect(rows.first()).toContainText('Tokyo Stock Exchange');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('tab', { name: 'Discover', exact: true }).click();
+  await expect(page).toHaveURL(/#\/discover$/);
+  const discover = page.locator('#discover-stock-directory');
+  await expect(discover).toBeVisible();
+  await expect(discover.locator('[data-listing-status]')).toHaveText(/1–25 of/);
+  await discover.getByRole('combobox', { name: 'Listing market' }).selectOption('IN');
+  await discover.getByRole('searchbox', { name: 'Search listed stocks' }).fill('TCS.NS');
+  const result = discover.locator('tr[data-stock-symbol="TCS.NS"]');
+  await expect(result).toContainText('Quote not loaded');
+  await discover.getByRole('button', { name: 'Load demo quotes' }).click();
+  await expect(result).toContainText('Synthetic quote');
+  await expect(result.locator('.provenance-trigger')).toHaveAttribute('aria-description', /TCS\.NS last price.*synthetic/i);
+  await expect(result).toHaveCSS('display', 'grid');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({ path: testInfo.outputPath('discover-stock-directory-mobile.png') });
+  await result.getByRole('link', { name: 'TCS.NS', exact: true }).click();
+  await expect(page).toHaveURL(/#\/symbol\/TCS\.NS\/chart$/);
+  expect(apiCalls).toEqual([]);
+});
+
+test('finds newly listed stocks in global search beyond the original stock presets', async ({ page }) => {
+  await page.goto('/?freeze=1#/discover');
+  const search = page.locator('#global-search-input');
+  await search.fill('ADBE');
+  await expect(page.getByRole('option', { name: /ADBE.*Adobe/i })).toBeVisible();
+  const directory = page.locator('#discover-stock-directory');
+  await directory.getByRole('combobox', { name: 'Listing market' }).selectOption('TW');
+  await directory.getByRole('searchbox', { name: 'Search listed stocks' }).fill('2303.TW');
+  const row = directory.locator('tr[data-stock-symbol="2303.TW"]');
+  await expect(row).toContainText('TWSE');
+  await expect(row).toContainText('Listing only');
+  await expect(directory.getByRole('button', { name: 'Load demo quotes' })).toBeDisabled();
+});
+
 test('Discover sorts raw prices and exports the same assets shown by its applied rules', async ({ page }) => {
   await page.goto('/?freeze=1#/discover/indian_leaders');
   const rows = page.locator('#screener-table-body tr');
@@ -68,7 +128,7 @@ test('Discover recovers from a failed snapshot and stays usable on mobile', asyn
   await expect(page.locator('#discover-results')).toHaveText('5 of 5 assets');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByLabel('Price move').selectOption('up');
-  await page.getByLabel('Sort by').selectOption('price:descending');
+  await page.locator('#discover-snapshot-panel').getByLabel('Sort by').selectOption('price:descending');
   const rows = page.locator('#screener-table-body tr');
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toHaveAttribute('data-symbol', 'INFY.NS');
@@ -289,7 +349,7 @@ test.describe('Markets and chart interactions', () => {
     expect(paths).toHaveLength(await rows.count());
     expect(new Set(paths).size).toBe(paths.length);
     const before = await rows.evaluateAll(nodes => nodes.map(row => row.dataset.sym));
-    const header = page.getByRole('columnheader', { name: 'Last Price' });
+    const header = page.getByRole('table', { name: 'Global benchmarks' }).getByRole('columnheader', { name: 'Last Price' });
     await header.getByRole('button').click();
     await expect(header).toHaveAttribute('aria-sort', 'ascending');
     const after = await rows.evaluateAll(nodes => nodes.map(row => row.dataset.sym));

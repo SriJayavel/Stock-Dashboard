@@ -404,6 +404,7 @@
               <div class="section-sub-header">
                 <div class="section-sub-title-group">
                   <h2 class="section-sub-title" id="benchmark-title">Global benchmarks</h2>
+                  <button type="button" class="ghost-btn ghost-btn-sm" id="market-stocks-jump">Browse stocks</button>
                   <a class="ghost-btn ghost-btn-sm benchmark-compare-link" href="#/compare/benchmarks/nifty-sensex">Compare NIFTY and SENSEX <span aria-hidden="true">↗</span></a>
                   <button type="button" class="ghost-btn ghost-btn-sm" id="benchmark-density" aria-pressed="false">Comfortable rows</button>
                   <details class="benchmark-columns"><summary class="ghost-btn ghost-btn-sm">Columns</summary><fieldset><legend>Show columns</legend></fieldset></details>
@@ -463,6 +464,8 @@
                 </div>
               </div>
             </div>
+
+            <section id="market-stock-directory" class="stock-directory" aria-label="Listed stocks"></section>
 
             <!-- Market sessions and feed status -->
             <div class="markets-status-strip" id="markets-status-strip" role="status" aria-live="polite" aria-atomic="true">
@@ -600,15 +603,17 @@
             </header>
 
             <nav class="discover-universes" aria-label="Asset universes">
+              <a href="#/discover/all_stocks" class="screener-tab-btn" data-universe="all_stocks">All stocks</a>
               <a href="#/discover/indian_leaders" class="screener-tab-btn active" data-universe="indian_leaders" aria-current="page">Indian Leaders</a>
               <a href="#/discover/us_mega_caps" class="screener-tab-btn" data-universe="us_mega_caps">US Mega-Caps</a>
-              <a href="#/discover/semiconductors_ai" class="screener-tab-btn" data-universe="semiconductors_ai">AI &amp; Semiconductors</a>
+              <a href="#/discover/semiconductors_ai" class="screener-tab-btn" data-universe="semiconductors_ai">AI &amp; Chips</a>
               <a href="#/discover/crypto" class="screener-tab-btn" data-universe="crypto">Crypto</a>
               <a href="#/discover/commodities" class="screener-tab-btn" data-universe="commodities">Commodities</a>
               <a href="#/discover/forex" class="screener-tab-btn" data-universe="forex">Forex</a>
             </nav>
 
-            <section class="discover-panel" aria-labelledby="discover-universe-title">
+            <section id="discover-stock-directory" class="stock-directory" aria-label="Listed stocks" hidden></section>
+            <section id="discover-snapshot-panel" class="discover-panel" aria-labelledby="discover-universe-title">
               <header class="discover-summary">
                 <div>
                   <h2 id="discover-universe-title">Indian Leaders</h2>
@@ -1607,6 +1612,65 @@
       </div>
     </aside>
 
+
+    <template id="stock-directory-template">
+      <header class="stock-directory-header">
+        <div>
+          <h2 tabindex="-1">Listed stocks</h2>
+          <p data-listing-status role="status">Loading listing directory…</p>
+        </div>
+        <details class="stock-directory-sources">
+          <summary>Listing sources</summary>
+          <p data-listing-date></p>
+          <ul data-listing-sources></ul>
+        </details>
+      </header>
+      <div class="stock-directory-controls">
+        <label class="discover-field">Search listed stocks
+          <input type="search" class="screener-input" data-listing-search autocomplete="off" placeholder="Company, ticker, or exchange">
+        </label>
+        <label class="discover-field">Listing market
+          <select class="screener-select" data-listing-market><option value="">All markets</option></select>
+        </label>
+        <label class="discover-field">Order listings
+          <select class="screener-select" data-listing-sort>
+            <option value="name">Company A–Z</option>
+            <option value="symbol">Ticker A–Z</option>
+          </select>
+        </label>
+      </div>
+      <div data-listing-error class="stock-directory-message" hidden>
+        <p>Could not load the listing directory.</p>
+        <button type="button" class="discover-button" data-listing-retry>Retry directory</button>
+      </div>
+      <p data-listing-empty class="stock-directory-message" hidden>No stocks match your search.</p>
+      <div class="stock-directory-footer" data-listing-footer hidden>
+        <div class="stock-directory-quote-tools">
+          <button type="button" class="discover-button" data-listing-quotes>Load page quotes</button>
+          <span data-listing-quote-status role="status"></span>
+        </div>
+        <nav aria-label="Stock directory pages">
+          <button type="button" class="discover-button" data-listing-prev>Previous</button>
+          <span data-listing-page></span>
+          <button type="button" class="discover-button" data-listing-next>Next</button>
+        </nav>
+      </div>
+      <div class="stock-directory-table-wrap" role="region" aria-label="Listed stock results" tabindex="0" data-listing-table hidden>
+        <table class="discover-table stock-directory-table" role="table">
+          <caption>Stocks listed in the directory</caption>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col">Company</th>
+              <th scope="col">Exchange</th>
+              <th scope="col">Last price</th>
+              <th scope="col">Change %</th>
+              <th scope="col">Quote coverage</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup"></tbody>
+        </table>
+      </div>
+    </template>
 
     <!-- Technical Indicator Picker Modal -->
     <div class="tv-modal-backdrop" id="tv-indicator-picker-backdrop"></div>

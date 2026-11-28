@@ -67,6 +67,10 @@ const DEMO_STOCKS = new Set([
 ]);
 const demoGlobalAssets = new Map();
 
+export function hasDemoEquityHistory(symbol) {
+  return DEMO_STOCKS.has(symbol) || internationalEquities.has(symbol);
+}
+
 function getGlobalDemoAsset(symbol) {
   const listing = internationalEquities.get(symbol);
   if (!listing) return undefined;
@@ -449,7 +453,7 @@ class ApiClient {
     return this.fetchWithRetry(`/api/stocks/${encodeURIComponent(sym)}/overview`, { signal });
   }
 
-  async getBatchStockOverview(symbols) {
+  async getBatchStockOverview(symbols, signal) {
     if (!symbols || symbols.length === 0) return [];
     return this.fetchWithRetry('/api/stocks/batch', {
       method: 'POST',
@@ -457,6 +461,7 @@ class ApiClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(symbols.slice(0, 50)),
+      signal,
     });
   }
 

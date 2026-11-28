@@ -61,7 +61,7 @@ export class HashRouter {
         type: 'discover',
         workspace: 'discover',
         view: 'discover',
-        universe: parts[1] || 'indian_leaders',
+        universe: parts[1] || 'all_stocks',
         raw,
       };
     }

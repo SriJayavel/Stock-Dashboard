@@ -985,13 +985,101 @@ html.light-theme .discover-primary { color: #fff; }
   .discover-button, .discover-universes .screener-tab-btn { min-height: 2.5rem; }
 }
 @media (max-width: 37rem) {
-  .discover-universes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+  .discover-universes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
   .discover-universes .screener-tab-btn {
     min-height: 2.5rem;
     padding-inline: .25rem;
     justify-content: center;
     text-align: center;
     white-space: normal;
+    font-size: var(--type-label);
+    overflow-wrap: anywhere;
+  }
+  .discover-universes [data-universe="commodities"] { grid-column: span 2; }
+}
+
+/* Stock directory in Markets and Discover */
+.stock-directory {
+  container: stock-directory / inline-size;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+#market-stock-directory { margin-block: 1rem; scroll-margin-block-start: .5rem; }
+.stock-directory-header,
+.stock-directory-controls,
+.stock-directory-footer,
+.stock-directory-message { padding: .8rem clamp(.7rem, 2vw, 1.25rem); }
+.stock-directory-header, .stock-directory-footer:not([hidden]) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .65rem 1rem;
+}
+.stock-directory-header h2 {
+  margin: 0;
+  width: max-content;
+  color: var(--text);
+  font: 650 1.15rem/1.25 var(--font-sans);
+}
+.stock-directory-header p {
+  margin: .35rem 0 0;
+  color: var(--text-muted);
+  font: var(--type-label) var(--font-sans);
+}
+.stock-directory-sources {
+  color: var(--text-muted);
+  font: var(--type-label) var(--font-sans);
+}
+.stock-directory-sources summary { cursor: pointer; color: var(--text); }
+.stock-directory-sources ul { margin-block: .4rem 0; padding-inline-start: 1.2rem; }
+.stock-directory-sources a { color: var(--text); text-underline-offset: 2px; }
+.stock-directory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .6rem;
+  border-block: 1px solid var(--border);
+  background: var(--bg);
+}
+.stock-directory-controls .discover-field:first-child { flex-basis: 13rem; }
+.stock-directory-controls :is(input, select) { max-inline-size: 100%; }
+.stock-directory-footer { border-block-end: 1px solid var(--border); }
+.stock-directory-footer nav:not([hidden]), .stock-directory-quote-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .45rem;
+  color: var(--text-muted);
+  font: var(--type-label) var(--font-sans);
+}
+.stock-directory [aria-disabled="true"] { opacity: .55; cursor: default; }
+.stock-directory-table-wrap { max-block-size: min(36rem, 65dvh); overflow: auto; }
+.stock-directory-table th { text-align: start; }
+.stock-directory-table thead { position: sticky; inset-block-start: 0; z-index: 1; }
+.stock-directory-coverage { color: var(--text-muted); font: var(--type-label) var(--font-sans); }
+.stock-directory-message { color: var(--text-muted); margin: 0; }
+.stock-directory-message p { margin-block: 0 .4rem; }
+@container stock-directory (width < 38rem) {
+  .stock-directory-controls .discover-field:first-child { flex-basis: 100%; max-width: none; }
+  .stock-directory-controls .discover-field:not(:first-child) { flex: 1 1 7rem; }
+  .stock-directory-table thead { display: none; }
+  .stock-directory-table, .stock-directory-table tbody { display: block; }
+  .stock-directory-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .25rem .45rem;
+    padding: .75rem;
+    border-block-end: 1px solid var(--border);
+  }
+  .stock-directory-table tbody :is(th, td) { display: block; width: auto; padding: 0; border: 0; }
+  .stock-directory-table tbody th { grid-column: 1 / -1; }
+  .stock-directory-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--text-muted);
+    font: var(--type-label) var(--font-sans);
   }
 }
 

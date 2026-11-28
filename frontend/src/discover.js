@@ -30,7 +30,7 @@ function normalizeItem(item, synthetic) {
   };
 }
 
-export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUnits, quoteDetails, chartHref, openAlert }) {
+export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUnits, quoteDetails, chartHref, openAlert, directory }) {
   const root = byId('workspace-discover');
   const universes = [...root.querySelectorAll('[data-universe]')];
   const table = byId('discover-table');
@@ -228,6 +228,17 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
       else link.removeAttribute('aria-current');
     }
     byId('discover-universe-title').textContent = selected.textContent;
+    const directoryMode = universe === 'all_stocks';
+    byId('discover-stock-directory').hidden = !directoryMode;
+    byId('discover-snapshot-panel').hidden = directoryMode;
+    if (directoryMode) {
+      request?.abort();
+      request = null;
+      byId('discover-source').textContent = 'Listing directory';
+      void directory.load();
+      return;
+    }
+    directory.stop();
     const synthetic = isDemoMode();
     byId('discover-source').textContent = synthetic ? 'Synthetic demo' : 'Market snapshot';
     request?.abort();
@@ -325,6 +336,7 @@ export function mountDiscover({ fetchSnapshot, isDemoMode, currencyFor, formatUn
     stop() {
       request?.abort();
       request = null;
+      directory.stop();
     },
   };
 }
