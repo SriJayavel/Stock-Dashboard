@@ -26,6 +26,10 @@ const companyArchive = {
   ],
 };
 
+export function archivedCompanyDisclosures(symbol) {
+  return Object.hasOwn(companyArchive, symbol) ? companyArchive[symbol] : [];
+}
+
 const itPeers = new Set(['TCS.NS', 'WIPRO.NS', 'HCLTECH.NS', 'TECHM.NS', 'LTIM.NS', 'PERSISTENT.NS', 'MPHASIS.NS']);
 const sectorArchive = {
   title: 'Infosys reports its September quarter and revises FY27 revenue guidance',
@@ -142,7 +146,7 @@ export function renderAttributedNews(container, { symbol, data, listing, quote, 
     sourceItems.add(url);
     recent.push(renderItem(item, url, priceLinks));
   }
-  const archive = (companyArchive[symbol] || [])
+  const archive = archivedCompanyDisclosures(symbol)
     .filter(item => !sourceItems.has(item.link))
     .map(item => renderItem(item, item.link, priceLinks));
   const related = [

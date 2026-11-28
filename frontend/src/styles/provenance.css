@@ -1599,3 +1599,20 @@ html.light-theme #panel-chart .chart-legend-date { color: #475569; }
   }
   #panel-chart #tv-top-toolbar .tv-tb-left { flex-wrap: nowrap; }
 }
+
+.chart-tools-body .chart-object-entry {
+  display: grid;
+  align-items: start;
+  justify-content: stretch;
+  gap: .4rem;
+  padding-block: .65rem;
+  border-block-end: 1px solid var(--border);
+}
+.chart-object-entry strong { color: var(--text); }
+.chart-object-entry small { color: var(--text-muted); }
+.chart-object-entry:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+.chart-object-actions { display: flex; flex-wrap: wrap; gap: .3rem; }
+.chart-object-actions button:disabled { opacity: .5; cursor: default; }
+.chart-object-entry summary { cursor: pointer; }
+.chart-object-entry form { margin-block-start: .5rem; }
+.chart-tools-body h3 { margin: .8rem 0 .25rem; font: 650 var(--type-body) var(--font-sans); }

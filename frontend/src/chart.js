@@ -761,6 +761,12 @@ export class TerminalChart {
         else if (this.isInPlot(point)) this.measureBar(this.indexAt(point.x));
         return;
       }
+      const hit = this.eventMarkerHits?.find(marker => Math.hypot(marker.x - point.x, marker.y - point.y) <= 8);
+      if (hit) {
+        e.preventDefault();
+        this.tools.showEvent(hit.key);
+        return;
+      }
       if (!this.isInPlot(point)) return;
       this.drag = { x: e.clientX, end: this.endIndex };
       this.canvas.setPointerCapture(e.pointerId);
@@ -895,6 +901,7 @@ export class TerminalChart {
     c.fillStyle = bg;
     c.fillRect(0, 0, w, h);
     const bars = this.currentCandles || [];
+    this.eventMarkerHits = [];
     if (!bars.length) {
       this.plot = null;
       this.renderedBarIndices = [];
@@ -1206,6 +1213,7 @@ export class TerminalChart {
       const idx = barsToRenderSafe.findIndex((b) => dateString(b.time) === String(m.time));
       if (idx < 0) return;
       const xx = plot.left + (idx + 0.5) * this.barWidth, yy = plot.top + 12;
+      if (m.key !== undefined) this.eventMarkerHits.push({ x: xx, y: yy, key: m.key });
       c.fillStyle = m.color || accent;
       c.beginPath();
       c.arc(xx, yy, 4, 0, Math.PI * 2);

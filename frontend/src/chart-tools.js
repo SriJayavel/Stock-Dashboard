@@ -1,5 +1,7 @@
 import { api, isDemoMode } from './api.js';
 import { getAccountStorageKey } from './auth.js';
+import { router } from './router.js';
+import { escapeHtml } from './provenance.js';
 
 const names = {
   trend: 'Trend line',
@@ -21,6 +23,7 @@ export class ChartTools {
     this.drawings = [];
     this.redoStack = [];
     this.snap = true;
+    this.events = [];
     this.panel = byId('chart-tools-panel');
     this.body = byId('chart-tools-body');
     this.hint = byId('chart-drawing-hint');
@@ -89,6 +92,7 @@ export class ChartTools {
     if (this.context !== context) {
       const compareSymbol = this.primarySymbol === symbol ? this.compareSymbol : null;
       this.context = context;
+      if (this.primarySymbol !== symbol) this.events = [];
       this.primarySymbol = symbol;
       this.removeComparison();
       this.setMode(null);
@@ -141,15 +145,18 @@ export class ChartTools {
   }
 
   undo() {
-    if (!this.drawings.length) return;
-    this.redoStack.push(this.drawings.pop());
+    const index = this.drawings.findLastIndex(drawing => !drawing.locked);
+    if (index < 0) return;
+    const [drawing] = this.drawings.splice(index, 1);
+    this.redoStack.push({ drawing, index });
     this.hint.textContent = 'Drawing undone.';
     this.save();
   }
 
   redo() {
     if (!this.redoStack.length) return;
-    this.drawings.push(this.redoStack.pop());
+    const { drawing, index } = this.redoStack.pop();
+    this.drawings.splice(index, 0, drawing);
     this.hint.textContent = 'Drawing restored.';
     this.save();
   }
@@ -166,7 +173,7 @@ export class ChartTools {
   }
 
   syncActions() {
-    byId('chart-undo').setAttribute('aria-disabled', String(!this.drawings.length));
+    byId('chart-undo').setAttribute('aria-disabled', String(!this.drawings.some(drawing => !drawing.locked)));
     byId('chart-redo').setAttribute('aria-disabled', String(!this.redoStack.length));
     byId('chart-download').setAttribute('aria-disabled', String(!this.chart.currentCandles.length));
   }
@@ -246,7 +253,7 @@ export class ChartTools {
         line(x1, y1, x2, y2);
       }
     };
-    this.drawings.forEach(paint);
+    this.drawings.filter(drawing => drawing.visible !== false).forEach(paint);
     if (this.anchor) {
       ctx.setLineDash([4, 3]);
       paint({ type: this.mode, a: this.anchor, b: this.preview });
@@ -283,6 +290,16 @@ export class ChartTools {
     return true;
   }
 
+  setEvents(events) {
+    this.events = events;
+    if (!this.panel.hidden && this.view === 'context') this.renderPanel();
+  }
+
+  showEvent(key) {
+    this.open('context', false);
+    this.body.querySelector(`[data-chart-event="${CSS.escape(String(key))}"]`)?.focus();
+  }
+
   renderPanel() {
     this.body.replaceChildren();
     if (this.view === 'compare') {
@@ -304,32 +321,155 @@ export class ChartTools {
         details.append(term, definition);
       }
       this.body.append(details);
+      const heading = document.createElement('h3');
+      heading.textContent = 'Dated events';
+      this.body.append(heading);
+      if (!this.events.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No dated corporate events are available.';
+        this.body.append(empty);
+      }
+      for (const event of this.events) {
+        const item = document.createElement('div');
+        item.className = 'chart-object-entry';
+        item.dataset.chartEvent = event.key;
+        item.tabIndex = -1;
+        const original = this.eventSource(event.url);
+        item.innerHTML = `<strong>${escapeHtml(event.title)}</strong>
+          <small>${escapeHtml(event.time)} · ${escapeHtml(event.source)}</small>
+          ${event.publication ? `<small>Published ${escapeHtml(event.publication)}</small>` : ''}
+          ${original ? `<a href="${escapeHtml(original)}" target="_blank" rel="noopener noreferrer">Original source</a>` : ''}`;
+        this.body.append(item);
+      }
+      if (this.primarySymbol) {
+        const jump = document.createElement('div');
+        jump.className = 'research-jump-links';
+        for (const [tab, label] of [['earnings', 'Earnings'], ['whatchanged', 'Delta'], ['anomalies', 'Anomalies']]) {
+          const link = document.createElement('a');
+          link.href = '#' + router.formatWorkspaceRoute('research', this.primarySymbol, tab);
+          link.textContent = label;
+          jump.append(link);
+        }
+        this.body.append(jump);
+      }
       return;
     }
-    if (!this.drawings.length) {
-      this.body.textContent = 'Drawings for this symbol and interval appear here.';
-      return;
-    }
-    const list = document.createElement('ul');
-    this.drawings.forEach((drawing, index) => {
-      const item = document.createElement('li');
-      const label = `${names[drawing.type]} ${index + 1}`;
-      item.append(label);
+    this.renderObjects();
+  }
+
+  eventSource(value) {
+    try {
+      const url = new URL(value);
+      if ((url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password) return url.href;
+    } catch {}
+    return '';
+  }
+
+  renderObjects() {
+    const action = (parent, verb, label, handler, disabled = false) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'tv-scale-btn';
-      button.textContent = 'Remove';
-      button.setAttribute('aria-label', `Remove ${label}`);
-      button.addEventListener('click', () => {
+      button.textContent = verb;
+      button.setAttribute('aria-label', `${verb} ${label}`);
+      button.disabled = disabled;
+      button.addEventListener('click', handler);
+      parent.append(button);
+      return button;
+    };
+    const title = (parent, name, detail) => {
+      const entry = document.createElement('li');
+      entry.className = 'chart-object-entry';
+      const nameNode = document.createElement('strong');
+      nameNode.textContent = name;
+      entry.append(nameNode);
+      if (detail) {
+        const description = document.createElement('small');
+        description.textContent = detail;
+        entry.append(description);
+      }
+      parent.append(entry);
+      return entry;
+    };
+    const list = document.createElement('ul');
+    const refocus = index => (this.body.querySelectorAll('li')[index]?.querySelector('button') || this.tabs[0])?.focus();
+    const studies = this.chart.getActiveIndicatorsList();
+    studies.forEach((study, index) => {
+      const label = this.chart.formatIndicatorTitle(study);
+      const entry = title(list, label, 'Indicator');
+      const actions = document.createElement('div');
+      actions.className = 'chart-object-actions';
+      action(actions, study.visible ? 'Hide' : 'Show', label, () => {
+        this.chart.toggleIndicatorVisibility(study.instanceId);
+        refocus(index);
+      });
+      action(actions, 'Edit', label, () => window.apexOpenIndicatorSettings?.(study.instanceId));
+      action(actions, 'Remove', label, () => {
+        this.chart.removeIndicator(study.instanceId);
+        refocus(index);
+      });
+      entry.append(actions);
+    });
+    this.drawings.forEach((drawing, index) => {
+      const label = `${names[drawing.type]} ${index + 1}`;
+      const points = drawing.b ? [drawing.a, drawing.b] : [drawing.a];
+      const entry = title(list, label, drawing.type === 'time' ? String(drawing.a.time) : points.map(point => priceLabel.format(point.price)).join(' → '));
+      const actions = document.createElement('div');
+      actions.className = 'chart-object-actions';
+      const returnFocus = () => refocus(studies.length + index);
+      action(actions, drawing.visible === false ? 'Show' : 'Hide', label, () => {
+        drawing.visible = drawing.visible === false;
+        this.save();
+        returnFocus();
+      });
+      action(actions, drawing.locked ? 'Unlock' : 'Lock', label, () => {
+        drawing.locked = !drawing.locked;
+        this.save();
+        returnFocus();
+      });
+      action(actions, 'Remove', label, () => {
         this.drawings.splice(index, 1);
         this.redoStack = [];
         this.save();
-        (this.body.querySelectorAll('button')[index] || this.body.querySelector('button') || this.tabs[0]).focus();
+        returnFocus();
+      }, Boolean(drawing.locked));
+      entry.append(actions);
+      if (drawing.locked || drawing.type === 'time') return;
+      const disclosure = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent = 'Edit anchor prices';
+      const form = document.createElement('form');
+      const inputs = points.map((point, i) => {
+        const field = document.createElement('label');
+        field.textContent = `Anchor ${i + 1} price`;
+        const input = document.createElement('input');
+        input.className = 'screener-input';
+        input.type = 'number';
+        input.step = 'any';
+        input.required = true;
+        input.value = point.price;
+        field.append(input);
+        form.append(field);
+        return input;
       });
-      item.append(button);
-      list.append(item);
+      const submit = document.createElement('button');
+      submit.className = 'tv-scale-btn';
+      submit.type = 'submit';
+      submit.textContent = 'Save prices';
+      form.append(submit);
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        const prices = inputs.map(input => input.valueAsNumber);
+        if (!prices.every(Number.isFinite) || (drawing.type === 'fib' && prices[0] === prices[1])) return;
+        points.forEach((point, i) => { point.price = prices[i]; });
+        this.save();
+        returnFocus();
+      });
+      disclosure.append(summary, form);
+      entry.append(disclosure);
     });
-    this.body.append(list);
+    if (!list.childElementCount) this.body.textContent = 'Drawings and indicators appear here.';
+    else this.body.append(list);
   }
 
   renderCompare() {

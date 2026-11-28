@@ -1,4 +1,4 @@
-import { renderAttributedNews } from './research-news.js';
+import { archivedCompanyDisclosures, renderAttributedNews } from './research-news.js';
 import { marketSessions } from './market-sessions.js';
 import { sparklineSvg } from './sparkline.js';
 import { mountBenchmarkComparison } from './benchmark-comparison.js';
@@ -2057,9 +2057,7 @@ function setupIndicatorControls() {
     eventsBtn.addEventListener('click', () => {
       showChartEvents = !showChartEvents;
       eventsBtn.classList.toggle('active', showChartEvents);
-      if (chartInstance && currentOverviewData?.corporate_events?.events) {
-        chartInstance.setEventMarkers(showChartEvents ? currentOverviewData.corporate_events.events : []);
-      }
+      updateChartEventMarkers();
     });
   }
 
@@ -3921,6 +3919,8 @@ function prepareChart() {
     if (!container) return;
     chartInstance = new TerminalChart(container, document.getElementById('chart-legend-box'), (activeList) => {
       updateIndicatorsBadge(activeList);
+      const tools = chartInstance?.tools;
+      if (tools && !tools.panel.hidden && tools.view === 'objects') tools.renderPanel();
       if (isIndicatorPickerOpen()) renderIndicatorList();
     });
     window.apexChartInstance = chartInstance;
@@ -4196,19 +4196,29 @@ function renderTechnicalSnapshot(snapshot) {
 
 function updateChartEventMarkers() {
   if (!chartInstance) return;
-  if (!showChartEvents || !currentDeepResearchData?.corporate_events?.events) {
-    chartInstance.setEventMarkers([]);
-    return;
-  }
-  const events = currentDeepResearchData.corporate_events.events;
-  const markers = events.map((ev) => ({
-    time: ev.date,
-    position: ev.type === 'EARNINGS' ? 'aboveBar' : 'belowBar',
-    color: ev.color || '#fbbf24',
-    shape: ev.type === 'EARNINGS' ? 'arrowDown' : 'circle',
-    text: ev.badge || ev.type,
+  const corporate = (currentDeepResearchData?.corporate_events?.events || [])
+    .filter(event => event?.date && (event.title || event.type))
+    .map(event => ({
+      time: event.date,
+      title: event.title || event.type,
+      source: isDemoMode() ? 'Synthetic demo fixture' : event.publisher || event.source || 'Corporate events data',
+      url: event.source_url || event.url || event.link,
+      publication: event.published_at || event.published_date,
+      color: event.color || '#fbbf24',
+    }));
+  const filings = archivedCompanyDisclosures(currentSymbol).map(item => ({
+    time: item.published_date,
+    title: item.title,
+    source: item.publisher,
+    url: item.link,
+    publication: item.published_date,
+    color: '#53adb9',
   }));
-  chartInstance.setEventMarkers(markers);
+  const events = [...corporate, ...filings]
+    .sort((a, b) => Date.parse(b.time) - Date.parse(a.time))
+    .map((event, key) => ({ ...event, key }));
+  chartInstance.tools.setEvents(events);
+  chartInstance.setEventMarkers(showChartEvents ? events : []);
 }
 
 // Track previous price for 300ms live-price flash
